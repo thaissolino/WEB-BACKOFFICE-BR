@@ -92,7 +92,7 @@ const AuthBackofficeProvider = ({ children }: AuthBackofficeProviderProps) => {
 
   useEffect(() => {
     const interceptor = api.interceptors.request.use(
-      async function (config) {
+      async function (config: any) {
         if (!isFetchingAccount) {
           isFetchingAccount = true;
           await initialize();
@@ -100,7 +100,7 @@ const AuthBackofficeProvider = ({ children }: AuthBackofficeProviderProps) => {
         }
         return config;
       },
-      function (error) {
+      function (error: any) {
         return Promise.reject(error);
       }
     );

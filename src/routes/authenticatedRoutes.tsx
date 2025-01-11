@@ -1,10 +1,10 @@
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
-import  BackofficeLayout  from "../pages/backoffice/Layout/base";
+import { Layout as BackofficeLayout} from "../pages/backoffice/Layout/base";
 import { SignIn as BackofficeSignIn } from "../pages/backoffice/SignIn";
 import { useAuthBackoffice } from "../hooks/authBackoffice";
 import { Logout } from "../pages/backoffice/Logout";
 import GuardedRoute from "./GuardedRoute";
-import { useEffect } from "react";
+import { JSX, useEffect } from "react";
 
 const BACKOFFICE_ROUTE = "/backoffice";
 const LOGIN_ROUTE = "/signin/backoffice";
@@ -33,7 +33,6 @@ export function Router() {
   const { isAuthenticated, onLogout } = useAuthBackoffice();
 
   return (
-    <BrowserRouter>
       <Routes>
         {/* Rotas quando faz o login */}
 
@@ -109,6 +108,5 @@ export function Router() {
         {/* <Route path="/logs/transactions/one" element={<LostTransactionsOneHour />} />
         <Route path="/logs/transactions/six" element={<LostTransactionsSixHours />} /> */}
       </Routes>
-    </BrowserRouter>
   );
 }
