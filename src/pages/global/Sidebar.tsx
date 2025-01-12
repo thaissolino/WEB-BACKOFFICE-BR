@@ -25,13 +25,7 @@ interface ItemProps {
   setSelected: (value: string) => void; // Função para atualizar o item selecionado
 }
 
-const Item: React.FC<ItemProps> = ({
-  title,
-  to,
-  icon,
-  selected,
-  setSelected,
-}) => {
+const Item: React.FC<ItemProps> = ({ title, to, icon, selected, setSelected }) => {
   const theme = useTheme();
   const colors = tokens(theme.palette.mode);
   return (
@@ -87,13 +81,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebar }) => {
             }}
           >
             {!isCollapsed && (
-              <Box
-                display="flex"
-                justifyContent="center"
-                alignItems="center"
-                ml="3.4375rem"
-                gap="0.5rem"
-              >
+              <Box display="flex" justifyContent="center" alignItems="center" ml="3.4375rem" gap="0.5rem">
                 <Typography variant="h3" color={colors.grey[300]}>
                   Black Rabbit
                 </Typography>
@@ -116,12 +104,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebar }) => {
                 />
               </Box>
               <Box textAlign="center">
-                <Typography
-                  variant="h2"
-                  color={colors.grey[100]}
-                  fontWeight="bold"
-                  sx={{ m: "10px 0 0 0" }}
-                >
+                <Typography variant="h2" color={colors.grey[100]} fontWeight="bold" sx={{ m: "10px 0 0 0" }}>
                   Ed Rocha
                 </Typography>
                 <Typography variant="h5" color={colors.greenAccent[500]}>
@@ -140,13 +123,11 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebar }) => {
               setSelected={setSelected}
             />
 
-            <Typography
-              variant="h6"
-              color={colors.greenAccent[300]}
-              sx={{ m: "15px 0 5px 20px" }}
-            >
-              Novo Cadastro:
-            </Typography>
+            {!isCollapsed && (
+              <Typography variant="h6" color={colors.greenAccent[300]} sx={{ m: "15px 0 5px 20px" }}>
+                Novo Cadastro:
+              </Typography>
+            )}
             <Item
               title="Criar Usuário"
               to="/create-form-user"
@@ -168,14 +149,11 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebar }) => {
               selected={selected}
               setSelected={setSelected}
             /> */}
-
-            <Typography
-              variant="h6"
-              color={colors.greenAccent[300]}
-              sx={{ m: "15px 0 5px 20px" }}
-            >
-              Usuário/Grupo
-            </Typography>
+            {!isCollapsed && (
+              <Typography variant="h6" color={colors.greenAccent[300]} sx={{ m: "15px 0 5px 20px" }}>
+                Usuário/Grupo
+              </Typography>
+            )}
             <Item
               title="Gerenciar Grupos"
               to="/team"
@@ -185,7 +163,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebar }) => {
             />
             <Item
               title="Gerenciar Usuários"
-              to="/contacts"
+              to="/users"
               icon={<PersonOutlinedIcon />}
               selected={selected}
               setSelected={setSelected}
