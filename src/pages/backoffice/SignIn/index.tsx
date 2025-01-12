@@ -13,24 +13,22 @@ export function SignIn() {
 
   async function handleForm(e: FormEvent) {
     e.preventDefault();
-
+  
+    if (!(email.trim().length > 0 && password.trim().length > 0)) {
+      alert("Preencha todos os campos!");
+      return; // Impede o envio se os campos estiverem vazios
+    }
+  
     try {
-      let dataIsValid = true;
-      if (!(email.trim().length > 0 || password.trim().length > 0)) {
-        dataIsValid = false;
-      }
-
-      if (!dataIsValid) {
-        alert("Deu bleibleide");
-      }
-
       await onSignIn({ email, password });
       localStorage.setItem("@backofficev2:token", "fakeToken");
       navigate("/backoffice");
     } catch (err) {
-      console.log(err);
+      setErrorMessage("Erro ao realizar login. Verifique suas credenciais.");
+      console.error(err);
     }
   }
+  
 
   return (
     <>
