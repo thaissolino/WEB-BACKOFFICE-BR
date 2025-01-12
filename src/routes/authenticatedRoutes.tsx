@@ -59,7 +59,7 @@ export function Router() {
 
 <Route path="backoffice" element={<Dashboard />} />
     <Route path="team" element={<Team />} />
-    <Route path="contacts" element={<Contacts />} />
+    <Route path="users" element={<Contacts />} />
     <Route path="invoices" element={<Invoices />} />
     <Route path="create-form-group" element={<FormGroup />} /> 
     <Route path="create-form-room" element={<FormRoom />} /> 

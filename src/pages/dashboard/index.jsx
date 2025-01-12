@@ -196,7 +196,7 @@ const Dashboard = () => {
             p="15px"
           >
             <Typography color={colors.greenAccent[100]} variant="h5" fontWeight="600">
-              NOVOS CADASTRADOS
+             Novos Usuários   
             </Typography>
           </Box>
           {mockTransactions.map((transaction, i) => (
