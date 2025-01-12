@@ -3,7 +3,8 @@ import { CssBaseline, ThemeProvider } from "@mui/material";
 import { ColorModeContext, useMode } from "../../../theme";
 import Topbar from "../../../pages/global/Topbar";
 import Sidebar from "../../../pages/global/Sidebar";
-import Router from "../../../routes/index";
+import { Outlet } from "react-router-dom";
+// import Router from "../../../routes/index";
 
 export function Layout() {
   // useMode retorna um array, então tipamos como [any, any] temporariamente
@@ -19,7 +20,8 @@ export function Layout() {
           <Sidebar isSidebar={isSidebar} />
           <main className="content">
             <Topbar setIsSidebar={setIsSidebar} />
-            <Router />
+            {/* <Router /> */}
+            <Outlet />
           </main>
         </div>
       </ThemeProvider>

@@ -18,7 +18,7 @@ const FormUser = () => {
   const checkoutSchema = yup.object().shape({
     firstName: yup.string().required("obrigatório"),
     lastName: yup.string().required("obrigatório"),
-    email: yup.string().email("invalid email").required("obrigatório"),
+   // email: yup.string().email("invalid email").required("obrigatório"),
     username: yup
     .string()
     .matches(/^[a-zA-Z0-9_]+$/, "O nome de usuário deve conter apenas letras, números e underscores")
@@ -33,7 +33,7 @@ const FormUser = () => {
   const initialValues = {
     firstName: "",
     lastName: "",
-    email: "",
+   // email: "",
     username: "",
     password: "",
     confirmPassword: "",
@@ -69,7 +69,7 @@ const FormUser = () => {
                 fullWidth
                 variant="filled"
                 type="text"
-                label="Primeiro nome"
+                label="Nome"
                 onBlur={handleBlur}
                 onChange={handleChange}
                 value={values.firstName}
@@ -82,7 +82,7 @@ const FormUser = () => {
                 fullWidth
                 variant="filled"
                 type="text"
-                label="Sobrenome"
+                label="Apelido"
                 onBlur={handleBlur}
                 onChange={handleChange}
                 value={values.lastName}
@@ -91,7 +91,7 @@ const FormUser = () => {
                 helperText={touched.lastName && errors.lastName}
                 sx={{ gridColumn: "span 2" }}
               />
-              <TextField
+              {/* <TextField
                 fullWidth
                 variant="filled"
                 type="text"
@@ -103,12 +103,12 @@ const FormUser = () => {
                 error={!!touched.email && !!errors.email}
                 helperText={touched.email && errors.email}
                 sx={{ gridColumn: "span 4" }}
-              />
+              /> */}
               <TextField
                 fullWidth
                 variant="filled"
-                type="text"
-                label="Identificador de usuário"
+                type="number"
+                label="Excluir Dados com Senha"
                 onBlur={handleBlur}
                 onChange={handleChange}
                 value={values.username}
@@ -120,8 +120,8 @@ const FormUser = () => {
               <TextField
                 fullWidth
                 variant="filled"
-                type="password"
-                label="Password"
+                type="text"
+                label="Senha"
                 onBlur={handleBlur}
                 onChange={handleChange}
                 value={values.password}
@@ -133,8 +133,8 @@ const FormUser = () => {
               <TextField
                 fullWidth
                 variant="filled"
-                type="password"
-                label="Confirm Password"
+                type="text"
+                label="Confirmar Senha"
                 onBlur={handleBlur}
                 onChange={handleChange}
                 value={values.confirmPassword}
@@ -144,11 +144,25 @@ const FormUser = () => {
                 sx={{ gridColumn: "span 4" }}
               />
             </Box>
-            <Box display="flex" justifyContent="end" mt="20px">
-              <Button type="submit" color="secondary" variant="contained">
-                Criar usuário
-              </Button>
-            </Box>
+            <Box display="flex" justifyContent="space-between" gap="20px" mt="20px">
+  <Box display="flex" gap="20px">
+    <Button type="submit" color="primary" variant="contained">
+      Gerar Senha
+    </Button>
+    <Button type="submit" color="primary" variant="contained">
+      Gerar Senha de Exclusão
+    </Button>
+    <Button type="submit" color="primary" variant="contained">
+      Gerar Apelido
+    </Button>
+  </Box>
+  <Box display="flex" justifyContent="flex-end">
+    <Button type="submit" color="success" variant="contained">
+      Criar usuário
+    </Button>
+  </Box>
+</Box>
+
           </form>
         )}
       </Formik>

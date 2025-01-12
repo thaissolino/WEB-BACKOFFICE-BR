@@ -5,6 +5,13 @@ import { useAuthBackoffice } from "../hooks/authBackoffice";
 import { Logout } from "../pages/backoffice/Logout";
 import GuardedRoute from "./GuardedRoute";
 import { JSX, useEffect } from "react";
+import Dashboard from "../pages/dashboard";
+import Team from "../pages/team";
+import Contacts from "../pages/contacts";
+import Invoices from "../pages/invoices";
+import FormGroup from "../pages/form-group";
+import FormRoom from "../pages/form-room";
+import FormUser from "../pages/form-user";
 
 const BACKOFFICE_ROUTE = "/backoffice";
 const LOGIN_ROUTE = "/signin/backoffice";
@@ -12,18 +19,11 @@ const LOGIN_ROUTE = "/signin/backoffice";
 
 function RequireAuthBackoffice({ children }: { children: JSX.Element }) {
   useEffect(() => {
-    function clearStorage() {
-      const session = sessionStorage.getItem("registerbackoffice");
-      console.log("teste");
-      if (session == null) {
-        console.log("qwdqwe");
-        localStorage.removeItem("@backoffice:token");
-        localStorage.removeItem("@backoffice:user");
-        localStorage.removeItem("@backofficev2:token");
-      }
+    const session = sessionStorage.getItem("registerbackoffice");
+    if (!session) {
+      localStorage.clear();
       sessionStorage.setItem("registerbackoffice", "2");
     }
-    window.addEventListener("load", clearStorage);
   }, []);
 
   return children;
@@ -47,15 +47,23 @@ export function Router() {
           <Route path="/" element={<BackofficeSignIn />} />
         </Route>
 
-        <Route element={<GuardedRoute isRouteAccessible={isAuthenticated} redirectRoute={"/backoffice"} />}>
+        <Route element={<GuardedRoute isRouteAccessible={isAuthenticated} redirectRoute={"/"} />}>
           <Route
-            path="/backoffice"
+            path="/*"
             element={
               <RequireAuthBackoffice>
                 <BackofficeLayout />
               </RequireAuthBackoffice>
             }
           >
+
+<Route path="backoffice" element={<Dashboard />} />
+    <Route path="team" element={<Team />} />
+    <Route path="contacts" element={<Contacts />} />
+    <Route path="invoices" element={<Invoices />} />
+    <Route path="create-form-group" element={<FormGroup />} /> 
+    <Route path="create-form-room" element={<FormRoom />} /> 
+    <Route path="create-form-user" element={<FormUser />} /> 
             {/* <Route path="/backoffice/plans" element={<Plans />} />
             <Route path="/backoffice/transactions-pagbank" element={<TransactionsPagbank />} />
             <Route path="/backoffice/extracts-pagbank" element={<ExtractsPagbank />} />
@@ -100,7 +108,7 @@ export function Router() {
             <Route path="/backoffice/config/operators/form" element={<FormOperators />} />
             <Route path="/backoffice/config/operators/list" element={<ListOperators />} /> */}
 
-            <Route path="/backoffice/logout" element={<Logout />} />
+            <Route path="logout" element={<Logout />} />
             {/* <Route path="/backoffice/tax" element={<TaxBackoffice />} />
             <Route path="/backoffice/support" element={<SupportBackoffice />} /> */}
           </Route>
