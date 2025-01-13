@@ -2,14 +2,16 @@ import { DataGrid, GridToolbar } from "@mui/x-data-grid";
 import { tokens } from "../../theme";
 import { mockDataContacts, mockDataTeam } from "../../data/mockData";
 import Header from "../../components/Header";
-import { Box, Typography, useTheme } from "@mui/material";
+import { Alert, Box, Button, Snackbar, Typography, useTheme } from "@mui/material";
 import AdminPanelSettingsOutlinedIcon from "@mui/icons-material/AdminPanelSettingsOutlined";
 import LockOpenOutlinedIcon from "@mui/icons-material/LockOpenOutlined";
 import SecurityOutlinedIcon from "@mui/icons-material/SecurityOutlined";
 import { useEffect, useState } from "react";
 import { api } from "../../services/api";
+import DeleteIcon from "@mui/icons-material/Delete";
 
 interface RowData {
+  userName: string;
   id: number;
   name: string;
   age: number;
@@ -22,6 +24,9 @@ const Contacts: React.FC = () => {
 
   // Estado para armazenar os dados da API
   const [rows, setRows] = useState<RowData[]>([]);
+  const [open, setOpen] = useState(false);
+  const [message, setMessage] = useState("");
+  const [severity, setSeverity] = useState<"error" | "success" | "info" | "warning">("info"); // Define um valor padrão
 
   const columns = [
     { field: "id", headerName: "ID", flex: 0.5 },
@@ -48,7 +53,88 @@ const Contacts: React.FC = () => {
     },
     { field: "counter", headerName: "Contador", flex: 1 },
     { field: "role", headerName: "Função", flex: 1 },
+    {
+      field: "action",
+      headerName: "Ação",
+      flex: 1,
+      renderCell: (params: any) => (
+        <Box
+          width="60%"
+          m="0 auto"
+          p="5px"
+          display="flex"
+          justifyContent="center"
+          // backgroundColor={
+          //   params.row.accessLevel === "admin"
+          //     ? colors.greenAccent[600]
+          //     : params.row.accessLevel === "manager"
+          //     ? colors.greenAccent[700]
+          //     : colors.greenAccent[700]
+          // }
+          sx={{ cursor: "pointer",
+            backgroundColor: "red",
+           }}
+          borderRadius="4px"
+        >     
+         <Button
+          variant="contained"
+          color="error"
+          startIcon={<DeleteIcon />}
+          onClick={() => handleDelete(params.row.userName)} // Passa o userName da linha
+          // Passa o ID ou userName
+        >
+          Excluir
+        </Button>
+        </Box>
+      ),
+    },
   ];
+
+
+  const handleClose = () => {
+    setOpen(false);
+  };
+
+
+ // Função que será chamada ao clicar no botão de delete
+ const handleDelete = async (userName: string) => {
+  try {
+      // Obtendo o JWT token de localStorage
+      const token = localStorage.getItem("@backoffice:token");
+  
+      if (!token) {
+        console.error("Token não encontrado!");
+        return;
+      }
+
+      console.log("Token encontrado:", token);
+
+      // Adicionando o token ao header da requisição
+    const response = await api.delete("/graphic/delete", {
+      data: { userName },  // Passando apenas o userName para o backend
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      
+   
+    },
+  );
+
+  console.log("Usuário excluído com sucesso:", response.data);
+
+  // Atualiza a lista de usuários ou remove o usuário da interface
+  setRows((prevRows) => prevRows.filter((row) => row.userName !== userName));
+
+  // Realizar a exclusão
+  setMessage(`Usuário ${userName} excluído com sucesso.`);
+  setSeverity("success");
+  setOpen(true);
+} catch (error) {
+  setMessage(`Erro ao excluir o usuário ${userName}.`);
+      setSeverity("error");
+      setOpen(true);
+}
+};
 
   useEffect(() => {
     const fetchData = async () => {
@@ -81,7 +167,7 @@ const Contacts: React.FC = () => {
           created_at: item.created_at,// Data de criação
           blocked: item.blocked,      // Se está bloqueado ou não
           counter: item.counter,      // Contador
-          role: item.role,            // Papel ou função
+          role: (item.role === "MANAGER" ? "LíDER DE GRUPOS" : "USUÁRIO")   // Papel ou função
         }));
   
         setRows(formattedRows); // Atualiza o estado com os dados formatados
@@ -130,6 +216,14 @@ const Contacts: React.FC = () => {
       >
         <DataGrid rows={rows} columns={columns} components={{ Toolbar: GridToolbar }} />
       </Box>
+       {/* Exibindo a mensagem de sucesso ou erro */}
+       {message && (
+         <Snackbar open={open} autoHideDuration={6000} onClose={handleClose}>
+         <Alert onClose={handleClose} severity={severity} sx={{ width: "100%", color: "black", fontSize: "1rem", fontWeight: "bold",  backgroundColor: `${severity === "success" ? colors.greenAccent[700] : colors.redAccent[700]}` }}>
+           {message}
+         </Alert>
+       </Snackbar>
+      )}
     </Box>
   );
 };
