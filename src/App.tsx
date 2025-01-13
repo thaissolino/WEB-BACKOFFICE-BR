@@ -7,29 +7,29 @@ import "./styles/index.css";
 
 function App() {
 
-// Verifica se é um recarregamento de página
-window.addEventListener("load", () => {
-  // Verifica se é a primeira vez que a página está carregando após o fechamento/recarga
-  const isReloading = sessionStorage.getItem("isReloading");
+// // Verifica se é um recarregamento de página
+// window.addEventListener("load", () => {
+//   // Verifica se é a primeira vez que a página está carregando após o fechamento/recarga
+//   const isReloading = sessionStorage.getItem("isReloading");
 
-  if (!isReloading) {
-    // Se não for um recarregamento, limpa o localStorage
-    localStorage.removeItem("@stricv2:token");
-    localStorage.removeItem("@stricv2:account");
-    localStorage.removeItem("@stricv2:user");
-    localStorage.removeItem("@backoffice:user");
-    localStorage.removeItem("@backoffice:token");
-  }
+//   if (!isReloading) {
+//     // Se não for um recarregamento, limpa o localStorage
+//     localStorage.removeItem("@stricv2:token");
+//     localStorage.removeItem("@stricv2:account");
+//     localStorage.removeItem("@stricv2:user");
+//     localStorage.removeItem("@backoffice:user");
+//     localStorage.removeItem("@backoffice:token");
+//   }
 
-  // Após o carregamento da página, marca que ocorreu um recarregamento
-  sessionStorage.setItem("isReloading", "true");
-});
+//   // Após o carregamento da página, marca que ocorreu um recarregamento
+//   sessionStorage.setItem("isReloading", "true");
+// });
 
-// Marca o recarregamento da página antes de sair ou recarregar
-window.addEventListener("beforeunload", () => {
-  // Marcar o recarregamento para a próxima vez
-  sessionStorage.setItem("isReloading", "true");
-});
+// // Marca o recarregamento da página antes de sair ou recarregar
+// window.addEventListener("beforeunload", () => {
+//   // Marcar o recarregamento para a próxima vez
+//   sessionStorage.setItem("isReloading", "true");
+// });
 
   //  const [effectExecuted, setEffectExecuted] = useState(false);
   // useEffect(() => {

@@ -30,11 +30,11 @@ const Team = () => {
     //   headerName: "Phone Number",
     //   flex: 1,
     // },
-    // {
-    //   field: "email",
-    //   headerName: "Email",
-    //   flex: 1,
-    // },
+    {
+      field: "email",
+      headerName: "Nome do Grupo",
+      flex: 1,
+    },
     {
       field: "accessLevel",
       headerName: "Ações",
