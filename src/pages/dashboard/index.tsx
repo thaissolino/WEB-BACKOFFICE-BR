@@ -13,12 +13,25 @@ import Groups2Icon from "@mui/icons-material/Groups2";
 import { useEffect, useState } from "react";
 import { api } from "../../services/api";
 
+// Defina o tipo para os dados dos usuários
+interface User {
+  id: string;
+  name: string;
+  userName: string;
+  role: string;
+  status: string;
+  created_at: string;
+}
+
 const Dashboard: React.FC = () => {
   const theme = useTheme();
   const colors = tokens(theme.palette.mode);
   // Estado para armazenar o número de usuários
   const [totalUsuarios, setTotalUsuarios] = useState<number>(0);
+  const [totalGrupos, setTotalGrupos] = useState<number>(0);
+  const [users, setUsers] = useState<User[]>([]);
 
+  console.log("Total de usuários:", users);
   useEffect(() => {
     const fetchUsers = async () => {
       try {
@@ -34,6 +47,18 @@ const Dashboard: React.FC = () => {
           },
         });
 
+        const responseGroups = await api.get("/group/list-all", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        console.log("Dados recebidos de usuarios______>>>>>>>>>>>>>>:", response.data);
+
+        // Atualize o estado com os dados dos usuários
+        setUsers(response.data);
+        // Contando o número de Grupos
+        setTotalGrupos(responseGroups.data.length); // Assumindo que a resposta seja um array de usuários
         // Contando o número de usuários
         setTotalUsuarios(response.data.length); // Assumindo que a resposta seja um array de usuários
       } catch (error) {
@@ -80,7 +105,7 @@ const Dashboard: React.FC = () => {
           }}
         >
           <StatBox
-           title={0}// title={totalGrupos.toString()} // Aqui você passa a contagem de grupos depois quando tiver pronto
+            title={totalGrupos.toString()} // Aqui você passa a contagem de grupos depois quando tiver pronto
             subtitle="Total de grupos"
             progress="0.75"
             increase="+14%"
@@ -203,33 +228,55 @@ const Dashboard: React.FC = () => {
               Novos Usuários
             </Typography>
           </Box>
-          {mockTransactions.map((transaction, i) => (
+          {users.map((user) => (
             <Box
               borderRadius={"5px"}
-              key={`${transaction.txId}-${i}`}
+              key={`${user.id}`}
               display="flex"
               justifyContent="space-between"
               alignItems="center"
               borderBottom={`4px solid ${colors.primary[500]}`}
               p="15px"
+              gap="80px" /* Adicionado para controlar o espaçamento entre os itens */
+              sx={{ "&:hover": { backgroundColor: colors.blueAccent[400] } }}
             >
-              <Box borderRadius={"5px"}>
+              <Box borderRadius={"5px"}
+                flex="1" /* Adicionado para ajustar o espaço proporcionalmente */
+                overflow="hidden" /* Previne que o texto ultrapasse */
+                textOverflow="ellipsis"
+                whiteSpace="nowrap"
+              >
                 <Typography color={colors.greenAccent[500]} variant="h5" fontWeight="600">
-                  {transaction.txId}
+                  {user.userName}
                 </Typography>
-                <Typography color={colors.grey[100]}>{transaction.user}</Typography>
-              </Box>
-              <Box borderRadius={"5px"} color={colors.grey[100]}>
-                {transaction.date}
+                <Typography color={colors.grey[100]}>{user.name}</Typography>
               </Box>
               <Box
                 borderRadius={"5px"}
+                color={colors.grey[100]}
+                display="flex"
+                justifyContent="center"
+                alignItems="center"
+                flexShrink={0} /* Evita que este elemento seja redimensionado */
+              >
+                {new Date(user.created_at).toLocaleDateString()}
+              </Box>
+              <Box
+                borderRadius={"5px"}
+                flexShrink={0} /* Evita que este elemento seja redimensionado */
                 sx={{
                   backgroundColor: colors.greenAccent[500],
                 }}
                 p="5px 10px"
               >
-                {transaction.cost}
+                {user.status === "active" ?  (
+                  <Typography color={colors.grey[100]}>Ativo</Typography>)
+                  :
+                  <Typography color={colors.grey[100]}>Inativo</Typography>       
+
+                  
+                }
+                
               </Box>
             </Box>
           ))}
