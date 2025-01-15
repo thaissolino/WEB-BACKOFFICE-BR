@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { ProSidebar, Menu, MenuItem } from "react-pro-sidebar";
-import { Box, IconButton, Typography, useTheme } from "@mui/material";
-import { Link } from "react-router-dom";
+import { Box, Button, IconButton, Typography, useTheme } from "@mui/material";
+import { Link, useNavigate } from "react-router-dom";
 import "react-pro-sidebar/dist/css/styles.css";
 import { tokens } from "../../theme";
 import HomeOutlinedIcon from "@mui/icons-material/HomeOutlined";
@@ -13,6 +13,8 @@ import MenuOutlinedIcon from "@mui/icons-material/MenuOutlined";
 import GroupAddIcon from "@mui/icons-material/GroupAdd";
 import PeopleIcon from "@mui/icons-material/People";
 import PersonAddIcon from "@mui/icons-material/PersonAdd";
+import { useAuthBackoffice } from "../../hooks/authBackoffice";
+
 interface SidebarProps {
   isSidebar?: boolean; // Coloque `?` se a propriedade for opcional
 }
@@ -44,6 +46,34 @@ const Item: React.FC<ItemProps> = ({ title, to, icon, selected, setSelected }) =
 };
 
 const Sidebar: React.FC<SidebarProps> = ({ isSidebar }) => {
+  const navigate = useNavigate();
+  const [loading, setLoading] = useState(false); // Estado para controlar o loading
+  const { onLogout } = useAuthBackoffice(); // Acessando o contexto
+
+ const handleLogout = async () => {
+  setLoading(true); // Ativar o loading
+  try {
+   
+
+    // Aguardar 3 segundos antes de chamar o onLogout
+    await new Promise((resolve) => setTimeout(resolve, 3000));
+
+    // Executar o logout após o delay
+    onLogout();
+
+    console.log("Logout realizado com sucesso.");
+
+    // Redireciona após o logout
+    navigate("/");
+  } catch (error) {
+    console.error("Erro durante o logout:", error);
+  } finally {
+    setLoading(false); // Desativar o loading
+  }
+};
+
+  
+
   const theme = useTheme();
   const colors = tokens(theme.palette.mode);
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -59,7 +89,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebar }) => {
           backgroundColor: "transparent !important",
         },
         "& .pro-inner-item": {
-          padding: "5px 35px 5px 20px !important",
+          padding: "5px 25px 5px 20px !important",
         },
         "& .pro-inner-item:hover": {
           color: "#868dfb !important",
@@ -168,6 +198,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebar }) => {
               selected={selected}
               setSelected={setSelected}
             />
+           
             {/* <Item
               title="Gerenciar Room 1x1"
               to="/invoices"
@@ -175,6 +206,50 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebar }) => {
               selected={selected}
               setSelected={setSelected}
             /> */}
+
+            {/* Barra Superior com Botão de Sair */}
+             {!isCollapsed && (
+             
+             <Box
+              sx={{
+                display: "flex",
+                justifyContent: "center",
+                alignItems: "center",
+                mt: "160px",
+                mb: "20px",
+                ml: "-20px",
+                width: "100%",
+              }}
+            >
+              <Button
+                type="submit"
+                color="success"
+                variant="contained"
+                disabled={loading} // Desabilita o botão durante o carregamento
+                onClick={handleLogout}
+                className="flex items-center text-red-600 hover:text-red-800 focus:outline-none"
+              >
+                {/* Ícone de Seta ou Porta */}
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  strokeWidth={2}
+                  stroke="currentColor"
+                  className="w-5 h-5 mr-2"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M15 12H3m12 0l-4-4m4 4l-4 4m11-6v7a2 2 0 01-2 2H7m14-9h-7"
+                  />
+                </svg>
+                Sair
+              </Button>
+            </Box>
+            
+            )}
+            
           </Box>
         </Menu>
       </ProSidebar>
