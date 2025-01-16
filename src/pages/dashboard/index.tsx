@@ -1,4 +1,4 @@
-import { Box, Button, IconButton, Typography, useTheme } from "@mui/material";
+import { Box, Button, IconButton, Typography, useMediaQuery, useTheme } from "@mui/material";
 import { tokens } from "../../theme";
 import { mockTransactions } from "../../data/mockData";
 import DownloadOutlinedIcon from "@mui/icons-material/DownloadOutlined";
@@ -30,6 +30,9 @@ const Dashboard: React.FC = () => {
   const [totalUsuarios, setTotalUsuarios] = useState<number>(0);
   const [totalGrupos, setTotalGrupos] = useState<number>(0);
   const [users, setUsers] = useState<User[]>([]);
+
+  // Checa se o tamanho da tela é pequeno (mobile)
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
 
   console.log("Total de usuários:", users);
   useEffect(() => {
@@ -75,137 +78,148 @@ const Dashboard: React.FC = () => {
       <Box borderRadius={"5px"} display="flex" justifyContent="space-between" alignItems="center">
         <Header title="BACKOFFICE" subtitle="seja bem vindo ao seu backoffice:" />
 
-        <Box borderRadius={"5px"}>
-          <Button
-            sx={{
-              backgroundColor: colors.blueAccent[700],
-              color: colors.grey[100],
-              fontSize: "14px",
-              fontWeight: "bold",
-              padding: "10px 20px",
-            }}
-          >
-            <DownloadOutlinedIcon sx={{ mr: "10px" }} />
-            Download de alguma coisa
-          </Button>
-        </Box>
+        {!isMobile ? (
+          <Box borderRadius={"5px"}>
+            <Button
+              sx={{
+                backgroundColor: colors.blueAccent[700],
+                color: colors.grey[100],
+                fontSize: "14px",
+                fontWeight: "bold",
+                padding: "10px 20px",
+              }}
+            >
+              <DownloadOutlinedIcon sx={{ mr: "10px" }} />
+              Download de alguma coisa
+            </Button>
+          </Box>
+        ) : null}
       </Box>
 
       {/* GRID & CHARTS */}
-      <Box borderRadius={"5px"} display="grid" gridTemplateColumns="repeat(12, 1fr)" gridAutoRows="140px" gap="20px">
-        {/* ROW 1 */}
-        <Box
-          borderRadius={"5px"}
-          gridColumn="span 3"
-          sx={{
-            backgroundColor: colors.primary[400],
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <StatBox
-            title={totalGrupos.toString()} // Aqui você passa a contagem de grupos depois quando tiver pronto
-            subtitle="Total de grupos"
-            progress="0.75"
-            increase="+14%"
-            icon={<Groups2Icon sx={{ color: colors.greenAccent[600], fontSize: "26px" }} />}
-          />
-        </Box>
-        <Box
-          borderRadius={"5px"}
-          gridColumn="span 3"
-          sx={{
-            backgroundColor: colors.primary[400],
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <StatBox
-            title={totalUsuarios.toString()} // Aqui você passa a contagem de usuários
-            subtitle="Total de usuários"
-            progress="0.30"
-            increase="+5%"
-            icon={<PersonIcon sx={{ color: colors.greenAccent[600], fontSize: "26px" }} />}
-          />
-        </Box>
-        <Box
-          borderRadius={"5px"}
-          gridColumn="span 3"
-          sx={{
-            backgroundColor: colors.primary[400],
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <StatBox
-            title="431,225"
-            subtitle="Total de chamadas"
-            progress="0.50"
-            increase="+21%"
-            icon={<PointOfSaleIcon sx={{ color: colors.greenAccent[600], fontSize: "26px" }} />}
-          />
-        </Box>
-
-        <Box
-          borderRadius={"5px"}
-          gridColumn="span 3"
-          sx={{
-            backgroundColor: colors.primary[400],
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <StatBox
-            title="1,325,134"
-            subtitle="Total de mensagens"
-            progress="0.80"
-            increase="+43%"
-            icon={<EmailIcon sx={{ color: colors.greenAccent[600], fontSize: "26px" }} />}
-          />
-        </Box>
-
+      <Box
+              borderRadius={"5px"}
+              display="grid"
+              gridTemplateColumns={isMobile ? "repeat(6, 1fr)" : "repeat(12, 1fr)"}
+              gridAutoRows="140px"
+              gap="20px"
+            >
+              {/* ROW 1 */}
+              <Box
+                borderRadius={"5px"}
+                gridColumn={!isMobile ? "span 3" : "span 3"}
+                sx={{
+                  backgroundColor: colors.primary[400],
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <StatBox
+                  title={totalGrupos.toString()}
+                  subtitle="Total de grupos"
+                  progress="0.75"
+                  increase="+14%"
+                  icon={<Groups2Icon sx={{ color: colors.greenAccent[600], fontSize: "26px" }} />}
+                />
+              </Box>
+              <Box
+                borderRadius={"5px"}
+                gridColumn={!isMobile ? "span 3" : "span 3"}
+                sx={{
+                  backgroundColor: colors.primary[400],
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <StatBox
+                  title={totalUsuarios.toString()}
+                  subtitle="Total de usuários"
+                  progress="0.30"
+                  increase="+5%"
+                  icon={<PersonIcon sx={{ color: colors.greenAccent[600], fontSize: "26px" }} />}
+                />
+              </Box>
+              <Box
+                borderRadius={"5px"}
+                gridColumn={!isMobile ? "span 3" : "span 3"}
+                sx={{
+                  backgroundColor: colors.primary[400],
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <StatBox
+                  title="431,225"
+                  subtitle="Total de chamadas"
+                  progress="0.50"
+                  increase="+21%"
+                  icon={<PointOfSaleIcon sx={{ color: colors.greenAccent[600], fontSize: "26px" }} />}
+                />
+              </Box>
+              <Box
+                borderRadius={"5px"}
+                gridColumn={!isMobile ? "span 3" : "span 3"}
+                sx={{
+                  backgroundColor: colors.primary[400],
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <StatBox
+                  title="1,325,134"
+                  subtitle="Total de mensagens"
+                  progress="0.80"
+                  increase="+43%"
+                  icon={<EmailIcon sx={{ color: colors.greenAccent[600], fontSize: "26px" }} />}
+                />
+              </Box>
         {/* ROW 2 */}
-        <Box
-          borderRadius={"5px"}
-          gridColumn="span 8"
-          gridRow="span 2"
-          sx={{
-            backgroundColor: colors.primary[400],
-          }}
-        >
+        {!isMobile ? (
           <Box
             borderRadius={"5px"}
-            mt="25px"
-            p="0 30px"
-            display="flex "
-            justifyContent="space-between"
-            alignItems="center"
+            gridColumn="span 8"
+            gridRow="span 2"
+            sx={{
+              backgroundColor: colors.primary[400],
+            }}
           >
-            <Box borderRadius={"5px"}>
-              <Typography variant="h5" fontWeight="600" color={colors.grey[100]}>
-                Alguma metrica aqui
-              </Typography>
-              <Typography variant="h3" fontWeight="bold" color={colors.greenAccent[500]}>
-                COLOCAR ALGUMA COISA AQUI APENAS EXEMPLO:
-              </Typography>
+            <Box
+              borderRadius={"5px"}
+              mt="25px"
+              p="0 30px"
+              display="flex "
+              justifyContent="space-between"
+              alignItems="center"
+            >
+              <Box borderRadius={"5px"}>
+                <Typography variant="h5" fontWeight="600" color={colors.grey[100]}>
+                  Alguma metrica aqui
+                </Typography>
+                <Typography variant="h3" fontWeight="bold" color={colors.greenAccent[500]}>
+                  COLOCAR ALGUMA COISA AQUI APENAS EXEMPLO:
+                </Typography>
+              </Box>
+              <Box borderRadius={"5px"}>
+                <IconButton>
+                  <DownloadOutlinedIcon sx={{ fontSize: "26px", color: colors.greenAccent[500] }} />
+                </IconButton>
+              </Box>
             </Box>
-            <Box borderRadius={"5px"}>
-              <IconButton>
-                <DownloadOutlinedIcon sx={{ fontSize: "26px", color: colors.greenAccent[500] }} />
-              </IconButton>
+            <Box borderRadius={"5px"} height="250px" m="-20px 0 0 0">
+              {/* <LineChart isDashboard={true} /> */}
             </Box>
           </Box>
-          <Box borderRadius={"5px"} height="250px" m="-20px 0 0 0">
-            {/* <LineChart isDashboard={true} /> */}
-          </Box>
-        </Box>
+        ) : null}
+
         <Box
-          borderRadius={"5px"}
-          gridColumn="span 4"
+          gridColumn={isMobile ? "span 6" : "span 4"} // Ajusta a coluna dependendo se é mobile ou não
+
+          borderRadius={"5px"} 
+          //gridColumn="span 4"
           gridRow="span 2"
           sx={{
             backgroundColor: colors.primary[400],
@@ -240,7 +254,8 @@ const Dashboard: React.FC = () => {
               gap="80px" /* Adicionado para controlar o espaçamento entre os itens */
               sx={{ "&:hover": { backgroundColor: colors.blueAccent[400] } }}
             >
-              <Box borderRadius={"5px"}
+              <Box
+                borderRadius={"5px"}
                 flex="1" /* Adicionado para ajustar o espaço proporcionalmente */
                 overflow="hidden" /* Previne que o texto ultrapasse */
                 textOverflow="ellipsis"
@@ -269,14 +284,11 @@ const Dashboard: React.FC = () => {
                 }}
                 p="5px 10px"
               >
-                {user.status === "active" ?  (
-                  <Typography color={colors.grey[100]}>Ativo</Typography>)
-                  :
-                  <Typography color={colors.grey[100]}>Inativo</Typography>       
-
-                  
-                }
-                
+                {user.status === "active" ? (
+                  <Typography color={colors.grey[100]}>Ativo</Typography>
+                ) : (
+                  <Typography color={colors.grey[100]}>Inativo</Typography>
+                )}
               </Box>
             </Box>
           ))}

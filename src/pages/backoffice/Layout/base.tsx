@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { CssBaseline, ThemeProvider } from "@mui/material";
+import { Box, CssBaseline, ThemeProvider, useMediaQuery } from "@mui/material";
 import { ColorModeContext, useMode } from "../../../theme";
 import Topbar from "../../../pages/global/Topbar";
 import Sidebar from "../../../pages/global/Sidebar";
@@ -12,18 +12,43 @@ export function Layout() {
   // isSidebar será um booleano
   const [isSidebar, setIsSidebar] = useState<boolean>(true);
 
+   // Checa se o tamanho da tela é pequeno (mobile)
+   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
+   
   return (
     <ColorModeContext.Provider value={colorMode}>
       <ThemeProvider theme={theme}>
         <CssBaseline />
-        <div className="app">
-          <Sidebar isSidebar={isSidebar} />
-          <main className="content">
+          <Box
+          className="app"
+          sx={{
+            display: "flex",
+            flexDirection: { xs: "column", sm: "row" }, // Coluna no mobile, linha no desktop
+            height: "100vh", // Ocupa toda a altura da tela
+            overflow: "hidden", // Evita rolagem
+          }}
+        >
+          {/* Renderiza o Sidebar apenas se não for mobile */}
+          {!isMobile && (
+            
+              <Sidebar isSidebar={isSidebar} />
+          )}
+         {/* Conteúdo principal */}
+         <Box
+            className="content"
+            sx={{
+              flexGrow: 1,
+              overflow: "auto", // Permite rolagem horizontal apenas no conteúdo interno
+              display: "flex",
+              flexDirection: "column",
+              height: "100%", // Ocupa o restante da altura
+            }}
+          >
             <Topbar setIsSidebar={setIsSidebar} />
             {/* <Router /> */}
             <Outlet />
-          </main>
-        </div>
+          </Box>
+        </Box>
       </ThemeProvider>
     </ColorModeContext.Provider>
   );
