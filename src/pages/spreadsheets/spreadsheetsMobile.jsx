@@ -1,7 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
 import { FileText, Edit, Trash2, CornerUpLeft, CornerUpRight, Printer, AlignLeft, AlignCenter, AlignRight } from 'lucide-react';
-import { useMediaQuery } from "@mui/material";
-import SpreadsheetsMobile from './spreadsheetsMobile';
 
 const excelFonts = [
   'Calibri', 'Arial', 'Times New Roman', 'Verdana', 'Courier New'
@@ -20,7 +18,7 @@ const Spreadsheets = () => {
   const [historyIndex, setHistoryIndex] = useState(-1);
   const [selectedCell, setSelectedCell] = useState([0, 0]);
   const [styles, setStyles] = useState([]);
-  const isMobile = useMediaQuery("(max-width: 768px)");
+  
   const fileInputRef = useRef(null);
 
   useEffect(() => {
@@ -103,11 +101,6 @@ const Spreadsheets = () => {
     const newSheets = sheets.filter((_, i) => i !== index);
     saveSheets(newSheets);
   };
-
-  if (isMobile) {
-    return <SpreadsheetsMobile />
-  }
-
 
   return (
     <div className="bg-gradient-to-b from-blue-50 to-blue-100 text-gray-900 min-h-screen">
