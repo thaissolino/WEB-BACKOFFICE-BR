@@ -229,6 +229,11 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebar }) => {
               setSelected={setSelected}
             />
 
+            {!isCollapsed && (
+              <Typography variant="h6" color={colors.greenAccent[300]} sx={{ m: "15px 0 5px 20px" }}>
+                Planilhas:
+              </Typography>
+            )}
             {/* Este item agora requer validação */}
             <Item
               title="Gerenciar Planilhas"
