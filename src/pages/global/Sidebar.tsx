@@ -1,57 +1,105 @@
+import type React from "react";
+
 import { useState } from "react";
 import { ProSidebar, Menu, MenuItem } from "react-pro-sidebar";
-import { Box, Button, IconButton, Typography, useTheme } from "@mui/material";
-import { Link, useNavigate } from "react-router-dom";
+import { Box, Button, IconButton, Typography, useTheme, Snackbar, Alert } from "@mui/material";
+import { useNavigate } from "react-router-dom"; // Removido o import do Link
 import "react-pro-sidebar/dist/css/styles.css";
 import { tokens } from "../../theme";
 import HomeOutlinedIcon from "@mui/icons-material/HomeOutlined";
 import PeopleOutlinedIcon from "@mui/icons-material/PeopleOutlined";
 import TableChartOutlinedIcon from "@mui/icons-material/TableChartOutlined";
 import PersonOutlinedIcon from "@mui/icons-material/PersonOutlined";
-import CalendarTodayOutlinedIcon from "@mui/icons-material/CalendarTodayOutlined";
 import MenuOutlinedIcon from "@mui/icons-material/MenuOutlined";
-import GroupAddIcon from "@mui/icons-material/GroupAdd";
-import PeopleIcon from "@mui/icons-material/People";
 import PersonAddIcon from "@mui/icons-material/PersonAdd";
 import { useAuthBackoffice } from "../../hooks/authBackoffice";
+import { EnhancedModal } from "../../components/modals/harCodedModal";
 
 interface SidebarProps {
-  isSidebar?: boolean; // Coloque `?` se a propriedade for opcional
+  isSidebar?: boolean;
 }
 
 interface ItemProps {
-  title: string; // Título do item, deve ser uma string
-  to: string; // Link para redirecionamento
-  icon: React.ReactNode; // Ícone do item, pode ser qualquer elemento React
-  selected: string; // Item atualmente selecionado, do tipo string
-  setSelected: (value: string) => void; // Função para atualizar o item selecionado
+  title: string;
+  to: string;
+  icon: React.ReactNode;
+  selected: string;
+  setSelected: (value: string) => void;
+  requiresValidation?: boolean; // Nova prop para indicar se o item requer validação
 }
-
-const Item: React.FC<ItemProps> = ({ title, to, icon, selected, setSelected }) => {
-  const theme = useTheme();
-  const colors = tokens(theme.palette.mode);
-  return (
-    <MenuItem
-      active={selected === title}
-      style={{
-        color: colors.grey[100],
-      }}
-      onClick={() => setSelected(title)}
-      icon={icon}
-    >
-      <Typography>{title}</Typography>
-      <Link to={to} />
-    </MenuItem>
-  );
-};
 
 const Sidebar: React.FC<SidebarProps> = ({ isSidebar }) => {
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(false); // Estado para controlar o loading
-  const { onLogout } = useAuthBackoffice(); // Acessando o contexto
+  const [loading, setLoading] = useState(false);
+  const [openModal, setOpenModal] = useState(false);
+  const [spreadsheetInput, setSpreadsheetInput] = useState("");
+  const [showErrorToast, setShowErrorToast] = useState(false);
+  const [pendingNavigation, setPendingNavigation] = useState<string | null>(null);
+
+  const { onLogout } = useAuthBackoffice();
+
+  // Monitor selected state to open modal when "Gerenciar Planilhas" is selected
+  const [selected, setSelected] = useState("Dashboard");
+
+  // Componente Item modificado para estar dentro do Sidebar e ter acesso ao estado
+  const Item: React.FC<ItemProps> = ({ title, to, icon, selected, setSelected, requiresValidation = false }) => {
+    const theme = useTheme();
+    const colors = tokens(theme.palette.mode);
+
+    const handleClick = () => {
+      setSelected(title);
+
+      if (requiresValidation) {
+        // Se requer validação, armazena a rota pendente e abre o modal
+        setPendingNavigation(to);
+        setOpenModal(true);
+      } else {
+        // Se não requer validação, navega diretamente
+        navigate(to);
+      }
+    };
+
+    return (
+      <MenuItem
+        active={selected === title}
+        style={{
+          color: colors.grey[100],
+        }}
+        onClick={handleClick}
+        icon={icon}
+      >
+        <Typography>{title}</Typography>
+      </MenuItem>
+    );
+  };
+
+  const handleSaveSpreadsheetModal = (value: string, canNavigate: boolean) => {
+    // Store the input value regardless of navigation
+    setSpreadsheetInput(value);
+
+    // Only navigate if explicitly allowed by the API response
+    if (canNavigate && pendingNavigation) {
+      navigate(pendingNavigation);
+      setOpenModal(false);
+      setPendingNavigation(null);
+    } else {
+      // Show toast error if we can't navigate
+      setShowErrorToast(true);
+      // Keep the modal open to allow the user to try again
+    }
+  };
+
+  const handleCloseModal = () => {
+    setOpenModal(false);
+    setPendingNavigation(null);
+    // Reset selection to Dashboard when modal is closed without saving
+    if (selected === "Gerenciar Planilhas") {
+      setSelected("Dashboard");
+    }
+  };
 
   const handleLogout = async () => {
-    setLoading(true); // Ativar o loading
+    setLoading(true);
     try {
       // Aguardar 3 segundos antes de chamar o onLogout
       await new Promise((resolve) => setTimeout(resolve, 3000));
@@ -66,14 +114,13 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebar }) => {
     } catch (error) {
       console.error("Erro durante o logout:", error);
     } finally {
-      setLoading(false); // Desativar o loading
+      setLoading(false);
     }
   };
 
   const theme = useTheme();
   const colors = tokens(theme.palette.mode);
   const [isCollapsed, setIsCollapsed] = useState(false);
-  const [selected, setSelected] = useState("Dashboard");
 
   return (
     <Box
@@ -161,20 +208,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebar }) => {
               selected={selected}
               setSelected={setSelected}
             />
-            {/* <Item
-              title="Criar Sala 1x1"
-              to="/create-form-room"
-              icon={<PeopleIcon />}
-              selected={selected}
-              setSelected={setSelected}
-            /> */}
-            {/* <Item
-              title="Criar Grupo"
-              to="/create-form-group"
-              icon={<GroupAddIcon />}
-              selected={selected}
-              setSelected={setSelected}
-            /> */}
+
             {!isCollapsed && (
               <Typography variant="h6" color={colors.greenAccent[300]} sx={{ m: "15px 0 5px 20px" }}>
                 Usuário/Grupo
@@ -195,21 +229,36 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebar }) => {
               setSelected={setSelected}
             />
 
+            {/* Este item agora requer validação */}
             <Item
               title="Gerenciar Planilhas"
               to="/spreadsheets"
               icon={<TableChartOutlinedIcon />}
               selected={selected}
               setSelected={setSelected}
+              requiresValidation={true}
             />
 
-            {/* <Item
-              title="Gerenciar Room 1x1"
-              to="/invoices"
-              icon={<ContactsOutlinedIcon />}
-              selected={selected}
-              setSelected={setSelected}
-            /> */}
+            {/* Enhanced Modal Component */}
+            <EnhancedModal
+              open={openModal}
+              onClose={handleCloseModal}
+              onSave={handleSaveSpreadsheetModal}
+              title="Digite a senha de acesso"
+              label="Code"
+            />
+
+            {/* Error Toast */}
+            <Snackbar
+              open={showErrorToast}
+              autoHideDuration={6000}
+              onClose={() => setShowErrorToast(false)}
+              anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+            >
+              <Alert onClose={() => setShowErrorToast(false)} severity="error" sx={{ width: "100%" }}>
+                Não foi possível acessar a planilha. Verifique o valor inserido.
+              </Alert>
+            </Snackbar>
 
             {/* Barra Superior com Botão de Sair */}
             {!isCollapsed && (
@@ -228,7 +277,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebar }) => {
                   type="submit"
                   color="success"
                   variant="contained"
-                  disabled={loading} // Desabilita o botão durante o carregamento
+                  disabled={loading}
                   onClick={handleLogout}
                   className="flex items-center text-red-600 hover:text-red-800 focus:outline-none"
                 >
