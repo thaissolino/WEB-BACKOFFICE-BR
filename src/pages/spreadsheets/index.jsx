@@ -2,12 +2,36 @@ import { useState, useEffect, useRef } from 'react';
 import { FileText, Edit, Trash2, CornerUpLeft, CornerUpRight, Printer, AlignLeft, AlignCenter, AlignRight } from 'lucide-react';
 import { useMediaQuery } from "@mui/material";
 import SpreadsheetsMobile from './spreadsheetsMobile';
+import './style.css';
 
 const excelFonts = [
-  'Calibri', 'Arial', 'Times New Roman', 'Verdana', 'Courier New'
+  'Calibri',
+  'Cambria',
+  'Candara',
+  'Consolas',
+  'Constantia',
+  'Corbel',
+  'Arial',
+  'Arial Black',
+  'Comic Sans MS',
+  'Courier New',
+  'Georgia',
+  'Impact',
+  'Lucida Console',
+  'Lucida Sans Unicode',
+  'Palatino Linotype',
+  'Segoe UI',
+  'Tahoma',
+  'Times New Roman',
+  'Trebuchet MS',
+  'Verdana'
 ];
 
-const excelFontSizes = [8, 9, 10, 11, 12, 14, 16, 18, 20];
+
+const excelFontSizes = [
+  8, 9, 10, 11, 12, 14, 16, 18,
+  20, 22, 24, 26, 28, 36, 48, 72
+];
 
 const Spreadsheets = () => {
   const [sheets, setSheets] = useState([]);
@@ -22,6 +46,7 @@ const Spreadsheets = () => {
   const [styles, setStyles] = useState([]);
   const isMobile = useMediaQuery("(max-width: 768px)");
   const fileInputRef = useRef(null);
+  const [selectedSheetIndex, setSelectedSheetIndex] = useState(null);
 
   useEffect(() => {
     const savedSheets = localStorage.getItem('bluesheets');
@@ -38,18 +63,41 @@ const Spreadsheets = () => {
   const handleImport = (e) => {
     const file = e.target.files[0];
     if (!file) return;
-
+  
     const reader = new FileReader();
     reader.onload = (event) => {
       const content = event.target.result;
-      const rows = content.split('\n').map(row => row.split(','));
+      const rows = content.split('\n').map((row, rowIndex) => {
+        return row.split(',').map((cell, colIndex) => {
+          const match = cell.match(/^"(.*?)(\|font:(.*?)\|size:(.*?))?"$/);
+          const value = match?.[1] || '';
+          const font = match?.[3] || '';
+          const size = match?.[4] || '';
+  
+          if (font || size) {
+            const key = `${rowIndex}-${colIndex}`;
+            setCellStyles((prev) => ({
+              ...prev,
+              [key]: {
+                fontFamily: font,
+                fontSize: size,
+              },
+            }));
+          }
+  
+          return value;
+        });
+      });
+  
       setCurrentData(rows);
       setSheetTitle(file.name.replace(/\.csv$/i, ''));
       setShowEditor(true);
       initHistory(rows);
     };
+  
     reader.readAsText(file);
   };
+  
 
   const initHistory = (data) => {
     setHistory([data]);
@@ -64,7 +112,7 @@ const Spreadsheets = () => {
 
   const handleUndo = () => {
     if (historyIndex > 0) {
-      setCurrentData(history[historyIndex - 1]);
+      setCurrentData(JSON.parse(JSON.stringify(history[historyIndex - 1])));
       setHistoryIndex(prev => prev - 1);
     }
   };
@@ -104,6 +152,40 @@ const Spreadsheets = () => {
     saveSheets(newSheets);
   };
 
+  const exportToCSV = () => {
+    const csvContent = data
+      .map((row, rowIndex) =>
+        row.map((cell, colIndex) => {
+          const style = cellStyles[`${rowIndex}-${colIndex}`] || {};
+          const font = style.fontFamily || '';
+          const size = style.fontSize || '';
+          return `"${cell}|font:${font}|size:${size}"`;
+        }).join(',')
+      )
+      .join('\n');
+  
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+  
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `${sheetTitle || 'planilha'}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleDuplicateSheet = () => {
+    if (selectedSheetIndex != null) {
+      const copy = JSON.parse(JSON.stringify(sheets[selectedSheetIndex]));
+      copy.title += ' (Cópia)';
+      const newSheets = [...sheets, copy];
+      saveSheets(newSheets);
+      setSelectedSheetIndex(null); // limpa seleção se quiser
+    }
+  };
+  
   if (isMobile) {
     return <SpreadsheetsMobile />
   }
@@ -114,19 +196,63 @@ const Spreadsheets = () => {
       <header className="bg-white shadow-md sticky top-0 z-50 px-4 py-4 flex justify-between items-center rounded-b-2xl">
         <span className="text-2xl font-bold text-blue-600">BlueSheets</span>
         <div className="flex items-center gap-2">
-          <input
-            type="file"
-            ref={fileInputRef}
-            accept=".csv"
-            className="hidden"
-            onChange={handleImport}
-          />
-          <button
-            onClick={() => fileInputRef.current.click()}
-            className="bg-yellow-500 text-white px-4 py-2 rounded-lg"
-          >
-            Importar
-          </button>
+  <input
+    type="file"
+    ref={fileInputRef}
+    accept=".csv"
+    className="hidden"
+    onChange={handleImport}
+  />
+  <button
+    onClick={() => fileInputRef.current.click()}
+    className="bg-yellow-500 text-white px-4 py-2 rounded-lg"
+  >
+    Importar
+  </button>
+
+  {/* ✅ Aqui está o novo botão Exportar */}
+  <button
+  onClick={() => {
+    if (selectedSheetIndex != null) {
+      const selected = sheets[selectedSheetIndex];
+      const csvContent = selected.rows
+        .map(row => row.map(cell => `"${cell.replace(/"/g, '""')}"`).join(','))
+        .join('\n');
+
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `${selected.title || 'planilha'}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    }
+  }}
+  className={`bg-purple-600 text-white px-4 py-2 rounded-lg ${selectedSheetIndex == null ? 'opacity-50 pointer-events-none' : ''}`}
+>
+  Exportar
+</button>
+
+
+  <button
+  onClick={() => {
+    if (selectedSheetIndex != null) {
+      const copy = JSON.parse(JSON.stringify(sheets[selectedSheetIndex]));
+      copy.title += ' (Cópia)';
+      const newSheets = [...sheets, copy];
+      saveSheets(newSheets);
+      setSelectedSheetIndex(null); // limpa seleção se quiser
+    }
+  }}
+  className={`bg-orange-600 text-white px-4 py-2 rounded-lg ${selectedSheetIndex == null ? 'opacity-50 pointer-events-none' : ''}`}
+>
+  Duplicar
+</button>
+
+
           <button
             onClick={() => {
               setCurrentData(Array(50).fill().map(() => Array(5).fill('')));
@@ -137,7 +263,7 @@ const Spreadsheets = () => {
             }}
             className="bg-blue-600 text-white px-4 py-2 rounded-lg"
           >
-            Nova
+            Nova planilha 
           </button>
         </div>
       </header>
@@ -153,6 +279,7 @@ const Spreadsheets = () => {
           onRedo={handleRedo}
           canUndo={historyIndex > 0}
           canRedo={historyIndex < history.length - 1}
+          recordHistory={recordHistory}
         />
       ) : (
         <SheetList
@@ -163,6 +290,10 @@ const Spreadsheets = () => {
             setCurrentData(Array(50).fill().map(() => Array(5).fill('')));
             setShowEditor(true);
           }}
+
+          onDuplicate={handleDuplicateSheet}
+          onSelectSimple={setSelectedSheetIndex}
+          selectedSheetIndex={selectedSheetIndex}
         />
       )}
 
@@ -180,21 +311,25 @@ const Spreadsheets = () => {
   );
 };
 
-const SheetList = ({ sheets, onSelect, onDelete, onNew }) => {
+const SheetList = ({ sheets, onSelect, onDelete, onNew, onDuplicate, onSelectSimple, selectedSheetIndex }) => {
   return (
     <main className="p-4">
-      <button
+      {/* <button
         onClick={onNew}
         className="bg-blue-600 text-white px-4 py-2 rounded-lg mb-4"
       >
         Nova Planilha
-      </button>
+      </button> */}
       <ul className="space-y-3">
         {sheets.map((sheet, i) => (
-          <li
-            key={i}
-            className="sheet-item bg-white p-4 rounded-xl shadow flex justify-between items-center hover:bg-blue-50"
-          >
+       <li
+       key={i}
+       className={`sheet-item bg-white p-4 rounded-xl shadow flex justify-between items-center hover:bg-blue-50 ${
+         selectedSheetIndex === i ? 'ring-2 ring-blue-500' : ''
+       }`}
+       onClick={() => onSelectSimple(i)}
+     >
+     
             <div>
               <p className="font-semibold text-blue-700">{sheet.title}</p>
               <p className="text-sm text-gray-500">
@@ -237,24 +372,105 @@ const SheetEditor = ({
   onUndo,
   onRedo,
   canUndo,
-  canRedo
+  canRedo,
+  recordHistory
 }) => {
   const [data, setData] = useState(currentData);
   const [title, setTitle] = useState(sheetTitle);
   const [selectedCell, setSelectedCell] = useState(null);
+  const [cellStyles, setCellStyles] = useState({});
+  const inputRefs = useRef({});
+  const [clipboardData, setClipboardData] = useState('');
 
   useEffect(() => {
     setData(currentData);
   }, [currentData]);
 
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (!selectedCell) return;
+  
+      const [row, col] = selectedCell;
+  
+      // Copiar e colar com Ctrl ou Cmd
+      if (e.ctrlKey || e.metaKey) {
+        if (e.key === 'c') {
+          e.preventDefault();
+          setClipboardData(data[row][col]);
+          return;
+        }
+  
+        if (e.key === 'v') {
+          e.preventDefault();
+          const newData = [...data];
+          newData[row][col] = clipboardData;
+          setData(newData);
+          recordHistory(newData);
+          return;
+        }
+      }
+  
+      // Navegação padrão
+      switch (e.key) {
+        case 'ArrowDown':
+          e.preventDefault();
+          if (row + 1 < data.length) handleCellFocus(row + 1, col);
+          break;
+        case 'ArrowUp':
+          e.preventDefault();
+          if (row - 1 >= 0) handleCellFocus(row - 1, col);
+          break;
+        case 'ArrowRight':
+          e.preventDefault();
+          if (col + 1 < data[0].length) handleCellFocus(row, col + 1);
+          break;
+        case 'ArrowLeft':
+          e.preventDefault();
+          if (col - 1 >= 0) handleCellFocus(row, col - 1);
+          break;
+        case 'Enter':
+          e.preventDefault();
+          if (row + 1 < data.length) handleCellFocus(row + 1, col);
+          break;
+        case 'Tab':
+          e.preventDefault();
+          if (col + 1 < data[0].length) handleCellFocus(row, col + 1);
+          break;
+        default:
+          break;
+      }
+    };
+  
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [selectedCell, data, clipboardData]);
+  
+  
   const handleCellChange = (row, col, value) => {
     const newData = [...data];
     newData[row][col] = value;
     setData(newData);
+    recordHistory(newData); 
   };
 
   const handleCellFocus = (row, col) => {
     setSelectedCell([row, col]);
+    setTimeout(() => {
+      const el = inputRefs.current[`${row}-${col}`];
+      if (el) el.focus();
+    }, 0);
+  };
+
+  const updateStyle = (row, col, styleProp, value) => {
+    const key = `${row}-${col}`;
+    setCellStyles(prev => ({
+      ...prev,
+      [key]: {
+        ...prev[key],
+        [styleProp]: value,
+      }
+    }));
   };
 
   const addRow = () => {
@@ -277,6 +493,76 @@ const SheetEditor = ({
     }
   };
 
+  function calculateFormula(formula) {
+    formula = formula.substring(1).trim(); // remove o '='
+  
+    try {
+      // =SE(condição; verdadeiro; falso)
+      if (formula.startsWith('SE(')) {
+        const inside = formula.match(/\((.*)\)/)?.[1];
+        if (!inside) throw new Error('Sintaxe SE inválida');
+        const [cond, valTrue, valFalse] = inside.split(';').map((s) => s.trim());
+  
+        const condEval = evaluateCellExpression(cond);
+        return condEval ? valTrue : valFalse;
+      }
+  
+      // =SOMA(A1:A3)
+      if (formula.startsWith('SOMA(')) {
+        return sumFromRange(formula);
+      }
+  
+      // =MÉDIA(A1:A3)
+      if (formula.startsWith('MÉDIA(')) {
+        return averageFromRange(formula);
+      }
+  
+      // =PROCV(valor; intervalo; coluna)
+      if (formula.startsWith('PROCV(')) {
+        const inside = formula.match(/\(([^)]+)\)/)?.[1];
+        if (!inside) throw new Error('Sintaxe PROCV inválida');
+  
+        const [lookupValueRaw, rangeRaw, columnIndexRaw] = inside.split(';').map(s => s.trim());
+        const lookupValue = evaluateCellExpression(lookupValueRaw);
+        const columnIndex = parseInt(columnIndexRaw) - 1;
+  
+        const [startCell, endCell] = rangeRaw.split(':');
+        const startCol = startCell.charCodeAt(0) - 65;
+        const startRow = parseInt(startCell.substring(1)) - 1;
+        const endCol = endCell.charCodeAt(0) - 65;
+        const endRow = parseInt(endCell.substring(1)) - 1;
+  
+        for (let row = startRow; row <= endRow; row++) {
+          const cellValue = currentData[row]?.[startCol];
+          if (String(cellValue).toLowerCase() === String(lookupValue).toLowerCase()) {
+            return currentData[row]?.[startCol + columnIndex] || '';
+          }
+        }
+  
+        return 'Não encontrado';
+      }
+  
+      // Expressões diretas como =A1+B2*3
+      return evaluateCellExpression(formula);
+  
+    } catch (err) {
+      console.error('Erro na fórmula:', err.message);
+      return 'Erro';
+    }
+  }
+  
+
+  function evaluateCellExpression(expr) {
+    // Substitui todas as referências tipo A1, B2, etc. por seus valores
+    const replaced = expr.replace(/[A-Z]+[0-9]+/g, (match) => {
+      const col = match.charCodeAt(0) - 65;
+      const row = parseInt(match.substring(1)) - 1;
+      return parseFloat(currentData[row]?.[col]) || 0;
+    });
+  
+    return eval(replaced);
+  }
+  
   return (
     <section className="p-4">
       <div className="bg-white px-4 py-2 flex justify-between items-center border-b mb-4">
@@ -345,31 +631,137 @@ const SheetEditor = ({
         >
           <CornerUpRight className="w-4 h-4" />
         </button>
-        <button className="hover:bg-gray-200 p-1 rounded">
-          <Printer className="w-4 h-4" />
-        </button>
-        <select className="border rounded px-2 py-1 text-sm w-24 sm:w-32">
-          {excelFonts.map(font => (
-            <option key={font} value={font}>{font}</option>
-          ))}
-        </select>
-        <select className="border rounded px-2 py-1 text-sm w-24 sm:w-32">
-          {excelFontSizes.map(size => (
-            <option key={size} value={size}>{size}</option>
-          ))}
-        </select>
-        <button className="font-bold">B</button>
-        <button className="italic">I</button>
-        <button className="underline">U</button>
-        <button onClick={() => {}}>
-          <AlignLeft className="w-4 h-4" />
-        </button>
-        <button className="px-1">
-          <AlignCenter className="w-4 h-4" />
-        </button>
-        <button className="px-1">
-          <AlignRight className="w-4 h-4" />
-        </button>
+        <button
+  onClick={() => window.print()}
+  className="hover:bg-gray-200 p-1 rounded"
+>
+  <Printer className="w-4 h-4" />
+</button>
+
+<select
+  className="border rounded px-2 py-1 text-sm w-24 sm:w-32"
+  onChange={(e) => {
+    if (selectedCell) {
+      const [row, col] = selectedCell;
+      updateStyle(row, col, 'fontFamily', e.target.value);
+    }
+  }}
+>
+  {excelFonts.map(font => (
+    <option key={font} value={font}>{font}</option>
+  ))}
+</select>
+
+<select
+  className="border rounded px-2 py-1 text-sm w-24 sm:w-32"
+  onChange={(e) => {
+    if (selectedCell) {
+      const [row, col] = selectedCell;
+      updateStyle(row, col, 'fontSize', `${e.target.value}px`);
+    }
+  }}
+>
+  {excelFontSizes.map(size => (
+    <option key={size} value={size}>{size}</option>
+  ))}
+</select>
+        <button
+  className="font-bold"
+  onClick={() => {
+    if (selectedCell) {
+      const [row, col] = selectedCell;
+      updateStyle(row, col, 'fontWeight', cellStyles[`${row}-${col}`]?.fontWeight === 'bold' ? 'normal' : 'bold');
+    }
+  }}
+>B</button>
+
+<button
+  className="italic"
+  onClick={() => {
+    if (selectedCell) {
+      const [row, col] = selectedCell;
+      updateStyle(row, col, 'fontStyle', cellStyles[`${row}-${col}`]?.fontStyle === 'italic' ? 'normal' : 'italic');
+    }
+  }}
+>I</button>
+
+<button
+  className="underline"
+  onClick={() => {
+    if (selectedCell) {
+      const [row, col] = selectedCell;
+      updateStyle(row, col, 'textDecoration', cellStyles[`${row}-${col}`]?.textDecoration === 'underline' ? 'none' : 'underline');
+    }
+  }}
+>U</button>
+
+<button
+  onClick={() => {
+    if (selectedCell) {
+      const [row, col] = selectedCell;
+      const val = parseFloat(data[row][col].replace(/[^\d.-]/g, '')) || 0;
+      handleCellChange(row, col, `R$ ${val.toFixed(2).replace('.', ',')}`);
+    }
+  }}
+>R$</button>
+
+<button
+  onClick={() => {
+    if (selectedCell) {
+      const [row, col] = selectedCell;
+      const val = parseFloat(data[row][col].replace(/[^\d.-]/g, '')) || 0;
+      handleCellChange(row, col, `$ ${val.toFixed(2).replace('.', ',')}`);
+    }
+  }}
+>$</button>
+
+<button
+  onClick={() => {
+    if (selectedCell) {
+      const [row, col] = selectedCell;
+      const val = parseFloat(data[row][col].replace(/[^\d.-]/g, '')) || 0;
+      handleCellChange(row, col, `${(val * 100).toFixed(0)}%`);
+    }
+  }}
+>100%</button>
+
+<button
+  onClick={() => {
+    if (selectedCell) {
+      const [row, col] = selectedCell;
+      const val = parseFloat(data[row][col].replace(/[^\d.-]/g, '')) || 0;
+      handleCellChange(row, col, val.toFixed(2));
+    }
+  }}
+>.00</button>
+
+<button onClick={() => {
+  if (selectedCell) {
+    const [row, col] = selectedCell;
+    updateStyle(row, col, 'textAlign', 'left');
+  }
+}}>
+  <AlignLeft className="w-4 h-4" />
+</button>
+
+<button onClick={() => {
+  if (selectedCell) {
+    const [row, col] = selectedCell;
+    updateStyle(row, col, 'textAlign', 'center');
+  }
+}}>
+  <AlignCenter className="w-4 h-4" />
+</button>
+
+<button onClick={() => {
+  if (selectedCell) {
+    const [row, col] = selectedCell;
+    updateStyle(row, col, 'textAlign', 'right');
+  }
+}}>
+  <AlignRight className="w-4 h-4" />
+</button>
+
       </div>
 
       <div className="overflow-auto">
@@ -385,29 +777,49 @@ const SheetEditor = ({
             </tr>
           </thead>
           <tbody>
-            {data.map((row, rowIndex) => (
-              <tr key={rowIndex}>
-                <td className="border p-1 bg-gray-100 text-center">
-                  {rowIndex + 1}
-                </td>
-                {row.map((cell, colIndex) => (
-                  <td 
-                    key={colIndex} 
-                    className="border p-1"
-                    onClick={() => handleCellFocus(rowIndex, colIndex)}
-                  >
-                    <input
-                      type="text"
-                      className="cell w-full text-center"
-                      value={cell}
-                      onChange={(e) => handleCellChange(rowIndex, colIndex, e.target.value)}
-                      onFocus={() => handleCellFocus(rowIndex, colIndex)}
-                    />
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
+  {data.map((row, rowIndex) => (
+    <tr key={rowIndex}>
+      <td className="border p-1 bg-gray-100 text-center">{rowIndex + 1}</td>
+      {row.map((cell, colIndex) => {
+        const isSelected =
+          selectedCell &&
+          selectedCell[0] === rowIndex &&
+          selectedCell[1] === colIndex;
+
+        return (
+          <td
+            key={colIndex}
+            className={`border p-1 relative ${
+              isSelected ? 'outline outline-blue-500 outline-2 z-10' : ''
+            }`}
+            onClick={() => handleCellFocus(rowIndex, colIndex)}
+          >
+            <input
+             ref={(el) => {
+              if (el) inputRefs.current[`${rowIndex}-${colIndex}`] = el;
+            }}
+              type="text"
+              className="cell w-full text-center bg-transparent focus:outline-none transition-all duration-75"
+              style={cellStyles[`${rowIndex}-${colIndex}`] || {}}
+              value={cell}
+              onChange={(e) => {
+                const val = e.target.value;
+                if (val.startsWith('=')) {
+                  const calc = calculateFormula(val);
+                  handleCellChange(rowIndex, colIndex, calc);
+                } else {
+                  handleCellChange(rowIndex, colIndex, val);
+                }
+              }}
+              onFocus={() => handleCellFocus(rowIndex, colIndex)}
+            />
+          </td>
+        );
+      })}
+    </tr>
+  ))}
+</tbody>
+
         </table>
       </div>
     </section>
