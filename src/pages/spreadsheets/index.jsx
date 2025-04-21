@@ -34,6 +34,8 @@ const excelFontSizes = [
 ];
 
 const Spreadsheets = () => {
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [cellStyles, setCellStyles] = useState({});
   const [sheets, setSheets] = useState([]);
   const [currentData, setCurrentData] = useState([]);
   const [currentSheetIndex, setCurrentSheetIndex] = useState(-1);
@@ -74,16 +76,16 @@ const Spreadsheets = () => {
           const font = match?.[3] || '';
           const size = match?.[4] || '';
   
-          if (font || size) {
-            const key = `${rowIndex}-${colIndex}`;
-            setCellStyles((prev) => ({
-              ...prev,
-              [key]: {
-                fontFamily: font,
-                fontSize: size,
-              },
-            }));
-          }
+          // if (font || size) {
+          //   const key = `${rowIndex}-${colIndex}`;
+          //   setCellStyles((prev) => ({
+          //     ...prev,
+          //     [key]: {
+          //       fontFamily: font,
+          //       fontSize: size,
+          //     },
+          //   }));
+          // }
   
           return value;
         });
@@ -152,29 +154,29 @@ const Spreadsheets = () => {
     saveSheets(newSheets);
   };
 
-  const exportToCSV = () => {
-    const csvContent = data
-      .map((row, rowIndex) =>
-        row.map((cell, colIndex) => {
-          const style = cellStyles[`${rowIndex}-${colIndex}`] || {};
-          const font = style.fontFamily || '';
-          const size = style.fontSize || '';
-          return `"${cell}|font:${font}|size:${size}"`;
-        }).join(',')
-      )
-      .join('\n');
+  // const exportToCSV = () => {
+  //   const csvContent = data
+  //     .map((row, rowIndex) =>
+  //       row.map((cell, colIndex) => {
+  //         const style = cellStyles[`${rowIndex}-${colIndex}`] || {};
+  //         const font = style.fontFamily || '';
+  //         const size = style.fontSize || '';
+  //         return `"${cell}|font:${font}|size:${size}"`;
+  //       }).join(',')
+  //     )
+  //     .join('\n');
   
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
+  //   const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  //   const url = URL.createObjectURL(blob);
   
-    const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', `${sheetTitle || 'planilha'}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-  };
+  //   const link = document.createElement('a');
+  //   link.href = url;
+  //   link.setAttribute('download', `${sheetTitle || 'planilha'}.csv`);
+  //   document.body.appendChild(link);
+  //   link.click();
+  //   document.body.removeChild(link);
+  //   URL.revokeObjectURL(url);
+  // };
 
   const handleDuplicateSheet = () => {
     if (selectedSheetIndex != null) {
@@ -252,6 +254,12 @@ const Spreadsheets = () => {
   Duplicar
 </button>
 
+<button
+  onClick={() => setShowDeleteModal(true)}
+  className="bg-red-500 text-white px-4 py-2 rounded-lg"
+>
+  Apagar Tudo
+</button>
 
           <button
             onClick={() => {
@@ -280,6 +288,8 @@ const Spreadsheets = () => {
           canUndo={historyIndex > 0}
           canRedo={historyIndex < history.length - 1}
           recordHistory={recordHistory}
+          cellStyles={cellStyles}
+          setCellStyles={setCellStyles}
         />
       ) : (
         <SheetList
@@ -298,15 +308,52 @@ const Spreadsheets = () => {
       )}
 
       {showRenameModal && (
-        <RenameModal
-          currentName={sheetTitle}
-          onClose={() => setShowRenameModal(false)}
-          onSave={(newName) => {
-            setSheetTitle(newName);
-            setShowRenameModal(false);
-          }}
-        />
+       <RenameModal
+       currentName={sheetTitle}
+       onClose={() => setShowRenameModal(false)}
+       onSave={(newName) => {
+         setSheetTitle(newName); // atualiza o título visivelmente
+         setSheets((prevSheets) => {
+           const updated = [...prevSheets];
+           if (currentSheetIndex >= 0) {
+             updated[currentSheetIndex].title = newName;
+             localStorage.setItem('bluesheets', JSON.stringify(updated));
+           }
+           return updated;
+         });
+         setShowRenameModal(false);
+       }}
+     />     
       )}
+
+{showDeleteModal && (
+  <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+    <div className="bg-white rounded-lg w-11/12 max-w-sm p-4">
+      <h2 className="text-lg font-medium mb-2">Confirmar exclusão</h2>
+      <p className="text-gray-700 mb-4">Deseja apagar todas as planilhas salvas?</p>
+      <div className="flex justify-end gap-2">
+        <button
+          onClick={() => setShowDeleteModal(false)}
+          className="px-4 py-2 rounded bg-gray-200"
+        >
+          Cancelar
+        </button>
+        <button
+          onClick={() => {
+            localStorage.removeItem('bluesheets');
+            setSheets([]);
+            setSelectedSheetIndex(null);
+            setShowDeleteModal(false);
+          }}
+          className="px-4 py-2 rounded bg-red-600 text-white"
+        >
+          Apagar tudo
+        </button>
+      </div>
+    </div>
+  </div>
+)}
+
     </div>
   );
 };
@@ -386,7 +433,10 @@ const SheetEditor = ({
     setData(currentData);
   }, [currentData]);
 
-
+  useEffect(() => {
+    setTitle(sheetTitle);
+  }, [sheetTitle]);
+  
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (!selectedCell) return;
@@ -542,6 +592,44 @@ const SheetEditor = ({
         return 'Não encontrado';
       }
   
+      function sumFromRange(formula) {
+        const inside = formula.match(/\((.*)\)/)?.[1];
+        const [startCell, endCell] = inside.split(':');
+        const startRow = parseInt(startCell.substring(1)) - 1;
+        const startCol = startCell.charCodeAt(0) - 65;
+        const endRow = parseInt(endCell.substring(1)) - 1;
+        const endCol = endCell.charCodeAt(0) - 65;
+      
+        let sum = 0;
+        for (let row = startRow; row <= endRow; row++) {
+          for (let col = startCol; col <= endCol; col++) {
+            sum += parseFloat(currentData[row]?.[col]) || 0;
+          }
+        }
+        return sum;
+      }
+      
+      function averageFromRange(formula) {
+        const inside = formula.match(/\((.*)\)/)?.[1];
+        const [startCell, endCell] = inside.split(':');
+        const startRow = parseInt(startCell.substring(1)) - 1;
+        const startCol = startCell.charCodeAt(0) - 65;
+        const endRow = parseInt(endCell.substring(1)) - 1;
+        const endCol = endCell.charCodeAt(0) - 65;
+      
+        let sum = 0, count = 0;
+        for (let row = startRow; row <= endRow; row++) {
+          for (let col = startCol; col <= endCol; col++) {
+            const val = parseFloat(currentData[row]?.[col]);
+            if (!isNaN(val)) {
+              sum += val;
+              count++;
+            }
+          }
+        }
+        return count > 0 ? sum / count : 0;
+      }
+
       // Expressões diretas como =A1+B2*3
       return evaluateCellExpression(formula);
   
