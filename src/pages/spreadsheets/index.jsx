@@ -3,7 +3,39 @@ import { FileText, Edit, Trash2, CornerUpLeft, CornerUpRight, Printer, AlignLeft
 import { useMediaQuery } from "@mui/material";
 import SpreadsheetsMobile from './spreadsheetsMobile';
 import './style.css';
+import { GripVertical } from 'lucide-react';
+import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
+import debounce from 'lodash.debounce';
+import {
+  ResponsiveContainer,
+  BarChart,
+  CartesianGrid,
+  XAxis,
+  YAxis,
+  Tooltip as RechartsTooltip,
+  Legend as RechartsLegend,
+  Bar
+} from 'recharts';
+import {  Pie } from 'react-chartjs-2';
+import {
+  Chart as ChartJS,
+  BarElement,
+  CategoryScale as ChartCategoryScale,
+  LinearScale as ChartLinearScale,
+  Tooltip,
+  Legend as ChartLegend,
+  ArcElement
+} from 'chart.js';
 
+//ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, ChartTooltip, ChartLegend);
+ChartJS.register(
+  ArcElement,
+  Tooltip,
+  ChartLegend,
+  ChartCategoryScale,
+  ChartLinearScale,
+  BarElement
+);
 const excelFonts = [
   'Calibri',
   'Cambria',
@@ -49,6 +81,7 @@ const Spreadsheets = () => {
   const isMobile = useMediaQuery("(max-width: 768px)");
   const fileInputRef = useRef(null);
   const [selectedSheetIndex, setSelectedSheetIndex] = useState(null);
+  const [showChart, setShowChart] = useState(false);
 
   useEffect(() => {
     const savedSheets = localStorage.getItem('bluesheets');
@@ -237,7 +270,6 @@ const Spreadsheets = () => {
 >
   Exportar
 </button>
-
 
   <button
   onClick={() => {
@@ -428,6 +460,8 @@ const SheetEditor = ({
   const [cellStyles, setCellStyles] = useState({});
   const inputRefs = useRef({});
   const [clipboardData, setClipboardData] = useState('');
+  const [showChart, setShowChart] = useState(false);
+  const [selectedColumnChart, setSelectedColumnChart] = useState(0);
 
   useEffect(() => {
     setData(currentData);
@@ -705,187 +739,239 @@ const SheetEditor = ({
       </div>
 
       <div className="bg-white border-b px-4 py-2 flex flex-wrap gap-2 mb-4 text-sm">
-        <button 
-          onClick={onUndo} 
-          disabled={!canUndo}
-          className={`hover:bg-gray-200 p-1 rounded ${!canUndo ? 'opacity-50' : ''}`}
-        >
-          <CornerUpLeft className="w-4 h-4" />
-        </button>
-        <button 
-          onClick={onRedo} 
-          disabled={!canRedo}
-          className={`hover:bg-gray-200 p-1 rounded ${!canRedo ? 'opacity-50' : ''}`}
-        >
-          <CornerUpRight className="w-4 h-4" />
-        </button>
-        <button
-  onClick={() => window.print()}
-  className="hover:bg-gray-200 p-1 rounded"
->
-  <Printer className="w-4 h-4" />
-</button>
+  <button 
+    onClick={onUndo} 
+    disabled={!canUndo}
+    className={`hover:bg-gray-200 p-1 rounded ${!canUndo ? 'opacity-50' : ''}`}
+  >
+    <CornerUpLeft className="w-4 h-4" />
+  </button>
+  <button 
+    onClick={onRedo} 
+    disabled={!canRedo}
+    className={`hover:bg-gray-200 p-1 rounded ${!canRedo ? 'opacity-50' : ''}`}
+  >
+    <CornerUpRight className="w-4 h-4" />
+  </button>
+  <button
+    onClick={() => window.print()}
+    className="hover:bg-gray-200 p-1 rounded"
+  >
+    <Printer className="w-4 h-4" />
+  </button>
 
-<select
-  className="border rounded px-2 py-1 text-sm w-24 sm:w-32"
-  onChange={(e) => {
-    if (selectedCell) {
-      const [row, col] = selectedCell;
-      updateStyle(row, col, 'fontFamily', e.target.value);
-    }
-  }}
->
-  {excelFonts.map(font => (
-    <option key={font} value={font}>{font}</option>
-  ))}
-</select>
+  <select
+    className="border rounded px-2 py-1 text-sm w-24 sm:w-32"
+    onChange={(e) => {
+      if (selectedCell) {
+        const [row, col] = selectedCell;
+        updateStyle(row, col, 'fontFamily', e.target.value);
+      }
+    }}
+  >
+    {excelFonts.map(font => (
+      <option key={font} value={font}>{font}</option>
+    ))}
+  </select>
 
-<select
-  className="border rounded px-2 py-1 text-sm w-24 sm:w-32"
-  onChange={(e) => {
-    if (selectedCell) {
-      const [row, col] = selectedCell;
-      updateStyle(row, col, 'fontSize', `${e.target.value}px`);
-    }
-  }}
->
-  {excelFontSizes.map(size => (
-    <option key={size} value={size}>{size}</option>
-  ))}
-</select>
-        <button
-  className="font-bold"
-  onClick={() => {
+  <select
+    className="border rounded px-2 py-1 text-sm w-24 sm:w-32"
+    onChange={(e) => {
+      if (selectedCell) {
+        const [row, col] = selectedCell;
+        updateStyle(row, col, 'fontSize', `${e.target.value}px`);
+      }
+    }}
+  >
+    {excelFontSizes.map(size => (
+      <option key={size} value={size}>{size}</option>
+    ))}
+  </select>
+
+  <button className="font-bold" onClick={() => {
     if (selectedCell) {
       const [row, col] = selectedCell;
       updateStyle(row, col, 'fontWeight', cellStyles[`${row}-${col}`]?.fontWeight === 'bold' ? 'normal' : 'bold');
     }
-  }}
->B</button>
+  }}>B</button>
 
-<button
-  className="italic"
-  onClick={() => {
+  <button className="italic" onClick={() => {
     if (selectedCell) {
       const [row, col] = selectedCell;
       updateStyle(row, col, 'fontStyle', cellStyles[`${row}-${col}`]?.fontStyle === 'italic' ? 'normal' : 'italic');
     }
-  }}
->I</button>
+  }}>I</button>
 
-<button
-  className="underline"
-  onClick={() => {
+  <button className="underline" onClick={() => {
     if (selectedCell) {
       const [row, col] = selectedCell;
       updateStyle(row, col, 'textDecoration', cellStyles[`${row}-${col}`]?.textDecoration === 'underline' ? 'none' : 'underline');
     }
-  }}
->U</button>
+  }}>U</button>
 
-<button
-  onClick={() => {
+  <button onClick={() => {
     if (selectedCell) {
       const [row, col] = selectedCell;
       const val = parseFloat(data[row][col].replace(/[^\d.-]/g, '')) || 0;
       handleCellChange(row, col, `R$ ${val.toFixed(2).replace('.', ',')}`);
     }
-  }}
->R$</button>
+  }}>R$</button>
 
-<button
-  onClick={() => {
+  <button onClick={() => {
     if (selectedCell) {
       const [row, col] = selectedCell;
       const val = parseFloat(data[row][col].replace(/[^\d.-]/g, '')) || 0;
       handleCellChange(row, col, `$ ${val.toFixed(2).replace('.', ',')}`);
     }
-  }}
->$</button>
+  }}>$</button>
 
-<button
-  onClick={() => {
+  <button onClick={() => {
     if (selectedCell) {
       const [row, col] = selectedCell;
       const val = parseFloat(data[row][col].replace(/[^\d.-]/g, '')) || 0;
       handleCellChange(row, col, `${(val * 100).toFixed(0)}%`);
     }
-  }}
->100%</button>
+  }}>100%</button>
 
-<button
-  onClick={() => {
+  <button onClick={() => {
     if (selectedCell) {
       const [row, col] = selectedCell;
       const val = parseFloat(data[row][col].replace(/[^\d.-]/g, '')) || 0;
       handleCellChange(row, col, val.toFixed(2));
     }
-  }}
->.00</button>
+  }}>.00</button>
 
-<button onClick={() => {
-  if (selectedCell) {
-    const [row, col] = selectedCell;
-    updateStyle(row, col, 'textAlign', 'left');
-  }
-}}>
-  <AlignLeft className="w-4 h-4" />
-</button>
+  <button onClick={() => {
+    if (selectedCell) {
+      const [row, col] = selectedCell;
+      updateStyle(row, col, 'textAlign', 'left');
+    }
+  }}>
+    <AlignLeft className="w-4 h-4" />
+  </button>
 
-<button onClick={() => {
-  if (selectedCell) {
-    const [row, col] = selectedCell;
-    updateStyle(row, col, 'textAlign', 'center');
-  }
-}}>
-  <AlignCenter className="w-4 h-4" />
-</button>
+  <button onClick={() => {
+    if (selectedCell) {
+      const [row, col] = selectedCell;
+      updateStyle(row, col, 'textAlign', 'center');
+    }
+  }}>
+    <AlignCenter className="w-4 h-4" />
+  </button>
 
-<button onClick={() => {
-  if (selectedCell) {
-    const [row, col] = selectedCell;
-    updateStyle(row, col, 'textAlign', 'right');
-  }
-}}>
-  <AlignRight className="w-4 h-4" />
-</button>
+  <button onClick={() => {
+    if (selectedCell) {
+      const [row, col] = selectedCell;
+      updateStyle(row, col, 'textAlign', 'right');
+    }
+  }}>
+    <AlignRight className="w-4 h-4" />
+  </button>
 
-      </div>
+  {/* Botão de gráfico + dropdown */}
+  <button
+    className="bg-indigo-500 text-white px-2 py-1 rounded"
+    onClick={() => setShowChart(!showChart)}
+  >
+    {showChart ? 'Ocultar Gráfico' : 'Ver Gráfico'}
+  </button>
+
+  {showChart && (
+    <select
+      onChange={(e) => setSelectedColumnChart(Number(e.target.value))}
+      className="border px-2 py-1 rounded text-sm"
+    >
+      {data[0]?.map((_, colIdx) => (
+        <option key={colIdx} value={colIdx}>
+          Coluna {String.fromCharCode(65 + colIdx)}
+        </option>
+      ))}
+    </select>
+  )}
+</div>
+
+
+      {showChart && (
+  <div className="bg-white p-4 mt-6 rounded-lg shadow">
+    <h2 className="text-lg font-semibold mb-4">Gráfico de Coluna A</h2>
+    <ResponsiveContainer width="100%" height={300}>
+      <BarChart data={data.map((row, i) => ({
+        name: `Linha ${i + 1}`,
+        valor: parseFloat(row[0]) || 0,
+      }))}>
+        <CartesianGrid strokeDasharray="3 3" />
+        <XAxis dataKey="name" />
+        <YAxis />
+        <Tooltip />
+        <Bar dataKey="valor" fill="#3b82f6" />
+      </BarChart>
+    </ResponsiveContainer>
+  </div>
+)}
+
+
 
       <div className="overflow-auto">
         <table className="min-w-full bg-white rounded-lg shadow">
-          <thead className="bg-gray-100 sticky top-0">
-            <tr>
-              <th className="border p-2">#</th>
-              {data[0]?.map((_, col) => (
-                <th key={col} className="border p-2 text-center bg-gray-100">
-                  {String.fromCharCode(65 + col)}
+        <DragDropContext
+  onDragEnd={({ source, destination }) => {
+    if (!destination) return;
+    const from = source.index;
+    const to = destination.index;
+
+    const reordered = data.map((row) => {
+      const newRow = [...row];
+      const [moved] = newRow.splice(from, 1);
+      newRow.splice(to, 0, moved);
+      return newRow;
+    });
+
+    setData(reordered);
+    recordHistory(reordered);
+  }}
+>
+  <Droppable droppableId="columns" direction="horizontal" type="column">
+    {(provided) => (
+      <thead className="bg-gray-100 sticky top-0" ref={provided.innerRef} {...provided.droppableProps}>
+        <tr>
+          <th className="border p-2">#</th>
+          {data[0]?.map((_, colIndex) => (
+            <Draggable key={colIndex} draggableId={`col-${colIndex}`} index={colIndex}>
+              {(provided) => (
+                <th
+                  {...provided.draggableProps}
+                  {...provided.dragHandleProps}
+                  ref={provided.innerRef}
+                  className="border p-2 text-center bg-gray-100 cursor-move"
+                >
+                  <GripVertical className="inline-block mr-1 text-gray-400" />
+                  {String.fromCharCode(65 + colIndex)}
                 </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
+              )}
+            </Draggable>
+          ))}
+          {provided.placeholder}
+        </tr>
+      </thead>
+    )}
+  </Droppable>
+</DragDropContext>
+<tbody>
   {data.map((row, rowIndex) => (
     <tr key={rowIndex}>
       <td className="border p-1 bg-gray-100 text-center">{rowIndex + 1}</td>
       {row.map((cell, colIndex) => {
-        const isSelected =
-          selectedCell &&
-          selectedCell[0] === rowIndex &&
-          selectedCell[1] === colIndex;
-
+        const isSelected = selectedCell?.[0] === rowIndex && selectedCell?.[1] === colIndex;
         return (
           <td
             key={colIndex}
-            className={`border p-1 relative ${
-              isSelected ? 'outline outline-blue-500 outline-2 z-10' : ''
-            }`}
+            className={`border p-1 relative ${isSelected ? 'outline outline-blue-500 outline-2 z-10' : ''}`}
             onClick={() => handleCellFocus(rowIndex, colIndex)}
           >
             <input
-             ref={(el) => {
-              if (el) inputRefs.current[`${rowIndex}-${colIndex}`] = el;
-            }}
+              ref={(el) => {
+                if (el) inputRefs.current[`${rowIndex}-${colIndex}`] = el;
+              }}
               type="text"
               className="cell w-full text-center bg-transparent focus:outline-none transition-all duration-75"
               style={cellStyles[`${rowIndex}-${colIndex}`] || {}}
@@ -910,6 +996,17 @@ const SheetEditor = ({
 
         </table>
       </div>
+      {/* {showChart && (
+  <ChartView data={data} selectedColumn={selectedColumnChart} />
+)} */}
+
+{showChart && (
+  <>
+    <ChartView data={data} selectedColumn={selectedColumnChart} />
+    <PieChartView data={data} selectedColumn={selectedColumnChart} />
+  </>
+)}
+
     </section>
   );
 };
@@ -945,6 +1042,60 @@ const RenameModal = ({ currentName, onClose, onSave }) => {
           </button>
         </div>
       </div>
+    </div>
+  );
+};
+
+const ChartView = ({ data, selectedColumn }) => {
+  const chartData = data.map((row, i) => ({
+    name: `Linha ${i + 1}`,
+    valor: parseFloat(row[selectedColumn]) || 0,
+  }));
+
+  return (
+    <div className="w-full h-96 bg-white p-4 rounded shadow mt-4">
+      <ResponsiveContainer width="100%" height="100%">
+        <BarChart data={chartData}>
+          <CartesianGrid strokeDasharray="3 3" />
+          <XAxis dataKey="name" />
+          <YAxis />
+          <RechartsTooltip />
+          <RechartsLegend />
+          <Bar dataKey="valor" fill="#3b82f6" />
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
+  );
+};
+
+const PieChartView = ({ data, selectedColumn }) => {
+  const valores = data
+    .map(row => row[selectedColumn])
+    .filter(val => val && !isNaN(parseFloat(val)))
+    .map(val => parseFloat(val));
+
+  const labels = valores.map((_, i) => `Linha ${i + 1}`);
+
+  const chartData = {
+    labels,
+    datasets: [
+      {
+        label: 'Distribuição',
+        data: valores,
+        backgroundColor: [
+          '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6',
+          '#ec4899', '#14b8a6', '#f43f5e', '#22c55e', '#eab308'
+        ],
+        borderColor: '#ffffff',
+        borderWidth: 2,
+      },
+    ],
+  };
+
+  return (
+    <div className="w-full bg-white p-4 mt-4 rounded shadow">
+      <h2 className="text-lg font-semibold mb-2">Gráfico de Pizza</h2>
+      <Pie data={chartData} />
     </div>
   );
 };
