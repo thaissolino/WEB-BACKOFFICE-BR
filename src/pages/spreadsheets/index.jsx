@@ -1,3 +1,4 @@
+import React from 'react';
 import { useState, useEffect, useRef } from 'react';
 import { FileText, Edit, Trash2, CornerUpLeft, CornerUpRight, Printer, AlignLeft, AlignCenter, AlignRight } from 'lucide-react';
 import { useMediaQuery } from "@mui/material";
@@ -76,12 +77,11 @@ const Spreadsheets = () => {
   const [showRenameModal, setShowRenameModal] = useState(false);
   const [history, setHistory] = useState([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
-  const [selectedCell, setSelectedCell] = useState([0, 0]);
-  const [styles, setStyles] = useState([]);
   const isMobile = useMediaQuery("(max-width: 768px)");
   const fileInputRef = useRef(null);
   const [selectedSheetIndex, setSelectedSheetIndex] = useState(null);
   const [showChart, setShowChart] = useState(false);
+  const [columnWidths, setColumnWidths] = useState([]); 
 
   useEffect(() => {
     const savedSheets = localStorage.getItem('bluesheets');
@@ -159,25 +159,28 @@ const Spreadsheets = () => {
     }
   };
 
-  const handleSave = (data, title) => {
-    const newSheet = { title, rows: data };
+  const handleSave = (data, title, widths = columnWidths) => {
+    const newSheet = { title, rows: data, widths };
     let newSheets;
-    
+  
     if (currentSheetIndex >= 0) {
       newSheets = [...sheets];
       newSheets[currentSheetIndex] = newSheet;
     } else {
       newSheets = [...sheets, newSheet];
     }
-    
+  
     saveSheets(newSheets);
     setShowEditor(false);
   };
+  
 
   const handleSelectSheet = (index) => {
     setCurrentSheetIndex(index);
     setCurrentData([...sheets[index].rows]);
     setSheetTitle(sheets[index].title);
+    setCellStyles(sheets[index].styles || {});
+    setColumnWidths(sheets[index].widths || []); // 👈 ADICIONE ISSO AQUI!
     setShowEditor(true);
     initHistory(sheets[index].rows);
   };
@@ -313,7 +316,7 @@ const Spreadsheets = () => {
           currentData={currentData}
           sheetTitle={sheetTitle}
           onClose={() => setShowEditor(false)}
-          onSave={handleSave}
+          onSave={(data, title, widths) => handleSave(data, title, widths)}
           onRename={() => setShowRenameModal(true)}
           onUndo={handleUndo}
           onRedo={handleRedo}
@@ -322,6 +325,11 @@ const Spreadsheets = () => {
           recordHistory={recordHistory}
           cellStyles={cellStyles}
           setCellStyles={setCellStyles}
+          currentSheetIndex={currentSheetIndex} // 👈 ADICIONE ISSO
+          sheets={sheets} // 👈 ADICIONE ISSO
+          columnWidths={columnWidths}
+          setColumnWidths={setColumnWidths}
+
         />
       ) : (
         <SheetList
@@ -452,7 +460,10 @@ const SheetEditor = ({
   onRedo,
   canUndo,
   canRedo,
-  recordHistory
+  recordHistory,
+  currentSheetIndex,
+  sheets,
+  columnWidths, setColumnWidths
 }) => {
   const [data, setData] = useState(currentData);
   const [title, setTitle] = useState(sheetTitle);
@@ -462,6 +473,11 @@ const SheetEditor = ({
   const [clipboardData, setClipboardData] = useState('');
   const [showChart, setShowChart] = useState(false);
   const [selectedColumnChart, setSelectedColumnChart] = useState(0);
+  const [formulaMode, setFormulaMode] = useState(false);
+  const [editingCell, setEditingCell] = useState(null);
+  const [formulaContextMenu, setFormulaContextMenu] = useState({ show: false, x: 0, y: 0 });
+  const [formulaToInsert, setFormulaToInsert] = useState(null);
+  const [formulaSearch, setFormulaSearch] = useState("");
 
   useEffect(() => {
     setData(currentData);
@@ -471,12 +487,24 @@ const SheetEditor = ({
     setTitle(sheetTitle);
   }, [sheetTitle]);
   
+  // Carrega larguras ao editar planilha
+useEffect(() => {
+  if (currentSheetIndex >= 0 && sheets[currentSheetIndex].widths) {
+    setColumnWidths(sheets[currentSheetIndex].widths);
+  }
+}, [currentSheetIndex]);
+
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (!selectedCell) return;
   
       const [row, col] = selectedCell;
   
+      if (e.key === 'Escape') {
+        setFormulaMode(false);
+        setEditingCell(null);
+      }
+
       // Copiar e colar com Ctrl ou Cmd
       if (e.ctrlKey || e.metaKey) {
         if (e.key === 'c') {
@@ -538,13 +566,44 @@ const SheetEditor = ({
     recordHistory(newData); 
   };
 
-  const handleCellFocus = (row, col) => {
+  // 👇 Atualize sua função handleCellFocus para incluir botão direito
+  const handleCellFocus = (row, col, event = null) => {
     setSelectedCell([row, col]);
+  
+    if (event?.type === 'contextmenu') {
+      event.preventDefault();
+      setFormulaContextMenu({ show: true, x: event.clientX, y: event.clientY });
+      setEditingCell([row, col]);
+      return;
+    }
+  
     setTimeout(() => {
       const el = inputRefs.current[`${row}-${col}`];
-      if (el) el.focus();
+      if (el) {
+        el.focus();
+        if (el.value.startsWith('=')) {
+          setFormulaMode(true);
+          setEditingCell([row, col]);
+        } else {
+          setFormulaMode(false);
+          setEditingCell(null);
+        }
+      }
     }, 0);
   };
+  
+  // ✅ Adicione esse helper para combinar ref de DnD com lógica de onmouseup
+  const setThRef = (el, colIndex, provided, columnWidths, setColumnWidths) => {
+    if (el) {
+      provided.innerRef(el); // aplica o ref do Draggable
+      el.onmouseup = () => {
+        const newWidths = [...columnWidths];
+        newWidths[colIndex] = el.offsetWidth;
+        setColumnWidths(newWidths);
+      };
+    }
+  };
+  
 
   const updateStyle = (row, col, styleProp, value) => {
     const key = `${row}-${col}`;
@@ -578,9 +637,86 @@ const SheetEditor = ({
   };
 
   function calculateFormula(formula) {
-    formula = formula.substring(1).trim(); // remove o '='
+    formula = formula.substring(1).trim().toUpperCase();
+   // formula = formula.toUpperCase(); // 🔥 ignora maiúsculas/minúsculas
   
     try {
+
+      // =DIVIDIR(...)
+      if (formula.startsWith('DIVIDIR(')) {
+        const inside = formula.match(/\(([^)]+)\)/)?.[1];
+        if (!inside) return formula;
+        const refs = inside.split(';').map(ref => ref.trim());
+        const values = refs.map(ref => evaluateCellExpression(ref));
+        const result = values.reduce((acc, val) => (parseFloat(val) !== 0 ? acc / (parseFloat(val) || 1) : acc));
+      
+        const allReais = refs.every(ref => {
+          const col = ref.charCodeAt(0) - 65;
+          const row = parseInt(ref.substring(1)) - 1;
+          return currentData[row]?.[col]?.includes('R$');
+        });
+      
+        const allDollar = refs.every(ref => {
+          const col = ref.charCodeAt(0) - 65;
+          const row = parseInt(ref.substring(1)) - 1;
+          return currentData[row]?.[col]?.includes('$') && !currentData[row][col].includes('R$');
+        });
+      
+        if (allReais) return `R$ ${result.toFixed(2).replace('.', ',')}`;
+        if (allDollar) return `$ ${result.toFixed(2).replace('.', ',')}`;
+        return result;
+      }
+
+// =MULT(A1;B1;C2;E5)
+if (formula.startsWith('MULT(')) {
+  const inside = formula.match(/\(([^)]+)\)/)?.[1];
+  if (!inside) return formula;
+  const refs = inside.split(';').map(ref => ref.trim());
+  const values = refs.map(ref => evaluateCellExpression(ref));
+  const product = values.reduce((acc, val) => acc * (parseFloat(val) || 0), 1);
+
+  const allReais = refs.every(ref => {
+    const col = ref.charCodeAt(0) - 65;
+    const row = parseInt(ref.substring(1)) - 1;
+    return currentData[row]?.[col]?.includes('R$');
+  });
+
+  const allDollar = refs.every(ref => {
+    const col = ref.charCodeAt(0) - 65;
+    const row = parseInt(ref.substring(1)) - 1;
+    return currentData[row]?.[col]?.includes('$') && !currentData[row][col].includes('R$');
+  });
+
+  if (allReais) return `R$ ${product.toFixed(2).replace('.', ',')}`;
+  if (allDollar) return `$ ${product.toFixed(2).replace('.', ',')}`;
+  return product;
+}
+
+// =SUB(A1;B1;C2;E5)
+if (formula.startsWith('SUB(')) {
+  const inside = formula.match(/\(([^)]+)\)/)?.[1];
+  if (!inside) return formula;
+  const refs = inside.split(';').map(ref => ref.trim());
+  const values = refs.map(ref => evaluateCellExpression(ref));
+  const result = values.reduce((acc, val) => acc - (parseFloat(val) || 0));
+
+  const allReais = refs.every(ref => {
+    const col = ref.charCodeAt(0) - 65;
+    const row = parseInt(ref.substring(1)) - 1;
+    return currentData[row]?.[col]?.includes('R$');
+  });
+
+  const allDollar = refs.every(ref => {
+    const col = ref.charCodeAt(0) - 65;
+    const row = parseInt(ref.substring(1)) - 1;
+    return currentData[row]?.[col]?.includes('$') && !currentData[row][col].includes('R$');
+  });
+
+  if (allReais) return `R$ ${result.toFixed(2).replace('.', ',')}`;
+  if (allDollar) return `$ ${result.toFixed(2).replace('.', ',')}`;
+  return result;
+}
+
       // =SE(condição; verdadeiro; falso)
       if (formula.startsWith('SE(')) {
         const inside = formula.match(/\((.*)\)/)?.[1];
@@ -591,15 +727,42 @@ const SheetEditor = ({
         return condEval ? valTrue : valFalse;
       }
   
-      // =SOMA(A1:A3)
-      if (formula.startsWith('SOMA(')) {
-        return sumFromRange(formula);
-      }
-  
-      // =MÉDIA(A1:A3)
-      if (formula.startsWith('MÉDIA(')) {
-        return averageFromRange(formula);
-      }
+    // =SOMA(A1:B3) ou SOMA(A1;B3)
+    if (formula.startsWith('SOMA(')) {
+      const inside = formula.match(/\(([^)]+)\)/)?.[1];
+      if (!inside) return formula;
+      const refs = inside.split(/[:;]/).map(ref => ref.trim());
+      const values = refs.map((ref) => evaluateCellExpression(ref));
+      const total = values.reduce((acc, v) => acc + (parseFloat(v) || 0), 0);
+    
+      const allReais = refs.every(ref => {
+        const col = ref.charCodeAt(0) - 65;
+        const row = parseInt(ref.substring(1)) - 1;
+        return currentData[row]?.[col]?.includes('R$');
+      });
+    
+      const allDollar = refs.every(ref => {
+        const col = ref.charCodeAt(0) - 65;
+        const row = parseInt(ref.substring(1)) - 1;
+        return currentData[row]?.[col]?.includes('$') && !currentData[row][col].includes('R$');
+      });
+    
+      if (allReais) return `R$ ${total.toFixed(2).replace('.', ',')}`;
+      if (allDollar) return `$ ${total.toFixed(2).replace('.', ',')}`;
+    
+      return total;
+    }
+    
+
+// =MÉDIA(A1:B3) ou MEDIA(A1;B3)
+if (formula.startsWith('MÉDIA(') || formula.startsWith('MEDIA(')) {
+  const inside = formula.match(/\(([^)]+)\)/)?.[1];
+  if (!inside) return formula;
+  const [start, end] = inside.split(/[:;]/).map(s => s.trim());
+  if (!start || !end) return formula;
+  return averageFromRange(`${start}:${end}`);
+}
+
   
       // =PROCV(valor; intervalo; coluna)
       if (formula.startsWith('PROCV(')) {
@@ -626,9 +789,8 @@ const SheetEditor = ({
         return 'Não encontrado';
       }
   
-      function sumFromRange(formula) {
-        const inside = formula.match(/\((.*)\)/)?.[1];
-        const [startCell, endCell] = inside.split(':');
+      function sumFromRange(range) {
+        const [startCell, endCell] = range.split(':');
         const startRow = parseInt(startCell.substring(1)) - 1;
         const startCol = startCell.charCodeAt(0) - 65;
         const endRow = parseInt(endCell.substring(1)) - 1;
@@ -643,9 +805,8 @@ const SheetEditor = ({
         return sum;
       }
       
-      function averageFromRange(formula) {
-        const inside = formula.match(/\((.*)\)/)?.[1];
-        const [startCell, endCell] = inside.split(':');
+      function averageFromRange(range) {
+        const [startCell, endCell] = range.split(':');
         const startRow = parseInt(startCell.substring(1)) - 1;
         const startCol = startCell.charCodeAt(0) - 65;
         const endRow = parseInt(endCell.substring(1)) - 1;
@@ -662,7 +823,7 @@ const SheetEditor = ({
           }
         }
         return count > 0 ? sum / count : 0;
-      }
+      }    
 
       // Expressões diretas como =A1+B2*3
       return evaluateCellExpression(formula);
@@ -675,15 +836,33 @@ const SheetEditor = ({
   
 
   function evaluateCellExpression(expr) {
-    // Substitui todas as referências tipo A1, B2, etc. por seus valores
-    const replaced = expr.replace(/[A-Z]+[0-9]+/g, (match) => {
+    const cleanedExpr = expr.replace(/[A-Z]+[0-9]+/g, (match) => {
       const col = match.charCodeAt(0) - 65;
       const row = parseInt(match.substring(1)) - 1;
-      return parseFloat(currentData[row]?.[col]) || 0;
+      let val = currentData[row]?.[col] ?? '';
+  
+      if (typeof val === 'string') {
+        val = val
+          .replace(/[^\d.,-]/g, '') // remove símbolos como R$, %, $
+          .replace(',', '.');
+      }
+  
+      return parseFloat(val) || 0;
     });
   
-    return eval(replaced);
+    return eval(cleanedExpr);
   }
+  
+  function getCellDisplayValue(val) {
+    if (typeof val === 'string' && val.trim().startsWith('=')) {
+      try {
+        return calculateFormula(val);
+      } catch (err) {
+        return 'Erro';
+      }
+    }
+    return val;
+  }  
   
   return (
     <section className="p-4">
@@ -724,7 +903,7 @@ const SheetEditor = ({
             - Coluna
           </button>
           <button
-            onClick={() => onSave(data, title)}
+            onClick={() => onSave(data, title, columnWidths)}
             className="bg-green-600 text-white px-4 py-1 rounded-lg"
           >
             Salvar
@@ -936,19 +1115,20 @@ const SheetEditor = ({
         <tr>
           <th className="border p-2">#</th>
           {data[0]?.map((_, colIndex) => (
-            <Draggable key={colIndex} draggableId={`col-${colIndex}`} index={colIndex}>
-              {(provided) => (
-                <th
-                  {...provided.draggableProps}
-                  {...provided.dragHandleProps}
-                  ref={provided.innerRef}
-                  className="border p-2 text-center bg-gray-100 cursor-move"
-                >
-                  <GripVertical className="inline-block mr-1 text-gray-400" />
-                  {String.fromCharCode(65 + colIndex)}
-                </th>
-              )}
-            </Draggable>
+           <Draggable key={colIndex} draggableId={`col-${colIndex}`} index={colIndex}>
+           {(provided) => (
+             <th
+             ref={(el) => setThRef(el, colIndex, provided, columnWidths, setColumnWidths)}
+             style={{ width: columnWidths[colIndex] || 'auto' }}
+             {...provided.draggableProps}
+             {...provided.dragHandleProps}
+               className="border px-4 py-2 text-center bg-gray-100 min-w-[80px] resize-x overflow-auto"
+             >
+               <GripVertical className="inline-block mr-1 text-gray-400" />
+               {String.fromCharCode(65 + colIndex)}
+             </th>
+           )}
+         </Draggable>
           ))}
           {provided.placeholder}
         </tr>
@@ -966,8 +1146,33 @@ const SheetEditor = ({
           <td
             key={colIndex}
             className={`border p-1 relative ${isSelected ? 'outline outline-blue-500 outline-2 z-10' : ''}`}
-            onClick={() => handleCellFocus(rowIndex, colIndex)}
-          >
+            onClick={() => {
+              if (
+                formulaMode &&
+                editingCell &&
+                !(editingCell[0] === rowIndex && editingCell[1] === colIndex)
+              ) {
+                const [editRow, editCol] = editingCell;
+                const ref = `${String.fromCharCode(65 + colIndex)}${rowIndex + 1}`;
+                const current = data[editRow][editCol] || "=";
+            
+                let updated = current;
+                if (updated === "=" || updated.endsWith("=")) {
+                  updated += ref;
+                } else {
+                  updated += "+" + ref;
+                }
+                
+            
+                handleCellChange(editRow, editCol, updated);
+                handleCellFocus(editRow, editCol);
+              } else {
+                handleCellFocus(rowIndex, colIndex);
+              }
+            }} 
+            onContextMenu={(e) => handleCellFocus(rowIndex, colIndex, e)}
+
+             >
             <input
               ref={(el) => {
                 if (el) inputRefs.current[`${rowIndex}-${colIndex}`] = el;
@@ -975,16 +1180,36 @@ const SheetEditor = ({
               type="text"
               className="cell w-full text-center bg-transparent focus:outline-none transition-all duration-75"
               style={cellStyles[`${rowIndex}-${colIndex}`] || {}}
-              value={cell}
+              value={getCellDisplayValue(cell)}
               onChange={(e) => {
                 const val = e.target.value;
-                if (val.startsWith('=')) {
-                  const calc = calculateFormula(val);
-                  handleCellChange(rowIndex, colIndex, calc);
+              
+                handleCellChange(rowIndex, colIndex, val); // Sempre atualiza valor bruto
+              
+                if (val === "=" || val.startsWith("=")) {
+                  setFormulaMode(true);
+                  setEditingCell([rowIndex, colIndex]);
                 } else {
+                  setFormulaMode(false);
+                  setEditingCell(null);
+                }
+              }}    
+              onBlur={() => {
+                let val = data[rowIndex][colIndex];
+                const functions = ['SOMA', 'MULT', 'SUB', 'DIVIDIR', 'MÉDIA', 'MEDIA', 'PROCV', 'SE'];
+                const startsWithFn = functions.find(f => val?.toUpperCase().startsWith(f + '('));
+              
+                if (startsWithFn && !val.startsWith('=')) {
+                  val = '=' + val;
                   handleCellChange(rowIndex, colIndex, val);
                 }
+              
+                if (typeof val === 'string' && val.startsWith('=')) {
+                  setFormulaMode(false);
+                  setEditingCell(null);
+                }
               }}
+                                                
               onFocus={() => handleCellFocus(rowIndex, colIndex)}
             />
           </td>
@@ -1006,6 +1231,61 @@ const SheetEditor = ({
     <PieChartView data={data} selectedColumn={selectedColumnChart} />
   </>
 )}
+
+{formulaContextMenu.show && (
+  <div
+    className="fixed z-50 bg-white border rounded shadow p-2 text-sm w-64"
+    style={{ top: formulaContextMenu.y, left: formulaContextMenu.x }}
+    onMouseLeave={() => setFormulaContextMenu({ show: false, x: 0, y: 0 })}
+  >
+    <p className="font-semibold mb-1 text-gray-700">Inserir fórmula</p>
+    <input
+      type="text"
+      placeholder="Buscar fórmula..."
+      value={formulaSearch}
+      onChange={(e) => setFormulaSearch(e.target.value)}
+      className="w-full px-2 py-1 border rounded text-sm mb-2"
+    />
+    {[{
+      icon: 'FunctionSquare', label: 'SOMA(A;B)', value: 'SOMA'
+    }, {
+      icon: 'EqualNot', label: 'MEDIA(A;B)', value: 'MEDIA'
+    }, {
+      icon: 'Minus', label: 'SUB(A;B)', value: 'SUB'
+    }, {
+      icon: 'X', label: 'MULT(A;B)', value: 'MULT'
+    }, {
+      icon: 'Divide', label: 'DIVIDIR(A;B)', value: 'DIVIDIR'
+    }, {
+      icon: 'Search', label: 'PROCV(valor;intervalo;coluna)', value: 'PROCV'
+    }, {
+      icon: 'CheckCircle', label: 'SE(condição;verdadeiro;falso)', value: 'SE'
+    }]
+      .filter(f => f.label.toLowerCase().includes(formulaSearch.toLowerCase()))
+      .map((f) => (
+        <button
+          key={f.value}
+          className="flex items-center gap-2 w-full text-left px-2 py-1 hover:bg-blue-100"
+          onClick={() => {
+            if (editingCell) {
+              const [row, col] = editingCell;
+              handleCellChange(row, col, `=${f.value}()`);
+              setFormulaContextMenu({ show: false, x: 0, y: 0 });
+              setFormulaMode(false);
+              setEditingCell(null);
+            }
+          }}
+        >
+                  <span className="w-4 h-4 text-blue-600">{React.createElement(require('lucide-react')[f.icon], { size: 16, className: "text-blue-600" })}
+           </span>
+                  {f.label}
+        </button>
+      ))}
+  </div>
+)}
+
+
+
 
     </section>
   );
