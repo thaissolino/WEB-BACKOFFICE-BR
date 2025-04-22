@@ -462,7 +462,9 @@ const SheetEditor = ({
   const [clipboardData, setClipboardData] = useState('');
   const [showChart, setShowChart] = useState(false);
   const [selectedColumnChart, setSelectedColumnChart] = useState(0);
-
+  const [formulaMode, setFormulaMode] = useState(false);
+  const [editingCell, setEditingCell] = useState(null);
+  
   useEffect(() => {
     setData(currentData);
   }, [currentData]);
@@ -477,6 +479,11 @@ const SheetEditor = ({
   
       const [row, col] = selectedCell;
   
+      if (e.key === 'Escape') {
+        setFormulaMode(false);
+        setEditingCell(null);
+      }
+
       // Copiar e colar com Ctrl ou Cmd
       if (e.ctrlKey || e.metaKey) {
         if (e.key === 'c') {
@@ -542,9 +549,21 @@ const SheetEditor = ({
     setSelectedCell([row, col]);
     setTimeout(() => {
       const el = inputRefs.current[`${row}-${col}`];
-      if (el) el.focus();
+      if (el) {
+        el.focus();
+  
+        // 👇 Ativa o modo fórmula se a célula começar com "="
+        if (el.value.startsWith("=")) {
+          setFormulaMode(true);
+          setEditingCell([row, col]);
+        } else {
+          setFormulaMode(false);
+          setEditingCell(null);
+        }
+      }
     }, 0);
   };
+  
 
   const updateStyle = (row, col, styleProp, value) => {
     const key = `${row}-${col}`;
@@ -579,6 +598,7 @@ const SheetEditor = ({
 
   function calculateFormula(formula) {
     formula = formula.substring(1).trim(); // remove o '='
+    formula = formula.toUpperCase(); // 🔥 ignora maiúsculas/minúsculas
   
     try {
       // =SE(condição; verdadeiro; falso)
@@ -684,6 +704,21 @@ const SheetEditor = ({
   
     return eval(replaced);
   }
+
+  function getCellDisplayValue(val) {
+    if (typeof val === 'string' && val.startsWith('=')) {
+      try {
+        // Só calcula se tiver algo após o '=' e não estiver no modo de edição
+        if (!formulaMode) {
+          return calculateFormula(val);
+        }
+        return val;
+      } catch (err) {
+        return 'Erro';
+      }
+    }
+    return val;
+  }  
   
   return (
     <section className="p-4">
@@ -942,8 +977,8 @@ const SheetEditor = ({
                   {...provided.draggableProps}
                   {...provided.dragHandleProps}
                   ref={provided.innerRef}
-                  className="border p-2 text-center bg-gray-100 cursor-move"
-                >
+                  className="border px-4 py-2 text-center bg-gray-100 min-w-[80px] resize-x overflow-auto"
+                  >
                   <GripVertical className="inline-block mr-1 text-gray-400" />
                   {String.fromCharCode(65 + colIndex)}
                 </th>
@@ -966,8 +1001,31 @@ const SheetEditor = ({
           <td
             key={colIndex}
             className={`border p-1 relative ${isSelected ? 'outline outline-blue-500 outline-2 z-10' : ''}`}
-            onClick={() => handleCellFocus(rowIndex, colIndex)}
-          >
+            onClick={() => {
+              if (
+                formulaMode &&
+                editingCell &&
+                !(editingCell[0] === rowIndex && editingCell[1] === colIndex)
+              ) {
+                const [editRow, editCol] = editingCell;
+                const ref = `${String.fromCharCode(65 + colIndex)}${rowIndex + 1}`;
+                const current = data[editRow][editCol] || "=";
+            
+                let updated = current;
+                if (updated === "=" || updated.endsWith("=")) {
+                  updated += ref;
+                } else {
+                  updated += "+" + ref;
+                }
+                
+            
+                handleCellChange(editRow, editCol, updated);
+                handleCellFocus(editRow, editCol);
+              } else {
+                handleCellFocus(rowIndex, colIndex);
+              }
+            }}             
+             >
             <input
               ref={(el) => {
                 if (el) inputRefs.current[`${rowIndex}-${colIndex}`] = el;
@@ -975,16 +1033,20 @@ const SheetEditor = ({
               type="text"
               className="cell w-full text-center bg-transparent focus:outline-none transition-all duration-75"
               style={cellStyles[`${rowIndex}-${colIndex}`] || {}}
-              value={cell}
+              value={getCellDisplayValue(cell)}
               onChange={(e) => {
                 const val = e.target.value;
-                if (val.startsWith('=')) {
-                  const calc = calculateFormula(val);
-                  handleCellChange(rowIndex, colIndex, calc);
+              
+                handleCellChange(rowIndex, colIndex, val); // Sempre atualiza valor bruto
+              
+                if (val === "=" || val.startsWith("=")) {
+                  setFormulaMode(true);
+                  setEditingCell([rowIndex, colIndex]);
                 } else {
-                  handleCellChange(rowIndex, colIndex, val);
+                  setFormulaMode(false);
+                  setEditingCell(null);
                 }
-              }}
+              }}              
               onFocus={() => handleCellFocus(rowIndex, colIndex)}
             />
           </td>
