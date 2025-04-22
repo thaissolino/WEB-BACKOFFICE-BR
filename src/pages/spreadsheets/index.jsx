@@ -2,14 +2,72 @@ import { useState, useEffect, useRef } from 'react';
 import { FileText, Edit, Trash2, CornerUpLeft, CornerUpRight, Printer, AlignLeft, AlignCenter, AlignRight } from 'lucide-react';
 import { useMediaQuery } from "@mui/material";
 import SpreadsheetsMobile from './spreadsheetsMobile';
+import './style.css';
+import { GripVertical } from 'lucide-react';
+import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
+import debounce from 'lodash.debounce';
+import {
+  ResponsiveContainer,
+  BarChart,
+  CartesianGrid,
+  XAxis,
+  YAxis,
+  Tooltip as RechartsTooltip,
+  Legend as RechartsLegend,
+  Bar
+} from 'recharts';
+import {  Pie } from 'react-chartjs-2';
+import {
+  Chart as ChartJS,
+  BarElement,
+  CategoryScale as ChartCategoryScale,
+  LinearScale as ChartLinearScale,
+  Tooltip,
+  Legend as ChartLegend,
+  ArcElement
+} from 'chart.js';
 
+//ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, ChartTooltip, ChartLegend);
+ChartJS.register(
+  ArcElement,
+  Tooltip,
+  ChartLegend,
+  ChartCategoryScale,
+  ChartLinearScale,
+  BarElement
+);
 const excelFonts = [
-  'Calibri', 'Arial', 'Times New Roman', 'Verdana', 'Courier New'
+  'Calibri',
+  'Cambria',
+  'Candara',
+  'Consolas',
+  'Constantia',
+  'Corbel',
+  'Arial',
+  'Arial Black',
+  'Comic Sans MS',
+  'Courier New',
+  'Georgia',
+  'Impact',
+  'Lucida Console',
+  'Lucida Sans Unicode',
+  'Palatino Linotype',
+  'Segoe UI',
+  'Tahoma',
+  'Times New Roman',
+  'Trebuchet MS',
+  'Verdana'
 ];
 
-const excelFontSizes = [8, 9, 10, 11, 12, 14, 16, 18, 20];
+
+const excelFontSizes = [
+  8, 9, 10, 11, 12, 14, 16, 18,
+  20, 22, 24, 26, 28, 36, 48, 72
+];
 
 const Spreadsheets = () => {
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [cellStyles, setCellStyles] = useState({});
   const [sheets, setSheets] = useState([]);
   const [currentData, setCurrentData] = useState([]);
   const [currentSheetIndex, setCurrentSheetIndex] = useState(-1);
@@ -22,6 +80,8 @@ const Spreadsheets = () => {
   const [styles, setStyles] = useState([]);
   const isMobile = useMediaQuery("(max-width: 768px)");
   const fileInputRef = useRef(null);
+  const [selectedSheetIndex, setSelectedSheetIndex] = useState(null);
+  const [showChart, setShowChart] = useState(false);
 
   useEffect(() => {
     const savedSheets = localStorage.getItem('bluesheets');
@@ -38,18 +98,41 @@ const Spreadsheets = () => {
   const handleImport = (e) => {
     const file = e.target.files[0];
     if (!file) return;
-
+  
     const reader = new FileReader();
     reader.onload = (event) => {
       const content = event.target.result;
-      const rows = content.split('\n').map(row => row.split(','));
+      const rows = content.split('\n').map((row, rowIndex) => {
+        return row.split(',').map((cell, colIndex) => {
+          const match = cell.match(/^"(.*?)(\|font:(.*?)\|size:(.*?))?"$/);
+          const value = match?.[1] || '';
+          const font = match?.[3] || '';
+          const size = match?.[4] || '';
+  
+          // if (font || size) {
+          //   const key = `${rowIndex}-${colIndex}`;
+          //   setCellStyles((prev) => ({
+          //     ...prev,
+          //     [key]: {
+          //       fontFamily: font,
+          //       fontSize: size,
+          //     },
+          //   }));
+          // }
+  
+          return value;
+        });
+      });
+  
       setCurrentData(rows);
       setSheetTitle(file.name.replace(/\.csv$/i, ''));
       setShowEditor(true);
       initHistory(rows);
     };
+  
     reader.readAsText(file);
   };
+  
 
   const initHistory = (data) => {
     setHistory([data]);
@@ -64,7 +147,7 @@ const Spreadsheets = () => {
 
   const handleUndo = () => {
     if (historyIndex > 0) {
-      setCurrentData(history[historyIndex - 1]);
+      setCurrentData(JSON.parse(JSON.stringify(history[historyIndex - 1])));
       setHistoryIndex(prev => prev - 1);
     }
   };
@@ -104,6 +187,40 @@ const Spreadsheets = () => {
     saveSheets(newSheets);
   };
 
+  // const exportToCSV = () => {
+  //   const csvContent = data
+  //     .map((row, rowIndex) =>
+  //       row.map((cell, colIndex) => {
+  //         const style = cellStyles[`${rowIndex}-${colIndex}`] || {};
+  //         const font = style.fontFamily || '';
+  //         const size = style.fontSize || '';
+  //         return `"${cell}|font:${font}|size:${size}"`;
+  //       }).join(',')
+  //     )
+  //     .join('\n');
+  
+  //   const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  //   const url = URL.createObjectURL(blob);
+  
+  //   const link = document.createElement('a');
+  //   link.href = url;
+  //   link.setAttribute('download', `${sheetTitle || 'planilha'}.csv`);
+  //   document.body.appendChild(link);
+  //   link.click();
+  //   document.body.removeChild(link);
+  //   URL.revokeObjectURL(url);
+  // };
+
+  const handleDuplicateSheet = () => {
+    if (selectedSheetIndex != null) {
+      const copy = JSON.parse(JSON.stringify(sheets[selectedSheetIndex]));
+      copy.title += ' (Cópia)';
+      const newSheets = [...sheets, copy];
+      saveSheets(newSheets);
+      setSelectedSheetIndex(null); // limpa seleção se quiser
+    }
+  };
+  
   if (isMobile) {
     return <SpreadsheetsMobile />
   }
@@ -114,19 +231,68 @@ const Spreadsheets = () => {
       <header className="bg-white shadow-md sticky top-0 z-50 px-4 py-4 flex justify-between items-center rounded-b-2xl">
         <span className="text-2xl font-bold text-blue-600">BlueSheets</span>
         <div className="flex items-center gap-2">
-          <input
-            type="file"
-            ref={fileInputRef}
-            accept=".csv"
-            className="hidden"
-            onChange={handleImport}
-          />
-          <button
-            onClick={() => fileInputRef.current.click()}
-            className="bg-yellow-500 text-white px-4 py-2 rounded-lg"
-          >
-            Importar
-          </button>
+  <input
+    type="file"
+    ref={fileInputRef}
+    accept=".csv"
+    className="hidden"
+    onChange={handleImport}
+  />
+  <button
+    onClick={() => fileInputRef.current.click()}
+    className="bg-yellow-500 text-white px-4 py-2 rounded-lg"
+  >
+    Importar
+  </button>
+
+  {/* ✅ Aqui está o novo botão Exportar */}
+  <button
+  onClick={() => {
+    if (selectedSheetIndex != null) {
+      const selected = sheets[selectedSheetIndex];
+      const csvContent = selected.rows
+        .map(row => row.map(cell => `"${cell.replace(/"/g, '""')}"`).join(','))
+        .join('\n');
+
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `${selected.title || 'planilha'}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    }
+  }}
+  className={`bg-purple-600 text-white px-4 py-2 rounded-lg ${selectedSheetIndex == null ? 'opacity-50 pointer-events-none' : ''}`}
+>
+  Exportar
+</button>
+
+  <button
+  onClick={() => {
+    if (selectedSheetIndex != null) {
+      const copy = JSON.parse(JSON.stringify(sheets[selectedSheetIndex]));
+      copy.title += ' (Cópia)';
+      const newSheets = [...sheets, copy];
+      saveSheets(newSheets);
+      setSelectedSheetIndex(null); // limpa seleção se quiser
+    }
+  }}
+  className={`bg-orange-600 text-white px-4 py-2 rounded-lg ${selectedSheetIndex == null ? 'opacity-50 pointer-events-none' : ''}`}
+>
+  Duplicar
+</button>
+
+<button
+  onClick={() => setShowDeleteModal(true)}
+  className="bg-red-500 text-white px-4 py-2 rounded-lg"
+>
+  Apagar Tudo
+</button>
+
           <button
             onClick={() => {
               setCurrentData(Array(50).fill().map(() => Array(5).fill('')));
@@ -137,7 +303,7 @@ const Spreadsheets = () => {
             }}
             className="bg-blue-600 text-white px-4 py-2 rounded-lg"
           >
-            Nova
+            Nova planilha 
           </button>
         </div>
       </header>
@@ -153,6 +319,9 @@ const Spreadsheets = () => {
           onRedo={handleRedo}
           canUndo={historyIndex > 0}
           canRedo={historyIndex < history.length - 1}
+          recordHistory={recordHistory}
+          cellStyles={cellStyles}
+          setCellStyles={setCellStyles}
         />
       ) : (
         <SheetList
@@ -163,38 +332,83 @@ const Spreadsheets = () => {
             setCurrentData(Array(50).fill().map(() => Array(5).fill('')));
             setShowEditor(true);
           }}
+
+          onDuplicate={handleDuplicateSheet}
+          onSelectSimple={setSelectedSheetIndex}
+          selectedSheetIndex={selectedSheetIndex}
         />
       )}
 
       {showRenameModal && (
-        <RenameModal
-          currentName={sheetTitle}
-          onClose={() => setShowRenameModal(false)}
-          onSave={(newName) => {
-            setSheetTitle(newName);
-            setShowRenameModal(false);
-          }}
-        />
+       <RenameModal
+       currentName={sheetTitle}
+       onClose={() => setShowRenameModal(false)}
+       onSave={(newName) => {
+         setSheetTitle(newName); // atualiza o título visivelmente
+         setSheets((prevSheets) => {
+           const updated = [...prevSheets];
+           if (currentSheetIndex >= 0) {
+             updated[currentSheetIndex].title = newName;
+             localStorage.setItem('bluesheets', JSON.stringify(updated));
+           }
+           return updated;
+         });
+         setShowRenameModal(false);
+       }}
+     />     
       )}
+
+{showDeleteModal && (
+  <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+    <div className="bg-white rounded-lg w-11/12 max-w-sm p-4">
+      <h2 className="text-lg font-medium mb-2">Confirmar exclusão</h2>
+      <p className="text-gray-700 mb-4">Deseja apagar todas as planilhas salvas?</p>
+      <div className="flex justify-end gap-2">
+        <button
+          onClick={() => setShowDeleteModal(false)}
+          className="px-4 py-2 rounded bg-gray-200"
+        >
+          Cancelar
+        </button>
+        <button
+          onClick={() => {
+            localStorage.removeItem('bluesheets');
+            setSheets([]);
+            setSelectedSheetIndex(null);
+            setShowDeleteModal(false);
+          }}
+          className="px-4 py-2 rounded bg-red-600 text-white"
+        >
+          Apagar tudo
+        </button>
+      </div>
+    </div>
+  </div>
+)}
+
     </div>
   );
 };
 
-const SheetList = ({ sheets, onSelect, onDelete, onNew }) => {
+const SheetList = ({ sheets, onSelect, onDelete, onNew, onDuplicate, onSelectSimple, selectedSheetIndex }) => {
   return (
     <main className="p-4">
-      <button
+      {/* <button
         onClick={onNew}
         className="bg-blue-600 text-white px-4 py-2 rounded-lg mb-4"
       >
         Nova Planilha
-      </button>
+      </button> */}
       <ul className="space-y-3">
         {sheets.map((sheet, i) => (
-          <li
-            key={i}
-            className="sheet-item bg-white p-4 rounded-xl shadow flex justify-between items-center hover:bg-blue-50"
-          >
+       <li
+       key={i}
+       className={`sheet-item bg-white p-4 rounded-xl shadow flex justify-between items-center hover:bg-blue-50 ${
+         selectedSheetIndex === i ? 'ring-2 ring-blue-500' : ''
+       }`}
+       onClick={() => onSelectSimple(i)}
+     >
+     
             <div>
               <p className="font-semibold text-blue-700">{sheet.title}</p>
               <p className="text-sm text-gray-500">
@@ -237,24 +451,110 @@ const SheetEditor = ({
   onUndo,
   onRedo,
   canUndo,
-  canRedo
+  canRedo,
+  recordHistory
 }) => {
   const [data, setData] = useState(currentData);
   const [title, setTitle] = useState(sheetTitle);
   const [selectedCell, setSelectedCell] = useState(null);
+  const [cellStyles, setCellStyles] = useState({});
+  const inputRefs = useRef({});
+  const [clipboardData, setClipboardData] = useState('');
+  const [showChart, setShowChart] = useState(false);
+  const [selectedColumnChart, setSelectedColumnChart] = useState(0);
 
   useEffect(() => {
     setData(currentData);
   }, [currentData]);
 
+  useEffect(() => {
+    setTitle(sheetTitle);
+  }, [sheetTitle]);
+  
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (!selectedCell) return;
+  
+      const [row, col] = selectedCell;
+  
+      // Copiar e colar com Ctrl ou Cmd
+      if (e.ctrlKey || e.metaKey) {
+        if (e.key === 'c') {
+          e.preventDefault();
+          setClipboardData(data[row][col]);
+          return;
+        }
+  
+        if (e.key === 'v') {
+          e.preventDefault();
+          const newData = [...data];
+          newData[row][col] = clipboardData;
+          setData(newData);
+          recordHistory(newData);
+          return;
+        }
+      }
+  
+      // Navegação padrão
+      switch (e.key) {
+        case 'ArrowDown':
+          e.preventDefault();
+          if (row + 1 < data.length) handleCellFocus(row + 1, col);
+          break;
+        case 'ArrowUp':
+          e.preventDefault();
+          if (row - 1 >= 0) handleCellFocus(row - 1, col);
+          break;
+        case 'ArrowRight':
+          e.preventDefault();
+          if (col + 1 < data[0].length) handleCellFocus(row, col + 1);
+          break;
+        case 'ArrowLeft':
+          e.preventDefault();
+          if (col - 1 >= 0) handleCellFocus(row, col - 1);
+          break;
+        case 'Enter':
+          e.preventDefault();
+          if (row + 1 < data.length) handleCellFocus(row + 1, col);
+          break;
+        case 'Tab':
+          e.preventDefault();
+          if (col + 1 < data[0].length) handleCellFocus(row, col + 1);
+          break;
+        default:
+          break;
+      }
+    };
+  
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [selectedCell, data, clipboardData]);
+  
+  
   const handleCellChange = (row, col, value) => {
     const newData = [...data];
     newData[row][col] = value;
     setData(newData);
+    recordHistory(newData); 
   };
 
   const handleCellFocus = (row, col) => {
     setSelectedCell([row, col]);
+    setTimeout(() => {
+      const el = inputRefs.current[`${row}-${col}`];
+      if (el) el.focus();
+    }, 0);
+  };
+
+  const updateStyle = (row, col, styleProp, value) => {
+    const key = `${row}-${col}`;
+    setCellStyles(prev => ({
+      ...prev,
+      [key]: {
+        ...prev[key],
+        [styleProp]: value,
+      }
+    }));
   };
 
   const addRow = () => {
@@ -277,6 +577,114 @@ const SheetEditor = ({
     }
   };
 
+  function calculateFormula(formula) {
+    formula = formula.substring(1).trim(); // remove o '='
+  
+    try {
+      // =SE(condição; verdadeiro; falso)
+      if (formula.startsWith('SE(')) {
+        const inside = formula.match(/\((.*)\)/)?.[1];
+        if (!inside) throw new Error('Sintaxe SE inválida');
+        const [cond, valTrue, valFalse] = inside.split(';').map((s) => s.trim());
+  
+        const condEval = evaluateCellExpression(cond);
+        return condEval ? valTrue : valFalse;
+      }
+  
+      // =SOMA(A1:A3)
+      if (formula.startsWith('SOMA(')) {
+        return sumFromRange(formula);
+      }
+  
+      // =MÉDIA(A1:A3)
+      if (formula.startsWith('MÉDIA(')) {
+        return averageFromRange(formula);
+      }
+  
+      // =PROCV(valor; intervalo; coluna)
+      if (formula.startsWith('PROCV(')) {
+        const inside = formula.match(/\(([^)]+)\)/)?.[1];
+        if (!inside) throw new Error('Sintaxe PROCV inválida');
+  
+        const [lookupValueRaw, rangeRaw, columnIndexRaw] = inside.split(';').map(s => s.trim());
+        const lookupValue = evaluateCellExpression(lookupValueRaw);
+        const columnIndex = parseInt(columnIndexRaw) - 1;
+  
+        const [startCell, endCell] = rangeRaw.split(':');
+        const startCol = startCell.charCodeAt(0) - 65;
+        const startRow = parseInt(startCell.substring(1)) - 1;
+        const endCol = endCell.charCodeAt(0) - 65;
+        const endRow = parseInt(endCell.substring(1)) - 1;
+  
+        for (let row = startRow; row <= endRow; row++) {
+          const cellValue = currentData[row]?.[startCol];
+          if (String(cellValue).toLowerCase() === String(lookupValue).toLowerCase()) {
+            return currentData[row]?.[startCol + columnIndex] || '';
+          }
+        }
+  
+        return 'Não encontrado';
+      }
+  
+      function sumFromRange(formula) {
+        const inside = formula.match(/\((.*)\)/)?.[1];
+        const [startCell, endCell] = inside.split(':');
+        const startRow = parseInt(startCell.substring(1)) - 1;
+        const startCol = startCell.charCodeAt(0) - 65;
+        const endRow = parseInt(endCell.substring(1)) - 1;
+        const endCol = endCell.charCodeAt(0) - 65;
+      
+        let sum = 0;
+        for (let row = startRow; row <= endRow; row++) {
+          for (let col = startCol; col <= endCol; col++) {
+            sum += parseFloat(currentData[row]?.[col]) || 0;
+          }
+        }
+        return sum;
+      }
+      
+      function averageFromRange(formula) {
+        const inside = formula.match(/\((.*)\)/)?.[1];
+        const [startCell, endCell] = inside.split(':');
+        const startRow = parseInt(startCell.substring(1)) - 1;
+        const startCol = startCell.charCodeAt(0) - 65;
+        const endRow = parseInt(endCell.substring(1)) - 1;
+        const endCol = endCell.charCodeAt(0) - 65;
+      
+        let sum = 0, count = 0;
+        for (let row = startRow; row <= endRow; row++) {
+          for (let col = startCol; col <= endCol; col++) {
+            const val = parseFloat(currentData[row]?.[col]);
+            if (!isNaN(val)) {
+              sum += val;
+              count++;
+            }
+          }
+        }
+        return count > 0 ? sum / count : 0;
+      }
+
+      // Expressões diretas como =A1+B2*3
+      return evaluateCellExpression(formula);
+  
+    } catch (err) {
+      console.error('Erro na fórmula:', err.message);
+      return 'Erro';
+    }
+  }
+  
+
+  function evaluateCellExpression(expr) {
+    // Substitui todas as referências tipo A1, B2, etc. por seus valores
+    const replaced = expr.replace(/[A-Z]+[0-9]+/g, (match) => {
+      const col = match.charCodeAt(0) - 65;
+      const row = parseInt(match.substring(1)) - 1;
+      return parseFloat(currentData[row]?.[col]) || 0;
+    });
+  
+    return eval(replaced);
+  }
+  
   return (
     <section className="p-4">
       <div className="bg-white px-4 py-2 flex justify-between items-center border-b mb-4">
@@ -331,85 +739,274 @@ const SheetEditor = ({
       </div>
 
       <div className="bg-white border-b px-4 py-2 flex flex-wrap gap-2 mb-4 text-sm">
-        <button 
-          onClick={onUndo} 
-          disabled={!canUndo}
-          className={`hover:bg-gray-200 p-1 rounded ${!canUndo ? 'opacity-50' : ''}`}
-        >
-          <CornerUpLeft className="w-4 h-4" />
-        </button>
-        <button 
-          onClick={onRedo} 
-          disabled={!canRedo}
-          className={`hover:bg-gray-200 p-1 rounded ${!canRedo ? 'opacity-50' : ''}`}
-        >
-          <CornerUpRight className="w-4 h-4" />
-        </button>
-        <button className="hover:bg-gray-200 p-1 rounded">
-          <Printer className="w-4 h-4" />
-        </button>
-        <select className="border rounded px-2 py-1 text-sm w-24 sm:w-32">
-          {excelFonts.map(font => (
-            <option key={font} value={font}>{font}</option>
-          ))}
-        </select>
-        <select className="border rounded px-2 py-1 text-sm w-24 sm:w-32">
-          {excelFontSizes.map(size => (
-            <option key={size} value={size}>{size}</option>
-          ))}
-        </select>
-        <button className="font-bold">B</button>
-        <button className="italic">I</button>
-        <button className="underline">U</button>
-        <button onClick={() => {}}>
-          <AlignLeft className="w-4 h-4" />
-        </button>
-        <button className="px-1">
-          <AlignCenter className="w-4 h-4" />
-        </button>
-        <button className="px-1">
-          <AlignRight className="w-4 h-4" />
-        </button>
-      </div>
+  <button 
+    onClick={onUndo} 
+    disabled={!canUndo}
+    className={`hover:bg-gray-200 p-1 rounded ${!canUndo ? 'opacity-50' : ''}`}
+  >
+    <CornerUpLeft className="w-4 h-4" />
+  </button>
+  <button 
+    onClick={onRedo} 
+    disabled={!canRedo}
+    className={`hover:bg-gray-200 p-1 rounded ${!canRedo ? 'opacity-50' : ''}`}
+  >
+    <CornerUpRight className="w-4 h-4" />
+  </button>
+  <button
+    onClick={() => window.print()}
+    className="hover:bg-gray-200 p-1 rounded"
+  >
+    <Printer className="w-4 h-4" />
+  </button>
+
+  <select
+    className="border rounded px-2 py-1 text-sm w-24 sm:w-32"
+    onChange={(e) => {
+      if (selectedCell) {
+        const [row, col] = selectedCell;
+        updateStyle(row, col, 'fontFamily', e.target.value);
+      }
+    }}
+  >
+    {excelFonts.map(font => (
+      <option key={font} value={font}>{font}</option>
+    ))}
+  </select>
+
+  <select
+    className="border rounded px-2 py-1 text-sm w-24 sm:w-32"
+    onChange={(e) => {
+      if (selectedCell) {
+        const [row, col] = selectedCell;
+        updateStyle(row, col, 'fontSize', `${e.target.value}px`);
+      }
+    }}
+  >
+    {excelFontSizes.map(size => (
+      <option key={size} value={size}>{size}</option>
+    ))}
+  </select>
+
+  <button className="font-bold" onClick={() => {
+    if (selectedCell) {
+      const [row, col] = selectedCell;
+      updateStyle(row, col, 'fontWeight', cellStyles[`${row}-${col}`]?.fontWeight === 'bold' ? 'normal' : 'bold');
+    }
+  }}>B</button>
+
+  <button className="italic" onClick={() => {
+    if (selectedCell) {
+      const [row, col] = selectedCell;
+      updateStyle(row, col, 'fontStyle', cellStyles[`${row}-${col}`]?.fontStyle === 'italic' ? 'normal' : 'italic');
+    }
+  }}>I</button>
+
+  <button className="underline" onClick={() => {
+    if (selectedCell) {
+      const [row, col] = selectedCell;
+      updateStyle(row, col, 'textDecoration', cellStyles[`${row}-${col}`]?.textDecoration === 'underline' ? 'none' : 'underline');
+    }
+  }}>U</button>
+
+  <button onClick={() => {
+    if (selectedCell) {
+      const [row, col] = selectedCell;
+      const val = parseFloat(data[row][col].replace(/[^\d.-]/g, '')) || 0;
+      handleCellChange(row, col, `R$ ${val.toFixed(2).replace('.', ',')}`);
+    }
+  }}>R$</button>
+
+  <button onClick={() => {
+    if (selectedCell) {
+      const [row, col] = selectedCell;
+      const val = parseFloat(data[row][col].replace(/[^\d.-]/g, '')) || 0;
+      handleCellChange(row, col, `$ ${val.toFixed(2).replace('.', ',')}`);
+    }
+  }}>$</button>
+
+  <button onClick={() => {
+    if (selectedCell) {
+      const [row, col] = selectedCell;
+      const val = parseFloat(data[row][col].replace(/[^\d.-]/g, '')) || 0;
+      handleCellChange(row, col, `${(val * 100).toFixed(0)}%`);
+    }
+  }}>100%</button>
+
+  <button onClick={() => {
+    if (selectedCell) {
+      const [row, col] = selectedCell;
+      const val = parseFloat(data[row][col].replace(/[^\d.-]/g, '')) || 0;
+      handleCellChange(row, col, val.toFixed(2));
+    }
+  }}>.00</button>
+
+  <button onClick={() => {
+    if (selectedCell) {
+      const [row, col] = selectedCell;
+      updateStyle(row, col, 'textAlign', 'left');
+    }
+  }}>
+    <AlignLeft className="w-4 h-4" />
+  </button>
+
+  <button onClick={() => {
+    if (selectedCell) {
+      const [row, col] = selectedCell;
+      updateStyle(row, col, 'textAlign', 'center');
+    }
+  }}>
+    <AlignCenter className="w-4 h-4" />
+  </button>
+
+  <button onClick={() => {
+    if (selectedCell) {
+      const [row, col] = selectedCell;
+      updateStyle(row, col, 'textAlign', 'right');
+    }
+  }}>
+    <AlignRight className="w-4 h-4" />
+  </button>
+
+  {/* Botão de gráfico + dropdown */}
+  <button
+    className="bg-indigo-500 text-white px-2 py-1 rounded"
+    onClick={() => setShowChart(!showChart)}
+  >
+    {showChart ? 'Ocultar Gráfico' : 'Ver Gráfico'}
+  </button>
+
+  {showChart && (
+    <select
+      onChange={(e) => setSelectedColumnChart(Number(e.target.value))}
+      className="border px-2 py-1 rounded text-sm"
+    >
+      {data[0]?.map((_, colIdx) => (
+        <option key={colIdx} value={colIdx}>
+          Coluna {String.fromCharCode(65 + colIdx)}
+        </option>
+      ))}
+    </select>
+  )}
+</div>
+
+
+      {showChart && (
+  <div className="bg-white p-4 mt-6 rounded-lg shadow">
+    <h2 className="text-lg font-semibold mb-4">Gráfico de Coluna A</h2>
+    <ResponsiveContainer width="100%" height={300}>
+      <BarChart data={data.map((row, i) => ({
+        name: `Linha ${i + 1}`,
+        valor: parseFloat(row[0]) || 0,
+      }))}>
+        <CartesianGrid strokeDasharray="3 3" />
+        <XAxis dataKey="name" />
+        <YAxis />
+        <Tooltip />
+        <Bar dataKey="valor" fill="#3b82f6" />
+      </BarChart>
+    </ResponsiveContainer>
+  </div>
+)}
+
+
 
       <div className="overflow-auto">
         <table className="min-w-full bg-white rounded-lg shadow">
-          <thead className="bg-gray-100 sticky top-0">
-            <tr>
-              <th className="border p-2">#</th>
-              {data[0]?.map((_, col) => (
-                <th key={col} className="border p-2 text-center bg-gray-100">
-                  {String.fromCharCode(65 + col)}
+        <DragDropContext
+  onDragEnd={({ source, destination }) => {
+    if (!destination) return;
+    const from = source.index;
+    const to = destination.index;
+
+    const reordered = data.map((row) => {
+      const newRow = [...row];
+      const [moved] = newRow.splice(from, 1);
+      newRow.splice(to, 0, moved);
+      return newRow;
+    });
+
+    setData(reordered);
+    recordHistory(reordered);
+  }}
+>
+  <Droppable droppableId="columns" direction="horizontal" type="column">
+    {(provided) => (
+      <thead className="bg-gray-100 sticky top-0" ref={provided.innerRef} {...provided.droppableProps}>
+        <tr>
+          <th className="border p-2">#</th>
+          {data[0]?.map((_, colIndex) => (
+            <Draggable key={colIndex} draggableId={`col-${colIndex}`} index={colIndex}>
+              {(provided) => (
+                <th
+                  {...provided.draggableProps}
+                  {...provided.dragHandleProps}
+                  ref={provided.innerRef}
+                  className="border p-2 text-center bg-gray-100 cursor-move"
+                >
+                  <GripVertical className="inline-block mr-1 text-gray-400" />
+                  {String.fromCharCode(65 + colIndex)}
                 </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {data.map((row, rowIndex) => (
-              <tr key={rowIndex}>
-                <td className="border p-1 bg-gray-100 text-center">
-                  {rowIndex + 1}
-                </td>
-                {row.map((cell, colIndex) => (
-                  <td 
-                    key={colIndex} 
-                    className="border p-1"
-                    onClick={() => handleCellFocus(rowIndex, colIndex)}
-                  >
-                    <input
-                      type="text"
-                      className="cell w-full text-center"
-                      value={cell}
-                      onChange={(e) => handleCellChange(rowIndex, colIndex, e.target.value)}
-                      onFocus={() => handleCellFocus(rowIndex, colIndex)}
-                    />
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
+              )}
+            </Draggable>
+          ))}
+          {provided.placeholder}
+        </tr>
+      </thead>
+    )}
+  </Droppable>
+</DragDropContext>
+<tbody>
+  {data.map((row, rowIndex) => (
+    <tr key={rowIndex}>
+      <td className="border p-1 bg-gray-100 text-center">{rowIndex + 1}</td>
+      {row.map((cell, colIndex) => {
+        const isSelected = selectedCell?.[0] === rowIndex && selectedCell?.[1] === colIndex;
+        return (
+          <td
+            key={colIndex}
+            className={`border p-1 relative ${isSelected ? 'outline outline-blue-500 outline-2 z-10' : ''}`}
+            onClick={() => handleCellFocus(rowIndex, colIndex)}
+          >
+            <input
+              ref={(el) => {
+                if (el) inputRefs.current[`${rowIndex}-${colIndex}`] = el;
+              }}
+              type="text"
+              className="cell w-full text-center bg-transparent focus:outline-none transition-all duration-75"
+              style={cellStyles[`${rowIndex}-${colIndex}`] || {}}
+              value={cell}
+              onChange={(e) => {
+                const val = e.target.value;
+                if (val.startsWith('=')) {
+                  const calc = calculateFormula(val);
+                  handleCellChange(rowIndex, colIndex, calc);
+                } else {
+                  handleCellChange(rowIndex, colIndex, val);
+                }
+              }}
+              onFocus={() => handleCellFocus(rowIndex, colIndex)}
+            />
+          </td>
+        );
+      })}
+    </tr>
+  ))}
+</tbody>
+
         </table>
       </div>
+      {/* {showChart && (
+  <ChartView data={data} selectedColumn={selectedColumnChart} />
+)} */}
+
+{showChart && (
+  <>
+    <ChartView data={data} selectedColumn={selectedColumnChart} />
+    <PieChartView data={data} selectedColumn={selectedColumnChart} />
+  </>
+)}
+
     </section>
   );
 };
@@ -445,6 +1042,60 @@ const RenameModal = ({ currentName, onClose, onSave }) => {
           </button>
         </div>
       </div>
+    </div>
+  );
+};
+
+const ChartView = ({ data, selectedColumn }) => {
+  const chartData = data.map((row, i) => ({
+    name: `Linha ${i + 1}`,
+    valor: parseFloat(row[selectedColumn]) || 0,
+  }));
+
+  return (
+    <div className="w-full h-96 bg-white p-4 rounded shadow mt-4">
+      <ResponsiveContainer width="100%" height="100%">
+        <BarChart data={chartData}>
+          <CartesianGrid strokeDasharray="3 3" />
+          <XAxis dataKey="name" />
+          <YAxis />
+          <RechartsTooltip />
+          <RechartsLegend />
+          <Bar dataKey="valor" fill="#3b82f6" />
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
+  );
+};
+
+const PieChartView = ({ data, selectedColumn }) => {
+  const valores = data
+    .map(row => row[selectedColumn])
+    .filter(val => val && !isNaN(parseFloat(val)))
+    .map(val => parseFloat(val));
+
+  const labels = valores.map((_, i) => `Linha ${i + 1}`);
+
+  const chartData = {
+    labels,
+    datasets: [
+      {
+        label: 'Distribuição',
+        data: valores,
+        backgroundColor: [
+          '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6',
+          '#ec4899', '#14b8a6', '#f43f5e', '#22c55e', '#eab308'
+        ],
+        borderColor: '#ffffff',
+        borderWidth: 2,
+      },
+    ],
+  };
+
+  return (
+    <div className="w-full bg-white p-4 mt-4 rounded shadow">
+      <h2 className="text-lg font-semibold mb-2">Gráfico de Pizza</h2>
+      <Pie data={chartData} />
     </div>
   );
 };
