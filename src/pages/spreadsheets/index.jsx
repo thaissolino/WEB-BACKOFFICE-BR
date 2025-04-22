@@ -1,3 +1,4 @@
+import React from 'react';
 import { useState, useEffect, useRef } from 'react';
 import { FileText, Edit, Trash2, CornerUpLeft, CornerUpRight, Printer, AlignLeft, AlignCenter, AlignRight } from 'lucide-react';
 import { useMediaQuery } from "@mui/material";
@@ -464,7 +465,9 @@ const SheetEditor = ({
   const [selectedColumnChart, setSelectedColumnChart] = useState(0);
   const [formulaMode, setFormulaMode] = useState(false);
   const [editingCell, setEditingCell] = useState(null);
-  
+  const [formulaContextMenu, setFormulaContextMenu] = useState({ show: false, x: 0, y: 0 });
+  const [formulaToInsert, setFormulaToInsert] = useState(null);
+
   useEffect(() => {
     setData(currentData);
   }, [currentData]);
@@ -545,15 +548,22 @@ const SheetEditor = ({
     recordHistory(newData); 
   };
 
-  const handleCellFocus = (row, col) => {
+  // 👇 Atualize sua função handleCellFocus para incluir botão direito
+  const handleCellFocus = (row, col, event = null) => {
     setSelectedCell([row, col]);
+  
+    if (event?.type === 'contextmenu') {
+      event.preventDefault();
+      setFormulaContextMenu({ show: true, x: event.clientX, y: event.clientY });
+      setEditingCell([row, col]);
+      return;
+    }
+  
     setTimeout(() => {
       const el = inputRefs.current[`${row}-${col}`];
       if (el) {
         el.focus();
-  
-        // 👇 Ativa o modo fórmula se a célula começar com "="
-        if (el.value.startsWith("=")) {
+        if (el.value.startsWith('=')) {
           setFormulaMode(true);
           setEditingCell([row, col]);
         } else {
@@ -563,6 +573,7 @@ const SheetEditor = ({
       }
     }, 0);
   };
+  
   
 
   const updateStyle = (row, col, styleProp, value) => {
@@ -597,10 +608,35 @@ const SheetEditor = ({
   };
 
   function calculateFormula(formula) {
-    formula = formula.substring(1).trim(); // remove o '='
-    formula = formula.toUpperCase(); // 🔥 ignora maiúsculas/minúsculas
+    formula = formula.substring(1).trim().toUpperCase();
+   // formula = formula.toUpperCase(); // 🔥 ignora maiúsculas/minúsculas
   
     try {
+
+      // =DIVIDIR(A1;B1)
+if (formula.startsWith('DIVIDIR(')) {
+  const inside = formula.match(/\(([^)]+)\)/)?.[1];
+  if (!inside || !inside.includes(';')) return formula; // 👈 apenas mostra a fórmula enquanto está incompleta
+  const [a, b] = inside.split(';').map((ref) => evaluateCellExpression(ref.trim()));
+  return b === 0 ? 'Erro' : a / b;
+}
+
+// =MULT(A1;B1)
+if (formula.startsWith('MULT(')) {
+  const inside = formula.match(/\(([^)]+)\)/)?.[1];
+  if (!inside || !inside.includes(';')) return formula; // 👈 apenas mostra a fórmula enquanto está incompleta
+  const [a, b] = inside.split(';').map((ref) => evaluateCellExpression(ref.trim()));
+  return a * b;
+}
+
+// =SUB(A1;B1)
+if (formula.startsWith('SUB(')) {
+  const inside = formula.match(/\(([^)]+)\)/)?.[1];
+  if (!inside || !inside.includes(';')) return formula; // 👈 apenas mostra a fórmula enquanto está incompleta
+  const [a, b] = inside.split(';').map((ref) => evaluateCellExpression(ref.trim()));
+  return a - b;
+}
+
       // =SE(condição; verdadeiro; falso)
       if (formula.startsWith('SE(')) {
         const inside = formula.match(/\((.*)\)/)?.[1];
@@ -611,15 +647,24 @@ const SheetEditor = ({
         return condEval ? valTrue : valFalse;
       }
   
-      // =SOMA(A1:A3)
-      if (formula.startsWith('SOMA(')) {
-        return sumFromRange(formula);
-      }
-  
-      // =MÉDIA(A1:A3)
-      if (formula.startsWith('MÉDIA(')) {
-        return averageFromRange(formula);
-      }
+    // =SOMA(A1:B3) ou SOMA(A1;B3)
+if (formula.startsWith('SOMA(')) {
+  const inside = formula.match(/\(([^)]+)\)/)?.[1];
+  if (!inside) return formula;
+  const [start, end] = inside.split(/[:;]/).map(s => s.trim());
+  if (!start || !end) return formula;
+  return sumFromRange(`${start}:${end}`);
+}
+
+// =MÉDIA(A1:B3) ou MEDIA(A1;B3)
+if (formula.startsWith('MÉDIA(') || formula.startsWith('MEDIA(')) {
+  const inside = formula.match(/\(([^)]+)\)/)?.[1];
+  if (!inside) return formula;
+  const [start, end] = inside.split(/[:;]/).map(s => s.trim());
+  if (!start || !end) return formula;
+  return averageFromRange(`${start}:${end}`);
+}
+
   
       // =PROCV(valor; intervalo; coluna)
       if (formula.startsWith('PROCV(')) {
@@ -646,9 +691,8 @@ const SheetEditor = ({
         return 'Não encontrado';
       }
   
-      function sumFromRange(formula) {
-        const inside = formula.match(/\((.*)\)/)?.[1];
-        const [startCell, endCell] = inside.split(':');
+      function sumFromRange(range) {
+        const [startCell, endCell] = range.split(':');
         const startRow = parseInt(startCell.substring(1)) - 1;
         const startCol = startCell.charCodeAt(0) - 65;
         const endRow = parseInt(endCell.substring(1)) - 1;
@@ -663,9 +707,8 @@ const SheetEditor = ({
         return sum;
       }
       
-      function averageFromRange(formula) {
-        const inside = formula.match(/\((.*)\)/)?.[1];
-        const [startCell, endCell] = inside.split(':');
+      function averageFromRange(range) {
+        const [startCell, endCell] = range.split(':');
         const startRow = parseInt(startCell.substring(1)) - 1;
         const startCol = startCell.charCodeAt(0) - 65;
         const endRow = parseInt(endCell.substring(1)) - 1;
@@ -682,7 +725,7 @@ const SheetEditor = ({
           }
         }
         return count > 0 ? sum / count : 0;
-      }
+      }    
 
       // Expressões diretas como =A1+B2*3
       return evaluateCellExpression(formula);
@@ -706,13 +749,9 @@ const SheetEditor = ({
   }
 
   function getCellDisplayValue(val) {
-    if (typeof val === 'string' && val.startsWith('=')) {
+    if (typeof val === 'string' && val.trim().startsWith('=')) {
       try {
-        // Só calcula se tiver algo após o '=' e não estiver no modo de edição
-        if (!formulaMode) {
-          return calculateFormula(val);
-        }
-        return val;
+        return calculateFormula(val);
       } catch (err) {
         return 'Erro';
       }
@@ -1024,7 +1063,9 @@ const SheetEditor = ({
               } else {
                 handleCellFocus(rowIndex, colIndex);
               }
-            }}             
+            }} 
+            onContextMenu={(e) => handleCellFocus(rowIndex, colIndex, e)}
+
              >
             <input
               ref={(el) => {
@@ -1046,7 +1087,22 @@ const SheetEditor = ({
                   setFormulaMode(false);
                   setEditingCell(null);
                 }
-              }}              
+              }}    
+              onBlur={() => {
+                let val = data[rowIndex][colIndex];
+                const functions = ['SOMA', 'MULT', 'SUB', 'DIVIDIR', 'MÉDIA', 'MEDIA', 'PROCV', 'SE'];
+                const startsWithFn = functions.find(f => val?.toUpperCase().startsWith(f + '('));
+              
+                if (startsWithFn && !val.startsWith('=')) {
+                  val = '=' + val;
+                  handleCellChange(rowIndex, colIndex, val);
+                }
+              
+                if (typeof val === 'string' && val.startsWith('=')) {
+                  setFormulaMode(false);
+                  setEditingCell(null);
+                }
+              }}        
               onFocus={() => handleCellFocus(rowIndex, colIndex)}
             />
           </td>
@@ -1068,6 +1124,51 @@ const SheetEditor = ({
     <PieChartView data={data} selectedColumn={selectedColumnChart} />
   </>
 )}
+
+{formulaContextMenu.show && (
+  <div
+    className="fixed z-50 bg-white border rounded shadow p-2 text-sm w-56"
+    style={{ top: formulaContextMenu.y, left: formulaContextMenu.x }}
+    onMouseLeave={() => setFormulaContextMenu({ show: false, x: 0, y: 0 })}
+  >
+    <p className="font-semibold mb-1 text-gray-700">Inserir fórmula</p>
+    {[{
+      icon: 'FunctionSquare', label: 'SOMA(A;B)', value: 'SOMA'
+    }, {
+      icon: 'EqualNot', label: 'MEDIA(A;B)', value: 'MEDIA'
+    }, {
+      icon: 'Minus', label: 'SUB(A;B)', value: 'SUB'
+    }, {
+      icon: 'X', label: 'MULT(A;B)', value: 'MULT'
+    }, {
+      icon: 'Divide', label: 'DIVIDIR(A;B)', value: 'DIVIDIR'
+    }, {
+      icon: 'Search', label: 'PROCV(valor;intervalo;coluna)', value: 'PROCV'
+    }, {
+      icon: 'CheckCircle', label: 'SE(condição;verdadeiro;falso)', value: 'SE'
+    }].map((f) => (
+      <button
+        key={f.value}
+        className="flex items-center gap-2 w-full text-left px-2 py-1 hover:bg-blue-100"
+        onClick={() => {
+          if (editingCell) {
+            const [row, col] = editingCell;
+            handleCellChange(row, col, `=${f.value}()`);
+            setFormulaContextMenu({ show: false, x: 0, y: 0 });
+            setFormulaMode(false);
+            setEditingCell(null);
+          }
+        }}
+      >
+        <span className="w-4 h-4 text-blue-600">{React.createElement(require('lucide-react')[f.icon], { size: 16, className: "text-blue-600" })}
+        </span>
+        {f.label}
+      </button>
+    ))}
+  </div>
+)}
+
+
 
     </section>
   );
