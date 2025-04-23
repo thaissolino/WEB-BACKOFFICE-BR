@@ -142,7 +142,7 @@ export const EnhancedModal = ({ open, onClose, onSave, title, label }: EnhancedM
 
           <motion.div
             ref={modalRef}
-            className="bg-white rounded-2xl shadow-2xl overflow-hidden relative z-10 w-full max-w-md border border-gray-100"
+            className="bg-white mx-8 rounded-2xl shadow-2xl overflow-hidden relative z-10 w-full max-w-md border border-gray-100"
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.9, opacity: 0 }}
@@ -180,7 +180,7 @@ export const EnhancedModal = ({ open, onClose, onSave, title, label }: EnhancedM
                     <polyline points="10 9 9 9 8 9"></polyline>
                   </svg>
                 </div>
-                <h2 className="text-2xl font-bold text-gray-800">{title}</h2>
+                <h2 className="text-xl md:text-2xl font-bold text-gray-800">{title}</h2>
               </motion.div>
 
               <motion.div
@@ -195,6 +195,7 @@ export const EnhancedModal = ({ open, onClose, onSave, title, label }: EnhancedM
                 <StyledTextField
                   autoFocus
                   margin="dense"
+                  autoComplete="off"
                   label={label}
                   type="text"
                   fullWidth
