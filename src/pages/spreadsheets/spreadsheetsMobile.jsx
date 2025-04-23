@@ -25,6 +25,7 @@ import {
   Legend as ChartLegend,
   ArcElement
 } from 'chart.js';
+import { api } from '../../services/api';
 
 //ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, ChartTooltip, ChartLegend);
 ChartJS.register(
@@ -83,16 +84,16 @@ const SpreadsheetsMobile = () => {
   const [showChart, setShowChart] = useState(false);
 
   useEffect(() => {
-    const savedSheets = localStorage.getItem('bluesheets');
-    if (savedSheets) {
-      setSheets(JSON.parse(savedSheets));
-    }
+    fetchSheets();
   }, []);
 
-  const saveSheets = (newSheets) => {
-    setSheets(newSheets);
-    localStorage.setItem('bluesheets', JSON.stringify(newSheets));
-  };
+  const fetchSheets = async () => {
+    const savedSheets = await api.get('/sheets/all')
+    if (savedSheets) {
+      setSheets(savedSheets.data);
+    }
+  }
+
 
   const handleImport = (e) => {
     const file = e.target.files[0];
@@ -132,58 +133,116 @@ const SpreadsheetsMobile = () => {
     reader.readAsText(file);
   };
   
-
   const initHistory = (data) => {
-    setHistory([data]);
+    const deepCopyData = JSON.parse(JSON.stringify(data));
+    const deepCopyStyles = JSON.parse(JSON.stringify(cellStyles));
+    
+    setHistory([{ 
+      data: deepCopyData, 
+      styles: deepCopyStyles 
+    }]);
     setHistoryIndex(0);
   };
 
-  const recordHistory = (newData) => {
-    const newHistory = [...history.slice(0, historyIndex + 1), newData];
+
+  const recordHistory = (newData, newStyles = cellStyles) => {
+    const deepCopyData = JSON.parse(JSON.stringify(newData));
+    const deepCopyStyles = JSON.parse(JSON.stringify(newStyles));
+    
+    const newHistory = [...history.slice(0, historyIndex + 1), { 
+      data: deepCopyData, 
+      styles: deepCopyStyles 
+    }];
+    
     setHistory(newHistory);
     setHistoryIndex(newHistory.length - 1);
   };
 
+
   const handleUndo = () => {
     if (historyIndex > 0) {
-      setCurrentData(JSON.parse(JSON.stringify(history[historyIndex - 1])));
-      setHistoryIndex(prev => prev - 1);
+      const newIndex = historyIndex - 1;
+      const historyItem = history[newIndex];
+      setCurrentData(JSON.parse(JSON.stringify(historyItem.data)));
+      setCellStyles(JSON.parse(JSON.stringify(historyItem.styles)));
+      setHistoryIndex(newIndex);
     }
   };
-
+  
   const handleRedo = () => {
     if (historyIndex < history.length - 1) {
-      setCurrentData(history[historyIndex + 1]);
-      setHistoryIndex(prev => prev + 1);
+      const newIndex = historyIndex + 1;
+      const historyItem = history[newIndex];
+      setCurrentData(JSON.parse(JSON.stringify(historyItem.data)));
+      setCellStyles(JSON.parse(JSON.stringify(historyItem.styles)));
+      setHistoryIndex(newIndex);
     }
   };
-
-  const handleSave = (data, title) => {
+  const handleSave = async (data, title) => {
     const newSheet = { title, rows: data };
-    let newSheets;
-    
-    if (currentSheetIndex >= 0) {
-      newSheets = [...sheets];
-      newSheets[currentSheetIndex] = newSheet;
+  
+    if (currentSheetIndex >= 0 && sheets[currentSheetIndex]?.id) {
+      // Atualizar planilha existente (PATCH)
+      const id = sheets[currentSheetIndex].id;
+      try {
+        const res = await api.patch(`/sheets/${id}`, 
+          newSheet
+        );
+        const updated =  res.data;
+  
+        const updatedSheets = [...sheets];
+        updatedSheets[currentSheetIndex] = updated;
+        setSheets(updatedSheets);
+      } catch (err) {
+        console.error("Erro ao atualizar:", err);
+      }
     } else {
-      newSheets = [...sheets, newSheet];
+      // Criar nova planilha (POST)
+      try {
+        console.log("newSheet", newSheet)
+        const res = await api.post('/sheets', newSheet);
+        console.log("responseSheet", res.data)
+
+  
+        setSheets([...sheets, res.data]);
+      } catch (err) {
+        console.log("error", err)
+        console.error("Erro ao salvar:", err);
+      }
     }
-    
-    saveSheets(newSheets);
+  
     setShowEditor(false);
   };
-
   const handleSelectSheet = (index) => {
     setCurrentSheetIndex(index);
-    setCurrentData([...sheets[index].rows]);
+    const sheetData = [...sheets[index].rows];
+    setCurrentData(sheetData);
     setSheetTitle(sheets[index].title);
     setShowEditor(true);
-    initHistory(sheets[index].rows);
+    
+    // Reinicia os estilos e o histórico
+    setCellStyles({});
+    initHistory(sheetData);
+  };
+  const handleDeleteSheet = async (id) => {
+    try {
+      await api.delete(`/sheets/${id}`);
+      setSheets(sheets.filter((s) => s.id !== id));
+    } catch (err) {
+      console.log("error", err)
+      console.error("Erro ao deletar:", err);
+    }
   };
 
-  const handleDeleteSheet = (index) => {
-    const newSheets = sheets.filter((_, i) => i !== index);
-    saveSheets(newSheets);
+  const handleDeleteAllSheets = async () => {
+    try {
+      await api.delete("/sheets/all");
+      setSheets([]);
+      await fetchSheets()
+    } catch (err) {
+      console.log("error", err)
+      console.error("Erro ao deletar:", err);
+    }
   };
 
   // const exportToCSV = () => {
@@ -209,22 +268,32 @@ const SpreadsheetsMobile = () => {
   //   document.body.removeChild(link);
   //   URL.revokeObjectURL(url);
   // };
-
-  const handleDuplicateSheet = () => {
-    if (selectedSheetIndex != null) {
-      const copy = JSON.parse(JSON.stringify(sheets[selectedSheetIndex]));
-      copy.title += ' (Cópia)';
-      const newSheets = [...sheets, copy];
-      saveSheets(newSheets);
-      setSelectedSheetIndex(null); // limpa seleção se quiser
+  const handleDuplicateSheet = async (index) => {
+    try {
+      if (index === null || index === undefined || !sheets[index]) {
+        throw new Error("Nenhuma planilha selecionada para duplicar");
+      }
+  
+      const sheetId = sheets[index].id;
+      const response = await api.post(`/sheets/${sheetId}/duplicate`);
+      
+      // Atualiza a lista de planilhas
+      setSheets([...sheets, response.data]);
+      
+      // Opcional: abrir a cópia diretamente
+      handleSelectSheet(sheets.length);
+      
+    } catch (err) {
+      console.error("Erro ao duplicar planilha:", err);
+      // Adicione aqui a notificação para o usuário se necessário
     }
   };
   
   return (
     <div className="bg-gradient-to-b from-blue-50 to-blue-100 text-gray-900 min-h-screen">
-      <header className="bg-white shadow-md sticky top-0 z-50 px-4 py-4 flex justify-between items-center rounded-b-2xl">
+      <header className="bg-white shadow-md sticky top-0 z-50 px-4 py-4 flex flex-col md:flex-row justify-between items-center rounded-b-2xl">
         <span className="text-2xl font-bold text-blue-600">BlueSheets</span>
-        <div className="flex items-center gap-2">
+        <div className="grid grid-cols-3 md:flex items-center gap-2">
   <input
     type="file"
     ref={fileInputRef}
@@ -266,15 +335,8 @@ const SpreadsheetsMobile = () => {
 </button>
 
   <button
-  onClick={() => {
-    if (selectedSheetIndex != null) {
-      const copy = JSON.parse(JSON.stringify(sheets[selectedSheetIndex]));
-      copy.title += ' (Cópia)';
-      const newSheets = [...sheets, copy];
-      saveSheets(newSheets);
-      setSelectedSheetIndex(null); // limpa seleção se quiser
-    }
-  }}
+  onClick={() => handleDuplicateSheet(selectedSheetIndex)}
+
   className={`bg-orange-600 text-white px-4 py-2 rounded-lg ${selectedSheetIndex == null ? 'opacity-50 pointer-events-none' : ''}`}
 >
   Duplicar
@@ -289,11 +351,12 @@ const SpreadsheetsMobile = () => {
 
           <button
             onClick={() => {
-              setCurrentData(Array(50).fill().map(() => Array(5).fill('')));
+              const newData = Array(50).fill().map(() => Array(5).fill(''));
+              setCurrentData(newData);
               setSheetTitle('Planilha sem título');
               setCurrentSheetIndex(-1);
               setShowEditor(true);
-              initHistory(Array(50).fill().map(() => Array(5).fill('')));
+              initHistory(newData); // Inicializa o histórico
             }}
             className="bg-blue-600 text-white px-4 py-2 rounded-lg"
           >
@@ -343,7 +406,6 @@ const SpreadsheetsMobile = () => {
            const updated = [...prevSheets];
            if (currentSheetIndex >= 0) {
              updated[currentSheetIndex].title = newName;
-             localStorage.setItem('bluesheets', JSON.stringify(updated));
            }
            return updated;
          });
@@ -366,7 +428,7 @@ const SpreadsheetsMobile = () => {
         </button>
         <button
           onClick={() => {
-            localStorage.removeItem('bluesheets');
+            handleDeleteAllSheets()
             setSheets([]);
             setSelectedSheetIndex(null);
             setShowDeleteModal(false);
@@ -529,7 +591,7 @@ const SheetEditor = ({
     const newData = [...data];
     newData[row][col] = value;
     setData(newData);
-    recordHistory(newData); 
+    recordHistory(newData, cellStyles); // Registra histórico com dados e estilos
   };
 
   const handleCellFocus = (row, col) => {
@@ -552,15 +614,18 @@ const SheetEditor = ({
   };
 
   const addRow = () => {
-    setData([...data, Array(data[0].length).fill('')]);
+    const newData = [...data, Array(data[0].length).fill('')];
+    setData(newData);
+    recordHistory(newData);
   };
-
+  
   const removeRow = () => {
     if (data.length > 1) {
-      setData(data.slice(0, -1));
+      const newData = data.slice(0, -1);
+      setData(newData);
+      recordHistory(newData);
     }
   };
-
   const addColumn = () => {
     setData(data.map(row => [...row, '']));
   };
@@ -680,8 +745,8 @@ const SheetEditor = ({
   }
   
   return (
-    <section className="p-4">
-      <div className="bg-white px-4 py-2 flex justify-between items-center border-b mb-4">
+    <section className="p-4 bg-gray-100">
+      <div className="bg-white px-4 py-2 flex flex-col justify-between items-center border-b mb-4">
         <div className="flex items-center gap-2">
           <FileText className="w-5 h-5 text-gray-600" />
           <span className="font-medium text-lg">{title}</span>
@@ -692,7 +757,7 @@ const SheetEditor = ({
             Editar nome
           </button>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="grid grid-cols-3 md:flex items-center gap-2">
           <button
             onClick={addRow}
             className="bg-green-200 text-green-800 px-2 py-1 rounded"
