@@ -1,5 +1,5 @@
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
-import { Layout as BackofficeLayout} from "../pages/backoffice/Layout/base";
+import { Layout as BackofficeLayout } from "../pages/backoffice/Layout/base";
 import { SignIn as BackofficeSignIn } from "../pages/backoffice/SignIn";
 import { useAuthBackoffice } from "../hooks/authBackoffice";
 import { Logout } from "../pages/backoffice/Logout";
@@ -12,11 +12,10 @@ import Invoices from "../pages/invoices";
 import FormGroup from "../pages/form-group";
 import FormRoom from "../pages/form-room";
 import FormUser from "../pages/form-user";
-import Spreadsheets from "../pages/spreadsheets";
+import SpreadsheetApp from "../pages/spreadsheets";
 
 const BACKOFFICE_ROUTE = "/backoffice";
 const LOGIN_ROUTE = "/signin/backoffice";
-
 
 function RequireAuthBackoffice({ children }: { children: JSX.Element }) {
   useEffect(() => {
@@ -34,52 +33,51 @@ export function Router() {
   const { isAuthenticated, onLogout } = useAuthBackoffice();
 
   return (
-      <Routes>
-        {/* Rotas quando faz o login */}
+    <Routes>
+      {/* Rotas quando faz o login */}
 
+      <Route
+        element={
+          <GuardedRoute
+            isRouteAccessible={!isAuthenticated}
+            redirectRoute={isAuthenticated ? BACKOFFICE_ROUTE : LOGIN_ROUTE}
+          />
+        }
+      >
+        <Route path="/" element={<BackofficeSignIn />} />
+      </Route>
+
+      <Route element={<GuardedRoute isRouteAccessible={isAuthenticated} redirectRoute={"/"} />}>
         <Route
+          path="/*"
           element={
-            <GuardedRoute
-              isRouteAccessible={!isAuthenticated}
-              redirectRoute={isAuthenticated ? BACKOFFICE_ROUTE : LOGIN_ROUTE}
-            />
+            <RequireAuthBackoffice>
+              <BackofficeLayout />
+            </RequireAuthBackoffice>
           }
         >
-          <Route path="/" element={<BackofficeSignIn />} />
-        </Route>
-
-        <Route element={<GuardedRoute isRouteAccessible={isAuthenticated} redirectRoute={"/"} />}>
-          <Route
-            path="/*"
-            element={
-              <RequireAuthBackoffice>
-                <BackofficeLayout />
-              </RequireAuthBackoffice>
-            }
-          >
-
-<Route path="backoffice" element={<Dashboard />} />
-    <Route path="team" element={<Team />} />
-    <Route path="users" element={<Contacts />} />
-    <Route path="spreadsheets" element={<Spreadsheets  />} />
-    <Route path="invoices" element={<Invoices />} />
-    <Route path="create-form-group" element={<FormGroup />} /> 
-    <Route path="create-form-room" element={<FormRoom />} /> 
-    <Route path="create-form-user" element={<FormUser />} /> 
-            {/* <Route path="/backoffice/plans" element={<Plans />} />
+          <Route path="backoffice" element={<Dashboard />} />
+          <Route path="team" element={<Team />} />
+          <Route path="users" element={<Contacts />} />
+          <Route path="spreadsheets" element={<SpreadsheetApp />} />
+          <Route path="invoices" element={<Invoices />} />
+          <Route path="create-form-group" element={<FormGroup />} />
+          <Route path="create-form-room" element={<FormRoom />} />
+          <Route path="create-form-user" element={<FormUser />} />
+          {/* <Route path="/backoffice/plans" element={<Plans />} />
             <Route path="/backoffice/transactions-pagbank" element={<TransactionsPagbank />} />
             <Route path="/backoffice/extracts-pagbank" element={<ExtractsPagbank />} />
             <Route path="/backoffice/signup-pf" element={<SignUpPfForBackoffice />} /> */}
 
-            {/* <Route path="/backoffice/signup-pj" element={<SignUpPjForBackoffice />} /> */}
+          {/* <Route path="/backoffice/signup-pj" element={<SignUpPjForBackoffice />} /> */}
 
-            {/* <Route path="/backoffice/forward-invoice-pagbank" element={<ForwardInvoicePagbank />} />
+          {/* <Route path="/backoffice/forward-invoice-pagbank" element={<ForwardInvoicePagbank />} />
             <Route path="/backoffice/request-limits-users" element={<RequestLimitsWalllet />} />
             <Route path="/backoffice/transactions-pagbank/:id" element={<TransactionsPagbankDetails />} />
              */}
-            {/* <Route index element={<HomeDash />} /> */}
+          {/* <Route index element={<HomeDash />} /> */}
 
-            {/* <Route path="/backoffice/accounts" element={<Accounts />} />
+          {/* <Route path="/backoffice/accounts" element={<Accounts />} />
             <Route path="/backoffice/get-transaction-delbank" element={<GetTrasactionsMaster />} />
             <Route path="/backoffice/accounts/wallet" element={<AccountsWallet />} />
             <Route path="/backoffice/accounts/ca" element={<AccountsCA />} />
@@ -88,12 +86,12 @@ export function Router() {
             <Route path="/backoffice/accounts/wallet/:id" element={<Wallet />} />
             <Route path="/backoffice/accounts/wallet/:id/extract" element={<WalletTransactions />} /> */}
 
-            {/* <Route path="/backoffice/accounts/graphic/:id" element={<Graphic />} /> */}
+          {/* <Route path="/backoffice/accounts/graphic/:id" element={<Graphic />} /> */}
 
-            {/* <Route path="/backoffice/accounts/:id/tax" element={<AccountsDetailsTax />} />
+          {/* <Route path="/backoffice/accounts/:id/tax" element={<AccountsDetailsTax />} />
             <Route path="/backoffice/accounts/wallet/:id/tax" element={<WalletDetailsTax />} /> */}
 
-            {/* <Route path="/backoffice/transfers" element={<Transfers />} />
+          {/* <Route path="/backoffice/transfers" element={<Transfers />} />
 
             <Route path="/backoffice/financial" element={<AccountsDetailsTransactions />} />
 
@@ -110,13 +108,13 @@ export function Router() {
             <Route path="/backoffice/config/operators/form" element={<FormOperators />} />
             <Route path="/backoffice/config/operators/list" element={<ListOperators />} /> */}
 
-            <Route path="logout" element={<Logout />} />
-            {/* <Route path="/backoffice/tax" element={<TaxBackoffice />} />
+          <Route path="logout" element={<Logout />} />
+          {/* <Route path="/backoffice/tax" element={<TaxBackoffice />} />
             <Route path="/backoffice/support" element={<SupportBackoffice />} /> */}
-          </Route>
         </Route>
-        {/* <Route path="/logs/transactions/one" element={<LostTransactionsOneHour />} />
+      </Route>
+      {/* <Route path="/logs/transactions/one" element={<LostTransactionsOneHour />} />
         <Route path="/logs/transactions/six" element={<LostTransactionsSixHours />} /> */}
-      </Routes>
+    </Routes>
   );
 }
