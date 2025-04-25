@@ -13,6 +13,7 @@ import FormGroup from "../pages/form-group";
 import FormRoom from "../pages/form-room";
 import FormUser from "../pages/form-user";
 import Spreadsheets from "../pages/spreadsheets";
+import BlueSheetsRenderer from "../pages/spreadsheets/BlueSheetsRenderer";
 
 const BACKOFFICE_ROUTE = "/backoffice";
 const LOGIN_ROUTE = "/signin/backoffice";
@@ -61,7 +62,7 @@ export function Router() {
 <Route path="backoffice" element={<Dashboard />} />
     <Route path="team" element={<Team />} />
     <Route path="users" element={<Contacts />} />
-    <Route path="spreadsheets" element={<Spreadsheets  />} />
+    <Route path="spreadsheets" element={<BlueSheetsRenderer  />} />
     <Route path="invoices" element={<Invoices />} />
     <Route path="create-form-group" element={<FormGroup />} /> 
     <Route path="create-form-room" element={<FormRoom />} /> 
