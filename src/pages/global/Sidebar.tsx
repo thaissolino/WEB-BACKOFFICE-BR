@@ -254,6 +254,15 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebar }) => {
               requiresValidation={true}
             />
 
+<Item
+              title="Gerenciar Tokens"
+              to="/tokens-management"
+              icon={<DescriptionOutlinedIcon />}
+              selected={selected}
+              setSelected={setSelected}
+              requiresValidation={true}
+            />
+
             {/* Enhanced Modal Component */}
             <EnhancedModal
               open={openModal}
