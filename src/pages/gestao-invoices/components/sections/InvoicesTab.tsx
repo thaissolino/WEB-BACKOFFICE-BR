@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { NewInvoiceForm } from "./NewInvoiceForm";
-import { InvoiceProducts } from "./InvoiceProducts";
+import { InvoiceProducts } from './InvoiceProducts';
 import { InvoiceHistory } from "./InvoiceHistory";
 import { Invoice } from "../types/invoice";
 

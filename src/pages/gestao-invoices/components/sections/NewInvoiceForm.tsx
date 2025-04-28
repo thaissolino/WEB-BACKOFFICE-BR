@@ -1,5 +1,6 @@
 import { FilePlus, Save } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { api } from '../../../../services/api';
 
 interface Invoice {
   id: string | null;
@@ -22,68 +23,84 @@ interface NewInvoiceFormProps {
 }
 
 export function NewInvoiceForm({ currentInvoice, setCurrentInvoice }: NewInvoiceFormProps) {
-  const [suppliers] = useState([
-    { id: '1', name: 'Fornecedor A', phone: '(11) 99999-9999' },
-    { id: '2', name: 'Fornecedor B', phone: '(21) 88888-8888' },
-  ]);
+  const [suppliers, setSuppliers] = useState<any[]>([]);
+  const [carriers, setCarriers] = useState<any[]>([]);
+  const [products, setProducts] = useState<any[]>([]);
 
-  const [carriers] = useState([
-    { id: '1', name: 'Freteiro X', type: 'percentage', value: 5 },
-    { id: '2', name: 'Freteiro Y', type: 'perKg', value: 0.5 },
-    { id: '3', name: 'Freteiro Z', type: 'perUnit', value: 2.0 },
-  ]);
+  // Buscar fornecedores, transportadoras e produtos via API
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const suppliersResponse = await api.get('/invoice/supplier');
+        const carriersResponse = await api.get('/invoice/carriers');
+        const productsResponse = await api.get('/invoice/product');
+        
+        setSuppliers(suppliersResponse.data);
+        setCarriers(carriersResponse.data);
+        setProducts(productsResponse.data);
+      } catch (error) {
+        console.error('Erro ao buscar dados:', error);
+      }
+    };
+    fetchData();
+  }, []);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setCurrentInvoice({ ...currentInvoice, [name]: value });
   };
 
-  const saveInvoice = () => {
-    // Validar invoice
+  const saveInvoice = async () => {
     if (currentInvoice.products.length === 0) {
       alert('Adicione pelo menos um produto à invoice!');
       return;
     }
-  
+
     const invoiceNumber = currentInvoice.number;
     if (!invoiceNumber) {
       alert('Informe o número da invoice!');
       return;
     }
-  
+
     const invoiceDate = currentInvoice.date;
     if (!invoiceDate) {
       alert('Informe a data da invoice!');
       return;
     }
-  
+
     const supplierId = currentInvoice.supplierId;
     if (!supplierId) {
       alert('Selecione um fornecedor!');
       return;
     }
-  
-    // Aqui você faria a chamada à API ou atualizaria o estado global
-    console.log('Invoice salva:', currentInvoice);
-    alert('Invoice salva com sucesso!');
-    
-    // Criar nova invoice vazia
-    setCurrentInvoice({
-      id: null,
-      number: '',
-      date: new Date().toISOString().split('T')[0],
-      supplierId: '',
-      products: [],
-      carrierId: '',
-      taxValue: 5.0,
-      paid: false,
-      paidDate: null,
-      paidDollarRate: null,
-      completed: false,
-      completedDate: null,
-    });
+
+    try {
+      const response = await api.post('/invoice/create', currentInvoice);
+      console.log('Invoice salva:', response.data);
+      alert('Invoice salva com sucesso!');
+      
+      // Resetar a invoice
+      setCurrentInvoice({
+        id: null,
+        number: '',
+        date: new Date().toISOString().split('T')[0],
+        supplierId: '',
+        products: [],
+        carrierId: '',
+        taxValue: 0.0,
+        paid: false,
+        paidDate: null,
+        paidDollarRate: null,
+        completed: false,
+        completedDate: null,
+      });
+    } catch (error) {
+      console.error('Erro ao salvar a invoice:', error);
+    }
   };
+
   
+
   return (
     <div className="lg:col-span-1 bg-white p-6 rounded-lg shadow-md">
       <h2 className="text-xl font-semibold mb-4 text-blue-700 border-b pb-2">
@@ -164,7 +181,7 @@ export function NewInvoiceForm({ currentInvoice, setCurrentInvoice }: NewInvoice
       </div>
 
       <button
-        onClick={() => saveInvoice()}
+        onClick={saveInvoice}
         className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md"
       >
         <Save className="mr-2 inline" size={18} />

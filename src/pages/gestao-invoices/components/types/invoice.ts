@@ -1,14 +1,5 @@
-export interface InvoiceProduct {
-    id: string;
-    name: string;
-    quantity: number;
-    value: number;
-    weight: number;
-    total: number;
-    received: boolean;
-    receivedQuantity: number;
-  }
-  
+import { InvoiceProduct } from "../sections/InvoiceProducts";
+
   export interface Invoice {
     id: string | null;
     number: string;

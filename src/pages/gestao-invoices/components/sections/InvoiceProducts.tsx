@@ -1,11 +1,14 @@
-import { useState } from 'react';
-import { Box, Plus, FileText , Save, Trash2, X } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Box, Plus, Trash2, X } from 'lucide-react';
+import { api } from '../../../../services/api';
 
-interface InvoiceProduct {
+export type InvoiceProduct = {
   id: string;
-  name: string;
+  invoiceId: string;
+  productId: string;
   quantity: number;
   value: number;
+  price: number;
   weight: number;
   total: number;
   received: boolean;
@@ -23,19 +26,26 @@ interface InvoiceProductsProps {
 
 export function InvoiceProducts({ currentInvoice, setCurrentInvoice }: InvoiceProductsProps) {
   const [showProductForm, setShowProductForm] = useState(false);
-  const [products] = useState([
-    { id: '1', name: 'Produto 1', code: 'P001', price: 10.5, weight: 0.5, description: 'Descrição do Produto 1' },
-    { id: '2', name: 'Produto 2', code: 'P002', price: 25.75, weight: 1.2, description: 'Descrição do Produto 2' },
-    { id: '3', name: 'Produto 3', code: 'P003', price: 15.0, weight: 0.8, description: 'Descrição do Produto 3' },
-  ]);
+  const [products, setProducts] = useState<any[]>([]); // Array de produtos da API
   const [productForm, setProductForm] = useState({
     productId: '',
-    productName: '',
     quantity: '',
     value: '',
     weight: '',
     total: '',
+    price:''
   });
+
+  useEffect(() => {
+    // Carregar os produtos da API ao montar o componente
+    api.get('/invoice/product')
+      .then(response => {
+        setProducts(response.data); // Supondo que a resposta seja uma lista de produtos
+      })
+      .catch(error => {
+        console.error('Erro ao carregar produtos:', error);
+      });
+  }, []);
 
   const calculateProductTotal = () => {
     const quantity = parseFloat(productForm.quantity) || 0;
@@ -76,7 +86,7 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice }: InvoicePr
 
     setProductForm({
       productId: '',
-      productName: '',
+      price:'',
       quantity: '',
       value: '',
       weight: '',
@@ -91,10 +101,11 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice }: InvoicePr
     newProducts.splice(index, 1);
     setCurrentInvoice({ ...currentInvoice, products: newProducts });
   };
+  useEffect(() => {
+    calculateProductTotal();
+  }, [productForm.quantity, productForm.value, productForm.weight]);
 
-  const updateInvoiceTotals = () => {
-    // Implement calculation logic here
-  };
+
 
   return (
     <div className="lg:col-span-2 bg-white p-6 rounded-lg shadow-md">
@@ -120,17 +131,18 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice }: InvoicePr
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
             <div className="relative">
               <label className="block text-sm font-medium text-gray-700 mb-1">Produto</label>
-              <input
-                type="text"
-                value={productForm.productName}
-                onChange={(e) => {
-                  const searchTerm = e.target.value.toLowerCase();
-                  setProductForm({ ...productForm, productName: e.target.value });
-                }}
+              <select
+                value={productForm.productId}
+                onChange={(e) => setProductForm({ ...productForm, productId: e.target.value })}
                 className="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500"
-                placeholder="Pesquisar produto..."
-              />
-              {/* Product options dropdown would go here */}
+              >
+                <option value="">Selecione um produto</option>
+                {products.map((product) => (
+                  <option key={product.id} value={product.id}>
+                    {product.name}
+                  </option>
+                ))}
+              </select>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Quantidade</label>
@@ -138,8 +150,9 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice }: InvoicePr
                 type="number"
                 value={productForm.quantity}
                 onChange={(e) => {
+                  console.log(e.target.value)
                   setProductForm({ ...productForm, quantity: e.target.value });
-                  calculateProductTotal();
+                  // calculateProductTotal();
                 }}
                 className="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500"
                 placeholder="Qtd"
@@ -153,7 +166,7 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice }: InvoicePr
                 value={productForm.value}
                 onChange={(e) => {
                   setProductForm({ ...productForm, value: e.target.value });
-                  calculateProductTotal();
+                  // calculateProductTotal();
                 }}
                 className="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500"
                 placeholder="$"
@@ -167,7 +180,7 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice }: InvoicePr
                 value={productForm.weight}
                 onChange={(e) => {
                   setProductForm({ ...productForm, weight: e.target.value });
-                  calculateProductTotal();
+                  // calculateProductTotal();
                 }}
                 className="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500"
                 placeholder="kg"
@@ -235,105 +248,55 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice }: InvoicePr
                 <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Total ($)
                 </th>
-                <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Ações
-                </th>
+                <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"></th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {currentInvoice.products.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="px-4 py-4 text-center text-gray-500">
-                    Nenhum produto adicionado ainda
+            <tbody className="divide-y divide-gray-200">
+              {currentInvoice.products.map((product, index) => (
+                <tr key={product.id}>
+                  <td className="px-4 py-2 text-sm text-gray-800">{products.find((item)=> item.productId === product.productId).name}</td>
+                  <td className="px-4 py-2 text-sm text-right">{product.quantity}</td>
+                  <td className="px-4 py-2 text-sm text-right">{product.value.toFixed(2)}</td>
+                  <td className="px-4 py-2 text-sm text-right">{product.weight.toFixed(2)}</td>
+                  <td className="px-4 py-2 text-sm text-right">{product.total.toFixed(2)}</td>
+                  <td className="px-4 py-2 text-center">
+                    <button
+                      onClick={() => deleteProduct(index)}
+                      className="text-red-600 hover:text-red-800"
+                    >
+                      <Trash2 size={16} />
+                    </button>
                   </td>
                 </tr>
-              ) : (
-                currentInvoice.products.map((product, index) => (
-                  <tr key={index} className="hover:bg-gray-50">
-                    <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">{product.name}</td>
-                    <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500 text-right">
-                      {product.quantity}
-                    </td>
-                    <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500 text-right">
-                      {formatCurrency(product.value)}
-                    </td>
-                    <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500 text-right">
-                      {product.weight ? product.weight.toFixed(2) + ' kg' : '-'}
-                    </td>
-                    <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500 text-right">
-                      {formatCurrency(product.total)}
-                    </td>
-                    <td className="px-4 py-2 whitespace-nowrap text-right text-sm font-medium">
-                      <button
-                        onClick={() => deleteProduct(index)}
-                        className="text-red-500 hover:text-red-700"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </td>
-                  </tr>
-                ))
-              )}
+              ))}
             </tbody>
-            <tfoot>
-              <tr className="bg-gray-50">
-                <td colSpan={3} className="px-4 py-2 text-right text-sm font-medium text-gray-700">
-                  Peso Total:
-                </td>
-                <td className="px-4 py-2 text-right text-sm font-medium text-gray-700">
-                  {currentInvoice.products
-                    .reduce((sum, product) => sum + (product.weight || 0), 0)
-                    .toFixed(2)}{' '}
-                  kg
-                </td>
-                <td colSpan={2}></td>
-              </tr>
-            </tfoot>
           </table>
-        </div>
-      </div>
 
-      <div className="bg-gray-50 p-4 rounded-lg border">
-        <h3 className="font-medium mb-3 text-blue-700 border-b pb-2">Resumo da Invoice</h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-          <div className="bg-white p-3 rounded border">
-            <p className="text-sm text-gray-600">Subtotal:</p>
-            <p className="text-lg font-semibold">
-              {formatCurrency(
-                currentInvoice.products.reduce((sum, product) => sum + product.total, 0)
-              )}
-            </p>
-          </div>
-          <div className="bg-white p-3 rounded border">
-            <p className="text-sm text-gray-600">Frete:</p>
-            <p className="text-lg font-semibold">$ 0.00</p>
-          </div>
-          <div className="bg-white p-3 rounded border">
-            <p className="text-sm text-gray-600">Frete SP x ES:</p>
-            <p className="text-lg font-semibold">R$ 0,00</p>
-          </div>
-        </div>
-        <div className="bg-blue-50 p-3 rounded border">
-          <div className="flex justify-between items-center">
-            <p className="text-sm font-medium text-blue-800">Total da Invoice:</p>
-            <p className="text-xl font-bold text-blue-800">$ 0.00</p>
-          </div>
+                        <div className="bg-gray-50 p-4 rounded-lg border">
+                            <h3 className="font-medium mb-3 text-blue-700 border-b pb-2">Resumo da Invoice</h3>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                                <div className="bg-white p-3 rounded border">
+                                    <p className="text-sm text-gray-600">Subtotal:</p>
+                                    <p id="subtotal" className="text-lg font-semibold">$ 0.00</p>
+                                </div>
+                                <div className="bg-white p-3 rounded border">
+                                    <p className="text-sm text-gray-600">Frete:</p>
+                                    <p id="shippingCost" className="text-lg font-semibold">$ 0.00</p>
+                                </div>
+                                <div className="bg-white p-3 rounded border">
+                                    <p className="text-sm text-gray-600">Frete SP x ES:</p>
+                                    <p id="taxCost" className="text-lg font-semibold">R$ 0,00</p>
+                                </div>
+                            </div>
+                            <div className="bg-blue-50 p-3 rounded border">
+                                <div className="flex justify-between items-center">
+                                    <p className="text-sm font-medium text-blue-800">Total da Invoice:</p>
+                                    <p id="invoiceTotal" className="text-xl font-bold text-blue-800">$ 0.00</p>
+                                </div>
+                            </div>
+                        </div>
         </div>
       </div>
     </div>
   );
-}
-
-function formatCurrency(value: number, decimals = 2, currency = 'USD') {
-  if (isNaN(value)) value = 0;
-  if (currency === 'USD') {
-    return `$ ${value.toFixed(decimals)}`;
-  } else {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL',
-      minimumFractionDigits: decimals,
-      maximumFractionDigits: decimals,
-    }).format(value);
-  }
 }
