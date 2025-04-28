@@ -14,6 +14,8 @@ import MenuOutlinedIcon from "@mui/icons-material/MenuOutlined";
 import PersonAddIcon from "@mui/icons-material/PersonAdd";
 import { useAuthBackoffice } from "../../hooks/authBackoffice";
 import { EnhancedModal } from "../../components/modals/harCodedModal";
+import DescriptionOutlinedIcon from "@mui/icons-material/DescriptionOutlined";
+
 
 interface SidebarProps {
   isSidebar?: boolean;
@@ -239,6 +241,14 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebar }) => {
               title="Gerenciar Planilhas"
               to="/spreadsheets"
               icon={<TableChartOutlinedIcon />}
+              selected={selected}
+              setSelected={setSelected}
+              requiresValidation={true}
+            />
+            <Item
+              title="Gerenciar Invoices"
+              to="/invoices-management"
+              icon={<DescriptionOutlinedIcon />}
               selected={selected}
               setSelected={setSelected}
               requiresValidation={true}

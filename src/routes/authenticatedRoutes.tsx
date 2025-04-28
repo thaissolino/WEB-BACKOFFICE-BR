@@ -13,6 +13,8 @@ import FormGroup from "../pages/form-group";
 import FormRoom from "../pages/form-room";
 import FormUser from "../pages/form-user";
 import SpreadsheetApp from "../pages/spreadsheets";
+import { CambioPage } from "../pages/cambiobackoffice/CambioPage";
+import InvocesManagement from "../pages/gestao-invoices/InvocesManagement";
 
 const BACKOFFICE_ROUTE = "/backoffice";
 const LOGIN_ROUTE = "/signin/backoffice";
@@ -64,6 +66,9 @@ export function Router() {
           <Route path="create-form-group" element={<FormGroup />} />
           <Route path="create-form-room" element={<FormRoom />} />
           <Route path="create-form-user" element={<FormUser />} />
+          <Route path="cambioPage" element={<CambioPage />} />
+          <Route path="invoices-management" element={<InvocesManagement />} />
+
           {/* <Route path="/backoffice/plans" element={<Plans />} />
             <Route path="/backoffice/transactions-pagbank" element={<TransactionsPagbank />} />
             <Route path="/backoffice/extracts-pagbank" element={<ExtractsPagbank />} />

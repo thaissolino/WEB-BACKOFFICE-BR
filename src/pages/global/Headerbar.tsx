@@ -21,6 +21,7 @@ import MenuOutlinedIcon from "@mui/icons-material/MenuOutlined";
 import TableChartOutlinedIcon from "@mui/icons-material/TableChartOutlined";
 import { useAuthBackoffice } from "../../hooks/authBackoffice";
 import { EnhancedModal } from "../../components/modals/harCodedModal";
+import DescriptionOutlinedIcon from "@mui/icons-material/DescriptionOutlined";
 
 interface HeaderMenuProps {
   isSidebar?: boolean;
@@ -115,6 +116,16 @@ const HeaderMenu: React.FC<HeaderMenuProps> = () => {
           >
             <TableChartOutlinedIcon sx={{ mr: 1 }} />
             Gerenciar Planilhas
+          </MenuItem>
+          <MenuItem 
+            onClick={() => {
+              setPendingNavigation("/invoices-management");
+              setOpenModal(true);
+              handleMenuClose();
+            }}
+          >
+            <DescriptionOutlinedIcon sx={{ mr: 1 }} />
+            Gerenciar Invoices
           </MenuItem>
         </Menu>
 
