@@ -89,7 +89,44 @@ module.exports = {
 				"custom-dark-blue": "#03142E",
 				"custom-red": "#DC0000",
 				"custom-yellow": "#ffd33d",
-
+				'vilablue': {
+					500: '#3B82F6',
+					600: '#2563EB'
+				  },
+				  'green': {
+					50: '#f0fdf4',
+					100: '#dcfce7',
+					500: '#10b981',
+					600: '#059669'
+				  },
+				  'blue': {
+					50: '#eff6ff',
+					100: '#dbeafe',
+					500: '#3b82f6',
+					600: '#2563eb',
+					700: '#1d4ed8',
+					800: '#1e40af'
+				  },
+				  'yellow': {
+					100: '#fef9c3',
+					500: '#eab308',
+					600: '#ca8a04'
+				  },
+				  'red': {
+					100: '#fee2e2',
+					500: '#ef4444',
+					600: '#dc2626'
+				  },
+				  animation: {
+					fadeIn: 'fadeIn 0.3s',
+				  },
+				  keyframes: {
+					fadeIn: {
+					  from: { opacity: 0 },
+					  to: { opacity: 1 }
+					}
+				  }
+				
 				// ... outras cores ...
 			},
 			// colors: {
