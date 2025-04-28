@@ -1,3 +1,5 @@
+// src/components/RecolhedoresTab.tsx
+
 import React, { useEffect, useState } from "react";
 import { formatCurrency } from "./format";
 
@@ -22,16 +24,16 @@ const RecolhedoresTab: React.FC<RecolhedoresTabProps> = ({ onOpenModal }) => {
   }, []);
 
   return (
-    <div className="bg-white p-6 rounded-lg shadow">
+    <div className="bg-white p-6 rounded-lg shadow mb-6">
       <div className="flex justify-between items-center mb-4">
-        <h2 className="text-xl font-semibold text-blue-700">
-          <i className="fas fa-users mr-2"></i>RECOLHEDORES
+        <h2 className="text-xl font-semibold text-blue-700 flex items-center">
+          <i className="fas fa-users mr-2"></i> RECOLHEDORES
         </h2>
         <button
           onClick={onOpenModal}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded"
+          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded flex items-center"
         >
-          <i className="fas fa-plus mr-2"></i>ADICIONAR
+          <i className="fas fa-plus mr-2"></i> ADICIONAR
         </button>
       </div>
 
@@ -39,35 +41,26 @@ const RecolhedoresTab: React.FC<RecolhedoresTabProps> = ({ onOpenModal }) => {
         <table className="min-w-full bg-white">
           <thead>
             <tr className="bg-gray-200">
-              <th className="py-2 px-4 border">NOME</th>
-              <th className="py-2 px-4 border">TAXA</th>
-              <th className="py-2 px-4 border">SALDO (USD)</th>
-              <th className="py-2 px-4 border">AÇÕES</th>
+              <th className="py-2 px-4 border text-center">NOME</th>
+              <th className="py-2 px-4 border text-center">TAXA</th>
+              <th className="py-2 px-4 border text-center">SALDO (USD)</th>
+              <th className="py-2 px-4 border text-center">AÇÕES</th>
             </tr>
           </thead>
           <tbody>
             {recolhedores.length > 0 ? (
               recolhedores.map((r) => (
-                <tr
-                  key={r.id}
-                  className="hover:bg-gray-50 cursor-pointer"
-                >
-                  <td className="py-2 px-4 border text-center">
-                    {r.nome.toUpperCase()}
-                  </td>
+                <tr key={r.id} className="hover:bg-gray-50 text-sm">
+                  <td className="py-2 px-4 border text-center font-medium">{r.nome.toUpperCase()}</td>
                   <td className="py-2 px-4 border text-center">{r.taxa}</td>
-                  <td
-                    className={`py-2 px-4 border text-center ${
-                      r.saldo > 0 ? "text-green-600" : "text-red-600"
-                    }`}
-                  >
+                  <td className={`py-2 px-4 border text-center font-semibold ${r.saldo >= 0 ? "text-green-600" : "text-red-600"}`}>
                     {formatCurrency(r.saldo)}
                   </td>
-                  <td className="py-2 px-4 border text-center">
-                    <button className="text-blue-500 hover:text-blue-700 mr-2">
+                  <td className="py-2 px-4 border text-center space-x-2">
+                    <button className="text-blue-500 hover:text-blue-700" title="Editar">
                       <i className="fas fa-edit"></i>
                     </button>
-                    <button className="text-red-500 hover:text-red-700">
+                    <button className="text-red-500 hover:text-red-700" title="Excluir">
                       <i className="fas fa-trash"></i>
                     </button>
                   </td>
@@ -75,10 +68,7 @@ const RecolhedoresTab: React.FC<RecolhedoresTabProps> = ({ onOpenModal }) => {
               ))
             ) : (
               <tr>
-                <td
-                  colSpan={4}
-                  className="py-4 text-center text-gray-500"
-                >
+                <td colSpan={4} className="py-6 text-center text-gray-500">
                   NENHUM RECOLHEDOR CADASTRADO
                 </td>
               </tr>

@@ -1,4 +1,6 @@
-import React, { useState, useEffect } from "react";
+// src/components/OperacoesTab.tsx
+
+import React, { useEffect, useState } from "react";
 import { formatCurrency, formatDate } from "./format";
 
 interface Operacao {
@@ -20,7 +22,7 @@ const OperacoesTab: React.FC = () => {
   const [fornecedores, setFornecedores] = useState<any[]>([]);
   const [operacoes, setOperacoes] = useState<Operacao[]>([]);
 
-  const [dataOperacao, setDataOperacao] = useState<string>("");
+  const [dataOperacao, setDataOperacao] = useState<string>(new Date().toISOString().split("T")[0]);
   const [localOperacao, setLocalOperacao] = useState("");
   const [valorOperacao, setValorOperacao] = useState<number>(0);
   const [recolhedorId, setRecolhedorId] = useState<string>("");
@@ -39,9 +41,6 @@ const OperacoesTab: React.FC = () => {
     setRecolhedores(JSON.parse(r));
     setFornecedores(JSON.parse(f));
     setOperacoes(JSON.parse(o));
-
-    // Deixar o placeholder de data corretamente
-    setDataOperacao("");
   }, []);
 
   useEffect(() => {
@@ -83,9 +82,9 @@ const OperacoesTab: React.FC = () => {
     setOperacoes(novaLista);
     localStorage.setItem("operacoes", JSON.stringify(novaLista));
 
-    // resetar formulário
-    setValorOperacao(0);
+    setDataOperacao(new Date().toISOString().split("T")[0]);
     setLocalOperacao("");
+    setValorOperacao(0);
     setRecolhedorId("");
     setFornecedorId("");
     setTaxaRecolhedor("1.025");
@@ -93,13 +92,16 @@ const OperacoesTab: React.FC = () => {
     setValorFornecedor(0);
     setValorRecolhedor(0);
     setValorLucro(0);
-    setDataOperacao("");
   };
+
+  const getNomeRecolhedor = (id: number) => recolhedores.find((r) => r.id === id)?.nome || "N/A";
+  const getNomeFornecedor = (id: number) => fornecedores.find((f) => f.id === id)?.nome || "N/A";
 
   return (
     <div className="space-y-8">
-      <div className="bg-white p-6 rounded-lg shadow-md border">
-        <h2 className="text-xl font-semibold mb-4 text-blue-700 flex items-center">
+      {/* NOVA OPERAÇÃO */}
+      <div className="bg-white p-6 rounded-lg shadow mb-6">
+        <h2 className="text-xl font-semibold text-blue-700 border-b pb-2 mb-4 flex items-center">
           <i className="fas fa-handshake mr-2"></i> NOVA OPERAÇÃO
         </h2>
 
@@ -111,7 +113,6 @@ const OperacoesTab: React.FC = () => {
               className="mt-1 block w-full border border-gray-300 rounded-md p-2"
               value={dataOperacao}
               onChange={(e) => setDataOperacao(e.target.value)}
-              placeholder="dd/mm/aaaa"
             />
           </div>
           <div>
@@ -191,6 +192,7 @@ const OperacoesTab: React.FC = () => {
           </div>
         </div>
 
+        {/* RESUMO DA OPERAÇÃO */}
         <div className="mt-6 bg-blue-50 p-4 rounded">
           <h3 className="font-medium mb-2">RESUMO DA OPERAÇÃO</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -211,27 +213,28 @@ const OperacoesTab: React.FC = () => {
 
         <button
           onClick={registrarOperacao}
-          className="mt-6 bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-3 rounded-md w-full flex items-center justify-center"
+          className="mt-6 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-md w-full flex justify-center items-center"
         >
           <i className="fas fa-save mr-2"></i> REGISTRAR OPERAÇÃO
         </button>
       </div>
 
-      <div className="bg-white p-6 rounded-lg shadow-md border">
-        <h2 className="text-xl font-semibold mb-4 text-blue-700 flex items-center">
+      {/* TABELA DE ÚLTIMAS OPERAÇÕES */}
+      <div className="bg-white p-6 rounded-lg shadow">
+        <h2 className="text-xl font-semibold text-blue-700 border-b pb-2 mb-4 flex items-center">
           <i className="fas fa-history mr-2"></i> ÚLTIMAS OPERAÇÕES
         </h2>
 
         <div className="overflow-x-auto">
-          <table className="min-w-full bg-white rounded-lg overflow-hidden">
+          <table className="min-w-full bg-white">
             <thead>
-              <tr className="bg-gray-100 text-gray-700 text-sm">
-                <th className="py-2 px-4 border text-center">DATA</th>
-                <th className="py-2 px-4 border text-center">LOCAL</th>
-                <th className="py-2 px-4 border text-center">RECOLHEDOR</th>
-                <th className="py-2 px-4 border text-center">FORNECEDOR</th>
-                <th className="py-2 px-4 border text-center">VALOR (USD)</th>
-                <th className="py-2 px-4 border text-center">AÇÕES</th>
+              <tr className="bg-gray-200 text-gray-700 text-sm">
+                <th className="py-2 px-4 border">DATA</th>
+                <th className="py-2 px-4 border">LOCAL</th>
+                <th className="py-2 px-4 border">RECOLHEDOR</th>
+                <th className="py-2 px-4 border">FORNECEDOR</th>
+                <th className="py-2 px-4 border">VALOR (USD)</th>
+                <th className="py-2 px-4 border">AÇÕES</th>
               </tr>
             </thead>
             <tbody>
@@ -240,8 +243,17 @@ const OperacoesTab: React.FC = () => {
                   <tr key={op.id} className="hover:bg-gray-50 text-sm">
                     <td className="py-2 px-4 border text-center">{formatDate(op.data)}</td>
                     <td className="py-2 px-4 border text-center">{op.local}</td>
+                    <td className="py-2 px-4 border text-center">{getNomeRecolhedor(op.recolhedorId)}</td>
+                    <td className="py-2 px-4 border text-center">{getNomeFornecedor(op.fornecedorId)}</td>
                     <td className="py-2 px-4 border text-center">{formatCurrency(op.valor)}</td>
-                    <td className="py-2 px-4 border text-center text-green-600 font-medium">{formatCurrency(op.lucro)}</td>
+                    <td className="py-2 px-4 border text-center space-x-2">
+                      <button className="text-blue-500 hover:text-blue-700">
+                        <i className="fas fa-edit"></i>
+                      </button>
+                      <button className="text-red-500 hover:text-red-700">
+                        <i className="fas fa-trash"></i>
+                      </button>
+                    </td>
                   </tr>
                 ))
               ) : (

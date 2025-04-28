@@ -1,4 +1,6 @@
-import React, { useState, useEffect } from "react";
+// src/components/ModalFornecedor.tsx
+
+import React, { useEffect, useState } from "react";
 
 interface ModalFornecedorProps {
   open: boolean;
@@ -49,6 +51,7 @@ const ModalFornecedor: React.FC<ModalFornecedorProps> = ({ open, onClose }) => {
         <h3 className="text-lg font-medium mb-4" id="tituloModalFornecedor">
           {id ? "EDITAR FORNECEDOR" : "ADICIONAR FORNECEDOR"}
         </h3>
+
         <div className="space-y-4">
           <input type="hidden" value={id} />
           <div>
@@ -73,6 +76,7 @@ const ModalFornecedor: React.FC<ModalFornecedorProps> = ({ open, onClose }) => {
             />
           </div>
         </div>
+
         <div className="mt-6 flex justify-end space-x-3">
           <button
             onClick={onClose}
@@ -82,7 +86,7 @@ const ModalFornecedor: React.FC<ModalFornecedorProps> = ({ open, onClose }) => {
           </button>
           <button
             onClick={salvar}
-            className="px-4 py-2 bg-green-600 text-white rounded-md"
+            className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md"
           >
             SALVAR
           </button>

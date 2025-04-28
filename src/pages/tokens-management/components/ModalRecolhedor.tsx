@@ -1,4 +1,6 @@
-import React, { useState, useEffect } from "react";
+// src/components/ModalRecolhedor.tsx
+
+import React, { useEffect, useState } from "react";
 
 interface ModalRecolhedorProps {
   open: boolean;
@@ -49,6 +51,7 @@ const ModalRecolhedor: React.FC<ModalRecolhedorProps> = ({ open, onClose }) => {
         <h3 className="text-lg font-medium mb-4" id="tituloModalRecolhedor">
           {id ? "EDITAR RECOLHEDOR" : "ADICIONAR RECOLHEDOR"}
         </h3>
+
         <div className="space-y-4">
           <input type="hidden" value={id} />
           <div>
@@ -73,6 +76,7 @@ const ModalRecolhedor: React.FC<ModalRecolhedorProps> = ({ open, onClose }) => {
             />
           </div>
         </div>
+
         <div className="mt-6 flex justify-end space-x-3">
           <button
             onClick={onClose}
@@ -82,7 +86,7 @@ const ModalRecolhedor: React.FC<ModalRecolhedorProps> = ({ open, onClose }) => {
           </button>
           <button
             onClick={salvar}
-            className="px-4 py-2 bg-blue-600 text-white rounded-md"
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md"
           >
             SALVAR
           </button>

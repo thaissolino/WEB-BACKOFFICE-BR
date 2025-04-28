@@ -1,9 +1,11 @@
+// src/components/tabs.tsx
+
 import React from "react";
 
-interface Tab {
+interface TabProps {
   value: string;
   label: string;
-  icon?: string; // FontAwesome class
+  icon?: string;
 }
 
 interface TabsProps {
@@ -13,20 +15,14 @@ interface TabsProps {
   className?: string;
 }
 
-interface TabProps {
-  value: string;
-  label: string;
-  icon?: string;
-}
-
 export const TabsX: React.FC<TabsProps> = ({ value, onValueChange, children, className }) => {
   return (
-    <div className={className}>
-      <ul className="flex flex-wrap border-b border-gray-200 -mb-px">
+    <div className={`${className} border-b border-gray-200`}>
+      <ul className="flex flex-wrap -mb-px">
         {children.map((tab) => (
           <li key={tab.props.value} className="mr-2">
             <button
-              className={`inline-block p-4 border-b-2 rounded-t-lg ${
+              className={`inline-block p-4 border-b-2 rounded-t-lg transition-all duration-300 ${
                 value === tab.props.value
                   ? "border-blue-600 text-blue-600"
                   : "border-transparent hover:text-gray-600 hover:border-gray-300"
