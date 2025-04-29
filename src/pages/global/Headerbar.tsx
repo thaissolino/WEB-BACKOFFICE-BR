@@ -127,6 +127,16 @@ const HeaderMenu: React.FC<HeaderMenuProps> = () => {
             <DescriptionOutlinedIcon sx={{ mr: 1 }} />
             Gerenciar Invoices
           </MenuItem>
+          <MenuItem 
+            onClick={() => {
+              setPendingNavigation("/tokens-management");
+              setOpenModal(true);
+              handleMenuClose();
+            }}
+          >
+            <DescriptionOutlinedIcon sx={{ mr: 1 }} />
+            Gerenciar Tokens
+          </MenuItem>
         </Menu>
 
         {/* Enhanced Modal Component */}

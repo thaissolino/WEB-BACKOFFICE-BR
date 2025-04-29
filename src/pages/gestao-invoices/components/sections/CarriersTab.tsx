@@ -7,7 +7,7 @@ import { api } from '../../../../services/api';
 interface Carrier {
   id: string;
   name: string;
-  type: 'percentage' | 'perKg' | 'perUnit';
+  type: "percentage" | "perKg" | "perUnit";
   value: number;
   active?: boolean;
 }
@@ -38,12 +38,12 @@ export function CarriersTab() {
 
   const getShippingTypeText = (type: string) => {
     switch (type) {
-      case 'percentage':
-        return '%';
-      case 'perKg':
-        return '$/kg';
-      case 'perUnit':
-        return '$/un';
+      case "percentage":
+        return "%";
+      case "perKg":
+        return "$/kg";
+      case "perUnit":
+        return "$/un";
       default:
         return type;
     }
@@ -62,10 +62,10 @@ export function CarriersTab() {
       text: "Você não poderá reverter isso!",
       icon: 'warning',
       showCancelButton: true,
-      confirmButtonColor: '#3085d6',
-      cancelButtonColor: '#d33',
-      confirmButtonText: 'Sim, excluir!',
-      cancelButtonText: 'Cancelar'
+      confirmButtonColor: "#3085d6",
+      cancelButtonColor: "#d33",
+      confirmButtonText: "Sim, excluir!",
+      cancelButtonText: "Cancelar",
     });
 
     if (result.isConfirmed) {
@@ -196,9 +196,7 @@ export function CarriersTab() {
       {showModal && currentCarrier && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white p-6 rounded-lg w-full max-w-md">
-            <h3 className="text-lg font-medium mb-4">
-              {currentCarrier.id ? 'Editar Freteiro' : 'Adicionar Freteiro'}
-            </h3>
+            <h3 className="text-lg font-medium mb-4">{currentCarrier.id ? "Editar Freteiro" : "Adicionar Freteiro"}</h3>
             <div className="space-y-4">
               <input type="hidden" value={currentCarrier.id} />
               <div>
@@ -207,12 +205,14 @@ export function CarriersTab() {
                   type="text"
                   value={currentCarrier.name}
                   onChange={(e) => setCurrentCarrier({ ...currentCarrier, name: e.target.value })}
+                  onChange={(e) => setCurrentCarrier({ ...currentCarrier, name: e.target.value })}
                   className="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500"
                   disabled={isSubmitting}
                 />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Tipo de Frete</label>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Tipo de Frete</label>
                   <select
                     value={currentCarrier.type}
