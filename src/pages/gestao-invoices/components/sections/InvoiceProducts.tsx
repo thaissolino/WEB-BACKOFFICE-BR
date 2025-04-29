@@ -295,9 +295,9 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice }: InvoicePr
                 <tr key={product.id}>
                   <td className="px-4 py-2 text-sm text-gray-800">{products.find((item) => item.productId === product.productId).name}</td>
                   <td className="px-4 py-2 text-sm text-right">{product.quantity}</td>
-                  <td className="px-4 py-2 text-sm text-right">{product.value.toFixed(2)}</td>
+                  <td className="px-4 py-2 text-sm text-right">{product.value.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})}</td>
                   <td className="px-4 py-2 text-sm text-right">{product.weight.toFixed(2)}</td>
-                  <td className="px-4 py-2 text-sm text-right">{product.total.toFixed(2)}</td>
+                  <td className="px-4 py-2 text-sm text-right">{product.total.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})}</td>
                   <td className="px-4 py-2 text-center">
                     <button
                       onClick={() => deleteProduct(index)}
