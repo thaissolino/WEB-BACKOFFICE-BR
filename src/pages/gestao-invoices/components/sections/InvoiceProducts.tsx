@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { Box, Plus, Trash2, X } from 'lucide-react';
+import { Box, Loader2, Plus, Save, Trash2, X } from 'lucide-react';
 import { api } from '../../../../services/api';
 import { Invoice } from '../types/invoice';
+import Swal from 'sweetalert2';
 
 export type InvoiceProduct = {
   id: string;
@@ -29,19 +30,13 @@ export type Carrier = {
 interface InvoiceProductsProps {
   currentInvoice: Invoice
   setCurrentInvoice: (invoice: any) => void;
+  [key: string]: any;
 }
 
-export function InvoiceProducts({ currentInvoice, setCurrentInvoice }: InvoiceProductsProps) {
+export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }: InvoiceProductsProps) {
   const [showProductForm, setShowProductForm] = useState(false);
-  const [products, setProducts] = useState<{
-    id:string, 
-    name: string,
-    code: string,
-    price: number,
-    weight: number,
-    description: string
-  }[]>([]); // Array de produtos da API
-  const [carriers, setCarriers] = useState<Carrier[]>([]); // Array de produtos da API
+  const [products, setProducts] = useState<any[]>([]);
+  const [carriers, setCarriers] = useState<Carrier[]>([]);
   const [productForm, setProductForm] = useState({
     productId: '',
     quantity: '',
@@ -50,28 +45,33 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice }: InvoicePr
     total: '',
     price: ''
   });
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
-    // Carregar os produtos da API ao montar o componente
-    api.get('/invoice/product')
-      .then(response => {
-        setProducts(response.data); // Supondo que a resposta seja uma lista de produtos
-      })
-      .catch(error => {
-        console.error('Erro ao carregar produtos:', error);
-      });
-    api.get('/invoice/carriers')
-      .then(response => {
-        setCarriers(response.data); // Supondo que a resposta seja uma lista de produtos
-      })
-      .catch(error => {
-        console.error('Erro ao carregar produtos:', error);
-      });
+    const fetchData = async () => {
+      setIsLoading(true);
+      try {
+        const [productsResponse, carriersResponse] = await Promise.all([
+          api.get('/invoice/product'),
+          api.get('/invoice/carriers')
+        ]);
+        setProducts(productsResponse.data);
+        setCarriers(carriersResponse.data);
+      } catch (error) {
+        console.error('Erro ao carregar dados:', error);
+        // Swal.fire({
+        //   icon: 'error',
+        //   title: 'Erro',
+        //   text: 'Erro ao carregar dados',
+        //   confirmButtonColor: '#3085d6',
+        // });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchData();
   }, []);
-
-
-
-
 
   const deleteProduct = (index: number) => {
     const newProducts = [...currentInvoice.products];
@@ -84,31 +84,32 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice }: InvoicePr
     return acc + item.quantity * currentInvoice.taxaSpEs;
   }, 0);
   
-  const shippingStrategies: Record<string, ( carrierSelectedType: Carrier,item: InvoiceProduct) => number> = {
-    percentage: ( carrierSelectedType, item) => ((item.value * (carrierSelectedType.value/100)) * item.quantity),
-    perKg: ( carrierSelectedType, item) => item.weight * carrierSelectedType.value,
-    perUnit: ( carrierSelectedType, item) => item.quantity * carrierSelectedType.value,
+  const shippingStrategies: Record<string, (carrierSelectedType: Carrier, item: InvoiceProduct) => number> = {
+    percentage: (carrierSelectedType, item) => ((item.value * (carrierSelectedType.value/100)) * item.quantity),
+    perKg: (carrierSelectedType, item) => item.weight * carrierSelectedType.value,
+    perUnit: (carrierSelectedType, item) => item.quantity * carrierSelectedType.value,
   };
 
   const carrierSelectedType = carriers.find((carrier) => carrier.id === currentInvoice.carrierId);
   const carrierSelectedType2 = carriers.find((carrier) => carrier.id === currentInvoice?.carrier2Id);
   const amountTaxCarrieFrete1 = currentInvoice.products.reduce((acc: number, item) => {
     if (!carrierSelectedType) return acc;
-    return acc + shippingStrategies[carrierSelectedType.type](carrierSelectedType,item);
-  }, 0)
+    return acc + shippingStrategies[carrierSelectedType.type](carrierSelectedType, item);
+  }, 0);
+  
   const amountTaxCarrieFrete2 = currentInvoice.products.reduce((acc: number, item) => {
     if (!carrierSelectedType2) return acc;
-    return acc + shippingStrategies[carrierSelectedType2.type](carrierSelectedType2,item);
-  }, 0)
-  // @ts-ignore
-  const weightData = productForm.weight || products.find((item) => item.id === productForm.productId)?.weightAverage || ''
-  // @ts-ignore
-  const priceData = productForm.value || products.find((item) => item.id === productForm.productId)?.priceweightAverage || ''
+    return acc + shippingStrategies[carrierSelectedType2.type](carrierSelectedType2, item);
+  }, 0);
+
+  const weightData = productForm.weight || products.find((item) => item.id === productForm.productId)?.weightAverage || '';
+  const priceData = productForm.value || products.find((item) => item.id === productForm.productId)?.priceweightAverage || '';
+
   const calculateProductTotal = () => {
-  const quantity = parseFloat(productForm.quantity) || 0;
-  const value = parseFloat(priceData) || 0;
-  const total = quantity * value;
-  setProductForm({ ...productForm, total: total.toFixed(2) });
+    const quantity = parseFloat(productForm.quantity) || 0;
+    const value = parseFloat(priceData) || 0;
+    const total = quantity * value;
+    setProductForm({ ...productForm, total: total.toFixed(2) });
   };
 
   useEffect(() => {
@@ -122,9 +123,7 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice }: InvoicePr
   }, [taxSpEs, amountTaxCarrieFrete1, amountTaxCarrieFrete2, subTotal]);
 
   const addProduct = () => {
-    console.log(productForm.productId)
     const product = products.find((p) => p.id === productForm.productId);
-    console.log(product)
     if (!product) return;
 
     const quantity = parseFloat(productForm.quantity);
@@ -133,7 +132,12 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice }: InvoicePr
     const total = parseFloat(productForm.total);
 
     if (!productForm.productId || isNaN(quantity) || isNaN(value) || isNaN(total)) {
-      alert('Preencha todos os campos obrigatórios do produto!');
+      Swal.fire({
+        icon: 'warning',
+        title: 'Atenção',
+        text: 'Preencha todos os campos obrigatórios do produto!',
+        confirmButtonColor: '#3085d6',
+      });
       return;
     }
 
@@ -147,8 +151,6 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice }: InvoicePr
       received: false,
       receivedQuantity: 0,
     };
-
-    console.log(invoiceProduct)
 
     setCurrentInvoice({
       ...currentInvoice,
@@ -167,9 +169,102 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice }: InvoicePr
     setShowProductForm(false);
   };
 
+  const saveInvoice = async () => {
+    if (currentInvoice.products.length === 0) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Atenção',
+        text: 'Adicione pelo menos um produto à invoice!',
+        confirmButtonColor: '#3085d6',
+      });
+      return;
+    }
+
+    if (!currentInvoice.number) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Atenção',
+        text: 'Informe o número da invoice!',
+        confirmButtonColor: '#3085d6',
+      });
+      return;
+    }
+
+    if (!currentInvoice.date) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Atenção',
+        text: 'Informe a data da invoice!',
+        confirmButtonColor: '#3085d6',
+      });
+      return;
+    }
+
+    if (!currentInvoice.supplierId) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Atenção',
+        text: 'Selecione um fornecedor!',
+        confirmButtonColor: '#3085d6',
+      });
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const response = await api.post('/invoice/create', currentInvoice);
+      Swal.fire({
+        icon: 'success',
+        title: 'Sucesso!',
+        text: 'Invoice salva com sucesso!',
+        confirmButtonColor: '#3085d6',
+      });
+      
+      setCurrentInvoice({
+        id: null,
+        number: '',
+        date: new Date().toISOString().split('T')[0],
+        supplierId: '',
+        products: [],
+        carrierId: '',
+        carrier2Id: '',
+        taxaSpEs: 0.0,
+        paid: false,
+        paidDate: null,
+        paidDollarRate: null,
+        completed: false,
+        completedDate: null,
+        amountTaxcarrier: 0,
+        amountTaxcarrier2: 0,
+        amountTaxSpEs: 0,
+        overallValue: 0,
+        subAmount: 0
+      });
+    } catch (error) {
+      console.error('Erro ao salvar a invoice:', error);
+      Swal.fire({
+        icon: 'error',
+        title: 'Erro',
+        text: 'Erro ao salvar a invoice',
+        confirmButtonColor: '#3085d6',
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   useEffect(() => {
     calculateProductTotal();
   }, [productForm.quantity, priceData, weightData, productForm.productId]);
+
+  if (isLoading) {
+    return (
+      <div className="lg:col-span-2 bg-white p-6 rounded-lg shadow-md flex justify-center items-center h-64">
+        <Loader2 className="animate-spin text-blue-500 mr-2" size={24} />
+        <span>Carregando produtos...</span>
+      </div>
+    );
+  }
 
   return (
     <div className="lg:col-span-2 bg-white p-6 rounded-lg shadow-md">
@@ -181,7 +276,8 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice }: InvoicePr
         {!showProductForm && (
           <button
             onClick={() => setShowProductForm(true)}
-            className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded text-sm"
+            className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded text-sm flex items-center"
+            disabled={isSaving}
           >
             <Plus className="mr-1 inline" size={16} />
             Adicionar Produto
@@ -359,9 +455,27 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice }: InvoicePr
                 <p id="invoiceTotal" className="text-xl font-bold text-blue-800">$ {subTotal.toLocaleString('en-US', {  currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits:2 }) || "0.00"}</p>
               </div>
             </div>
-          </div>
-        </div>
       </div>
+          </div>
+          <button
+        onClick={saveInvoice}
+        className="w-full bg-blue-600 mt-4 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md flex items-center justify-center"
+        disabled={isSaving}
+      >
+        {isSaving ? (
+          <>
+            <Loader2 className="animate-spin mr-2" size={18} />
+            Salvando...
+          </>
+        ) : (
+          <>
+            <Save className="mr-2" size={18} />
+            Salvar Invoice
+          </>
+        )}
+      </button>
+
+        </div>
     </div>
   );
 }

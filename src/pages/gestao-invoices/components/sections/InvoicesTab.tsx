@@ -5,6 +5,9 @@ import { InvoiceHistory } from "./InvoiceHistory";
 import { Invoice } from "../types/invoice";
 
 export function InvoicesTab() {
+
+  const [reload, setReload] = useState(false)
+
   const [currentInvoice, setCurrentInvoice] = useState<Invoice>({
     id: null,
     number: `INV-${Date.now()}`,
