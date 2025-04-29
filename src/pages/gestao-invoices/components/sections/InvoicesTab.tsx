@@ -11,13 +11,19 @@ export function InvoicesTab() {
     date: new Date().toISOString().split("T")[0],
     supplierId: "",
     products: [],
+    amountTaxcarrier: 0,
+    amountTaxcarrier2: 0, 
+    taxaSpEs: 0.0,
     carrierId: "",
-    taxValue: 5.0,
+    carrier2Id: "",
     paid: false,
     paidDate: null,
     paidDollarRate: null,
     completed: false,
     completedDate: null,
+    amountTaxSpEs: 0,
+    overallValue: 0,
+    subAmount: 0
   });
 
   return (

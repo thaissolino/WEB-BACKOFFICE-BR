@@ -1,21 +1,7 @@
 import { FilePlus, Save } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { api } from '../../../../services/api';
-
-interface Invoice {
-  id: string | null;
-  number: string;
-  date: string;
-  supplierId: string;
-  products: any[];
-  carrierId: string;
-  taxValue: number;
-  paid: boolean;
-  paidDate: string | null;
-  paidDollarRate: number | null;
-  completed: boolean;
-  completedDate: string | null;
-}
+import { Invoice } from '../types/invoice';
 
 interface NewInvoiceFormProps {
   currentInvoice: Invoice;
@@ -87,12 +73,18 @@ export function NewInvoiceForm({ currentInvoice, setCurrentInvoice }: NewInvoice
         supplierId: '',
         products: [],
         carrierId: '',
-        taxValue: 0.0,
+        carrier2Id: '',
+        taxaSpEs: 0.0,
         paid: false,
         paidDate: null,
         paidDollarRate: null,
         completed: false,
         completedDate: null,
+        amountTaxcarrier: 0,
+        amountTaxcarrier2: 0,
+        amountTaxSpEs: 0,
+        overallValue: 0,
+        subAmount: 0
       });
     } catch (error) {
       console.error('Erro ao salvar a invoice:', error);
@@ -165,6 +157,23 @@ export function NewInvoiceForm({ currentInvoice, setCurrentInvoice }: NewInvoice
         </select>
       </div>
 
+      <div className="mb-4">
+        <label className="block text-sm font-medium text-gray-700 mb-1">Freteiro 2</label>
+        <select
+          name="carrier2Id"
+          value={currentInvoice.carrier2Id}
+          onChange={handleInputChange}
+          className="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500"
+        >
+          <option value="">Selecione um freteiro</option>
+          {carriers.map((carrier) => (
+            <option key={carrier.id} value={carrier.id}>
+              {carrier.name} ({carrier.type === 'percentage' ? '%' : carrier.type === 'perKg' ? '$/kg' : '$/un'})
+            </option>
+          ))}
+        </select>
+      </div>
+
       <div className="mb-6">
         <label className="block text-sm font-medium text-gray-700 mb-1">
           Frete SP x ES (R$ por item)
@@ -172,8 +181,8 @@ export function NewInvoiceForm({ currentInvoice, setCurrentInvoice }: NewInvoice
         <input
           type="number"
           step="0.01"
-          name="taxValue"
-          value={currentInvoice.taxValue}
+          name="taxaSpEs"
+          value={currentInvoice.taxaSpEs}
           onChange={handleInputChange}
           className="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500"
           placeholder="Valor em R$ por item"

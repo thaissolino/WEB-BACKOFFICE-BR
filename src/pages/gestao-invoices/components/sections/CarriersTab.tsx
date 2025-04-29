@@ -49,6 +49,8 @@ export function CarriersTab() {
     }
   };
 
+
+
   const handleEdit = (carrier: Carrier) => {
     setCurrentCarrier(carrier);
     setShowModal(true);
@@ -160,7 +162,7 @@ export function CarriersTab() {
                     <tr key={carrier.id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{carrier.name}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{getShippingTypeText(carrier.type)}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right">{formatCurrency(carrier.value)}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right">{carrier.type === "percentage"? carrier.value: formatCurrency(carrier.value)}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                         <button 
                           onClick={() => handleEdit(carrier)} 

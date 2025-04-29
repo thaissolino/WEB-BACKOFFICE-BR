@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Box, Plus, Trash2, X } from 'lucide-react';
 import { api } from '../../../../services/api';
+import { Invoice } from '../types/invoice';
 
 export type InvoiceProduct = {
   id: string;
@@ -15,25 +16,32 @@ export type InvoiceProduct = {
   receivedQuantity: number;
 }
 
+type CarrierEnum = "percentage" | "perKg" |"perUnit"
+
+export type Carrier = {
+  id:string,
+  name:string,
+  type: CarrierEnum,
+  value: number,
+  active: true
+}
+
 interface InvoiceProductsProps {
-  currentInvoice: {
-    id: string | null;
-    number: string;
-    products: InvoiceProduct[];
-  };
+  currentInvoice: Invoice
   setCurrentInvoice: (invoice: any) => void;
 }
 
 export function InvoiceProducts({ currentInvoice, setCurrentInvoice }: InvoiceProductsProps) {
   const [showProductForm, setShowProductForm] = useState(false);
   const [products, setProducts] = useState<any[]>([]); // Array de produtos da API
+  const [carriers, setCarriers] = useState<Carrier[]>([]); // Array de produtos da API
   const [productForm, setProductForm] = useState({
     productId: '',
     quantity: '',
     value: '',
     weight: '',
     total: '',
-    price:''
+    price: ''
   });
 
   useEffect(() => {
@@ -45,13 +53,57 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice }: InvoicePr
       .catch(error => {
         console.error('Erro ao carregar produtos:', error);
       });
+    api.get('/invoice/carriers')
+      .then(response => {
+        setCarriers(response.data); // Supondo que a resposta seja uma lista de produtos
+      })
+      .catch(error => {
+        console.error('Erro ao carregar produtos:', error);
+      });
   }, []);
 
+
+
+
+
+  const deleteProduct = (index: number) => {
+    const newProducts = [...currentInvoice.products];
+    newProducts.splice(index, 1);
+    setCurrentInvoice({ ...currentInvoice, products: newProducts });
+  };
+
+
+
+  
+  const subTotal = currentInvoice.products.reduce((acc, item) => acc + Number(item.total), 0);
+  const taxSpEs = currentInvoice.products.reduce((acc: number, item) => {
+    return acc + item.quantity * currentInvoice.taxaSpEs;
+  }, 0);
+  
+  const shippingStrategies: Record<string, ( carrierSelectedType: Carrier,item: InvoiceProduct) => number> = {
+    percentage: ( carrierSelectedType, item) => ((item.value * (carrierSelectedType.value/100)) * item.quantity),
+    perKg: ( carrierSelectedType, item) => item.weight * carrierSelectedType.value,
+    perUnit: ( carrierSelectedType, item) => item.quantity * carrierSelectedType.value,
+  };
+
+  const carrierSelectedType = carriers.find((carrier) => carrier.id === currentInvoice.carrierId);
+  const carrierSelectedType2 = carriers.find((carrier) => carrier.id === currentInvoice?.carrier2Id);
+  const amountTaxCarrieFrete1 = currentInvoice.products.reduce((acc: number, item) => {
+    if (!carrierSelectedType) return acc;
+    return acc + shippingStrategies[carrierSelectedType.type](carrierSelectedType,item);
+  }, 0)
+  const amountTaxCarrieFrete2 = currentInvoice.products.reduce((acc: number, item) => {
+    if (!carrierSelectedType2) return acc;
+    return acc + shippingStrategies[carrierSelectedType2.type](carrierSelectedType2,item);
+  }, 0)
+
+  const weightData = productForm.weight || products.find((item) => item.id === productForm.productId)?.weightAverage || ''
+  const priceData = productForm.value || products.find((item) => item.id === productForm.productId)?.priceweightAverage || ''
   const calculateProductTotal = () => {
-    const quantity = parseFloat(productForm.quantity) || 0;
-    const value = parseFloat(productForm.value) || 0;
-    const total = quantity * value;
-    setProductForm({ ...productForm, total: total.toFixed(2) });
+  const quantity = parseFloat(productForm.quantity) || 0;
+  const value = parseFloat(priceData) || 0;
+  const total = quantity * value;
+  setProductForm({ ...productForm, total: total.toFixed(2) });
   };
 
   const addProduct = () => {
@@ -59,8 +111,8 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice }: InvoicePr
     if (!product) return;
 
     const quantity = parseFloat(productForm.quantity);
-    const value = parseFloat(productForm.value);
-    const weight = parseFloat(productForm.weight) || product.weight || 0;
+    const value = parseFloat(priceData);
+    const weight = parseFloat(weightData) || product.weight || 0;
     const total = parseFloat(productForm.total);
 
     if (!productForm.productId || isNaN(quantity) || isNaN(value) || isNaN(total)) {
@@ -86,7 +138,7 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice }: InvoicePr
 
     setProductForm({
       productId: '',
-      price:'',
+      price: '',
       quantity: '',
       value: '',
       weight: '',
@@ -96,16 +148,9 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice }: InvoicePr
     setShowProductForm(false);
   };
 
-  const deleteProduct = (index: number) => {
-    const newProducts = [...currentInvoice.products];
-    newProducts.splice(index, 1);
-    setCurrentInvoice({ ...currentInvoice, products: newProducts });
-  };
   useEffect(() => {
     calculateProductTotal();
-  }, [productForm.quantity, productForm.value, productForm.weight]);
-
-
+  }, [productForm.quantity, priceData, weightData, productForm.productId]);
 
   return (
     <div className="lg:col-span-2 bg-white p-6 rounded-lg shadow-md">
@@ -148,11 +193,10 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice }: InvoicePr
               <label className="block text-sm font-medium text-gray-700 mb-1">Quantidade</label>
               <input
                 type="number"
-                value={productForm.quantity}
+                value={productForm.quantity }
                 onChange={(e) => {
                   console.log(e.target.value)
                   setProductForm({ ...productForm, quantity: e.target.value });
-                  // calculateProductTotal();
                 }}
                 className="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500"
                 placeholder="Qtd"
@@ -163,10 +207,9 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice }: InvoicePr
               <input
                 type="number"
                 step="0.01"
-                value={productForm.value}
+                value={priceData}
                 onChange={(e) => {
                   setProductForm({ ...productForm, value: e.target.value });
-                  // calculateProductTotal();
                 }}
                 className="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500"
                 placeholder="$"
@@ -177,10 +220,9 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice }: InvoicePr
               <input
                 type="number"
                 step="0.01"
-                value={productForm.weight}
+                value={weightData}
                 onChange={(e) => {
                   setProductForm({ ...productForm, weight: e.target.value });
-                  // calculateProductTotal();
                 }}
                 className="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500"
                 placeholder="kg"
@@ -254,7 +296,7 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice }: InvoicePr
             <tbody className="divide-y divide-gray-200">
               {currentInvoice.products.map((product, index) => (
                 <tr key={product.id}>
-                  <td className="px-4 py-2 text-sm text-gray-800">{products.find((item)=> item.productId === product.productId).name}</td>
+                  <td className="px-4 py-2 text-sm text-gray-800">{products.find((item) => item.productId === product.productId).name}</td>
                   <td className="px-4 py-2 text-sm text-right">{product.quantity}</td>
                   <td className="px-4 py-2 text-sm text-right">{product.value.toFixed(2)}</td>
                   <td className="px-4 py-2 text-sm text-right">{product.weight.toFixed(2)}</td>
@@ -272,29 +314,33 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice }: InvoicePr
             </tbody>
           </table>
 
-                        <div className="bg-gray-50 p-4 rounded-lg border">
-                            <h3 className="font-medium mb-3 text-blue-700 border-b pb-2">Resumo da Invoice</h3>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                                <div className="bg-white p-3 rounded border">
-                                    <p className="text-sm text-gray-600">Subtotal:</p>
-                                    <p id="subtotal" className="text-lg font-semibold">$ 0.00</p>
-                                </div>
-                                <div className="bg-white p-3 rounded border">
-                                    <p className="text-sm text-gray-600">Frete:</p>
-                                    <p id="shippingCost" className="text-lg font-semibold">$ 0.00</p>
-                                </div>
-                                <div className="bg-white p-3 rounded border">
-                                    <p className="text-sm text-gray-600">Frete SP x ES:</p>
-                                    <p id="taxCost" className="text-lg font-semibold">R$ 0,00</p>
-                                </div>
-                            </div>
-                            <div className="bg-blue-50 p-3 rounded border">
-                                <div className="flex justify-between items-center">
-                                    <p className="text-sm font-medium text-blue-800">Total da Invoice:</p>
-                                    <p id="invoiceTotal" className="text-xl font-bold text-blue-800">$ 0.00</p>
-                                </div>
-                            </div>
-                        </div>
+          <div className="bg-gray-50 p-4 rounded-lg border">
+            <h3 className="font-medium mb-3 text-blue-700 border-b pb-2">Resumo da Invoice</h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+              <div className="bg-white p-3 rounded border">
+                <p className="text-sm text-gray-600">Subtotal:</p>
+                <p id="subtotal" className="text-lg font-semibold">$ {subTotal.toLocaleString('en-US', {  currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits:2 }) || "0.00"}</p>
+              </div>
+              <div className="bg-white p-3 rounded border">
+                <p className="text-sm text-gray-600">Frete 1:</p>
+                <p id="shippingCost" className="text-lg font-semibold">$ {amountTaxCarrieFrete1.toLocaleString('en-US', {  currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits:2 }) || "0.00"}</p>
+              </div>
+              <div className="bg-white p-3 rounded border">
+                <p className="text-sm text-gray-600">Frete 2:</p>
+                <p id="shippingCost" className="text-lg font-semibold">$ {amountTaxCarrieFrete2.toLocaleString('en-US', {  currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits:2 }) || "0.00"}</p>
+              </div>
+              <div className="bg-white p-3 rounded border">
+                <p className="text-sm text-gray-600">Frete SP x ES:</p>
+                <p id="taxCost" className="text-lg font-semibold">R$ {taxSpEs.toLocaleString('BRL', {  currency: 'BRL', minimumFractionDigits: 2, maximumFractionDigits:2 }) || "0.00"}</p>
+              </div>
+            </div>
+            <div className="bg-blue-50 p-3 rounded border">
+              <div className="flex justify-between items-center">
+                <p className="text-sm font-medium text-blue-800">Total da Invoice:</p>
+                <p id="invoiceTotal" className="text-xl font-bold text-blue-800">$ 0,00</p>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>

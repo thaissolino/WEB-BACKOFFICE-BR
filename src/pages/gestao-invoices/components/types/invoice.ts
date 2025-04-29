@@ -7,7 +7,16 @@ import { InvoiceProduct } from "../sections/InvoiceProducts";
     supplierId: string;
     products: InvoiceProduct[];
     carrierId: string;
-    taxValue: number;
+    carrier2Id: string;
+
+    taxaSpEs: number;
+
+    amountTaxcarrier:     number;
+    amountTaxcarrier2:     number;
+    amountTaxSpEs:  number;
+    subAmount:      number;
+    overallValue:   number;
+
     paid: boolean;
     paidDate: string | null;
     paidDollarRate: number | null;
