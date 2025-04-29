@@ -1,49 +1,115 @@
-import { History, Eye, Edit } from 'lucide-react';
+import { History, Eye, Edit, XIcon, RotateCcw, Check } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { api } from '../../../../services/api';
 import { Invoice } from '../types/invoice'; // Se necessário, ajuste o caminho do tipo
+import { Product } from './ProductsTab';
+
+type InvoiceData = {
+  id: string;
+  number: string;
+  date: string;
+  supplierId: string;
+  carrierId: string;
+  carrier2Id: string;
+  taxaSpEs: number;
+  amountTaxcarrier: number;
+  amountTaxcarrier2: number;
+  amountTaxSpEs: number;
+  subAmount: number;
+  overallValue: number;
+  paid: boolean;
+  paidDate: string | null;
+  paidDollarRate: number | null;
+  completed: boolean;
+  completedDate: string | null;
+  products: {
+    id: string;
+    invoiceId: string;
+    productId: string;
+    quantity: number;
+    value: number;
+    weight: number;
+    total: number;
+    received: boolean;
+    receivedQuantity: number;
+    product: {
+      id: string;
+      name: string;
+      code: string;
+      priceweightAverage: number;
+      weightAverage: number;
+      description: string;
+      active: boolean;
+    };
+  }[];
+  supplier: {
+    id: string;
+    name: string;
+    phone: string;
+    active: boolean;
+  };
+  carrier: {
+    id: string;
+    name: string;
+    type: string;
+    value: number;
+    active: boolean;
+  };
+  carrier2: {
+    id: string;
+    name: string;
+    type: string;
+    value: number;
+    active: boolean;
+  };
+};
+
 
 export function InvoiceHistory() {
-  const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [invoices, setInvoices] = useState<InvoiceData[]>([]);
   const [suppliers, setSuppliers] = useState<{ id: string; name: string }[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
+  const [selectedInvoice, setSelectedInvoice] = useState<InvoiceData | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
+  const [products, setProducts] = useState<Product[]>([]);
 
+  const fetchInvoicesAndSuppliers = async () => {
+    try {
+      setLoading(true);
+      const [invoiceResponse, supplierResponse, productsResponse] = await Promise.all([
+        api.get('/invoice/get'),
+        api.get('/invoice/supplier'),
+        api.get('/invoice/product'),
+      ]);
+
+      setProducts(productsResponse.data)
+      setInvoices(invoiceResponse.data);
+      setSuppliers(supplierResponse.data);
+    } catch (error) {
+      console.error('Erro ao buscar dados:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
   useEffect(() => {
-    const fetchInvoicesAndSuppliers = async () => {
-      try {
-        const [invoiceResponse, supplierResponse] = await Promise.all([
-          api.get('/invoice/get'),
-          api.get('/invoice/supplier'),
-        ]);
-
-        setInvoices(invoiceResponse.data);
-        setSuppliers(supplierResponse.data);
-      } catch (error) {
-        console.error('Erro ao buscar dados:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchInvoicesAndSuppliers();
   }, []);
 
-  const getStatusText = (invoice: Invoice) => {
+  const getStatusText = (invoice: InvoiceData) => {
     if (invoice.completed) return 'Concluída';
     if (invoice.paid) return 'Paga';
     return 'Pendente';
   };
 
-  const getStatusClass = (invoice: Invoice) => {
+  const getStatusClass = (invoice: InvoiceData) => {
     if (invoice.completed) return 'bg-blue-100 text-blue-800';
     if (invoice.paid) return 'bg-green-100 text-green-800';
     return 'bg-yellow-100 text-yellow-800';
   };
 
-  const openModal = (invoice: Invoice, editMode: boolean) => {
+  const openModal = (invoice: InvoiceData, editMode: boolean) => {
+    // if(invoice) return
     setSelectedInvoice(invoice);
     setIsEditMode(editMode);
     setIsModalOpen(true);
@@ -54,11 +120,31 @@ export function InvoiceHistory() {
     setSelectedInvoice(null);
   };
 
+  const getShippingTypeText = (type: string) => {
+    switch (type) {
+      case 'percentage':
+        return '%';
+      case 'perKg':
+        return '$/kg';
+      case 'perUnit':
+        return '$/un';
+      default:
+        return type;
+    }
+  };
+
+  
+
   return (
-    <div className="mt-8 bg-white p-6 rounded-lg shadow">
-      <h2 className="text-xl font-semibold mb-4 text-blue-700 border-b pb-2">
+    <div className="mt-8 bg-white p-6 pt-4 rounded-lg shadow">
+      <h2 className="text-xl  w-full justify-between items-center flex  flex-row font-semibold mb-4 text-blue-700 border-b pb-2">
+        <div className='flex justify-center items-center'>
         <History className="mr-2 inline" size={18} />
-        Histórico de Invoices
+          Histórico de Invoices
+        </div>
+        <button onClick={()=> fetchInvoicesAndSuppliers()} className='flex justify-center items-center'>
+        <RotateCcw className="mr-2 inline" size={24} />
+        </button>
       </h2>
 
       <div className="overflow-x-auto">
@@ -188,15 +274,16 @@ export function InvoiceHistory() {
                 <div className="bg-white p-6 rounded-lg w-full max-w-4xl max-h-[90vh] overflow-y-auto">
                     <div className="flex justify-between items-start mb-4">
                         <div>
-                            <h3 className="text-lg font-medium">Invoice teste #<span id="modalInvoiceNumber"></span></h3>
-                            <p className="text-sm text-gray-600">Fornecedor: <span id="modalInvoiceSupplier"></span></p>
-                            <p className="text-sm text-gray-600">Data: <span id="modalInvoiceDate"></span></p>
-                            <p className="text-sm text-gray-600">Freteiro: <span id="modalInvoiceCarrier"></span></p>
+                            <h3 className="text-lg font-medium">Invoice #<span id="modalInvoiceNumber">{selectedInvoice.number}</span></h3>
+                            <p className="text-sm text-gray-600">Fornecedor: <span id="modalInvoiceSupplier">{selectedInvoice.number}</span></p>
+                            <p className="text-sm text-gray-600">Data: <span id="modalInvoiceDate">{new Date(selectedInvoice.date).toLocaleDateString()}</span></p>
+                            <p className="text-sm text-gray-600">Freteiro: <span id="modalInvoiceCarrier">{selectedInvoice.carrier.name} - {selectedInvoice.carrier?.value} {getShippingTypeText(selectedInvoice.carrier?.type)}</span></p>
+                            <p className="text-sm text-gray-600">Freteiro 2: <span id="modalInvoiceCarrier">{selectedInvoice.carrier2?.name} - {selectedInvoice.carrier2?.value} {getShippingTypeText(selectedInvoice.carrier2?.type)}</span></p>
                         </div>
                         <div>
                             <span id="modalInvoiceStatus" className="px-3 py-1 rounded-full text-xs font-medium"></span>
-                            <button id="closeModalInvoice" className="ml-2 text-gray-500 hover:text-gray-700">
-                                <i className="fas fa-times"></i>
+                            <button onClick={()=> setIsModalOpen(false)} className="ml-2 text-gray-500 hover:text-gray-700">
+                            <XIcon className="mr-2 inline" size={26} />
                             </button>
                         </div>
                     </div>
@@ -216,6 +303,23 @@ export function InvoiceHistory() {
                                     </tr>
                                 </thead>
                                 <tbody id="modalInvoicePendingProducts" className="bg-white divide-y divide-gray-200">
+                                {selectedInvoice.products.filter((item)=> !item.received).map((product, index) => (
+                                    <tr key={index}>
+                                      <td className="px-4 py-2 text-sm text-gray-700">{products.find((item)=>item.id === product.productId)?.name}</td>
+                                      <td className="px-4 py-2 text-sm text-right">{product.quantity}</td>
+                                      <td className="px-4 py-2 text-sm text-right">{product.value.toFixed(2)}</td>
+                                      <td className="px-4 py-2 text-sm text-right">{product.weight.toFixed(2)}</td>
+                                      <td className="px-4 py-2 text-sm text-right">{product.total.toFixed(2)}</td>
+                                      <td className="px-4 py-2 text-sm text-right">
+                                        <div className="flex justify-end items-center ">
+                                          <button className="flex items-center gap-1 text-white px-2 bg-green-600 hover:bg-green-300 rounded-sm">
+                                            <Check size={18} /> Receber
+                                          </button>
+                                        </div>
+                                      </td>
+
+                                    </tr>
+                                  ))}
                                 </tbody>
                             </table>
                         </div>
@@ -235,7 +339,8 @@ export function InvoiceHistory() {
                                         <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Total (R$)</th>
                                     </tr>
                                 </thead>
-                                <tbody id="modalInvoiceReceivedProducts" className="bg-white divide-y divide-gray-200">
+                                <tbody className="bg-white divide-y divide-gray-200">
+                                  
                                 </tbody>
                             </table>
                         </div>
@@ -268,15 +373,15 @@ export function InvoiceHistory() {
                     </div>
                     
                     <div className="mt-6 flex justify-end">
-                        <button id="printInvoiceBtn" className="bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded-md mr-2">
+                        {/* <button id="printInvoiceBtn" className="bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded-md mr-2">
                             <i className="fas fa-print mr-2"></i>Imprimir
                         </button>
                         <button id="exportInvoiceBtn" className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md">
                             <i className="fas fa-file-export mr-2"></i>Exportar
-                        </button>
-                        <button id="completeInvoiceBtn" className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md ml-2">
+                        </button> */}
+                        {/* <button id="completeInvoiceBtn" className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md ml-2">
                             <i className="fas fa-check mr-2"></i>Marcar como Concluída
-                        </button>
+                        </button> */}
                     </div>
                 </div>
             </div>

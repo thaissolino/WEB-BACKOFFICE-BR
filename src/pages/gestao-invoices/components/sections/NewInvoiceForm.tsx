@@ -36,60 +36,7 @@ export function NewInvoiceForm({ currentInvoice, setCurrentInvoice }: NewInvoice
     setCurrentInvoice({ ...currentInvoice, [name]: value });
   };
 
-  const saveInvoice = async () => {
-    if (currentInvoice.products.length === 0) {
-      alert('Adicione pelo menos um produto à invoice!');
-      return;
-    }
 
-    const invoiceNumber = currentInvoice.number;
-    if (!invoiceNumber) {
-      alert('Informe o número da invoice!');
-      return;
-    }
-
-    const invoiceDate = currentInvoice.date;
-    if (!invoiceDate) {
-      alert('Informe a data da invoice!');
-      return;
-    }
-
-    const supplierId = currentInvoice.supplierId;
-    if (!supplierId) {
-      alert('Selecione um fornecedor!');
-      return;
-    }
-
-    try {
-      const response = await api.post('/invoice/create', currentInvoice);
-      console.log('Invoice salva:', response.data);
-      alert('Invoice salva com sucesso!');
-      
-      // Resetar a invoice
-      setCurrentInvoice({
-        id: null,
-        number: '',
-        date: new Date().toISOString().split('T')[0],
-        supplierId: '',
-        products: [],
-        carrierId: '',
-        carrier2Id: '',
-        taxaSpEs: 0.0,
-        paid: false,
-        paidDate: null,
-        paidDollarRate: null,
-        completed: false,
-        completedDate: null,
-        amountTaxcarrier: 0,
-        amountTaxcarrier2: 0,
-        amountTaxSpEs: 0,
-        overallValue: 0,
-        subAmount: 0
-      });
-    } catch (error) {
-      console.error('Erro ao salvar a invoice:', error);
-    }
-  };
 
   
 
@@ -189,13 +136,7 @@ export function NewInvoiceForm({ currentInvoice, setCurrentInvoice }: NewInvoice
         />
       </div>
 
-      <button
-        onClick={saveInvoice}
-        className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md"
-      >
-        <Save className="mr-2 inline" size={18} />
-        Salvar Invoice
-      </button>
+
     </div>
   );
 }
