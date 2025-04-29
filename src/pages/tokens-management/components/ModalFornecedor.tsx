@@ -1,95 +1,79 @@
-// src/components/ModalFornecedor.tsx
-
-import React, { useEffect, useState } from "react";
+import React, { useState, useEffect } from "react";
 
 interface ModalFornecedorProps {
-  open: boolean;
+  isOpen: boolean;
   onClose: () => void;
+  onSave: (nome: string, taxa: number) => void;
+  fornecedorEdit?: {
+    nome: string;
+    taxa: number;
+  };
 }
 
-const ModalFornecedor: React.FC<ModalFornecedorProps> = ({ open, onClose }) => {
-  const [id, setId] = useState<string>("");
-  const [nome, setNome] = useState<string>("");
-  const [taxa, setTaxa] = useState<string>("1.05");
+const ModalFornecedor: React.FC<ModalFornecedorProps> = ({
+  isOpen,
+  onClose,
+  onSave,
+  fornecedorEdit,
+}) => {
+  const [nome, setNome] = useState("");
+  const [taxa, setTaxa] = useState(1.05);
 
   useEffect(() => {
-    if (!open) {
-      setId("");
+    if (fornecedorEdit) {
+      setNome(fornecedorEdit.nome);
+      setTaxa(fornecedorEdit.taxa);
+    } else {
       setNome("");
-      setTaxa("1.05");
+      setTaxa(1.05);
     }
-  }, [open]);
+  }, [fornecedorEdit, isOpen]);
 
-  const salvar = () => {
-    if (!nome) return alert("POR FAVOR, INFORME O NOME DO FORNECEDOR");
-    if (parseFloat(taxa) <= 1) return alert("A TAXA DEVE SER MAIOR QUE 1");
-
-    const novoFornecedor = {
-      id: id || Date.now().toString(),
-      nome: nome.toUpperCase(),
-      taxa: parseFloat(taxa),
-      saldo: 0,
-      transacoes: [],
-    };
-
-    const storage = localStorage.getItem("fornecedores") || "[]";
-    const lista = JSON.parse(storage);
-
-    const atualizada = id
-      ? lista.map((f: any) => (f.id === id ? novoFornecedor : f))
-      : [...lista, novoFornecedor];
-
-    localStorage.setItem("fornecedores", JSON.stringify(atualizada));
-    onClose();
-  };
-
-  if (!open) return null;
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white p-6 rounded-lg w-full max-w-md">
-        <h3 className="text-lg font-medium mb-4" id="tituloModalFornecedor">
-          {id ? "EDITAR FORNECEDOR" : "ADICIONAR FORNECEDOR"}
-        </h3>
+      <div className="bg-white p-6 rounded-lg w-full max-w-md shadow-lg">
+        <h2 className="text-xl font-semibold mb-4 text-green-700">
+          {fornecedorEdit ? "Editar Fornecedor" : "Novo Fornecedor"}
+        </h2>
 
         <div className="space-y-4">
-          <input type="hidden" value={id} />
           <div>
-            <label className="block text-sm font-medium text-gray-700">NOME</label>
+            <label className="block text-sm font-medium text-gray-700">Nome</label>
             <input
               type="text"
+              className="mt-1 block w-full border border-gray-300 rounded-md p-2"
               value={nome}
               onChange={(e) => setNome(e.target.value)}
-              className="mt-1 block w-full border border-gray-300 rounded-md p-2"
+              placeholder="Nome do Fornecedor"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700">
-              TAXA (PADRÃO: 1.05)
-            </label>
+            <label className="block text-sm font-medium text-gray-700">Taxa (USD)</label>
             <input
               type="number"
               step="0.01"
-              value={taxa}
-              onChange={(e) => setTaxa(e.target.value)}
               className="mt-1 block w-full border border-gray-300 rounded-md p-2"
+              value={taxa}
+              onChange={(e) => setTaxa(Number(e.target.value))}
             />
           </div>
-        </div>
 
-        <div className="mt-6 flex justify-end space-x-3">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 border border-gray-300 rounded-md"
-          >
-            CANCELAR
-          </button>
-          <button
-            onClick={salvar}
-            className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md"
-          >
-            SALVAR
-          </button>
+          <div className="flex justify-end space-x-3 mt-6">
+            <button
+              onClick={onClose}
+              className="px-4 py-2 rounded bg-gray-300 hover:bg-gray-400 text-gray-700"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={() => onSave(nome, taxa)}
+              className="px-4 py-2 rounded bg-green-600 hover:bg-green-700 text-white"
+            >
+              Salvar
+            </button>
+          </div>
         </div>
       </div>
     </div>

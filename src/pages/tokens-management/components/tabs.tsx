@@ -1,36 +1,33 @@
-// src/components/tabs.tsx
-
-import React from "react";
-
-interface TabProps {
-  value: string;
-  label: string;
-  icon?: string;
-}
+import React from 'react';
 
 interface TabsProps {
-  value: string;
-  onValueChange: (val: string) => void;
-  children: React.ReactElement<TabProps>[];
-  className?: string;
+  activeTab: string;
+  setActiveTab: (tab: string) => void;
 }
 
-export const TabsX: React.FC<TabsProps> = ({ value, onValueChange, children, className }) => {
+const tabs = [
+  { id: 'operacoes', label: 'OPERAÇÕES', icon: 'fas fa-exchange-alt' },
+  { id: 'recolhedores', label: 'RECOLHEDORES', icon: 'fas fa-users' },
+  { id: 'fornecedores', label: 'FORNECEDORES', icon: 'fas fa-truck' },
+  { id: 'lucros', label: 'LUCROS', icon: 'fas fa-chart-line' },
+];
+
+const Tabs: React.FC<TabsProps> = ({ activeTab, setActiveTab }) => {
   return (
-    <div className={`${className} border-b border-gray-200`}>
+    <div className="mb-6 border-b border-gray-200">
       <ul className="flex flex-wrap -mb-px">
-        {children.map((tab) => (
-          <li key={tab.props.value} className="mr-2">
+        {tabs.map((tab) => (
+          <li key={tab.id} className="mr-2">
             <button
-              className={`inline-block p-4 border-b-2 rounded-t-lg transition-all duration-300 ${
-                value === tab.props.value
-                  ? "border-blue-600 text-blue-600"
-                  : "border-transparent hover:text-gray-600 hover:border-gray-300"
+              onClick={() => setActiveTab(tab.id)}
+              className={`inline-block p-4 border-b-2 rounded-t-lg ${
+                activeTab === tab.id
+                  ? 'border-blue-600 text-blue-600'
+                  : 'border-transparent hover:text-gray-600 hover:border-gray-300'
               }`}
-              onClick={() => onValueChange(tab.props.value)}
             >
-              {tab.props.icon && <i className={`fas fa-${tab.props.icon} mr-2`}></i>}
-              {tab.props.label}
+              <i className={`${tab.icon} mr-2`}></i>
+              {tab.label}
             </button>
           </li>
         ))}
@@ -39,4 +36,4 @@ export const TabsX: React.FC<TabsProps> = ({ value, onValueChange, children, cla
   );
 };
 
-export const TabX: React.FC<TabProps> = () => null;
+export default Tabs;

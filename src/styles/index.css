@@ -6,6 +6,18 @@
 @tailwind components;
 @tailwind utilities;
 
+
+@layer utilities {
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  .animate-fade-in {
+    animation: fade-in 0.3s ease-out both;
+  }
+}
+
 /* Scrollbar personalizada */
 ::-webkit-scrollbar {
     width: 8px;

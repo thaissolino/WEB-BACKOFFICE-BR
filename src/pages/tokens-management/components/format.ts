@@ -1,22 +1,17 @@
-export function formatCurrency(value: number, decimals: number = 2, currency: string = 'USD'): string {
-    if (isNaN(value)) value = 0;
+export function formatCurrency(value: number, decimals: number = 2, currency: string = 'USD') {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency,
       minimumFractionDigits: decimals,
-      maximumFractionDigits: decimals
     }).format(value);
   }
   
-  export function formatDate(dateStr: string): string {
-    if (!dateStr) return '-';
-    const date = new Date(dateStr);
-    return date.toLocaleDateString('pt-BR').toUpperCase();
-  }
-  
-  export function formatDateTime(dateStr: string): string {
-    if (!dateStr) return '-';
-    const date = new Date(dateStr);
-    return date.toLocaleString('pt-BR');
+  export function formatDate(dateString: string | Date) {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('pt-BR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+    });
   }
   
