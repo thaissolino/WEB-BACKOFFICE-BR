@@ -1,107 +1,187 @@
-// src/components/OperacoesTab.tsx
-
 import React, { useEffect, useState } from "react";
 import { formatCurrency, formatDate } from "./format";
+import SuccessModal from "./SuccessModal";
+import OperationDetailsModal from "./OperationDetailsModal";
+
+interface Transacao {
+  id: number;
+  date: string;
+  valor: number;
+  descricao: string;
+  tipo: "debito" | "credito";
+}
+
+interface Recolhedor {
+  id: number;
+  nome: string;
+  taxa: number;
+  saldo: number;
+  transacoes: Transacao[];
+}
+
+interface Fornecedor {
+  id: number;
+  nome: string;
+  taxa: number;
+  saldo: number;
+  transacoes: Transacao[];
+}
 
 interface Operacao {
   id: number;
-  data: string;
-  local: string;
-  recolhedorId: number;
-  fornecedorId: number;
-  valor: number;
-  taxaRecolhedor: number;
-  taxaFornecedor: number;
-  valorFornecedor: number;
-  valorRecolhedor: number;
-  lucro: number;
+  date: string;
+  city: string;
+  value: number;
+  collectorId: number;
+  supplierId: number;
+  collectorTax: number;
+  supplierTax: number;
+  profit: number;
 }
 
 const OperacoesTab: React.FC = () => {
-  const [recolhedores, setRecolhedores] = useState<any[]>([]);
-  const [fornecedores, setFornecedores] = useState<any[]>([]);
+  const [recolhedores, setRecolhedores] = useState<Recolhedor[]>([]);
+  const [fornecedores, setFornecedores] = useState<Fornecedor[]>([]);
   const [operacoes, setOperacoes] = useState<Operacao[]>([]);
 
   const [dataOperacao, setDataOperacao] = useState<string>(new Date().toISOString().split("T")[0]);
   const [localOperacao, setLocalOperacao] = useState("");
   const [valorOperacao, setValorOperacao] = useState<number>(0);
-  const [recolhedorId, setRecolhedorId] = useState<string>("");
-  const [fornecedorId, setFornecedorId] = useState<string>("");
-  const [taxaRecolhedor, setTaxaRecolhedor] = useState("1.025");
-  const [taxaFornecedor, setTaxaFornecedor] = useState("1.05");
+  const [recolhedorOperacao, setRecolhedorOperacao] = useState<number | "">("");
+  const [fornecedorOperacao, setFornecedorOperacao] = useState<number | "">("");
+  const [taxaRecolhedorOperacao, setTaxaRecolhedorOperacao] = useState<number>(1.025);
+  const [taxaFornecedorOperacao, setTaxaFornecedorOperacao] = useState<number>(1.05);
 
-  const [valorFornecedor, setValorFornecedor] = useState(0);
-  const [valorRecolhedor, setValorRecolhedor] = useState(0);
-  const [valorLucro, setValorLucro] = useState(0);
+  const [successMessage, setSuccessMessage] = useState("");
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+
+  const [selectedOperation, setSelectedOperation] = useState<Operacao | null>(null);
+  const [showOperationModal, setShowOperationModal] = useState(false);
 
   useEffect(() => {
-    const r = localStorage.getItem("recolhedores") || "[]";
-    const f = localStorage.getItem("fornecedores") || "[]";
-    const o = localStorage.getItem("operacoes") || "[]";
-    setRecolhedores(JSON.parse(r));
-    setFornecedores(JSON.parse(f));
-    setOperacoes(JSON.parse(o));
+    const storedRecolhedores = JSON.parse(localStorage.getItem("recolhedores") || "[]");
+    const storedFornecedores = JSON.parse(localStorage.getItem("fornecedores") || "[]");
+    const storedOperacoes = JSON.parse(localStorage.getItem("operacoes") || "[]");
+    setRecolhedores(storedRecolhedores);
+    setFornecedores(storedFornecedores);
+    setOperacoes(storedOperacoes);
   }, []);
 
-  useEffect(() => {
-    if (!valorOperacao || !recolhedorId || !fornecedorId) return;
-    const val = parseFloat(valorOperacao.toString());
-    const taxaR = parseFloat(taxaRecolhedor);
-    const taxaF = parseFloat(taxaFornecedor);
-
-    const valorF = val / taxaF;
-    const valorR = val / taxaR;
-    const lucro = valorR - valorF;
-
-    setValorFornecedor(valorF);
-    setValorRecolhedor(valorR);
-    setValorLucro(lucro);
-  }, [valorOperacao, recolhedorId, fornecedorId, taxaRecolhedor, taxaFornecedor]);
-
-  const registrarOperacao = () => {
-    if (!dataOperacao || !localOperacao || !valorOperacao || !recolhedorId || !fornecedorId) {
-      alert("Preencha todos os campos corretamente.");
-      return;
-    }
-
-    const novaOperacao: Operacao = {
-      id: Date.now(),
-      data: dataOperacao,
-      local: localOperacao,
-      recolhedorId: parseInt(recolhedorId),
-      fornecedorId: parseInt(fornecedorId),
-      valor: valorOperacao,
-      taxaRecolhedor: parseFloat(taxaRecolhedor),
-      taxaFornecedor: parseFloat(taxaFornecedor),
-      valorFornecedor,
-      valorRecolhedor,
-      lucro: valorLucro,
-    };
-
-    const novaLista = [novaOperacao, ...operacoes];
-    setOperacoes(novaLista);
-    localStorage.setItem("operacoes", JSON.stringify(novaLista));
-
-    setDataOperacao(new Date().toISOString().split("T")[0]);
-    setLocalOperacao("");
-    setValorOperacao(0);
-    setRecolhedorId("");
-    setFornecedorId("");
-    setTaxaRecolhedor("1.025");
-    setTaxaFornecedor("1.05");
-    setValorFornecedor(0);
-    setValorRecolhedor(0);
-    setValorLucro(0);
+  const calcularResumo = () => {
+    if (!valorOperacao) return { valorFornecedor: 0, valorRecolhedor: 0, lucro: 0 };
+    const valorFornecedor = valorOperacao / taxaFornecedorOperacao;
+    const valorRecolhedor = valorOperacao / taxaRecolhedorOperacao;
+    const lucro = valorRecolhedor - valorFornecedor;
+    return { valorFornecedor, valorRecolhedor, lucro };
   };
 
-  const getNomeRecolhedor = (id: number) => recolhedores.find((r) => r.id === id)?.nome || "N/A";
-  const getNomeFornecedor = (id: number) => fornecedores.find((f) => f.id === id)?.nome || "N/A";
+  const { valorFornecedor, valorRecolhedor, lucro } = calcularResumo();
+
+  const registrarOperacao = () => {
+    if (!dataOperacao || !localOperacao || !valorOperacao || !recolhedorOperacao || !fornecedorOperacao) {
+      setSuccessMessage("Por favor, preencha todos os campos corretamente!");
+      setShowSuccessModal(true);
+      return;
+    }
+  
+    const recolhedor = recolhedores.find(r => r.id === recolhedorOperacao);
+    const fornecedor = fornecedores.find(f => f.id === fornecedorOperacao);
+  
+    if (!recolhedor || !fornecedor) {
+      setSuccessMessage("Recolhedor ou Fornecedor não encontrado!");
+      setShowSuccessModal(true);
+      return;
+    }
+  
+    // Calcular valores
+    const valorFornecedorUSD = valorOperacao / taxaFornecedorOperacao;
+    const valorRecolhedorUSD = valorOperacao / taxaRecolhedorOperacao;
+    const lucroUSD = valorRecolhedorUSD - valorFornecedorUSD;
+  
+    // Atualizar saldos
+    recolhedor.saldo -= valorRecolhedorUSD;
+    fornecedor.saldo -= valorFornecedorUSD;
+  
+    // Atualizar transações do Recolhedor
+    if (!Array.isArray((recolhedor as any).transacoes)) {
+      (recolhedor as any).transacoes = [];
+    }
+    (recolhedor as any).transacoes.push({
+      id: Date.now(),
+      date: dataOperacao,
+      tipo: "debito",
+      valor: valorRecolhedorUSD,
+      descricao: localOperacao.toUpperCase(),
+    });
+  
+    // Atualizar transações do Fornecedor
+    if (!Array.isArray((fornecedor as any).transacoes)) {
+      (fornecedor as any).transacoes = [];
+    }
+    (fornecedor as any).transacoes.push({
+      id: Date.now(),
+      date: dataOperacao,
+      tipo: "credito",
+      valor: -valorFornecedorUSD,
+      descricao: localOperacao.toUpperCase(),
+    });
+  
+    // Atualizar listas
+    const updatedRecolhedores = recolhedores.map(r => r.id === recolhedor.id ? recolhedor : r);
+    const updatedFornecedores = fornecedores.map(f => f.id === fornecedor.id ? fornecedor : f);
+  
+    setRecolhedores(updatedRecolhedores);
+    setFornecedores(updatedFornecedores);
+  
+    localStorage.setItem("recolhedores", JSON.stringify(updatedRecolhedores));
+    localStorage.setItem("fornecedores", JSON.stringify(updatedFornecedores));
+  
+    // Registrar operação
+    const novaOperacao = {
+      id: Date.now(),
+      date: dataOperacao,
+      city: localOperacao,
+      value: valorOperacao,
+      collectorId: recolhedor.id,
+      supplierId: fornecedor.id,
+      collectorTax: taxaRecolhedorOperacao,
+      supplierTax: taxaFornecedorOperacao,
+      profit: lucroUSD,
+    };
+  
+    const updatedOperacoes = [...operacoes, novaOperacao];
+    setOperacoes(updatedOperacoes);
+    localStorage.setItem("operacoes", JSON.stringify(updatedOperacoes));
+  
+    // Resetar campos
+    setLocalOperacao("");
+    setValorOperacao(0);
+    setRecolhedorOperacao("");
+    setFornecedorOperacao("");
+    setTaxaRecolhedorOperacao(1.025);
+    setTaxaFornecedorOperacao(1.05);
+  
+    setSuccessMessage("Operação registrada com sucesso!");
+    setShowSuccessModal(true);
+  };
+  
+  
+
+  const getRecolhedorNome = (id: number) => recolhedores.find(r => r.id === id)?.nome || "DESCONHECIDO";
+  const getFornecedorNome = (id: number) => fornecedores.find(f => f.id === id)?.nome || "DESCONHECIDO";
+
+  const abrirDetalhesOperacao = (operacao: Operacao) => {
+    setSelectedOperation(operacao);
+    setShowOperationModal(true);
+  };
 
   return (
-    <div className="space-y-8">
-      {/* NOVA OPERAÇÃO */}
+    <div className="fade-in">
+      {/* Success Modal */}
+      <SuccessModal isOpen={showSuccessModal} onClose={() => setShowSuccessModal(false)} message={successMessage} />
+
       <div className="bg-white p-6 rounded-lg shadow mb-6">
-        <h2 className="text-xl font-semibold text-blue-700 border-b pb-2 mb-4 flex items-center">
+        <h2 className="text-xl font-semibold mb-4 text-blue-700 border-b pb-2">
           <i className="fas fa-handshake mr-2"></i> NOVA OPERAÇÃO
         </h2>
 
@@ -132,7 +212,7 @@ const OperacoesTab: React.FC = () => {
               step="0.01"
               className="mt-1 block w-full border border-gray-300 rounded-md p-2"
               value={valorOperacao}
-              onChange={(e) => setValorOperacao(parseFloat(e.target.value))}
+              onChange={(e) => setValorOperacao(Number(e.target.value))}
               placeholder="0.00"
             />
           </div>
@@ -143,13 +223,13 @@ const OperacoesTab: React.FC = () => {
             <label className="block text-sm font-medium text-gray-700">RECOLHEDOR</label>
             <select
               className="mt-1 block w-full border border-gray-300 rounded-md p-2"
-              value={recolhedorId}
-              onChange={(e) => setRecolhedorId(e.target.value)}
+              value={recolhedorOperacao}
+              onChange={(e) => setRecolhedorOperacao(Number(e.target.value))}
             >
               <option value="">SELECIONE UM RECOLHEDOR</option>
-              {recolhedores.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {r.nome.toUpperCase()}
+              {recolhedores.map((rec) => (
+                <option key={rec.id} value={rec.id}>
+                  {rec.nome}
                 </option>
               ))}
             </select>
@@ -159,8 +239,8 @@ const OperacoesTab: React.FC = () => {
                 type="number"
                 step="0.001"
                 className="text-xs w-16 border border-gray-300 rounded p-1"
-                value={taxaRecolhedor}
-                onChange={(e) => setTaxaRecolhedor(e.target.value)}
+                value={taxaRecolhedorOperacao}
+                onChange={(e) => setTaxaRecolhedorOperacao(Number(e.target.value))}
               />
             </div>
           </div>
@@ -169,13 +249,13 @@ const OperacoesTab: React.FC = () => {
             <label className="block text-sm font-medium text-gray-700">FORNECEDOR</label>
             <select
               className="mt-1 block w-full border border-gray-300 rounded-md p-2"
-              value={fornecedorId}
-              onChange={(e) => setFornecedorId(e.target.value)}
+              value={fornecedorOperacao}
+              onChange={(e) => setFornecedorOperacao(Number(e.target.value))}
             >
               <option value="">SELECIONE UM FORNECEDOR</option>
-              {fornecedores.map((f) => (
-                <option key={f.id} value={f.id}>
-                  {f.nome.toUpperCase()}
+              {fornecedores.map((forn) => (
+                <option key={forn.id} value={forn.id}>
+                  {forn.nome}
                 </option>
               ))}
             </select>
@@ -185,14 +265,13 @@ const OperacoesTab: React.FC = () => {
                 type="number"
                 step="0.01"
                 className="text-xs w-16 border border-gray-300 rounded p-1"
-                value={taxaFornecedor}
-                onChange={(e) => setTaxaFornecedor(e.target.value)}
+                value={taxaFornecedorOperacao}
+                onChange={(e) => setTaxaFornecedorOperacao(Number(e.target.value))}
               />
             </div>
           </div>
         </div>
 
-        {/* RESUMO DA OPERAÇÃO */}
         <div className="mt-6 bg-blue-50 p-4 rounded">
           <h3 className="font-medium mb-2">RESUMO DA OPERAÇÃO</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -206,29 +285,27 @@ const OperacoesTab: React.FC = () => {
             </div>
             <div>
               <p className="text-sm text-gray-700">SEU LUCRO:</p>
-              <p className="font-bold text-green-600">{formatCurrency(valorLucro)}</p>
+              <p className="font-bold text-green-600">{formatCurrency(lucro)}</p>
             </div>
           </div>
         </div>
 
         <button
           onClick={registrarOperacao}
-          className="mt-6 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-md w-full flex justify-center items-center"
+          className="mt-6 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-md w-full"
         >
           <i className="fas fa-save mr-2"></i> REGISTRAR OPERAÇÃO
         </button>
       </div>
 
-      {/* TABELA DE ÚLTIMAS OPERAÇÕES */}
       <div className="bg-white p-6 rounded-lg shadow">
-        <h2 className="text-xl font-semibold text-blue-700 border-b pb-2 mb-4 flex items-center">
+        <h2 className="text-xl font-semibold mb-4 text-blue-700 border-b pb-2">
           <i className="fas fa-history mr-2"></i> ÚLTIMAS OPERAÇÕES
         </h2>
-
         <div className="overflow-x-auto">
           <table className="min-w-full bg-white">
             <thead>
-              <tr className="bg-gray-200 text-gray-700 text-sm">
+              <tr className="bg-gray-200">
                 <th className="py-2 px-4 border">DATA</th>
                 <th className="py-2 px-4 border">LOCAL</th>
                 <th className="py-2 px-4 border">RECOLHEDOR</th>
@@ -238,35 +315,37 @@ const OperacoesTab: React.FC = () => {
               </tr>
             </thead>
             <tbody>
-              {operacoes.length > 0 ? (
-                operacoes.map((op) => (
-                  <tr key={op.id} className="hover:bg-gray-50 text-sm">
-                    <td className="py-2 px-4 border text-center">{formatDate(op.data)}</td>
-                    <td className="py-2 px-4 border text-center">{op.local}</td>
-                    <td className="py-2 px-4 border text-center">{getNomeRecolhedor(op.recolhedorId)}</td>
-                    <td className="py-2 px-4 border text-center">{getNomeFornecedor(op.fornecedorId)}</td>
-                    <td className="py-2 px-4 border text-center">{formatCurrency(op.valor)}</td>
-                    <td className="py-2 px-4 border text-center space-x-2">
-                      <button className="text-blue-500 hover:text-blue-700">
-                        <i className="fas fa-edit"></i>
-                      </button>
-                      <button className="text-red-500 hover:text-red-700">
-                        <i className="fas fa-trash"></i>
-                      </button>
-                    </td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan={6} className="py-6 text-center text-gray-500">
-                    NENHUMA OPERAÇÃO REGISTRADA
+              {operacoes.map((op) => (
+                <tr key={op.id}>
+                  <td className="py-2 px-4 border">{formatDate(op.date)}</td>
+                  <td className="py-2 px-4 border">{op.city}</td>
+                  <td className="py-2 px-4 border">{getRecolhedorNome(op.collectorId)}</td>
+                  <td className="py-2 px-4 border">{getFornecedorNome(op.supplierId)}</td>
+                  <td className="py-2 px-4 border text-right">{formatCurrency(op.value)}</td>
+                  <td className="py-2 px-4 border text-center">
+                    <button
+                      onClick={() => abrirDetalhesOperacao(op)}
+                      className="text-blue-600 hover:text-blue-800"
+                    >
+                      <i className="fas fa-eye"></i>
+                    </button>
                   </td>
                 </tr>
-              )}
+              ))}
             </tbody>
           </table>
         </div>
       </div>
+
+       {/* Operation Details Modal */}
+       {showOperationModal && selectedOperation && (
+        <OperationDetailsModal
+          operation={selectedOperation}
+          recolhedorNome={getRecolhedorNome(selectedOperation.collectorId)}
+          fornecedorNome={getFornecedorNome(selectedOperation.supplierId)}
+          onClose={() => setShowOperationModal(false)}
+        />
+      )}
     </div>
   );
 };
