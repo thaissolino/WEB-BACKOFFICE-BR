@@ -72,9 +72,6 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice }: InvoicePr
     setCurrentInvoice({ ...currentInvoice, products: newProducts });
   };
 
-
-
-  
   const subTotal = currentInvoice.products.reduce((acc, item) => acc + Number(item.total), 0);
   const taxSpEs = currentInvoice.products.reduce((acc: number, item) => {
     return acc + item.quantity * currentInvoice.taxaSpEs;
@@ -331,13 +328,13 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice }: InvoicePr
               </div>
               <div className="bg-white p-3 rounded border">
                 <p className="text-sm text-gray-600">Frete SP x ES:</p>
-                <p id="taxCost" className="text-lg font-semibold">R$ {taxSpEs.toLocaleString('BRL', {  currency: 'BRL', minimumFractionDigits: 2, maximumFractionDigits:2 }) || "0.00"}</p>
+                <p id="taxCost" className="text-lg font-semibold">R$ {taxSpEs.toLocaleString('pt-BR', {  currency: 'BRL', minimumFractionDigits: 2, maximumFractionDigits:2 }) || "0.00"}</p>
               </div>
             </div>
             <div className="bg-blue-50 p-3 rounded border">
               <div className="flex justify-between items-center">
                 <p className="text-sm font-medium text-blue-800">Total da Invoice:</p>
-                <p id="invoiceTotal" className="text-xl font-bold text-blue-800">$ 0,00</p>
+                <p id="invoiceTotal" className="text-xl font-bold text-blue-800">$ {subTotal.toLocaleString('en-US', {  currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits:2 }) || "0.00"}</p>
               </div>
             </div>
           </div>
