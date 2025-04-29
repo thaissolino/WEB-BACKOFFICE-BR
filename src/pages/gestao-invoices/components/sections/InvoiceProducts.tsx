@@ -33,7 +33,14 @@ interface InvoiceProductsProps {
 
 export function InvoiceProducts({ currentInvoice, setCurrentInvoice }: InvoiceProductsProps) {
   const [showProductForm, setShowProductForm] = useState(false);
-  const [products, setProducts] = useState<any[]>([]); // Array de produtos da API
+  const [products, setProducts] = useState<{
+    id:string, 
+    name: string,
+    code: string,
+    price: number,
+    weight: number,
+    description: string
+  }[]>([]); // Array de produtos da API
   const [carriers, setCarriers] = useState<Carrier[]>([]); // Array de produtos da API
   const [productForm, setProductForm] = useState({
     productId: '',
@@ -93,8 +100,9 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice }: InvoicePr
     if (!carrierSelectedType2) return acc;
     return acc + shippingStrategies[carrierSelectedType2.type](carrierSelectedType2,item);
   }, 0)
-
+  // @ts-ignore
   const weightData = productForm.weight || products.find((item) => item.id === productForm.productId)?.weightAverage || ''
+  // @ts-ignore
   const priceData = productForm.value || products.find((item) => item.id === productForm.productId)?.priceweightAverage || ''
   const calculateProductTotal = () => {
   const quantity = parseFloat(productForm.quantity) || 0;
@@ -103,8 +111,20 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice }: InvoicePr
   setProductForm({ ...productForm, total: total.toFixed(2) });
   };
 
+  useEffect(() => {
+    setCurrentInvoice((prevInvoice: Invoice) => ({
+      ...prevInvoice,
+      amountTaxSpEs: taxSpEs,
+      amountTaxcarrier: amountTaxCarrieFrete1,
+      amountTaxcarrier2: amountTaxCarrieFrete2,
+      subAmount: subTotal,
+    }));
+  }, [taxSpEs, amountTaxCarrieFrete1, amountTaxCarrieFrete2, subTotal]);
+
   const addProduct = () => {
+    console.log(productForm.productId)
     const product = products.find((p) => p.id === productForm.productId);
+    console.log(product)
     if (!product) return;
 
     const quantity = parseFloat(productForm.quantity);
@@ -127,6 +147,8 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice }: InvoicePr
       received: false,
       receivedQuantity: 0,
     };
+
+    console.log(invoiceProduct)
 
     setCurrentInvoice({
       ...currentInvoice,
@@ -292,8 +314,8 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice }: InvoicePr
             </thead>
             <tbody className="divide-y divide-gray-200">
               {currentInvoice.products.map((product, index) => (
-                <tr key={product.id}>
-                  <td className="px-4 py-2 text-sm text-gray-800">{products.find((item) => item.productId === product.productId).name}</td>
+                <tr key={index}>
+                  <td className="px-4 py-2 text-sm text-gray-800">{products.find((item) => item.id === product.id)?.name}</td>
                   <td className="px-4 py-2 text-sm text-right">{product.quantity}</td>
                   <td className="px-4 py-2 text-sm text-right">{product.value.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})}</td>
                   <td className="px-4 py-2 text-sm text-right">{product.weight.toFixed(2)}</td>
@@ -314,10 +336,10 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice }: InvoicePr
           <div className="bg-gray-50 p-4 rounded-lg border">
             <h3 className="font-medium mb-3 text-blue-700 border-b pb-2">Resumo da Invoice</h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-              <div className="bg-white p-3 rounded border">
+              {/* <div className="bg-white p-3 rounded border">
                 <p className="text-sm text-gray-600">Subtotal:</p>
                 <p id="subtotal" className="text-lg font-semibold">$ {subTotal.toLocaleString('en-US', {  currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits:2 }) || "0.00"}</p>
-              </div>
+              </div> */}
               <div className="bg-white p-3 rounded border">
                 <p className="text-sm text-gray-600">Frete 1:</p>
                 <p id="shippingCost" className="text-lg font-semibold">$ {amountTaxCarrieFrete1.toLocaleString('en-US', {  currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits:2 }) || "0.00"}</p>
