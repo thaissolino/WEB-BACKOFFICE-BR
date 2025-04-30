@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { formatCurrency, formatDate } from "./format";
+import {api} from "../../../services/api"; // Importe sua instância do Axios pré-configurada
 
 interface Operacao {
   id: number;
@@ -15,12 +16,12 @@ interface Operacao {
 
 interface Recolhedor {
   id: number;
-  nome: string;
+  name: string;
 }
 
 interface Fornecedor {
   id: number;
-  nome: string;
+  name: string;
 }
 
 const LucrosTab: React.FC = () => {
@@ -28,18 +29,70 @@ const LucrosTab: React.FC = () => {
   const [recolhedores, setRecolhedores] = useState<Recolhedor[]>([]);
   const [fornecedores, setFornecedores] = useState<Fornecedor[]>([]);
   const [paginaAtual, setPaginaAtual] = useState(1);
-  const itensPorPagina = 10;
+  const [totalPaginas, setTotalPaginas] = useState(1);
+  const [itensPorPagina] = useState(10);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const storedOperacoes = JSON.parse(localStorage.getItem("operacoes") || "[]");
-    setOperacoes(storedOperacoes);
+    const fetchOperacoes = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const response = await api.get(`/operations/list_operations`, {
+          params: {
+            _page: paginaAtual,
+            _limit: itensPorPagina,
+          },
+        });
 
-    const storedRecolhedores = JSON.parse(localStorage.getItem("recolhedores") || "[]");
-    setRecolhedores(storedRecolhedores);
+        setOperacoes(response.data);
+        const totalCount = response.headers["x-total-count"];
+        setTotalPaginas(totalCount ? Math.ceil(parseInt(totalCount, 10) / itensPorPagina) : 1);
 
-    const storedFornecedores = JSON.parse(localStorage.getItem("fornecedores") || "[]");
-    setFornecedores(storedFornecedores);
-  }, []);
+        // Fetch collectors and suppliers concurrently
+        const collectorIds = Array.from(new Set<number>(response.data.map((op:any) => op.collectorId)));
+        const supplierIds = Array.from(new Set<number>(response.data.map((op:any) => op.supplierId)));
+
+        const fetchCollectors = Promise.all(
+          collectorIds.map(async (id) => {
+            try {
+              const res = await api.get<Recolhedor>(`/collectors/list_collector/${id}`);
+              return res.data;
+            } catch (error) {
+              console.error(`Erro ao buscar recolhedor com ID ${id}:`, error);
+              return null; // Ou algum objeto padrão para indicar falha
+            }
+          })
+        );
+
+        const fetchSuppliers = Promise.all(
+          supplierIds.map(async (id) => {
+            try {
+              const res = await api.get<Fornecedor>(`/suppliers/list_supplier/${id}`);
+              return res.data;
+            } catch (error) {
+              console.error(`Erro ao buscar fornecedor com ID ${id}:`, error);
+              return null; // Ou algum objeto padrão para indicar falha
+            }
+          })
+        );
+
+        const [collectorsData, suppliersData] = await Promise.all([fetchCollectors, fetchSuppliers]);
+
+        // Filter out any null results in case of failed requests
+        setRecolhedores(collectorsData.filter((r): r is Recolhedor => r !== null));
+        setFornecedores(suppliersData.filter((f): f is Fornecedor => f !== null));
+
+      } catch (e: any) {
+        setError(e.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchOperacoes();
+  }, [paginaAtual, itensPorPagina]);
 
   const lucroMesAtual = operacoes
     .filter((op) => {
@@ -60,11 +113,16 @@ const LucrosTab: React.FC = () => {
     .filter((op) => !isNaN(new Date(op.date).getTime()))
     .reduce((acc, op) => acc + (op.profit || 0), 0);
 
-  const totalPaginas = Math.ceil(operacoes.length / itensPorPagina);
-  const operacoesPaginadas = operacoes.slice((paginaAtual - 1) * itensPorPagina, paginaAtual * itensPorPagina);
+  const getRecolhedorNome = (id: number) => recolhedores.find((r) => r?.id === id)?.name || "Desconhecido";
+  const getFornecedorNome = (id: number) => fornecedores.find((f) => f?.id === id)?.name || "Desconhecido";
 
-  const getRecolhedorNome = (id: number) => recolhedores.find((r) => r.id === id)?.nome || "Desconhecido";
-  const getFornecedorNome = (id: number) => fornecedores.find((f) => f.id === id)?.nome || "Desconhecido";
+  if (loading) {
+    return <div>Carregando dados...</div>;
+  }
+
+  if (error) {
+    return <div>Erro ao carregar dados: {error}</div>;
+  }
 
   return (
     <div className="fade-in">
@@ -103,15 +161,17 @@ const LucrosTab: React.FC = () => {
               </tr>
             </thead>
             <tbody>
-              {operacoesPaginadas.map((op) => {
+              {operacoes.map((op) => {
                 if (!op.date || isNaN(new Date(op.date).getTime())) return null;
+                const recolhedorNome = getRecolhedorNome(op.collectorId);
+                const fornecedorNome = getFornecedorNome(op.supplierId);
 
                 return (
                   <tr key={op.id}>
                     <td className="py-2 px-4 border">{formatDate(op.date)}</td>
                     <td className="py-2 px-4 border">{op.city || "Desconhecido"}</td>
-                    <td className="py-2 px-4 border">{getRecolhedorNome(op.collectorId)}</td>
-                    <td className="py-2 px-4 border">{getFornecedorNome(op.supplierId)}</td>
+                    <td className="py-2 px-4 border">{recolhedorNome}</td>
+                    <td className="py-2 px-4 border">{fornecedorNome}</td>
                     <td className="py-2 px-4 border text-right">{formatCurrency(op.value || 0)}</td>
                     <td className="py-2 px-4 border text-right">{formatCurrency(op.profit || 0)}</td>
                   </tr>
