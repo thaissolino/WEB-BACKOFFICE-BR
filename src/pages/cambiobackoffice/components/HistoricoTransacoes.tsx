@@ -6,6 +6,8 @@ interface HistoricoTransacoesProps {
 }
 
 export const HistoricoTransacoes = ({ transacoes }: HistoricoTransacoesProps) => {
+  console.log("transações", transacoes);
+
   if (transacoes.length === 0) {
     return (
       <div className="mt-6">
@@ -16,9 +18,7 @@ export const HistoricoTransacoes = ({ transacoes }: HistoricoTransacoesProps) =>
   }
 
   // Ordenar por data (mais recente primeiro)
-  const transacoesOrdenadas = [...transacoes].sort((a, b) => 
-    new Date(b.data).getTime() - new Date(a.data).getTime()
-  );
+  const transacoesOrdenadas = [...transacoes].sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime());
 
   return (
     <div className="mt-6">
@@ -36,16 +36,17 @@ export const HistoricoTransacoes = ({ transacoes }: HistoricoTransacoesProps) =>
           </thead>
           <tbody>
             {transacoesOrdenadas.map((transacao, index) => {
-              const rowClass = transacao.tipo === 'compra' ? 'bg-green-50' : 'bg-blue-50';
-              
+              const rowClass = transacao.tipo === "compra" ? "bg-green-50" : "bg-blue-50";
+
               return (
                 <tr key={index} className="hover:bg-gray-50">
                   <td className={`py-2 px-2 border ${rowClass} text-center`}>{transacao.data}</td>
                   <td className={`py-2 px-4 border ${rowClass} text-center`}>
-                    {transacao.tipo === 'compra' ? 'Compra' : 'Retirado'}
+                    {transacao.tipo === "compra" ? "Compra" : "Retirado"}
                   </td>
                   <td className={`py-2 px-4 border ${rowClass} text-center font-mono`}>
-                    {transacao.usd > 0 ? '+' : ''}{formatCurrency(transacao.usd, 2, 'USD')}
+                    {transacao.usd > 0 ? "+" : ""}
+                    {formatCurrency(transacao.usd, 2, "USD")}
                   </td>
                   <td className={`py-2 px-4 border ${rowClass} text-center font-mono`}>
                     {formatCurrency(transacao.taxa, 4)}

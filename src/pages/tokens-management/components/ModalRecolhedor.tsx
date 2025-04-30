@@ -3,10 +3,11 @@ import React, { useState, useEffect } from "react";
 interface ModalRecolhedorProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (nome: string, taxa: number) => void;
+  onSave: (nome: string, taxa: number, balance: number) => void;
   recolhedorEdit?: {
-    nome: string;
-    taxa: number;
+    name: string;
+    balance: number;
+    tax: number;
   };
 }
 
@@ -18,11 +19,13 @@ const ModalRecolhedor: React.FC<ModalRecolhedorProps> = ({
 }) => {
   const [nome, setNome] = useState("");
   const [taxa, setTaxa] = useState(1.025);
+  const [balance, setBalance] = useState(0);
+  
 
   useEffect(() => {
     if (recolhedorEdit) {
-      setNome(recolhedorEdit.nome);
-      setTaxa(recolhedorEdit.taxa);
+      setNome(recolhedorEdit.name);
+      setTaxa(recolhedorEdit.tax);
     } else {
       setNome("");
       setTaxa(1.025);
@@ -60,6 +63,17 @@ const ModalRecolhedor: React.FC<ModalRecolhedorProps> = ({
             />
           </div>
 
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Saldo (USD)</label>
+            <input
+              type="number"
+              step="0.001"
+              className="mt-1 block w-full border border-gray-300 rounded-md p-2"
+              value={balance}
+              onChange={(e) => setBalance(Number(e.target.value))}
+            />
+          </div>
+
           <div className="flex justify-end space-x-3 mt-6">
             <button
               onClick={onClose}
@@ -68,7 +82,7 @@ const ModalRecolhedor: React.FC<ModalRecolhedorProps> = ({
               Cancelar
             </button>
             <button
-              onClick={() => onSave(nome, taxa)}
+              onClick={() => onSave(nome, taxa, balance)}
               className="px-4 py-2 rounded bg-blue-600 hover:bg-blue-700 text-white"
             >
               Salvar
