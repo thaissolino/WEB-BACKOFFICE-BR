@@ -1,10 +1,14 @@
 import { useState } from "react";
-import { Box, CssBaseline, ThemeProvider, useMediaQuery } from "@mui/material";
+import {
+  Box,
+  CssBaseline,
+  ThemeProvider,
+  useMediaQuery,
+} from "@mui/material";
 import { ColorModeContext, useMode } from "../../../theme";
 import Topbar from "../../../pages/global/Topbar";
 import Sidebar from "../../../pages/global/Sidebar";
-import { Outlet } from "react-router-dom";
-// import Router from "../../../routes/index";
+import { Outlet, useLocation } from "react-router-dom"; // Hook para acessar a rota atual
 
 export function Layout() {
   // useMode retorna um array, então tipamos como [any, any] temporariamente
@@ -12,14 +16,22 @@ export function Layout() {
   // isSidebar será um booleano
   const [isSidebar, setIsSidebar] = useState<boolean>(true);
 
-   // Checa se o tamanho da tela é pequeno (mobile)
-   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
-   
+  // Checa se o tamanho da tela é pequeno (mobile)
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
+
+  const location = useLocation(); // Pega o caminho atual da rota
+
+  // Rotas onde a Topbar não deve aparecer
+  const routesWithoutTopbar = ["/invoices-management", "/tokens-management", "/spreadsheets"];
+
+  // Verifica se a rota atual está na lista
+  const hideTopbar = routesWithoutTopbar.includes(location.pathname);
+
   return (
     <ColorModeContext.Provider value={colorMode}>
       <ThemeProvider theme={theme}>
         <CssBaseline />
-          <Box
+        <Box
           className="app"
           sx={{
             display: "flex",
@@ -29,12 +41,10 @@ export function Layout() {
           }}
         >
           {/* Renderiza o Sidebar apenas se não for mobile */}
-          {!isMobile && (
-            
-              <Sidebar isSidebar={isSidebar} />
-          )}
-         {/* Conteúdo principal */}
-         <Box
+          {!isMobile && <Sidebar isSidebar={isSidebar} />}
+
+          {/* Conteúdo principal */}
+          <Box
             className="content"
             sx={{
               flexGrow: 1,
@@ -44,7 +54,8 @@ export function Layout() {
               height: "100%", // Ocupa o restante da altura
             }}
           >
-            <Topbar setIsSidebar={setIsSidebar} />
+            {/* Renderiza a Topbar somente se não estiver em uma rota que a oculta */}
+            {!hideTopbar && <Topbar setIsSidebar={setIsSidebar} />}
             {/* <Router /> */}
             <Outlet />
           </Box>
@@ -53,4 +64,3 @@ export function Layout() {
     </ColorModeContext.Provider>
   );
 }
-

@@ -1,5 +1,6 @@
 import { createContext, useState, useMemo } from "react";
 import { createTheme } from "@mui/material/styles";
+import { useLocation } from "react-router-dom"; // ✅ Adicionado
 
 // color design tokens export
 export const tokens = (mode) => ({
@@ -198,7 +199,9 @@ export const ColorModeContext = createContext({
   toggleColorMode: () => {},
 });
 
+
 export const useMode = () => {
+  const location = useLocation();
   const [mode, setMode] = useState("dark");
 
   const colorMode = useMemo(
@@ -209,6 +212,10 @@ export const useMode = () => {
     []
   );
 
-  const theme = useMemo(() => createTheme(themeSettings(mode)), [mode]);
+  const routesLightTheme = ["/invoices-management", "/tokens-management", "/spreadsheets"]
+  const effectiveMode = routesLightTheme.some((item)=> item.startsWith(location.pathname))  ? "light" : mode;
+
+  const theme = useMemo(() => createTheme(themeSettings(effectiveMode)), [effectiveMode]);
+
   return [theme, colorMode];
 };

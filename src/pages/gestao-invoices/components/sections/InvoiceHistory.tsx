@@ -1,4 +1,4 @@
-import { History, Eye, Edit, XIcon, RotateCcw, Check } from 'lucide-react';
+import { History, Eye, Edit, XIcon, RotateCcw, Check, Loader2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { api } from '../../../../services/api';
 import { Invoice } from '../types/invoice'; // Se necessário, ajuste o caminho do tipo
@@ -64,6 +64,27 @@ type InvoiceData = {
   };
 };
 
+type ProductData = {
+  id: string;
+  invoiceId: string;
+  productId: string;
+  quantity: number;
+  value: number;
+  weight: number;
+  total: number;
+  received: boolean;
+  receivedQuantity: number;
+  product: {
+    id: string;
+    name: string;
+    code: string;
+    priceweightAverage: number;
+    weightAverage: number;
+    description: string;
+    active: boolean;
+  };
+}
+
 
 export function InvoiceHistory() {
   const [invoices, setInvoices] = useState<InvoiceData[]>([]);
@@ -73,6 +94,9 @@ export function InvoiceHistory() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [products, setProducts] = useState<Product[]>([]);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isSavingId, setIsSavingId] = useState("");
+
 
   const fetchInvoicesAndSuppliers = async () => {
     try {
@@ -133,7 +157,34 @@ export function InvoiceHistory() {
     }
   };
 
-  
+  const sendUpdateProductStatus = async(product:ProductData) => {
+    if(!product)return
+
+
+    try {
+      setIsSavingId(product.id)
+      setIsSaving(true)
+      await api.patch("/invoice/update/product",{
+        "idProductInvoice": product.id,
+        "bodyupdate":{
+          "received": true
+        }
+      })
+      const [invoiceResponse] = await Promise.all([
+        api.get('/invoice/get'),
+      ]);
+
+      const findInvoice = invoiceResponse.data.find((item:InvoiceData)=> item.id === product.invoiceId)
+
+      setSelectedInvoice(findInvoice)
+
+      setInvoices(invoiceResponse.data);
+    } catch (error) {
+      console.error('Erro ao buscar dados:', error);
+    } finally {
+      setIsSaving(false)
+    }
+  }
 
   return (
     <div className="mt-8 bg-white p-6 pt-4 rounded-lg shadow">
@@ -233,52 +284,26 @@ export function InvoiceHistory() {
         )}
       </div>
 
-      {/* Modal */}
-      {isModalOpen && selectedInvoice && (
-        <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-lg w-96">
-            <h3 className="text-xl font-semibold mb-4">{isEditMode ? 'Editar Invoice' : 'Visualizar Invoice'}</h3>
-            <div className="space-y-4">
-              <p><strong>Número:</strong> {selectedInvoice.number}</p>
-              <p><strong>Fornecedor:</strong> {suppliers.find(s => s.id === selectedInvoice.supplierId)?.name || '-'}</p>
-              <p><strong>Data:</strong> {new Date(selectedInvoice.date).toLocaleDateString('pt-BR')}</p>
-              <p><strong>Status:</strong> {getStatusText(selectedInvoice)}</p>
-              <p><strong>Total:</strong> {formatCurrency(selectedInvoice.products?.reduce((sum, product) => sum + product.total, 0) || 0)}</p>
-
-              {isEditMode && (
-                <div className="space-y-2">
-                  <label>
-                    <span>Alterar valor:</span>
-                    <input type="number" className="border border-gray-300 rounded p-2 w-full" />
-                  </label>
-                </div>
-              )}
-            </div>
-            <div className="mt-4 flex justify-end space-x-2">
-              <button onClick={closeModal} className="text-gray-500 hover:text-gray-700">
-                Fechar
-              </button>
-              {isEditMode && (
-                <button onClick={() => console.log('Salvar alterações')} className="bg-blue-600 text-white p-2 rounded">
-                  Salvar
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
 
 {isModalOpen && selectedInvoice && (
             // <!-- Modal Visualizar Invoice -->
-            <div id="modalViewInvoice" className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50">
-                <div className="bg-white p-6 rounded-lg w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+            <div id="modalViewInvoice" className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50 ">
+                <div className="bg-white p-6 rounded-lg w-full max-w-4xl max-h-[90vh] overflow-y-auto mx-4">
                     <div className="flex justify-between items-start mb-4">
                         <div>
                             <h3 className="text-lg font-medium">Invoice #<span id="modalInvoiceNumber">{selectedInvoice.number}</span></h3>
-                            <p className="text-sm text-gray-600">Fornecedor: <span id="modalInvoiceSupplier">{selectedInvoice.number}</span></p>
+                            <p className="text-sm text-gray-600">ID: <span id="modalInvoiceSupplier">{selectedInvoice.id}</span></p>
+                            <p className="text-sm text-gray-600">Fornecedor: <span id="modalInvoiceSupplier">{selectedInvoice.supplier.name}</span></p>
                             <p className="text-sm text-gray-600">Data: <span id="modalInvoiceDate">{new Date(selectedInvoice.date).toLocaleDateString()}</span></p>
                             <p className="text-sm text-gray-600">Freteiro: <span id="modalInvoiceCarrier">{selectedInvoice.carrier.name} - {selectedInvoice.carrier?.value} {getShippingTypeText(selectedInvoice.carrier?.type)}</span></p>
-                            <p className="text-sm text-gray-600">Freteiro 2: <span id="modalInvoiceCarrier">{selectedInvoice.carrier2?.name} - {selectedInvoice.carrier2?.value} {getShippingTypeText(selectedInvoice.carrier2?.type)}</span></p>
+                            <p className="text-sm text-gray-600">
+                              Freteiro 2:{" "}
+                              <span id="modalInvoiceCarrier">
+                                {selectedInvoice.carrier2
+                                  ? `${selectedInvoice.carrier2.name} - ${selectedInvoice.carrier2.value} ${getShippingTypeText(selectedInvoice.carrier2.type)}`
+                                  : "não existe"}
+                              </span>
+                            </p>
                         </div>
                         <div>
                             <span id="modalInvoiceStatus" className="px-3 py-1 rounded-full text-xs font-medium"></span>
@@ -312,8 +337,19 @@ export function InvoiceHistory() {
                                       <td className="px-4 py-2 text-sm text-right">{product.total.toFixed(2)}</td>
                                       <td className="px-4 py-2 text-sm text-right">
                                         <div className="flex justify-end items-center ">
-                                          <button className="flex items-center gap-1 text-white px-2 bg-green-600 hover:bg-green-300 rounded-sm">
-                                            <Check size={18} /> Receber
+                                          <button disabled={isSaving} onClick={()=> sendUpdateProductStatus(product)} className="flex items-center gap-1 text-white px-2 bg-green-600 hover:bg-green-300 rounded-sm">
+                                            { isSaving && isSavingId === product.id ? 
+                                            (
+                                            <> <Loader2 className="animate-spin mr-2" size={18} />
+                                              Salvando...
+                                            </>
+                                            )
+                                            :
+                                            (
+                                              <>
+                                              <Check size={18} /> Receber 
+                                              </>
+                                          )}
                                           </button>
                                         </div>
                                       </td>
@@ -334,13 +370,30 @@ export function InvoiceHistory() {
                                         <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Produto</th>
                                         <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Qtd</th>
                                         <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Valor ($)</th>
-                                        <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Valor (R$)</th>
+                                        {/* <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Valor (R$)</th> */}
                                         <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Peso (kg)</th>
                                         <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Total (R$)</th>
                                     </tr>
                                 </thead>
                                 <tbody className="bg-white divide-y divide-gray-200">
-                                  
+                                  {selectedInvoice.products.filter((item)=> item.received).map((product, index) => (
+                                    <tr key={index}>
+                                      <td className="px-4 py-2 text-sm text-gray-700">{products.find((item)=>item.id === product.productId)?.name}</td>
+                                      <td className="px-4 py-2 text-sm text-right">{product.quantity}</td>
+                                      <td className="px-4 py-2 text-sm text-right">{product.value.toFixed(2)}</td>
+                                      {/* <td className="px-4 py-2 text-sm text-right">{product.value.toFixed(2)}</td> */}
+                                      <td className="px-4 py-2 text-sm text-right">{product.weight.toFixed(2)}</td>
+                                      <td className="px-4 py-2 text-sm text-right">{product.total.toFixed(2)}</td>
+                                      {/* <td className="px-4 py-2 text-sm text-right">
+                                        <div className="flex justify-end items-center ">
+                                          <button className="flex items-center gap-1 text-white px-2 bg-red-600 hover:bg-green-300 rounded-sm">
+                                            <XIcon size={18} /> Desfazer
+                                          </button>
+                                        </div>
+                                      </td> */}
+
+                                    </tr>
+                                  ))}
                                 </tbody>
                             </table>
                         </div>
@@ -348,23 +401,23 @@ export function InvoiceHistory() {
                     
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                         <div className="bg-gray-50 p-3 rounded border">
-                            <p className="text-sm text-gray-600">Subtotal:</p>
-                            <p id="modalInvoiceSubtotal" className="text-lg font-semibold">$ 0.00</p>
+                            <p className="text-sm text-gray-600">Frete 1:</p>
+                            <p id="modalInvoiceSubtotal" className="text-lg font-semibold">$ {selectedInvoice.amountTaxcarrier.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})}</p>
                         </div>
                         <div className="bg-gray-50 p-3 rounded border">
-                            <p className="text-sm text-gray-600">Frete:</p>
-                            <p id="modalInvoiceShipping" className="text-lg font-semibold">$ 0.00</p>
+                            <p className="text-sm text-gray-600">Frete 2:</p>
+                            <p id="modalInvoiceShipping" className="text-lg font-semibold">$ {selectedInvoice.amountTaxcarrier2.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})}</p>
                         </div>
                         <div className="bg-gray-50 p-3 rounded border">
                             <p className="text-sm text-gray-600">Frete SP x ES:</p>
-                            <p id="modalInvoiceTax" className="text-lg font-semibold">R$ 0,00</p>
+                            <p id="modalInvoiceTax" className="text-lg font-semibold">R$ {selectedInvoice.amountTaxSpEs.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2})}</p>
                         </div>
                     </div>
                     
                     <div className="bg-blue-50 p-4 rounded border">
                         <div className="flex justify-between items-center">
                             <p className="text-sm font-medium text-blue-800">Total da Invoice:</p>
-                            <p id="modalInvoiceTotal" className="text-xl font-bold text-blue-800">$ 0.00</p>
+                            <p id="modalInvoiceTotal" className="text-xl font-bold text-blue-800">$ {selectedInvoice.subAmount.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})}</p>
                         </div>
                         <div className="flex justify-between items-center mt-1" id="modalInvoicePaymentInfo">
                             <p className="text-xs text-green-600">Pago em:</p>
