@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from "react";
 import ModalRecolhedor from "./ModalRecolhedor";
 import { formatCurrency, formatDate } from "./format";
-import ConfirmModal from "./ConfirmModal"; // adicionar
+import ConfirmModal from "./ConfirmModal";
+import { api } from "../../../services/api";
 
 interface Transacao {
   id: number;
@@ -13,9 +14,9 @@ interface Transacao {
 
 interface Recolhedor {
   id: number;
-  nome: string;
-  taxa: number;
-  saldo: number;
+  name: string;
+  tax: number;
+  balance: number;
   transacoes: Transacao[];
 }
 
@@ -27,35 +28,54 @@ const RecolhedoresTab: React.FC = () => {
   const [valorPagamento, setValorPagamento] = useState<number>(0);
   const [descricaoPagamento, setDescricaoPagamento] = useState("");
   const [dataPagamento, setDataPagamento] = useState<string>(new Date().toISOString().split("T")[0]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [recolhedorToDelete, setRecolhedorToDelete] = useState<number | null>(null);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
 
-  useEffect(() => {
-    const stored = JSON.parse(localStorage.getItem("recolhedores") || "[]");
-    setRecolhedores(stored);
-  }, []);
-
-  const salvarRecolhedor = (nome: string, taxa: number) => {
-    if (recolhedorEdit) {
-      const updated = recolhedores.map((r) => (r.id === recolhedorEdit.id ? { ...r, nome, taxa } : r));
-      setRecolhedores(updated);
-      localStorage.setItem("recolhedores", JSON.stringify(updated));
-    } else {
-      const novo: Recolhedor = {
-        id: Date.now(),
-        nome,
-        taxa,
-        saldo: 0,
-        transacoes: [],
-      };
-      const updated = [...recolhedores, novo];
-      setRecolhedores(updated);
-      localStorage.setItem("recolhedores", JSON.stringify(updated));
+  const fetchRecolhedores = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await api.get<Recolhedor[]>("/collectors/list_collectors");  
+      setRecolhedores(response.data);
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
     }
-    setShowModal(false);
-    setRecolhedorEdit(undefined);
   };
 
-  const abrirCaixa = (recolhedor: Recolhedor) => {
+  useEffect(() => {
+    fetchRecolhedores();
+  }, []);
+
+  const salvarRecolhedor = async (name: string, tax: number, balance: number) => {
+    try {
+      if (recolhedorEdit) {
+        await api.put(`/collectors/update_collector/${recolhedorEdit.id}`, { name, tax, balance });
+        fetchRecolhedores(); // Refetch after successful edit
+      } else {
+        const response = await api.post<Recolhedor>("/collectors/create_collector", { name, tax, balance });
+        setRecolhedores([...recolhedores, response.data]);
+      }
+      setShowModal(false);
+      setRecolhedorEdit(undefined);
+    } catch (e: any) {
+      alert(`Erro ao salvar recolhedor: ${e.message}`);
+    }
+  };
+
+  const abrirCaixa = async (recolhedor: Recolhedor) => {
     setSelectedRecolhedor(recolhedor);
+    try {
+      const response = await api.get<Recolhedor>(`/collectors/list_collector/${recolhedor.id}`);
+      setSelectedRecolhedor(response.data); // Update with transactions
+    } catch (error: any) {
+      console.error("Erro ao buscar detalhes do recolhedor:", error.message);
+      alert("Erro ao carregar detalhes do recolhedor.");
+      setSelectedRecolhedor(null);
+    }
   };
 
   const fecharCaixa = () => {
@@ -64,15 +84,12 @@ const RecolhedoresTab: React.FC = () => {
     setDescricaoPagamento("");
   };
 
-  const registrarPagamento = () => {
+  const registrarPagamento = async () => {
     if (!selectedRecolhedor) return;
     if (!valorPagamento || !descricaoPagamento.trim()) {
       alert("Preencha todos os campos de pagamento.");
       return;
     }
-
-    const saldoAnterior = selectedRecolhedor.saldo;
-    const novoSaldo = saldoAnterior + valorPagamento;
 
     const novaTransacao: Transacao = {
       id: Date.now(),
@@ -82,40 +99,47 @@ const RecolhedoresTab: React.FC = () => {
       tipo: "pagamento",
     };
 
-    const updatedRecolhedores = recolhedores.map((r) =>
-      r.id === selectedRecolhedor.id
-        ? {
-            ...r,
-            saldo: novoSaldo,
-            transacoes: [...r.transacoes, novaTransacao],
-          }
-        : r
-    );
-
-    setRecolhedores(updatedRecolhedores);
-    localStorage.setItem("recolhedores", JSON.stringify(updatedRecolhedores));
-
-    fecharCaixa();
-    alert("Pagamento registrado!");
+    try {
+      const updatedRecolhedorResponse = await api.patch<Recolhedor>(`/recolhedores/${selectedRecolhedor.id}`, {
+        saldo: selectedRecolhedor.balance + valorPagamento,
+        transacoes: [...(selectedRecolhedor.transacoes || []), novaTransacao],
+      });
+      setRecolhedores(recolhedores.map((r) =>
+        r.id === selectedRecolhedor.id ? updatedRecolhedorResponse.data : r
+      ));
+      setSelectedRecolhedor(updatedRecolhedorResponse.data);
+      fecharCaixa();
+      alert("Pagamento registrado!");
+    } catch (e: any) {
+      alert(`Erro ao registrar pagamento: ${e.message}`);
+    }
   };
-
-  const [recolhedorToDelete, setRecolhedorToDelete] = useState<number | null>(null);
-  const [showConfirmModal, setShowConfirmModal] = useState(false);
 
   const confirmarDeleteRecolhedor = (id: number) => {
     setRecolhedorToDelete(id);
     setShowConfirmModal(true);
   };
 
-  const deletarRecolhedor = () => {
+  const deletarRecolhedor = async () => {
     if (recolhedorToDelete !== null) {
-      const updated = recolhedores.filter((r) => r.id !== recolhedorToDelete);
-      setRecolhedores(updated);
-      localStorage.setItem("recolhedores", JSON.stringify(updated));
-      setRecolhedorToDelete(null);
+      try {
+        await api.delete(`/collectors/delete_collector/${recolhedorToDelete}`);
+        setRecolhedores(recolhedores.filter((r) => r.id !== recolhedorToDelete));
+        setRecolhedorToDelete(null);
+      } catch (e: any) {
+        alert(`Erro ao deletar recolhedor: ${e.message}`);
+      }
     }
     setShowConfirmModal(false);
   };
+
+  if (loading) {
+    return <div>Carregando recolhedores...</div>;
+  }
+
+  if (error) {
+    return <div>Erro ao carregar recolhedores: {error}</div>;
+  }
 
   return (
     <div className="fade-in">
@@ -148,14 +172,14 @@ const RecolhedoresTab: React.FC = () => {
             <tbody>
               {recolhedores.map((r) => (
                 <tr key={r.id} className="hover:bg-gray-50">
-                  <td className="py-2 px-4 border">{r.nome}</td>
-                  <td className="py-2 px-4 border">{r.taxa}</td>
+                  <td className="py-2 px-4 border">{r.name}</td>
+                  <td className="py-2 px-4 border">{r.tax}</td>
                   <td
                     className={`py-2 px-4 border text-right font-bold ${
-                      r.saldo < 0 ? "text-red-600" : "text-green-600"
+                      r.balance < 0 ? "text-red-600" : "text-green-600"
                     }`}
                   >
-                    {formatCurrency(r.saldo)}
+                    {formatCurrency(r.balance)}
                   </td>
                   <td className="py-2 px-4 border space-x-2 text-center">
                     <button
@@ -191,13 +215,13 @@ const RecolhedoresTab: React.FC = () => {
         <div className="bg-white p-6 rounded-lg shadow mb-6">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-xl font-semibold text-blue-700">
-              <i className="fas fa-user mr-2"></i> CAIXA DE {selectedRecolhedor.nome}
+              <i className="fas fa-user mr-2"></i> CAIXA DE {selectedRecolhedor.name}
             </h2>
             <div>
               <span className="mr-4">
                 SALDO:{" "}
-                <span className={`font-bold ${selectedRecolhedor.saldo < 0 ? "text-red-600" : "text-green-600"}`}>
-                  {formatCurrency(selectedRecolhedor.saldo)}
+                <span className={`font-bold ${selectedRecolhedor.balance < 0 ? "text-red-600" : "text-green-600"}`}>
+                  {formatCurrency(selectedRecolhedor.balance)}
                 </span>
               </span>
               <button onClick={fecharCaixa} className="text-gray-500 hover:text-gray-700">
@@ -263,7 +287,7 @@ const RecolhedoresTab: React.FC = () => {
                   </thead>
                   <tbody>
                     {selectedRecolhedor.transacoes
-                      .slice(-6)
+                      ?.slice(-6)
                       .reverse()
                       .map((t) => (
                         <tr key={t.id}>

@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from "react";
 import ModalFornecedor from "./ModalFornecedor";
 import { formatCurrency, formatDate } from "./format";
-import ConfirmModal from "./ConfirmModal"; // adicionar
+import ConfirmModal from "./ConfirmModal";
+import { api } from "../../../services/api";
 
 interface Transacao {
   id: number;
@@ -13,9 +14,9 @@ interface Transacao {
 
 interface Fornecedor {
   id: number;
-  nome: string;
-  taxa: number;
-  saldo: number;
+  name: string;
+  tax: number;
+  balance: number;
   transacoes: Transacao[];
 }
 
@@ -27,35 +28,55 @@ const FornecedoresTab: React.FC = () => {
   const [valorPagamento, setValorPagamento] = useState<number>(0);
   const [descricaoPagamento, setDescricaoPagamento] = useState("");
   const [dataPagamento, setDataPagamento] = useState<string>(new Date().toISOString().split("T")[0]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [fornecedorToDelete, setFornecedorToDelete] = useState<number | null>(null);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
 
-  useEffect(() => {
-    const stored = JSON.parse(localStorage.getItem("fornecedores") || "[]");
-    setFornecedores(stored);
-  }, []);
-
-  const salvarFornecedor = (nome: string, taxa: number) => {
-    if (fornecedorEdit) {
-      const updated = fornecedores.map((f) => (f.id === fornecedorEdit.id ? { ...f, nome, taxa } : f));
-      setFornecedores(updated);
-      localStorage.setItem("fornecedores", JSON.stringify(updated));
-    } else {
-      const novo: Fornecedor = {
-        id: Date.now(),
-        nome,
-        taxa,
-        saldo: 0,
-        transacoes: [],
-      };
-      const updated = [...fornecedores, novo];
-      setFornecedores(updated);
-      localStorage.setItem("fornecedores", JSON.stringify(updated));
+  const fetchFornecedores = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await api.get<Fornecedor[]>("/suppliers/list_suppliers");
+      setFornecedores(response.data);
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
     }
-    setShowModal(false);
-    setFornecedorEdit(undefined);
   };
 
-  const abrirCaixa = (fornecedor: Fornecedor) => {
+  useEffect(() => {
+    fetchFornecedores();
+  }, []);
+
+  const salvarFornecedor = async (name: string, tax: number, balance: number) => {
+    try {
+      if (fornecedorEdit) {
+        await api.put(`/suppliers/update_supplier/${fornecedorEdit.id}`, { name, tax, balance });
+        // After successful edit, refetch the fornecedores
+        fetchFornecedores();
+      } else {
+        const response = await api.post<Fornecedor>("/suppliers/create_supplier", { name, tax, balance });
+        setFornecedores([...fornecedores, response.data]);
+      }
+      setShowModal(false);
+      setFornecedorEdit(undefined);
+    } catch (e: any) {
+      alert(`Erro ao salvar fornecedor: ${e.message}`);
+    }
+  };
+
+  const abrirCaixa = async (fornecedor: Fornecedor) => {
     setFornecedorSelecionado(fornecedor);
+    try {
+      const response = await api.get<Fornecedor>(`/fornecedores/${fornecedor.id}`);
+      setFornecedorSelecionado(response.data); // Update with transactions
+    } catch (error: any) {
+      console.error("Erro ao buscar detalhes do fornecedor:", error.message);
+      alert("Erro ao carregar detalhes do fornecedor.");
+      setFornecedorSelecionado(null);
+    }
   };
 
   const fecharCaixa = () => {
@@ -64,15 +85,12 @@ const FornecedoresTab: React.FC = () => {
     setDescricaoPagamento("");
   };
 
-  const registrarPagamento = () => {
+  const registrarPagamento = async () => {
     if (!fornecedorSelecionado) return;
     if (!valorPagamento || !descricaoPagamento.trim()) {
       alert("Preencha todos os campos de pagamento.");
       return;
     }
-
-    const saldoAnterior = fornecedorSelecionado.saldo;
-    const novoSaldo = saldoAnterior + valorPagamento;
 
     const novaTransacao: Transacao = {
       id: Date.now(),
@@ -82,40 +100,47 @@ const FornecedoresTab: React.FC = () => {
       tipo: "pagamento",
     };
 
-    const updatedFornecedores = fornecedores.map((f) =>
-      f.id === fornecedorSelecionado.id
-        ? {
-            ...f,
-            saldo: novoSaldo,
-            transacoes: [...f.transacoes, novaTransacao],
-          }
-        : f
-    );
-
-    setFornecedores(updatedFornecedores);
-    localStorage.setItem("fornecedores", JSON.stringify(updatedFornecedores));
-
-    fecharCaixa();
-    alert("Pagamento registrado!");
+    try {
+      const updatedFornecedorResponse = await api.patch<Fornecedor>(`/suppliers/list_supplier/${fornecedorSelecionado.id}`, {
+        saldo: fornecedorSelecionado.balance + valorPagamento,
+        transacoes: [...(fornecedorSelecionado.transacoes || []), novaTransacao],
+      });
+      setFornecedores(fornecedores.map((f) =>
+        f.id === fornecedorSelecionado.id ? updatedFornecedorResponse.data : f
+      ));
+      setFornecedorSelecionado(updatedFornecedorResponse.data);
+      fecharCaixa();
+      alert("Pagamento registrado!");
+    } catch (e: any) {
+      alert(`Erro ao registrar pagamento: ${e.message}`);
+    }
   };
-
-  const [fornecedorToDelete, setFornecedorToDelete] = useState<number | null>(null);
-  const [showConfirmModal, setShowConfirmModal] = useState(false);
 
   const confirmarDeleteFornecedor = (id: number) => {
     setFornecedorToDelete(id);
     setShowConfirmModal(true);
   };
 
-  const deletarFornecedor = () => {
+  const deletarFornecedor = async () => {
     if (fornecedorToDelete !== null) {
-      const updated = fornecedores.filter((f) => f.id !== fornecedorToDelete);
-      setFornecedores(updated);
-      localStorage.setItem("fornecedores", JSON.stringify(updated));
-      setFornecedorToDelete(null);
+      try {
+        await api.delete(`/suppliers/delete_supplier/${fornecedorToDelete}`);
+        setFornecedores(fornecedores.filter((f) => f.id !== fornecedorToDelete));
+        setFornecedorToDelete(null);
+      } catch (e: any) {
+        alert(`Erro ao deletar fornecedor: ${e.message}`);
+      }
     }
     setShowConfirmModal(false);
   };
+
+  if (loading) {
+    return <div>Carregando fornecedores...</div>;
+  }
+
+  if (error) {
+    return <div>Erro ao carregar fornecedores: {error}</div>;
+  }
 
   return (
     <div className="fade-in">
@@ -148,14 +173,14 @@ const FornecedoresTab: React.FC = () => {
             <tbody>
               {fornecedores.map((f) => (
                 <tr key={f.id} className="hover:bg-gray-50">
-                  <td className="py-2 px-4 border">{f.nome}</td>
-                  <td className="py-2 px-4 border">{f.taxa}</td>
+                  <td className="py-2 px-4 border">{f.name}</td>
+                  <td className="py-2 px-4 border">{f.tax}</td>
                   <td
                     className={`py-2 px-4 border text-right font-bold ${
-                      f.saldo < 0 ? "text-red-600" : "text-green-600"
+                      f.balance < 0 ? "text-red-600" : "text-green-600"
                     }`}
                   >
-                    {formatCurrency(f.saldo)}
+                    {formatCurrency(f.balance)}
                   </td>
                   <td className="py-2 px-4 border space-x-2 text-center">
                     <button
@@ -191,13 +216,13 @@ const FornecedoresTab: React.FC = () => {
         <div className="bg-white p-6 rounded-lg shadow mb-6">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-xl font-semibold text-green-700">
-              <i className="fas fa-truck mr-2"></i> CAIXA DE {fornecedorSelecionado.nome}
+              <i className="fas fa-truck mr-2"></i> CAIXA DE {fornecedorSelecionado.name}
             </h2>
             <div>
               <span className="mr-4">
                 SALDO:{" "}
-                <span className={`font-bold ${fornecedorSelecionado.saldo < 0 ? "text-red-600" : "text-green-600"}`}>
-                  {formatCurrency(fornecedorSelecionado.saldo)}
+                <span className={`font-bold ${fornecedorSelecionado.balance < 0 ? "text-red-600" : "text-green-600"}`}>
+                  {formatCurrency(fornecedorSelecionado.balance)}
                 </span>
               </span>
               <button onClick={fecharCaixa} className="text-gray-500 hover:text-gray-700">
@@ -263,7 +288,7 @@ const FornecedoresTab: React.FC = () => {
                   </thead>
                   <tbody>
                     {fornecedorSelecionado.transacoes
-                      .slice(-6)
+                      ?.slice(-6)
                       .reverse()
                       .map((t) => (
                         <tr key={t.id}>
@@ -296,7 +321,7 @@ const FornecedoresTab: React.FC = () => {
       <ConfirmModal
         isOpen={showConfirmModal}
         title="Confirmar Exclusão"
-        message="Tem certeza que deseja deletar este recolhedor?"
+        message="Tem certeza que deseja deletar este fornecedor?"
         onConfirm={deletarFornecedor}
         onClose={() => setShowConfirmModal(false)}
       />
