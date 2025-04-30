@@ -1,52 +1,37 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ChartBar, Eye } from 'lucide-react';
 import { formatCurrency } from '../../../cambiobackoffice/formatCurrencyUtil';
-
-interface Invoice {
-  id: string;
-  number: string;
-  date: string;
-  supplierId: string;
-  paid: boolean;
-  completed: boolean;
-  products: any[];
-}
+import { InvoiceData, InvoiceHistory } from './InvoiceHistory';
+import { api } from '../../../../services/api';
+import { InvoiceHistoryReport } from './InvoiceHistoryReport';
 
 export function ReportsTab() {
-  const [invoices, setInvoices] = useState<Invoice[]>([
-    {
-      id: '1',
-      number: 'INV-20230001',
-      date: '2023-05-15',
-      supplierId: '1',
-      paid: true,
-      completed: false,
-      products: [],
-    },
-    {
-      id: '2',
-      number: 'INV-20230002',
-      date: '2023-06-10',
-      supplierId: '2',
-      paid: false,
-      completed: false,
-      products: [],
-    },
-    {
-      id: '3',
-      number: 'INV-20230003',
-      date: '2023-07-20',
-      supplierId: '1',
-      paid: true,
-      completed: true,
-      products: [],
-    },
-  ]);
+  const [invoices, setInvoices] = useState<InvoiceData[]>([]);
 
-  const [suppliers] = useState([
-    { id: '1', name: 'Fornecedor A' },
-    { id: '2', name: 'Fornecedor B' },
-  ]);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isSaving2, setIsSaving2] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  const [suppliers, setSuppliers] = useState<{ id: string; name: string }[]>([]);
+
+    const fetchData = async () => {
+        try {
+          setLoading(true);
+          const [invoiceResponse, suppliersget] = await Promise.all([
+            api.get('/invoice/get'),
+            api.get('/invoice/supplier'),
+          ]);
+          setSuppliers(suppliersget.data)
+          setInvoices(invoiceResponse.data);
+        } catch (error) {
+          console.error('Erro ao buscar dados:', error);
+        } finally {
+          setLoading(false);
+        }
+      };
+      useEffect(() => {
+        fetchData();
+      }, []);
 
   const [filters, setFilters] = useState({
     startDate: '',
@@ -55,17 +40,6 @@ export function ReportsTab() {
     supplier: 'all',
   });
 
-  const getStatusText = (invoice: Invoice) => {
-    if (invoice.completed) return 'Concluída';
-    if (invoice.paid) return 'Paga';
-    return 'Pendente';
-  };
-
-  const getStatusClass = (invoice: Invoice) => {
-    if (invoice.completed) return 'bg-blue-100 text-blue-800';
-    if (invoice.paid) return 'bg-green-100 text-green-800';
-    return 'bg-yellow-100 text-yellow-800';
-  };
 
   const filteredInvoices = invoices.filter((invoice) => {
     // Filtrar por data
@@ -75,31 +49,31 @@ export function ReportsTab() {
     if (filters.endDate && new Date(invoice.date) > new Date(filters.endDate)) {
       return false;
     }
-
-    // Filtrar por status
-    if (filters.status !== 'all') {
-      if (filters.status === 'pending' && (invoice.paid || invoice.completed)) {
-        return false;
-      }
-      if (filters.status === 'paid' && (!invoice.paid || invoice.completed)) {
-        return false;
-      }
-      if (filters.status === 'completed' && !invoice.completed) {
-        return false;
-      }
-    }
-
     // Filtrar por fornecedor
     if (filters.supplier !== 'all' && invoice.supplierId !== filters.supplier) {
       return false;
     }
 
+    // Filtrar por status
+    if (filters.status !== 'all') {
+      if (filters.status === 'pending' && (invoice.completed)) {
+        return false;
+      }
+      if (filters.status === 'paid') {
+        return invoice.paid && invoice.completed;;
+      }
+      if (filters.status === 'completed' ){
+        return invoice.completed && !invoice.paid;
+      }
+    }
+
+
     return true;
   });
 
-  const pendingCount = invoices.filter((inv) => !inv.paid && !inv.completed).length;
-  const paidCount = invoices.filter((inv) => inv.paid && !inv.completed).length;
-  const completedCount = invoices.filter((inv) => inv.completed).length;
+  const pendingCount = invoices.filter((inv) => !inv.completed).length;
+  const paidCount = invoices.filter((inv) => inv.paid && inv.completed).length;
+  const completedCount = invoices.filter((inv) => inv.completed && !inv.paid).length;
 
   return (
     <div className="bg-white p-6 rounded-lg shadow">
@@ -160,12 +134,12 @@ export function ReportsTab() {
               ))}
             </select>
           </div>
-          <button
+          {/* <button
             onClick={() => setFilters({ ...filters })}
             className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded"
           >
             Gerar Relatório
-          </button>
+          </button> */}
         </div>
       </div>
 
@@ -189,82 +163,7 @@ export function ReportsTab() {
       </div>
 
       {/* Tabela de Relatórios */}
-      <div>
-        <h3 className="text-lg font-medium mb-4 text-blue-700 border-b pb-2">Histórico de Invoices</h3>
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Número
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Fornecedor
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Data
-                </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Valor ($)
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Status
-                </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Ações
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {filteredInvoices.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="px-6 py-4 text-center text-gray-500">
-                    Nenhuma invoice encontrada com os filtros aplicados
-                  </td>
-                </tr>
-              ) : (
-                filteredInvoices.map((invoice) => {
-                  const supplier = suppliers.find((s) => s.id === invoice.supplierId);
-                  const subtotal = invoice.products.reduce((sum, product) => sum + product.total, 0);
-                  // Calcular frete aqui se necessário
-                  const total = subtotal;
-
-                  return (
-                    <tr key={invoice.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        {invoice.number}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {supplier?.name || '-'}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {new Date(invoice.date).toLocaleDateString('pt-BR')}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right">
-                        {formatCurrency(total)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span
-                          className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusClass(
-                            invoice
-                          )}`}
-                        >
-                          {getStatusText(invoice)}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <button className="text-blue-600 hover:text-blue-900">
-                          <Eye size={16} />
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      <InvoiceHistoryReport invoiceHistory={filteredInvoices} setInvoiceHistory={setInvoices} />
     </div>
   );
 }

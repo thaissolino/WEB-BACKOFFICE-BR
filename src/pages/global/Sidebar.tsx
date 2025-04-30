@@ -125,6 +125,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebar }) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
 
   return (
+    
     <Box
       sx={{
         "& .pro-sidebar-inner": {
@@ -143,6 +144,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebar }) => {
           color: "#6870fa !important",
         },
       }}
+      style={{zIndex:40}}
     >
       <ProSidebar collapsed={isCollapsed}>
         <Menu iconShape="square">

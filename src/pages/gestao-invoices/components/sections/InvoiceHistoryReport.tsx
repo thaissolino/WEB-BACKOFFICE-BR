@@ -84,10 +84,13 @@ type ProductData = {
     active: boolean;
   };
 }
+type InvoiceHistoryReportProps = {
+  invoiceHistory: InvoiceData[]
+  setInvoiceHistory: React.Dispatch<React.SetStateAction<InvoiceData[]>>
+}
 
-
-export function InvoiceHistory() {
-  const [invoices, setInvoices] = useState<InvoiceData[]>([]);
+export function InvoiceHistoryReport({ invoiceHistory:invoices, setInvoiceHistory:setInvoices }: InvoiceHistoryReportProps) {
+  // const [invoices, setInvoices] = useState<InvoiceData[]>([]);
   const [suppliers, setSuppliers] = useState<{ id: string; name: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedInvoice, setSelectedInvoice] = useState<InvoiceData | null>(null);

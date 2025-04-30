@@ -212,7 +212,6 @@ export function CarriersTab() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Tipo de Frete</label>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Tipo de Frete</label>
                   <select
                     value={currentCarrier.type}
                     onChange={(e) => setCurrentCarrier({ ...currentCarrier, type: e.target.value as 'percentage' | 'perKg' | 'perUnit' })}
