@@ -4,7 +4,6 @@ import SuccessModal from "./SuccessModal";
 import OperationDetailsModal from "./OperationDetailsModal";
 import { api } from "../../../services/api";
 
-
 interface Operacao {
   id: number;
   date: string;
@@ -36,7 +35,7 @@ const OperacoesTab: React.FC = () => {
   const [fornecedores, setFornecedores] = useState<Fornecedor[]>([]);
   const [operacoes, setOperacoes] = useState<Operacao[]>([]);
 
-  const [dataOperacao, setDataOperacao] = useState<string>(new Date().toISOString().slice(0, 16 ));
+  const [dataOperacao, setDataOperacao] = useState<string>(new Date().toISOString().slice(0, 16));
   const [localOperacao, setLocalOperacao] = useState("");
   const [valorOperacao, setValorOperacao] = useState<number>(0);
   const [recolhedorOperacao, setRecolhedorOperacao] = useState<number | "">("");
@@ -121,8 +120,8 @@ const OperacoesTab: React.FC = () => {
     }
   };
 
-  const getRecolhedorNome = (id: number) => recolhedores.find(r => r.id === id)?.name || "DESCONHECIDO";
-  const getFornecedorNome = (id: number) => fornecedores.find(f => f.id === id)?.name || "DESCONHECIDO";
+  const getRecolhedorNome = (id: number) => recolhedores.find((r) => r.id === id)?.name || "DESCONHECIDO";
+  const getFornecedorNome = (id: number) => fornecedores.find((f) => f.id === id)?.name || "DESCONHECIDO";
 
   const abrirDetalhesOperacao = (operacao: Operacao) => {
     setSelectedOperation(operacao);
@@ -278,10 +277,7 @@ const OperacoesTab: React.FC = () => {
                   <td className="py-2 px-4 border">{getFornecedorNome(op.supplierId)}</td>
                   <td className="py-2 px-4 border text-right">{formatCurrency(op.value)}</td>
                   <td className="py-2 px-4 border text-center">
-                    <button
-                      onClick={() => abrirDetalhesOperacao(op)}
-                      className="text-blue-600 hover:text-blue-800"
-                    >
+                    <button onClick={() => abrirDetalhesOperacao(op)} className="text-blue-600 hover:text-blue-800">
                       <i className="fas fa-eye"></i>
                     </button>
                   </td>

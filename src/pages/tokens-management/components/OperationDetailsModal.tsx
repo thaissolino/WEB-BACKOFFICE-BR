@@ -16,6 +16,8 @@ const OperationDetailsModal: React.FC<OperationDetailsModalProps> = ({
 }) => {
   if (!operation) return null;
 
+  console.log("operention", operation);
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 transition-opacity duration-300">
       <div className="bg-white p-6 rounded-lg w-full max-w-2xl shadow-lg transform transition-all duration-300">
@@ -49,7 +51,7 @@ const OperationDetailsModal: React.FC<OperationDetailsModalProps> = ({
           </div>
           <div className="bg-red-50 p-4 rounded">
             <p className="font-semibold">Débito do Recolhedor</p>
-            <p className="text-lg">{formatCurrency((operation.value || 0 ) /  (operation.collectorTax || 0))}</p>
+            <p className="text-lg">{formatCurrency((operation.value || 0) / (operation.collectorTax || 0))}</p>
           </div>
           <div className="bg-yellow-50 p-4 rounded">
             <p className="font-semibold">Crédito do Fornecedor</p>
