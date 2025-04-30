@@ -1,6 +1,10 @@
-import { useState } from 'react';
-import { DollarSign, Plus } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { DollarSign, Loader2, Plus, Save } from 'lucide-react';
 import { formatCurrency } from '../../../cambiobackoffice/formatCurrencyUtil';
+import { Product } from './ProductsTab';
+import { InvoiceData } from './InvoiceHistory';
+import { api } from '../../../../services/api';
+import Swal from 'sweetalert2';
 
 interface ExchangeTransaction {
   id: string;
@@ -11,105 +15,227 @@ interface ExchangeTransaction {
   descricao: string;
 }
 
+export interface FinancialTransaction {
+  id: string;
+  date: Date; // ISO string, pode usar `Date` se for convertido
+  type: "BUY" | "PAYMENT";
+  usd: number;
+  rate: number;
+  description: string;
+  invoiceId: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+
 export function ExchangeTab() {
-  const [saldoDolar, setSaldoDolar] = useState(0);
-  const [custoMedioDolar, setCustoMedioDolar] = useState(0);
-  const [transacoes, setTransacoes] = useState<ExchangeTransaction[]>([]);
 
-  const [paymentInvoices, setPaymentInvoices] = useState([
-    { id: '1', number: 'INV-20230001', supplier: 'Fornecedor A', total: 150.75 },
-    { id: '2', number: 'INV-20230002', supplier: 'Fornecedor B', total: 225.5 },
-  ]);
+  const [invoices, setInvoices] = useState<InvoiceData[]>([]);
+  const [suppliers, setSuppliers] = useState<{ id: string; name: string }[]>([]);
 
-  const [paymentForm, setPaymentForm] = useState({
-    invoiceId: '',
-    date: new Date().toISOString().split('T')[0],
-    amount: '',
-  });
+    const [products, setProducts] = useState<Product[]>([]);
+    const [isSaving, setIsSaving] = useState(false);
+    const [isSaving2, setIsSaving2] = useState(false);
+    const [loading, setLoading] = useState(true);
 
-  const [buyForm, setBuyForm] = useState({
-    date: new Date().toISOString().split('T')[0],
-    quantity: '',
-    rate: '',
-  });
+    const [historyPaymentBuy, setHistoryPaymentBuy] = useState<FinancialTransaction[] | undefined>(undefined)
 
-  const registrarCompraDolar = () => {
-    const quantidade = parseFloat(buyForm.quantity) || 0;
-    const taxa = parseFloat(buyForm.rate) || 0;
+    const [dataPayment, setDataUpdated] = useState({
+      invoiceId:"",
+      date: new Date().toISOString().split("T")[0],
+      usd: 0
+    })
 
-    if (quantidade <= 0 || taxa <= 0) {
-      alert('Por favor, informe valores válidos');
-      return;
+    
+    const [addBalance, setAddBalance] = useState<{date:string, type: string, usd: number, rate: number, description: string}>(
+      {
+        date: new Date().toISOString().split("T")[0],
+        rate:0,
+        usd:0,
+        type:'BUY',
+        description:'Compra de dólares'
+      }
+    )
+
+        console.log(addBalance)
+    const [balance, setBalance] = useState<{balance:number, averageRate: number}>()
+
+  const getBalance = async()=>{
+    try {
+      setLoading(true);
+      const [ getBalance] = await Promise.all([
+        api.get('/invoice/exchange-balance'),
+      ]);
+
+      setBalance(getBalance.data)
+    } catch (error) {
+      console.error('Erro ao atualizar balance:', error);
+    } finally {
+      setLoading(false);
     }
+  }
 
-    // Atualizar custo médio
-    let novoCustoMedio = taxa;
-    if (saldoDolar > 0) {
-      novoCustoMedio = (saldoDolar * custoMedioDolar + quantidade * taxa) / (saldoDolar + quantidade);
-    }
-
-    // Atualizar saldos
-    setSaldoDolar(saldoDolar + quantidade);
-    setCustoMedioDolar(novoCustoMedio);
-
-    // Registrar transação
-    const novaTransacao: ExchangeTransaction = {
-      id: Date.now().toString(),
-      date: buyForm.date,
-      type: 'compra',
-      usd: quantidade,
-      taxa,
-      descricao: 'Compra de dólares',
-    };
-
-    setTransacoes([novaTransacao, ...transacoes]);
-
-    // Limpar campos
-    setBuyForm({
-      ...buyForm,
-      quantity: '',
-      rate: '',
-    });
+  const handleInputBalance = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setAddBalance({ ...addBalance, [name]: value });
   };
 
-  const registrarPagamento = () => {
-    const invoiceId = paymentForm.invoiceId;
-    const date = paymentForm.date;
-    const amount = parseFloat(paymentForm.amount) || 0;
+  const fetchData = async () => {
+      try {
+        setLoading(true);
+        const [invoiceResponse, getBalance, history] = await Promise.all([
+          api.get('/invoice/get'),
+          api.get('/invoice/exchange-balance'),
+          api.get('/invoice/exchange-records'),
+        ]);
 
-    if (!invoiceId || !date || amount <= 0) {
-      alert('Preencha todos os campos do pagamento!');
-      return;
-    }
-
-    // Verificar saldo em dólares
-    if (amount > saldoDolar) {
-      alert('Saldo insuficiente de dólares!');
-      return;
-    }
-
-    // Registrar alocação de dólares
-    const alocacao: ExchangeTransaction = {
-      id: Date.now().toString(),
-      date,
-      type: 'alocacao',
-      usd: -amount,
-      taxa: custoMedioDolar,
-      descricao: `Pagamento invoice ${invoiceId}`,
+        setBalance(getBalance.data)
+        setHistoryPaymentBuy(history.data)
+        setInvoices(invoiceResponse.data);
+      } catch (error) {
+        console.error('Erro ao buscar dados:', error);
+      } finally {
+        setLoading(false);
+      }
     };
+    useEffect(() => {
+      fetchData();
+    }, []);
 
-    setTransacoes([alocacao, ...transacoes]);
-    setSaldoDolar(saldoDolar - amount);
+  const sendBuyDolar = async() => {
+   if (!addBalance.date) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Atenção',
+        text: 'Selecione uma Data!',
+        confirmButtonColor: '#27ee1a',
+      });
+      return;
+    }
 
-    // Limpar campos
-    setPaymentForm({
-      ...paymentForm,
-      invoiceId: '',
-      amount: '',
+    if (!addBalance.rate) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Atenção',
+        text: 'Informe a Taxa de Câmbio (BRL)!',
+        confirmButtonColor: '#27ee1a',
+      });
+      return;
+    }
+
+    if (!addBalance.date) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Atenção',
+        text: 'Informe a Quantidade (USD)!',
+        confirmButtonColor: '#27ee1a',
+      });
+      return;
+    }
+
+    try {
+      setIsSaving(true)
+      const response = await api.post('/invoice/exchange-records', {
+          ...addBalance, date: new Date(addBalance.date),rate: Number(addBalance.rate), usd: Number(addBalance.usd)})
+      console.log(response.data)
+     Swal.fire({
+        icon: 'success',
+        title: 'Sucesso!',
+        text: 'Saldo adicionado com sucesso!',
+        confirmButtonColor: '#3085d6',
+      });
+      setAddBalance(      {
+        date: new Date().toISOString().split("T")[0],
+        rate:0,
+        usd:0,
+        type:'BUY',
+        description:'Compra de dólares'
+      })
+      
+      await fetchData()
+    } catch (error) {
+     console.log("error")
+     Swal.fire({
+      icon: 'error',
+      title: 'Atenção',
+      text: 'Error ao Adicionar Saldo',
+      confirmButtonColor: '#27ee1a',
     });
+    } finally{
+      setIsSaving(false)
+    }
+  }
 
-    alert('Pagamento registrado com sucesso!');
-  };
+  console.log(dataPayment)
+
+  const registrarPagamento = async() => {
+    if (!dataPayment.date) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Atenção',
+        text: 'Selecione uma Data!',
+        confirmButtonColor: '#27ee1a',
+      });
+      return;
+    }
+
+    if (!dataPayment.invoiceId) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Atenção',
+        text: 'Informe a Invoice a ser paga!',
+        confirmButtonColor: '#27ee1a',
+      });
+      return;
+    }
+    if(!balance) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Atenção',
+        text: 'Saldo ainda não validado!',
+        confirmButtonColor: '#27ee1a',
+      });
+      return;
+    }
+    if (dataPayment.usd > (balance.balance)) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Atenção',
+        text: 'Saldo insuficiente!',
+        confirmButtonColor: '#27ee1a',
+      });
+      return;
+    }
+
+    try {
+      setIsSaving2(true)
+      const response = await api.post('/invoice/exchange-records', {
+          ...dataPayment, date: new Date(dataPayment.date), usd: Number(dataPayment.usd)})
+     Swal.fire({
+        icon: 'success',
+        title: 'Sucesso!',
+        text: 'Pagamento realizado com sucesso!',
+        confirmButtonColor: '#3085d6',
+      });
+      setDataUpdated(      {
+        invoiceId:"",
+        date: new Date().toISOString().split("T")[0],
+        usd: 0
+      })
+      
+      await fetchData()
+    } catch (error) {
+     console.log("error")
+     Swal.fire({
+      icon: 'error',
+      title: 'Atenção',
+      text: 'Error ao Realizar pagamento',
+      confirmButtonColor: '#27ee1a',
+    });
+    } finally{
+      setIsSaving2(false)
+    }
+  }
 
   return (
     <div className="bg-white p-6 rounded-lg shadow">
@@ -127,8 +253,9 @@ export function ExchangeTab() {
               <label className="block text-sm font-medium text-gray-700">Data</label>
               <input
                 type="date"
-                value={buyForm.date}
-                onChange={(e) => setBuyForm({ ...buyForm, date: e.target.value })}
+                name="date"
+                value={addBalance.date}
+                onChange={handleInputBalance}
                 className="mt-1 block w-full border border-gray-300 rounded-md p-2"
               />
             </div>
@@ -137,8 +264,9 @@ export function ExchangeTab() {
               <input
                 type="number"
                 step="0.01"
-                value={buyForm.quantity}
-                onChange={(e) => setBuyForm({ ...buyForm, quantity: e.target.value })}
+                name="usd"
+                value={addBalance.usd}
+                onChange={handleInputBalance}
                 className="mt-1 block w-full border border-gray-300 rounded-md p-2"
               />
             </div>
@@ -147,16 +275,26 @@ export function ExchangeTab() {
               <input
                 type="number"
                 step="0.0001"
-                value={buyForm.rate}
-                onChange={(e) => setBuyForm({ ...buyForm, rate: e.target.value })}
+                name="rate"
+                value={addBalance.rate}
+                onChange={handleInputBalance}
                 className="mt-1 block w-full border border-gray-300 rounded-md p-2"
               />
             </div>
             <button
-              onClick={registrarCompraDolar}
-              className="bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-2 rounded w-full"
+              onClick={sendBuyDolar}
+              className="bg-yellow-500 hover:bg-yellow-600 flex justify-center text-white px-4 py-2 rounded w-full"
             >
-              Registrar Compra
+              {isSaving ? (
+          <>
+            <Loader2 className="animate-spin mr-2" size={18} />
+            Salvando...
+          </>
+        ) : (
+          <>
+            Registrar Compra
+          </>
+        )}
             </button>
           </div>
         </div>
@@ -167,11 +305,15 @@ export function ExchangeTab() {
           <div className="space-y-2">
             <div className="flex justify-between">
               <span className="text-gray-700">Saldo em Dólar:</span>
-              <span className="font-bold">{formatCurrency(saldoDolar, 2, 'USD')}</span>
+              <span className="font-bold">
+                {loading ? 'Carregando...' : formatCurrency(balance?.balance ?? 0, 2, 'USD')}
+              </span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-700">Custo Médio:</span>
-              <span className="font-bold">{formatCurrency(custoMedioDolar, 4)}</span>
+              <span className="font-bold">
+              {loading ? 'Carregando...' : formatCurrency(balance?.averageRate ?? 0, 4)}
+              </span>
             </div>
           </div>
         </div>
@@ -184,32 +326,39 @@ export function ExchangeTab() {
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Invoice</label>
             <select
-              value={paymentForm.invoiceId}
+              // value={paymentForm.invoiceId}
               onChange={(e) => {
                 const invoiceId = e.target.value;
-                const invoice = paymentInvoices.find((inv) => inv.id === invoiceId);
-                setPaymentForm({
-                  ...paymentForm,
-                  invoiceId,
-                  amount: invoice ? invoice.total.toString() : '',
-                });
+                if(!invoiceId)return setDataUpdated({invoiceId:"", date: new Date().toISOString().split("T")[0], usd: 0})
+                const valueInvoice = invoices.find((item)=> item.id === invoiceId)
+                setDataUpdated((prev)=>(
+                  {
+                    ...prev,
+                    invoiceId: invoiceId,
+                    type: "PAYMENT",
+                    usd: valueInvoice?.subAmount || 0,
+                    description: "Pagamento Invoice",
+                  }
+                ))
               }}
               className="w-full h-11 border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500"
             >
               <option value="">Selecione uma invoice</option>
-              {paymentInvoices.map((invoice) => (
+              {loading?  <option>Carregando...</option>:<>{invoices.filter((item)=> item.completed && !item.paid).map((invoice) => (
                 <option key={invoice.id} value={invoice.id}>
-                  {invoice.number} - {invoice.supplier} ({formatCurrency(invoice.total)})
+                  {invoice.number} - {invoice.supplier.name} ({formatCurrency(invoice.subAmount)})
                 </option>
-              ))}
+              ))}</> }
+              
             </select>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Data do Pagamento</label>
             <input
               type="date"
-              value={paymentForm.date}
-              onChange={(e) => setPaymentForm({ ...paymentForm, date: e.target.value })}
+              // @ts-ignore
+              value={dataPayment.date}
+              onChange={(e) => setDataUpdated({ ...dataPayment, date: e.target.value })}
               className="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500"
             />
           </div>
@@ -218,7 +367,8 @@ export function ExchangeTab() {
             <input
               type="number"
               step="0.01"
-              value={paymentForm.amount}
+              // @ts-ignore
+              value={dataPayment.usd}
               readOnly
               className="w-full border border-gray-300 rounded-md p-2 bg-gray-100 focus:ring-blue-500 focus:border-blue-500"
             />
@@ -230,7 +380,16 @@ export function ExchangeTab() {
               onClick={registrarPagamento}
               className="w-full bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded flex items-center justify-center"
             >
-              Registrar Pagamento
+              {isSaving2 ? (
+          <>
+            <Loader2 className="animate-spin mr-2" size={18} />
+            Salvando...
+          </>
+        ) : (
+          <>
+            Registrar Pagamento
+          </>
+        )}
             </button>
           </div>
           <div className="bg-blue-100 p-2 rounded hidden" id="infoAlocacao"></div>
@@ -252,42 +411,42 @@ export function ExchangeTab() {
               </tr>
             </thead>
             <tbody>
-              {transacoes.length === 0 ? (
+              {historyPaymentBuy && historyPaymentBuy.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="py-4 text-center text-gray-500">
                     Nenhuma transação registrada
                   </td>
                 </tr>
               ) : (
-                transacoes.map((transacao) => {
+                (historyPaymentBuy ?? []).map((transacao) => {
                   const rowClass =
-                    transacao.type === 'compra'
+                    transacao.type === 'BUY'
                       ? 'bg-green-50'
-                      : transacao.type === 'alocacao'
+                      : transacao.type === 'PAYMENT'
                       ? 'bg-blue-50'
                       : 'bg-yellow-50';
 
                   return (
                     <tr key={transacao.id} className="hover:bg-gray-50">
                       <td className={`py-2 px-2 border ${rowClass} text-center`}>
-                        {new Date(transacao.date).toLocaleDateString('pt-BR')}
+                      {new Date(new Date(transacao.date).getTime() + 3 * 60 * 60 * 1000).toLocaleDateString("pt-BR")}
                       </td>
                       <td className={`py-2 px-4 border ${rowClass} text-center`}>
-                        {transacao.type === 'compra'
+                        {transacao.type === 'BUY'
                           ? 'Compra'
-                          : transacao.type === 'alocacao'
-                          ? 'Retirado'
+                          : transacao.type === 'PAYMENT'
+                          ? 'Pagamento'
                           : 'Devolução'}
                       </td>
                       <td className={`py-2 px-4 border ${rowClass} text-center font-mono`}>
-                        {transacao.usd > 0 ? '+' : ''}
-                        {formatCurrency(transacao.usd, 2, 'USD')}
+                        {transacao.type === "BUY" ? '+' : '-'}
+                        {formatCurrency(transacao.usd, 2, 'USD') || "-"}
                       </td>
                       <td className={`py-2 px-4 border ${rowClass} text-center font-mono`}>
-                        {formatCurrency(transacao.taxa, 4)}
+                        {formatCurrency(transacao.rate, 4)|| "-"}
                       </td>
                       <td className={`py-2 px-4 border ${rowClass} text-center`}>
-                        {transacao.descricao}
+                        {transacao.description}
                       </td>
                     </tr>
                   );
