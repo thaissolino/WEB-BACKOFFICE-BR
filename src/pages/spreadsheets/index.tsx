@@ -121,38 +121,32 @@ export default function SpreadsheetApp() {
       const workbook = XLSX.read(data, { type: "array" });
       const sheetName = workbook.SheetNames[0];
       const worksheet = workbook.Sheets[sheetName];
-      let json = XLSX.utils.sheet_to_json(worksheet, { header: 1 }); // Converte para array de arrays
+      let json = XLSX.utils.sheet_to_json(worksheet, { header: 1 }); // Convertendo para array de arrays
 
       // Ignorar linhas em branco (caso haja cabeçalhos vazios ou linhas vazias)
       json = json.filter((row: any) => row.some((cell: any) => cell !== undefined && cell !== null));
 
-      // Estrutura de dados ajustada para o formato desejado
-      const formattedRows = json.map((row) => {
-        return row.map((cell) => {
-          return {
-            value: cell || "", // A célula pode ser vazia, então preenchemos com ""
-            format: {
-              bold: false,
-              italic: false,
-              underline: false,
-              align: "left",
-              fontFamily: "Arial, sans-serif",
-              fontSize: 12,
-              format: "text",
-              decimalPlaces: 2,
-            },
-          };
-        });
-      });
+      console.log("json", json);
 
-      // Enviar os dados para o backend, se necessário
-      const res = await api.post("/sheets", formattedRows);
-      console.log("Planilha importada com sucesso:", res.data);
+      try {
+        const payload = {
+          title: "teste",
+          rows: json,
+          columns: 26,
+          columnWidths: 100,
+          updatedAt: new Date().toISOString(),
+          createdAt: new Date().toISOString(),
+        };
+
+        const res = await api.post("/sheets", payload);
+        console.log("Planilha importada com sucesso:", res.data);
+      } catch (err) {
+        console.error("Erro ao importar planilha:", err);
+      }
     };
 
     reader.readAsArrayBuffer(file);
   };
-
   // Exportar planilha (simulação básica)
 
   const exportSpreadsheet = (spreadsheetId: string) => {

@@ -3,6 +3,8 @@ import React, { useEffect, useState } from "react";
 import ModalCaixa from "../modals/ModalCaixa";
 import { formatCurrency, formatDate } from "../modals/format";
 import ConfirmModal from "../modals/ConfirmModal";
+import { api } from "../../../../services/api";
+import { Operacao } from "../../../../@types/tokens";
 
 interface Transacao {
   id: number;
@@ -45,11 +47,22 @@ const CaixasTab: React.FC = () => {
   const [caixaToDelete, setCaixaToDelete] = useState<number | null>(null);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
+  const [operacoes, setOperacoes] = useState<Operacao[]>([]);
 
   useEffect(() => {
-    const stored = JSON.parse(localStorage.getItem("caixas") || "[]");
-    setCaixas(stored);
+    fetchData();
   }, []);
+
+  const fetchData = async () => {
+    try {
+      const operacoesResponse = await api.get<Operacao[]>("/operations/list_operations");
+      console.log("operalçioes", operacoesResponse);
+      setOperacoes(operacoesResponse.data);
+    } catch (error) {
+      console.log("error ao buscar dados das operações", error);
+      console.error("Erro ao buscar dados:", error);
+    }
+  };
 
   useEffect(() => {
     if (selectedUserId !== null) {
@@ -72,9 +85,7 @@ const CaixasTab: React.FC = () => {
 
   const salvarCaixa = (nome: string, taxa: number, userId: number) => {
     if (editarCaixa) {
-      const updated = caixas.map((c) =>
-        c.id === editarCaixa.id ? { ...c, nome, taxa } : c
-      );
+      const updated = caixas.map((c) => (c.id === editarCaixa.id ? { ...c, nome, taxa } : c));
       setCaixas(updated);
       localStorage.setItem("caixas", JSON.stringify(updated));
     } else {
@@ -150,6 +161,7 @@ const CaixasTab: React.FC = () => {
   };
 
   const caixasDoUsuario = selectedUserId ? caixas.filter((c) => c.userId === selectedUserId) : [];
+  console.log("caixasDoUsuario", caixasDoUsuario);
   const caixaAtual = caixasDoUsuario[0] || null;
 
   return (
@@ -213,11 +225,31 @@ const CaixasTab: React.FC = () => {
               <tr key={c.id} className="hover:bg-gray-50">
                 <td className="py-2 px-4 border">{c.nome}</td>
                 <td className="py-2 px-4 border">{c.taxa}</td>
-                <td className={`py-2 px-4 border text-right font-bold ${c.saldo < 0 ? "text-red-600" : "text-green-600"}`}>{formatCurrency(c.saldo)}</td>
+                <td
+                  className={`py-2 px-4 border text-right font-bold ${c.saldo < 0 ? "text-red-600" : "text-green-600"}`}
+                >
+                  {formatCurrency(c.saldo)}
+                </td>
                 <td className="py-2 px-4 border space-x-2 text-center">
-                  <button onClick={() => abrirCaixa(c)} className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded">Caixa</button>
-                  <button onClick={() => { setEditarCaixa(c); setShowModal(true); }} className="bg-yellow-400 hover:bg-yellow-500 text-white px-3 py-1 rounded">Editar</button>
-                  <button onClick={() => confirmarDeleteCaixa(c.id)} className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded">
+                  <button
+                    onClick={() => abrirCaixa(c)}
+                    className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded"
+                  >
+                    Caixa
+                  </button>
+                  <button
+                    onClick={() => {
+                      setEditarCaixa(c);
+                      setShowModal(true);
+                    }}
+                    className="bg-yellow-400 hover:bg-yellow-500 text-white px-3 py-1 rounded"
+                  >
+                    Editar
+                  </button>
+                  <button
+                    onClick={() => confirmarDeleteCaixa(c.id)}
+                    className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded"
+                  >
                     <i className="fas fa-trash"></i>
                   </button>
                 </td>
@@ -234,7 +266,10 @@ const CaixasTab: React.FC = () => {
               <i className="fas fa-store mr-2"></i> CAIXA DE {caixaAtual.nome}
             </h2>
             <div className="text-sm text-right">
-              SALDO: <span className={`font-bold ${caixaAtual.saldo < 0 ? "text-red-600" : "text-green-600"}`}>{formatCurrency(caixaAtual.saldo)}</span>
+              SALDO:{" "}
+              <span className={`font-bold ${caixaAtual.saldo < 0 ? "text-red-600" : "text-green-600"}`}>
+                {formatCurrency(caixaAtual.saldo)}
+              </span>
             </div>
           </div>
 
@@ -246,17 +281,36 @@ const CaixasTab: React.FC = () => {
               <div className="space-y-3">
                 <div>
                   <label className="block text-sm font-medium text-gray-700">DATA</label>
-                  <input type="date" className="mt-1 block w-full border border-gray-300 rounded-md p-2" value={dataPagamento} onChange={(e) => setDataPagamento(e.target.value)} />
+                  <input
+                    type="date"
+                    className="mt-1 block w-full border border-gray-300 rounded-md p-2"
+                    value={dataPagamento}
+                    onChange={(e) => setDataPagamento(e.target.value)}
+                  />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700">VALOR (USD)</label>
-                  <input type="number" step="0.01" className="mt-1 block w-full border border-gray-300 rounded-md p-2" value={valorPagamento} onChange={(e) => setValorPagamento(Number(e.target.value))} />
+                  <input
+                    type="number"
+                    step="0.01"
+                    className="mt-1 block w-full border border-gray-300 rounded-md p-2"
+                    value={valorPagamento}
+                    onChange={(e) => setValorPagamento(Number(e.target.value))}
+                  />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700">DESCRIÇÃO</label>
-                  <input type="text" className="mt-1 block w-full border border-gray-300 rounded-md p-2" value={descricaoPagamento} onChange={(e) => setDescricaoPagamento(e.target.value)} />
+                  <input
+                    type="text"
+                    className="mt-1 block w-full border border-gray-300 rounded-md p-2"
+                    value={descricaoPagamento}
+                    onChange={(e) => setDescricaoPagamento(e.target.value)}
+                  />
                 </div>
-                <button onClick={registrarPagamento} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded w-full">
+                <button
+                  onClick={registrarPagamento}
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded w-full"
+                >
                   <i className="fas fa-check mr-2"></i> REGISTRAR
                 </button>
               </div>
@@ -274,16 +328,23 @@ const CaixasTab: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {caixaAtual.transacoes.slice(-6).reverse().map((t) => (
-                      <tr key={t.id} className="bg-red-50">
-                        <td className="py-2 px-4 border">{formatDate(t.date)}</td>
-                        <td className="py-2 px-4 border">{t.descricao}</td>
-                        <td className={`py-2 px-4 border text-right ${t.tipo === "credito" ? "text-red-600" : "text-green-600"}`}>
-                          {t.tipo === "credito" ? "-" : "+"}
-                          {formatCurrency(Math.abs(t.valor))}
-                        </td>
-                      </tr>
-                    ))}
+                    {caixaAtual.transacoes
+                      .slice(-6)
+                      .reverse()
+                      .map((t) => (
+                        <tr key={t.id} className="bg-red-50">
+                          <td className="py-2 px-4 border">{formatDate(t.date)}</td>
+                          <td className="py-2 px-4 border">{t.descricao}</td>
+                          <td
+                            className={`py-2 px-4 border text-right ${
+                              t.tipo === "credito" ? "text-red-600" : "text-green-600"
+                            }`}
+                          >
+                            {t.tipo === "credito" ? "-" : "+"}
+                            {formatCurrency(Math.abs(t.valor))}
+                          </td>
+                        </tr>
+                      ))}
                   </tbody>
                 </table>
               </div>
@@ -292,8 +353,19 @@ const CaixasTab: React.FC = () => {
         </div>
       )}
 
-      <ModalCaixa isOpen={showModal} onClose={() => setShowModal(false)} onSave={salvarCaixa} fornecedorEdit={editarCaixa} />
-      <ConfirmModal isOpen={showConfirmModal} title="Confirmar Exclusão" message="Tem certeza que deseja deletar este caixa?" onConfirm={deletarCaixa} onClose={() => setShowConfirmModal(false)} />
+      <ModalCaixa
+        isOpen={showModal}
+        onClose={() => setShowModal(false)}
+        onSave={salvarCaixa}
+        fornecedorEdit={editarCaixa}
+      />
+      <ConfirmModal
+        isOpen={showConfirmModal}
+        title="Confirmar Exclusão"
+        message="Tem certeza que deseja deletar este caixa?"
+        onConfirm={deletarCaixa}
+        onClose={() => setShowConfirmModal(false)}
+      />
     </div>
   );
 };
