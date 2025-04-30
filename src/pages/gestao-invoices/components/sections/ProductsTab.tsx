@@ -1,31 +1,40 @@
 import { useState, useEffect } from "react";
-import { Plus, Edit, Trash2, Boxes } from "lucide-react";
+import { Plus, Edit, Trash2, Boxes, Loader2 } from "lucide-react";
 import Swal from "sweetalert2";
+import { api } from "../../../../services/api";
 
 interface Product {
   id: string;
   name: string;
   code: string;
-  price: number;
-  weight: number;
+  priceweightAverage: number;
+  weightAverage: number;
   description: string;
+  active?: boolean;
 }
 
 export function ProductsTab() {
   const [products, setProducts] = useState<Product[]>([]);
   const [showModal, setShowModal] = useState(false);
   const [currentProduct, setCurrentProduct] = useState<Product | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  useEffect(() => {
-    const saved = localStorage.getItem('registeredProducts');
-    if (saved) {
-      setProducts(JSON.parse(saved));
+  const fetchData = async () => {
+    setIsLoading(true);
+    try {
+      const response = await api.get<Product[]>('/invoice/product');
+      setProducts(response.data);
+    } catch (error) {
+      console.error("Erro ao buscar produtos:", error);
+    } finally {
+      setIsLoading(false);
     }
-  }, []);
+  };
 
   useEffect(() => {
-    localStorage.setItem('registeredProducts', JSON.stringify(products));
-  }, [products]);
+    fetchData();
+  }, []);
 
   const handleEdit = (product: Product) => {
     setCurrentProduct(product);
@@ -34,117 +43,155 @@ export function ProductsTab() {
 
   const handleDelete = async (id: string) => {
     const result = await Swal.fire({
-      title: "Excluir produto?",
-      text: "Todos os dados deste produto serão perdidos!",
-      icon: "question",
+      title: 'Tem certeza?',
+      text: "Você não poderá reverter esta ação!",
+      icon: 'warning',
       showCancelButton: true,
-      confirmButtonColor: "#3085d6",
-      cancelButtonColor: "#d33",
-      confirmButtonText: "Confirmar exclusão",
+      confirmButtonColor: '#3085d6',
+      cancelButtonColor: '#d33',
+      confirmButtonText: 'Sim, excluir!',
+      cancelButtonText: 'Cancelar'
     });
 
     if (result.isConfirmed) {
+      setIsSubmitting(true);
       try {
-        const updated = products.filter((product) => product.id !== id);
-        setProducts(updated);
-        await Swal.fire("Sucesso!", "Produto excluído permanentemente.", "success");
+        await api.delete(`/invoice/product/${id}`);
+        await fetchData();
+        Swal.fire("Sucesso!", "Produto excluído permanentemente.", "success");
       } catch (error) {
+        console.error("Erro ao excluir produto:", error);
         Swal.fire("Erro!", "Não foi possível excluir o produto.", "error");
+      } finally {
+        setIsSubmitting(false);
       }
     }
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!currentProduct) return;
 
     const trimmedName = currentProduct.name.trim();
-    if (trimmedName === "") {
-      Swal.fire("Erro", "O nome do produto é obrigatório.", "error");
+    const trimmedCode = currentProduct.code.trim();
+    if (trimmedName === "" || trimmedCode === "") {
+      Swal.fire("Erro", "Nome e código do produto são obrigatórios.", "error");
       return;
     }
 
-    if (currentProduct.id) {
-      setProducts(products.map((p) => (p.id === currentProduct.id ? currentProduct : p)));
-    } else {
-      const newProduct = {
-        ...currentProduct,
-        id: Date.now().toString(),
-        code: `P${Date.now().toString().slice(-4)}`,
-      };
-      setProducts([...products, newProduct]);
+    setIsSubmitting(true);
+    try {
+      if (currentProduct.id) {
+        await api.patch(`/invoice/product/${currentProduct.id}`, currentProduct);
+        Swal.fire("Sucesso!", "Produto atualizado com sucesso.", "success");
+      } else {
+        await api.post('/invoice/product', currentProduct);
+        Swal.fire("Sucesso!", "Produto criado com sucesso.", "success");
+      }
+      await fetchData();
+      setShowModal(false);
+      setCurrentProduct(null);
+    } catch (error) {
+      console.error("Erro ao salvar produto:", error);
+      Swal.fire("Erro!", "Não foi possível salvar o produto.", "error");
+    } finally {
+      setIsSubmitting(false);
     }
-
-    setShowModal(false);
-    setCurrentProduct(null);
   };
 
   return (
     <div className="bg-white p-6 rounded-lg shadow">
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-xl font-semibold text-blue-700">
-          <Boxes className="mr-2 inline" size={18} /> Cadastro de Produtos
+          <Boxes className="mr-2 inline" size={18} />
+          Cadastro de Produtos
         </h2>
         <button
           onClick={() => {
             setCurrentProduct({
               id: "",
               name: "",
-              code: `P${Date.now().toString().slice(-4)}`,
-              price: 0,
-              weight: 0,
+              code: "",
+              priceweightAverage: 0,
+              weightAverage: 0,
               description: "",
             });
             setShowModal(true);
           }}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded"
+          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded flex items-center"
+          disabled={isLoading || isSubmitting}
         >
-          <Plus className="mr-2 inline" size={16} /> Novo Produto
+          {isLoading ? (
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          ) : (
+            <Plus className="mr-2" size={16} />
+          )}
+          Novo Produto
         </button>
       </div>
 
-      <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nome</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Código</th>
-              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Preço Médio ($)</th>
-              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Peso Médio (kg)</th>
-              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {products.length === 0 ? (
+      {isLoading ? (
+        <div className="flex justify-center items-center py-8">
+          <Loader2 className="h-8 w-8 text-blue-500 animate-spin" />
+        </div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
               <tr>
-                <td colSpan={5} className="px-6 py-4 text-center text-gray-500">
-                  Nenhum produto cadastrado
-                </td>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nome</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Código</th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Preço Médio ($)</th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Peso Médio (kg)</th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>
               </tr>
-            ) : (
-              products.map((product) => (
-                <tr key={product.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{product.name}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{product.code}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right">
-                    R$ {product.price.toFixed(2)}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right">
-                    {product.weight.toFixed(2)} kg
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    <button onClick={() => handleEdit(product)} className="text-blue-600 hover:text-blue-900 mr-3">
-                      <Edit size={16} />
-                    </button>
-                    <button onClick={() => handleDelete(product.id)} className="text-red-600 hover:text-red-900">
-                      <Trash2 size={16} />
-                    </button>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {products.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="px-6 py-4 text-center text-gray-500">
+                    {isLoading ? 'Carregando...' : 'Nenhum produto cadastrado'}
                   </td>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+              ) : (
+                products.map((product) => (
+                  product.active !== false && (
+                    <tr key={product.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{product.name}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{product.code}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right">
+                        R$ {product.priceweightAverage.toFixed(2)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right">
+                        {product.weightAverage.toFixed(2)} kg
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <button
+                          onClick={() => handleEdit(product)}
+                          className="text-blue-600 hover:text-blue-900 mr-3"
+                          disabled={isSubmitting}
+                        >
+                          <Edit size={16} />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(product.id)}
+                          className="text-red-600 hover:text-red-900"
+                          disabled={isSubmitting}
+                        >
+                          {isSubmitting ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Trash2 size={16} />
+                          )}
+                        </button>
+                      </td>
+                    </tr>
+                  )
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       {showModal && currentProduct && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -159,7 +206,18 @@ export function ProductsTab() {
                   type="text"
                   value={currentProduct.name}
                   onChange={(e) => setCurrentProduct({ ...currentProduct, name: e.target.value })}
-                  className="w-full border border-gray-300 rounded-md p-2"
+                  className="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500"
+                  disabled={isSubmitting}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Código</label>
+                <input
+                  type="text"
+                  value={currentProduct.code}
+                  onChange={(e) => setCurrentProduct({ ...currentProduct, code: e.target.value })}
+                  className="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500"
+                  disabled={isSubmitting}
                 />
               </div>
               <div className="grid grid-cols-2 gap-4">
@@ -167,18 +225,22 @@ export function ProductsTab() {
                   <label className="block text-sm font-medium text-gray-700 mb-1">Preço ($)</label>
                   <input
                     type="number"
-                    value={currentProduct.price}
-                    onChange={(e) => setCurrentProduct({ ...currentProduct, price: parseFloat(e.target.value) || 0 })}
-                    className="w-full border border-gray-300 rounded-md p-2"
+                    step="0.01"
+                    value={currentProduct.priceweightAverage}
+                    onChange={(e) => setCurrentProduct({ ...currentProduct, priceweightAverage: parseFloat(e.target.value) || 0 })}
+                    className="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500"
+                    disabled={isSubmitting}
                   />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Peso (kg)</label>
                   <input
                     type="number"
-                    value={currentProduct.weight}
-                    onChange={(e) => setCurrentProduct({ ...currentProduct, weight: parseFloat(e.target.value) || 0 })}
-                    className="w-full border border-gray-300 rounded-md p-2"
+                    step="0.01"
+                    value={currentProduct.weightAverage}
+                    onChange={(e) => setCurrentProduct({ ...currentProduct, weightAverage: parseFloat(e.target.value) || 0 })}
+                    className="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500"
+                    disabled={isSubmitting}
                   />
                 </div>
               </div>
@@ -188,16 +250,30 @@ export function ProductsTab() {
                   rows={3}
                   value={currentProduct.description}
                   onChange={(e) => setCurrentProduct({ ...currentProduct, description: e.target.value })}
-                  className="w-full border border-gray-300 rounded-md p-2"
+                  className="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500"
+                  disabled={isSubmitting}
                 ></textarea>
               </div>
             </div>
             <div className="mt-6 flex justify-end space-x-3">
-              <button onClick={() => setShowModal(false)} className="px-4 py-2 border border-gray-300 rounded-md">
+              <button
+                onClick={() => setShowModal(false)}
+                className="px-4 py-2 border border-gray-300 rounded-md"
+                disabled={isSubmitting}
+              >
                 Cancelar
               </button>
-              <button onClick={handleSave} className="px-4 py-2 bg-blue-600 text-white rounded-md">
-                Salvar
+              <button
+                onClick={handleSave}
+                className="px-4 py-2 bg-blue-600 text-white rounded-md flex items-center justify-center"
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Salvando...
+                  </>
+                ) : 'Salvar'}
               </button>
             </div>
           </div>

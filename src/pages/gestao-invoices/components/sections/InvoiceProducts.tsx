@@ -1,60 +1,143 @@
-import { useState } from 'react';
-import { Box, Plus, FileText , Save, Trash2, X } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Box, Loader2, Plus, Save, Trash2, X } from 'lucide-react';
+import { api } from '../../../../services/api';
+import { Invoice } from '../types/invoice';
+import Swal from 'sweetalert2';
 
-interface InvoiceProduct {
+export type InvoiceProduct = {
   id: string;
-  name: string;
+  invoiceId: string;
+  productId: string;
   quantity: number;
   value: number;
+  price: number;
   weight: number;
   total: number;
   received: boolean;
   receivedQuantity: number;
 }
 
-interface InvoiceProductsProps {
-  currentInvoice: {
-    id: string | null;
-    number: string;
-    products: InvoiceProduct[];
-  };
-  setCurrentInvoice: (invoice: any) => void;
+type CarrierEnum = "percentage" | "perKg" |"perUnit"
+
+export type Carrier = {
+  id:string,
+  name:string,
+  type: CarrierEnum,
+  value: number,
+  active: true
 }
 
-export function InvoiceProducts({ currentInvoice, setCurrentInvoice }: InvoiceProductsProps) {
+interface InvoiceProductsProps {
+  currentInvoice: Invoice
+  setCurrentInvoice: (invoice: any) => void;
+  [key: string]: any;
+}
+
+export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }: InvoiceProductsProps) {
   const [showProductForm, setShowProductForm] = useState(false);
-  const [products] = useState([
-    { id: '1', name: 'Produto 1', code: 'P001', price: 10.5, weight: 0.5, description: 'Descrição do Produto 1' },
-    { id: '2', name: 'Produto 2', code: 'P002', price: 25.75, weight: 1.2, description: 'Descrição do Produto 2' },
-    { id: '3', name: 'Produto 3', code: 'P003', price: 15.0, weight: 0.8, description: 'Descrição do Produto 3' },
-  ]);
+  const [products, setProducts] = useState<any[]>([]);
+  const [carriers, setCarriers] = useState<Carrier[]>([]);
   const [productForm, setProductForm] = useState({
     productId: '',
-    productName: '',
     quantity: '',
     value: '',
     weight: '',
     total: '',
+    price: ''
   });
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      setIsLoading(true);
+      try {
+        const [productsResponse, carriersResponse] = await Promise.all([
+          api.get('/invoice/product'),
+          api.get('/invoice/carriers')
+        ]);
+        setProducts(productsResponse.data);
+        setCarriers(carriersResponse.data);
+      } catch (error) {
+        console.error('Erro ao carregar dados:', error);
+        // Swal.fire({
+        //   icon: 'error',
+        //   title: 'Erro',
+        //   text: 'Erro ao carregar dados',
+        //   confirmButtonColor: '#3085d6',
+        // });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchData();
+  }, []);
+
+  const deleteProduct = (index: number) => {
+    const newProducts = [...currentInvoice.products];
+    newProducts.splice(index, 1);
+    setCurrentInvoice({ ...currentInvoice, products: newProducts });
+  };
+
+  const subTotal = currentInvoice.products.reduce((acc, item) => acc + Number(item.total), 0);
+  const taxSpEs = currentInvoice.products.reduce((acc: number, item) => {
+    return acc + item.quantity * currentInvoice.taxaSpEs;
+  }, 0);
+  
+  const shippingStrategies: Record<string, (carrierSelectedType: Carrier, item: InvoiceProduct) => number> = {
+    percentage: (carrierSelectedType, item) => ((item.value * (carrierSelectedType.value/100)) * item.quantity),
+    perKg: (carrierSelectedType, item) => item.weight * carrierSelectedType.value,
+    perUnit: (carrierSelectedType, item) => item.quantity * carrierSelectedType.value,
+  };
+
+  const carrierSelectedType = carriers.find((carrier) => carrier.id === currentInvoice.carrierId);
+  const carrierSelectedType2 = carriers.find((carrier) => carrier.id === currentInvoice?.carrier2Id);
+  const amountTaxCarrieFrete1 = currentInvoice.products.reduce((acc: number, item) => {
+    if (!carrierSelectedType) return acc;
+    return acc + shippingStrategies[carrierSelectedType.type](carrierSelectedType, item);
+  }, 0);
+  
+  const amountTaxCarrieFrete2 = currentInvoice.products.reduce((acc: number, item) => {
+    if (!carrierSelectedType2) return acc;
+    return acc + shippingStrategies[carrierSelectedType2.type](carrierSelectedType2, item);
+  }, 0);
+
+  const weightData = productForm.weight || products.find((item) => item.id === productForm.productId)?.weightAverage || '';
+  const priceData = productForm.value || products.find((item) => item.id === productForm.productId)?.priceweightAverage || '';
 
   const calculateProductTotal = () => {
     const quantity = parseFloat(productForm.quantity) || 0;
-    const value = parseFloat(productForm.value) || 0;
+    const value = parseFloat(priceData) || 0;
     const total = quantity * value;
     setProductForm({ ...productForm, total: total.toFixed(2) });
   };
+
+  useEffect(() => {
+    setCurrentInvoice((prevInvoice: Invoice) => ({
+      ...prevInvoice,
+      amountTaxSpEs: taxSpEs,
+      amountTaxcarrier: amountTaxCarrieFrete1,
+      amountTaxcarrier2: amountTaxCarrieFrete2,
+      subAmount: subTotal,
+    }));
+  }, [taxSpEs, amountTaxCarrieFrete1, amountTaxCarrieFrete2, subTotal]);
 
   const addProduct = () => {
     const product = products.find((p) => p.id === productForm.productId);
     if (!product) return;
 
     const quantity = parseFloat(productForm.quantity);
-    const value = parseFloat(productForm.value);
-    const weight = parseFloat(productForm.weight) || product.weight || 0;
+    const value = parseFloat(priceData);
+    const weight = parseFloat(weightData) || product.weight || 0;
     const total = parseFloat(productForm.total);
 
     if (!productForm.productId || isNaN(quantity) || isNaN(value) || isNaN(total)) {
-      alert('Preencha todos os campos obrigatórios do produto!');
+      Swal.fire({
+        icon: 'warning',
+        title: 'Atenção',
+        text: 'Preencha todos os campos obrigatórios do produto!',
+        confirmButtonColor: '#3085d6',
+      });
       return;
     }
 
@@ -76,7 +159,7 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice }: InvoicePr
 
     setProductForm({
       productId: '',
-      productName: '',
+      price: '',
       quantity: '',
       value: '',
       weight: '',
@@ -86,15 +169,102 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice }: InvoicePr
     setShowProductForm(false);
   };
 
-  const deleteProduct = (index: number) => {
-    const newProducts = [...currentInvoice.products];
-    newProducts.splice(index, 1);
-    setCurrentInvoice({ ...currentInvoice, products: newProducts });
+  const saveInvoice = async () => {
+    if (currentInvoice.products.length === 0) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Atenção',
+        text: 'Adicione pelo menos um produto à invoice!',
+        confirmButtonColor: '#3085d6',
+      });
+      return;
+    }
+
+    if (!currentInvoice.number) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Atenção',
+        text: 'Informe o número da invoice!',
+        confirmButtonColor: '#3085d6',
+      });
+      return;
+    }
+
+    if (!currentInvoice.date) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Atenção',
+        text: 'Informe a data da invoice!',
+        confirmButtonColor: '#3085d6',
+      });
+      return;
+    }
+
+    if (!currentInvoice.supplierId) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Atenção',
+        text: 'Selecione um fornecedor!',
+        confirmButtonColor: '#3085d6',
+      });
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const response = await api.post('/invoice/create', currentInvoice);
+      Swal.fire({
+        icon: 'success',
+        title: 'Sucesso!',
+        text: 'Invoice salva com sucesso!',
+        confirmButtonColor: '#3085d6',
+      });
+      
+      setCurrentInvoice({
+        id: null,
+        number: '',
+        date: new Date().toISOString().split('T')[0],
+        supplierId: '',
+        products: [],
+        carrierId: '',
+        carrier2Id: '',
+        taxaSpEs: 0.0,
+        paid: false,
+        paidDate: null,
+        paidDollarRate: null,
+        completed: false,
+        completedDate: null,
+        amountTaxcarrier: 0,
+        amountTaxcarrier2: 0,
+        amountTaxSpEs: 0,
+        overallValue: 0,
+        subAmount: 0
+      });
+    } catch (error) {
+      console.error('Erro ao salvar a invoice:', error);
+      Swal.fire({
+        icon: 'error',
+        title: 'Erro',
+        text: 'Erro ao salvar a invoice',
+        confirmButtonColor: '#3085d6',
+      });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  const updateInvoiceTotals = () => {
-    // Implement calculation logic here
-  };
+  useEffect(() => {
+    calculateProductTotal();
+  }, [productForm.quantity, priceData, weightData, productForm.productId]);
+
+  if (isLoading) {
+    return (
+      <div className="lg:col-span-2 bg-white p-6 rounded-lg shadow-md flex justify-center items-center h-64">
+        <Loader2 className="animate-spin text-blue-500 mr-2" size={24} />
+        <span>Carregando produtos...</span>
+      </div>
+    );
+  }
 
   return (
     <div className="lg:col-span-2 bg-white p-6 rounded-lg shadow-md">
@@ -106,7 +276,8 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice }: InvoicePr
         {!showProductForm && (
           <button
             onClick={() => setShowProductForm(true)}
-            className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded text-sm"
+            className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded text-sm flex items-center"
+            disabled={isSaving}
           >
             <Plus className="mr-1 inline" size={16} />
             Adicionar Produto
@@ -120,26 +291,27 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice }: InvoicePr
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
             <div className="relative">
               <label className="block text-sm font-medium text-gray-700 mb-1">Produto</label>
-              <input
-                type="text"
-                value={productForm.productName}
-                onChange={(e) => {
-                  const searchTerm = e.target.value.toLowerCase();
-                  setProductForm({ ...productForm, productName: e.target.value });
-                }}
+              <select
+                value={productForm.productId}
+                onChange={(e) => setProductForm({ ...productForm, productId: e.target.value })}
                 className="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500"
-                placeholder="Pesquisar produto..."
-              />
-              {/* Product options dropdown would go here */}
+              >
+                <option value="">Selecione um produto</option>
+                {products.map((product) => (
+                  <option key={product.id} value={product.id}>
+                    {product.name}
+                  </option>
+                ))}
+              </select>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Quantidade</label>
               <input
                 type="number"
-                value={productForm.quantity}
+                value={productForm.quantity }
                 onChange={(e) => {
+                  console.log(e.target.value)
                   setProductForm({ ...productForm, quantity: e.target.value });
-                  calculateProductTotal();
                 }}
                 className="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500"
                 placeholder="Qtd"
@@ -150,10 +322,9 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice }: InvoicePr
               <input
                 type="number"
                 step="0.01"
-                value={productForm.value}
+                value={priceData}
                 onChange={(e) => {
                   setProductForm({ ...productForm, value: e.target.value });
-                  calculateProductTotal();
                 }}
                 className="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500"
                 placeholder="$"
@@ -164,10 +335,9 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice }: InvoicePr
               <input
                 type="number"
                 step="0.01"
-                value={productForm.weight}
+                value={weightData}
                 onChange={(e) => {
                   setProductForm({ ...productForm, weight: e.target.value });
-                  calculateProductTotal();
                 }}
                 className="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500"
                 placeholder="kg"
@@ -235,105 +405,77 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice }: InvoicePr
                 <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Total ($)
                 </th>
-                <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Ações
-                </th>
+                <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"></th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {currentInvoice.products.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="px-4 py-4 text-center text-gray-500">
-                    Nenhum produto adicionado ainda
+            <tbody className="divide-y divide-gray-200">
+              {currentInvoice.products.map((product, index) => (
+                <tr key={index}>
+                  <td className="px-4 py-2 text-sm text-gray-800">{products.find((item) => item.id === product.id)?.name}</td>
+                  <td className="px-4 py-2 text-sm text-right">{product.quantity}</td>
+                  <td className="px-4 py-2 text-sm text-right">{product.value.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})}</td>
+                  <td className="px-4 py-2 text-sm text-right">{product.weight.toFixed(2)}</td>
+                  <td className="px-4 py-2 text-sm text-right">{product.total.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})}</td>
+                  <td className="px-4 py-2 text-center">
+                    <button
+                      onClick={() => deleteProduct(index)}
+                      className="text-red-600 hover:text-red-800"
+                    >
+                      <Trash2 size={16} />
+                    </button>
                   </td>
                 </tr>
-              ) : (
-                currentInvoice.products.map((product, index) => (
-                  <tr key={index} className="hover:bg-gray-50">
-                    <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">{product.name}</td>
-                    <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500 text-right">
-                      {product.quantity}
-                    </td>
-                    <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500 text-right">
-                      {formatCurrency(product.value)}
-                    </td>
-                    <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500 text-right">
-                      {product.weight ? product.weight.toFixed(2) + ' kg' : '-'}
-                    </td>
-                    <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500 text-right">
-                      {formatCurrency(product.total)}
-                    </td>
-                    <td className="px-4 py-2 whitespace-nowrap text-right text-sm font-medium">
-                      <button
-                        onClick={() => deleteProduct(index)}
-                        className="text-red-500 hover:text-red-700"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </td>
-                  </tr>
-                ))
-              )}
+              ))}
             </tbody>
-            <tfoot>
-              <tr className="bg-gray-50">
-                <td colSpan={3} className="px-4 py-2 text-right text-sm font-medium text-gray-700">
-                  Peso Total:
-                </td>
-                <td className="px-4 py-2 text-right text-sm font-medium text-gray-700">
-                  {currentInvoice.products
-                    .reduce((sum, product) => sum + (product.weight || 0), 0)
-                    .toFixed(2)}{' '}
-                  kg
-                </td>
-                <td colSpan={2}></td>
-              </tr>
-            </tfoot>
           </table>
-        </div>
-      </div>
 
-      <div className="bg-gray-50 p-4 rounded-lg border">
-        <h3 className="font-medium mb-3 text-blue-700 border-b pb-2">Resumo da Invoice</h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-          <div className="bg-white p-3 rounded border">
-            <p className="text-sm text-gray-600">Subtotal:</p>
-            <p className="text-lg font-semibold">
-              {formatCurrency(
-                currentInvoice.products.reduce((sum, product) => sum + product.total, 0)
-              )}
-            </p>
-          </div>
-          <div className="bg-white p-3 rounded border">
-            <p className="text-sm text-gray-600">Frete:</p>
-            <p className="text-lg font-semibold">$ 0.00</p>
-          </div>
-          <div className="bg-white p-3 rounded border">
-            <p className="text-sm text-gray-600">Frete SP x ES:</p>
-            <p className="text-lg font-semibold">R$ 0,00</p>
-          </div>
-        </div>
-        <div className="bg-blue-50 p-3 rounded border">
-          <div className="flex justify-between items-center">
-            <p className="text-sm font-medium text-blue-800">Total da Invoice:</p>
-            <p className="text-xl font-bold text-blue-800">$ 0.00</p>
-          </div>
-        </div>
+          <div className="bg-gray-50 p-4 rounded-lg border">
+            <h3 className="font-medium mb-3 text-blue-700 border-b pb-2">Resumo da Invoice</h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+              {/* <div className="bg-white p-3 rounded border">
+                <p className="text-sm text-gray-600">Subtotal:</p>
+                <p id="subtotal" className="text-lg font-semibold">$ {subTotal.toLocaleString('en-US', {  currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits:2 }) || "0.00"}</p>
+              </div> */}
+              <div className="bg-white p-3 rounded border">
+                <p className="text-sm text-gray-600">Frete 1:</p>
+                <p id="shippingCost" className="text-lg font-semibold">$ {amountTaxCarrieFrete1.toLocaleString('en-US', {  currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits:2 }) || "0.00"}</p>
+              </div>
+              <div className="bg-white p-3 rounded border">
+                <p className="text-sm text-gray-600">Frete 2:</p>
+                <p id="shippingCost" className="text-lg font-semibold">$ {amountTaxCarrieFrete2.toLocaleString('en-US', {  currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits:2 }) || "0.00"}</p>
+              </div>
+              <div className="bg-white p-3 rounded border">
+                <p className="text-sm text-gray-600">Frete SP x ES:</p>
+                <p id="taxCost" className="text-lg font-semibold">R$ {taxSpEs.toLocaleString('pt-BR', {  currency: 'BRL', minimumFractionDigits: 2, maximumFractionDigits:2 }) || "0.00"}</p>
+              </div>
+            </div>
+            <div className="bg-blue-50 p-3 rounded border">
+              <div className="flex justify-between items-center">
+                <p className="text-sm font-medium text-blue-800">Total da Invoice:</p>
+                <p id="invoiceTotal" className="text-xl font-bold text-blue-800">$ {subTotal.toLocaleString('en-US', {  currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits:2 }) || "0.00"}</p>
+              </div>
+            </div>
       </div>
+          </div>
+          <button
+        onClick={saveInvoice}
+        className="w-full bg-blue-600 mt-4 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md flex items-center justify-center"
+        disabled={isSaving}
+      >
+        {isSaving ? (
+          <>
+            <Loader2 className="animate-spin mr-2" size={18} />
+            Salvando...
+          </>
+        ) : (
+          <>
+            <Save className="mr-2" size={18} />
+            Salvar Invoice
+          </>
+        )}
+      </button>
+
+        </div>
     </div>
   );
-}
-
-function formatCurrency(value: number, decimals = 2, currency = 'USD') {
-  if (isNaN(value)) value = 0;
-  if (currency === 'USD') {
-    return `$ ${value.toFixed(decimals)}`;
-  } else {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL',
-      minimumFractionDigits: decimals,
-      maximumFractionDigits: decimals,
-    }).format(value);
-  }
 }

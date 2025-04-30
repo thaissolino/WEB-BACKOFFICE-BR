@@ -1,14 +1,5 @@
-export interface InvoiceProduct {
-    id: string;
-    name: string;
-    quantity: number;
-    value: number;
-    weight: number;
-    total: number;
-    received: boolean;
-    receivedQuantity: number;
-  }
-  
+import { InvoiceProduct } from "../sections/InvoiceProducts";
+
   export interface Invoice {
     id: string | null;
     number: string;
@@ -16,7 +7,16 @@ export interface InvoiceProduct {
     supplierId: string;
     products: InvoiceProduct[];
     carrierId: string;
-    taxValue: number;
+    carrier2Id: string;
+
+    taxaSpEs: number;
+
+    amountTaxcarrier:     number;
+    amountTaxcarrier2:     number;
+    amountTaxSpEs:  number;
+    subAmount:      number;
+    overallValue:   number;
+
     paid: boolean;
     paidDate: string | null;
     paidDollarRate: number | null;
