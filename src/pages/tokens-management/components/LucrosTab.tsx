@@ -143,7 +143,7 @@ const LucrosTab: React.FC = () => {
           </div>
           <div className="bg-purple-50 p-4 rounded-lg">
             <h3 className="font-medium mb-2">TOTAL ACUMULADO</h3>
-            <p className="text-2xl font-bold text-purple-600">{formatCurrency(totalAcumulado)}</p>
+            <p className="text-2xl font-bold text-purple-600">{formatCurrency(lucroMesAnterior + lucroMesAtual)}</p>
           </div>
         </div>
 
