@@ -29,15 +29,15 @@ const usuariosMock = [
 
 const ModalCaixa: React.FC<ModalCaixaProps> = ({ isOpen, onClose, onSave, fornecedorEdit }) => {
   const [nome, setNome] = useState("");
-  const [saldo, setSaldo] = useState(0);
+  const [saldo, setSaldo] = useState(""); // Inicializa como string vazia
 
   useEffect(() => {
     if (fornecedorEdit) {
       setNome(fornecedorEdit.nome || "");
-      setSaldo(fornecedorEdit.taxa || 0);
+      setSaldo(String(fornecedorEdit.taxa || 0)); // Converte para string ao editar
     } else {
       setNome("Caixa Padrão");
-      setSaldo(0);
+      setSaldo(""); // Inicializa como string vazia
     }
   }, [fornecedorEdit]);
 
@@ -46,6 +46,14 @@ const ModalCaixa: React.FC<ModalCaixaProps> = ({ isOpen, onClose, onSave, fornec
   const nomeUsuario = fornecedorEdit
     ? usuariosMock.find((u) => u.id === fornecedorEdit.userId)?.nome || "Usuário não encontrado"
     : "";
+
+  const handleSave = () => {
+    if (fornecedorEdit?.userId) {
+      onSave(nome.trim(), Number(saldo), fornecedorEdit.userId); // Converte para Number ao salvar
+    } else {
+      alert("Usuário não definido.");
+    }
+  };
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -64,9 +72,9 @@ const ModalCaixa: React.FC<ModalCaixaProps> = ({ isOpen, onClose, onSave, fornec
             <label className="block text-sm font-medium text-gray-700">Saldo (USD)</label>
             <input
               type="number"
-              
+
               value={saldo}
-              onChange={(e) => setSaldo(Number(e.target.value))}
+              onChange={(e) => setSaldo(e.target.value)} // Mantém como string no onChange
               className="mt-1 block w-full border border-gray-300 rounded p-2"
               placeholder="Ex: 1.05"
             />
@@ -78,13 +86,7 @@ const ModalCaixa: React.FC<ModalCaixaProps> = ({ isOpen, onClose, onSave, fornec
             Cancelar
           </button>
           <button
-            onClick={() => {
-              if (fornecedorEdit?.userId) {
-                onSave(nome.trim(), saldo, fornecedorEdit.userId);
-              } else {
-                alert("Usuário não definido.");
-              }
-            }}
+            onClick={handleSave} // Chama a função handleSave
             className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded"
           >
             Salvar
