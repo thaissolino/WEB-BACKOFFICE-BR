@@ -19,7 +19,7 @@ const ModalFornecedor: React.FC<ModalFornecedorProps> = ({
 }) => {
   const [nome, setNome] = useState("");
   const [taxa, setTaxa] = useState(1.05);
-  const [balance, setBalance] = useState("");
+  const [balance, setBalance] = useState(0);
   useEffect(() => {
     if (fornecedorEdit) {
       setNome(fornecedorEdit.name);
@@ -54,21 +54,21 @@ const ModalFornecedor: React.FC<ModalFornecedorProps> = ({
             <label className="block text-sm font-medium text-gray-700">Taxa (USD)</label>
             <input
               type="number"
-             
+              step="0.01"
               className="mt-1 block w-full border border-gray-300 rounded-md p-2"
               value={taxa}
               onChange={(e) => setTaxa(Number(e.target.value))}
             />
           </div>
-          <div>
+          {/* <div>
             <label className="block text-sm font-medium text-gray-700">Saldo (USD)</label>
             <input
               type="number"
               className="mt-1 block w-full border border-gray-300 rounded-md p-2"
               value={balance}
-              onChange={(e) => setBalance(String(e.target.value))}
+              onChange={(e) => setBalance(Number(e.target.value))}
             />
-          </div>
+          </div> */}
 
           <div className="flex justify-end space-x-3 mt-6">
             <button
@@ -78,7 +78,7 @@ const ModalFornecedor: React.FC<ModalFornecedorProps> = ({
               Cancelar
             </button>
             <button
-              onClick={() => onSave(nome, taxa, Number(balance))}
+              onClick={() => onSave(nome, taxa, balance)}
               className="px-4 py-2 rounded bg-green-600 hover:bg-green-700 text-white"
             >
               Salvar

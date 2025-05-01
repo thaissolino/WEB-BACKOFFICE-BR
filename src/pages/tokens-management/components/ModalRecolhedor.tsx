@@ -68,7 +68,7 @@ const ModalRecolhedor: React.FC<ModalRecolhedorProps> = ({
             />
           </div>
 
-          <div>
+          {/* <div>
             <label className="block text-sm font-medium text-gray-700">Saldo (USD)</label>
             <input
               type="number"
@@ -77,7 +77,7 @@ const ModalRecolhedor: React.FC<ModalRecolhedorProps> = ({
               value={balance}
               onChange={(e) => setBalance(e.target.value)} // Mantém como string no onChange
             />
-          </div>
+          </div> */}
 
           <div className="flex justify-end space-x-3 mt-6">
             <button
