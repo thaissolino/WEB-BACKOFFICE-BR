@@ -292,7 +292,7 @@ const CaixasTab: React.FC = () => {
                   <label className="block text-sm font-medium text-gray-700">VALOR (USD)</label>
                   <input
                     type="number"
-                    step="0.01"
+                    
                     className="mt-1 block w-full border border-gray-300 rounded-md p-2"
                     value={valorPagamento}
                     onChange={(e) => setValorPagamento(Number(e.target.value))}

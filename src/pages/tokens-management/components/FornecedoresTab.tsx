@@ -59,6 +59,7 @@ const FornecedoresTab: React.FC = () => {
   const [payments, setPayments] = useState<Payment[]>([]);
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [newPaymentId, setNewPaymentId] = useState<string | null>(null);
+  const [saldoAcumulado, setSaldoAcumulado] = useState(0);
 
   const fetchFornecedores = async () => {
     setLoading(true);
@@ -254,6 +255,10 @@ const FornecedoresTab: React.FC = () => {
 
     return balance;
   }
+  useEffect(() => {
+    const totalBalance = fornecedores.reduce((sum, fornecedor) => sum + fornecedor.balance, 0);
+    setSaldoAcumulado(totalBalance);
+  }, [fornecedores]);
 
   if (loading) {
     return (
@@ -290,10 +295,19 @@ const FornecedoresTab: React.FC = () => {
         transition={{ duration: 0.4 }}
         className="bg-white p-6 rounded-lg shadow mb-6"
       >
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-semibold text-green-700">
-            <i className="fas fa-truck mr-2"></i> FORNECEDORES
-          </h2>
+        <div className="flex justify-between items-start mb-4">
+          <div className="flex flex-col">
+            <h2 className="text-xl font-semibold text-green-700">
+              <i className="fas fa-truck mr-2"></i> FORNECEDORES
+            </h2>
+            <div className="mb-6 grid grid-cols-1 md:grid-cols-1 gap-4">
+              <div className="bg-purple-50 p-4 rounded-lg">
+                <h3 className="font-medium mb-2">SALDO ACUMULADO</h3>
+                <p className="text-2xl font-bold text-purple-600">{formatCurrency(saldoAcumulado, 2, 'USD')}</p>
+              </div>
+            </div>
+          </div>
+
           <motion.button
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
@@ -311,10 +325,10 @@ const FornecedoresTab: React.FC = () => {
           <table className="min-w-full bg-white">
             <thead>
               <tr className="bg-gray-200">
-                <th className="py-2 px-4 border">NOME</th>
-                <th className="py-2 px-4 border">TAXA</th>
-                <th className="py-2 px-4 border">SALDO (USD)</th>
-                <th className="py-2 px-4 border">AÇÕES</th>
+                <th className="py-2 px-4 text-center border text-center">NOME</th>
+
+                <th className="py-2 px-4 border text-center ">SALDO (USD)</th>
+                <th className="py-2 px-4 border text-center">AÇÕES</th>
               </tr>
             </thead>
             <tbody>
@@ -328,12 +342,11 @@ const FornecedoresTab: React.FC = () => {
                     transition={{ duration: 0.2 }}
                     className="hover:bg-gray-50"
                   >
-                    <td className="py-2 px-4 border">{f.name}</td>
-                    <td className="py-2 px-4 border">{f.tax}</td>
+                    <td className="py-2 px-4 border text-center align-middle">{f.name}</td>
+
                     <td
-                      className={`py-2 px-4 border text-right font-bold ${
-                        computeBalance(f, operacoes, payments) < 0 ? "text-red-600" : "text-green-600"
-                      }`}
+                      className={`py-2 px-4 border text-center align-middle font-bold  ${computeBalance(f, operacoes, payments) < 0 ? "text-red-600" : "text-green-600"
+                        }`}
                     >
                       {formatCurrency(computeBalance(f, operacoes, payments))}
                     </td>
@@ -391,9 +404,8 @@ const FornecedoresTab: React.FC = () => {
                 <span className="mr-4">
                   SALDO:{" "}
                   <span
-                    className={`font-bold ${
-                      computeBalance(fornecedorSelecionado, operacoes, payments) < 0 ? "text-red-600" : "text-green-600"
-                    }`}
+                    className={`font-bold ${computeBalance(fornecedorSelecionado, operacoes, payments) < 0 ? "text-red-600" : "text-green-600"
+                      }`}
                   >
                     {formatCurrency(computeBalance(fornecedorSelecionado, operacoes, payments))}
                   </span>
@@ -434,7 +446,7 @@ const FornecedoresTab: React.FC = () => {
                     <label className="block text-sm font-medium text-gray-700">VALOR (USD)</label>
                     <input
                       type="number"
-                      step="0.01"
+
                       className="mt-1 block w-full border border-gray-300 rounded-md p-2"
                       value={valorPagamento}
                       onChange={(e) => setValorPagamento(Number(e.target.value))}
@@ -455,9 +467,8 @@ const FornecedoresTab: React.FC = () => {
                     whileHover={!isProcessingPayment ? { scale: 1.02 } : {}}
                     whileTap={!isProcessingPayment ? { scale: 0.98 } : {}}
                     onClick={registrarPagamento}
-                    className={`${
-                      isProcessingPayment ? "bg-blue-400" : "bg-blue-600 hover:bg-blue-700"
-                    } text-white px-4 py-2 rounded w-full flex items-center justify-center`}
+                    className={`${isProcessingPayment ? "bg-blue-400" : "bg-blue-600 hover:bg-blue-700"
+                      } text-white px-4 py-2 rounded w-full flex items-center justify-center`}
                     disabled={isProcessingPayment}
                   >
                     {isProcessingPayment ? (
@@ -526,10 +537,10 @@ const FornecedoresTab: React.FC = () => {
                                   newPaymentId === t.id
                                     ? ["#f0fdf4", "#dcfce7", "#f0fdf4"]
                                     : t.id.toString().startsWith("op-")
-                                    ? "#ebf5ff"
-                                    : t.id.toString().startsWith("pay-")
-                                    ? "#f0fdf4"
-                                    : "#ffffff",
+                                      ? "#ebf5ff"
+                                      : t.id.toString().startsWith("pay-")
+                                        ? "#f0fdf4"
+                                        : "#ffffff",
                               }}
                               exit={{ opacity: 0, y: -10 }}
                               transition={{
@@ -544,16 +555,15 @@ const FornecedoresTab: React.FC = () => {
                                 t.id.toString().startsWith("op-")
                                   ? "bg-blue-50"
                                   : t.id.toString().startsWith("pay-")
-                                  ? "bg-green-50"
-                                  : ""
+                                    ? "bg-green-50"
+                                    : ""
                               }
                             >
                               <td className="py-2 px-4 border">{formatDate(t.date)}</td>
                               <td className="py-2 px-4 border">{t.descricao}</td>
                               <td
-                                className={`py-2 px-4 border text-right ${
-                                  t.valor < 0 ? "text-red-600" : "text-green-600"
-                                }`}
+                                className={`py-2 px-4 border text-right ${t.valor < 0 ? "text-red-600" : "text-green-600"
+                                  }`}
                               >
                                 {formatCurrency(t.valor)}
                               </td>

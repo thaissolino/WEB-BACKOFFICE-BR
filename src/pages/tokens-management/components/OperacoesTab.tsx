@@ -163,11 +163,11 @@ const OperacoesTab: React.FC = () => {
             <label className="block text-sm font-medium text-gray-700">VALOR (USD)</label>
             <input
               type="number"
-              step="0.01"
+
               className="mt-1 block w-full border border-gray-300 rounded-md p-2"
               value={valorOperacao}
               onChange={(e) => setValorOperacao(Number(e.target.value))}
-              placeholder="0.00"
+
             />
           </div>
         </div>
@@ -191,7 +191,7 @@ const OperacoesTab: React.FC = () => {
               <span className="text-xs text-gray-500 mr-2">TAXA:</span>
               <input
                 type="number"
-                step="0.001"
+
                 className="text-xs w-16 border border-gray-300 rounded p-1"
                 value={taxaRecolhedorOperacao}
                 onChange={(e) => setTaxaRecolhedorOperacao(Number(e.target.value))}
@@ -217,7 +217,6 @@ const OperacoesTab: React.FC = () => {
               <span className="text-xs text-gray-500 mr-2">TAXA:</span>
               <input
                 type="number"
-                step="0.01"
                 className="text-xs w-16 border border-gray-300 rounded p-1"
                 value={taxaFornecedorOperacao}
                 onChange={(e) => setTaxaFornecedorOperacao(Number(e.target.value))}
@@ -260,23 +259,31 @@ const OperacoesTab: React.FC = () => {
           <table className="min-w-full bg-white">
             <thead>
               <tr className="bg-gray-200">
-                <th className="py-2 px-4 border">DATA</th>
-                <th className="py-2 px-4 border">LOCAL</th>
-                <th className="py-2 px-4 border">RECOLHEDOR</th>
-                <th className="py-2 px-4 border">FORNECEDOR</th>
-                <th className="py-2 px-4 border">VALOR (USD)</th>
-                <th className="py-2 px-4 border">AÇÕES</th>
+                <th className="py-2 text-center px-4 border">DATA</th>
+                <th className="py-2 text-center px-4 border">LOCAL</th>
+                <th className="py-2 px-4 border text-center">RECOLHEDOR</th>
+                <th className="py-2 px-4 border text-center">FORNECEDOR</th>
+                <th className="py-2 px-4 border text-center">VALOR (USD)</th>
+                <th className="py-2 px-4 border text-center">AÇÕES</th>
               </tr>
             </thead>
             <tbody>
               {operacoes.map((op) => (
                 <tr key={op.id}>
-                  <td className="py-2 px-4 border">{formatDate(op.date)}</td>
-                  <td className="py-2 px-4 border">{op.city}</td>
-                  <td className="py-2 px-4 border">{getRecolhedorNome(op.collectorId)}</td>
-                  <td className="py-2 px-4 border">{getFornecedorNome(op.supplierId)}</td>
-                  <td className="py-2 px-4 border text-right">{formatCurrency(op.value)}</td>
-                  <td className="py-2 px-4 border text-center">
+                  <td className="py-2 px-4 border text-center algin-middle">
+                  {new Intl.DateTimeFormat('pt-BR', {
+                    timeZone: 'UTC',
+                    day: '2-digit',
+                    month: '2-digit',
+                    year: 'numeric'
+                  }).format(new Date(op.date))}
+                  
+                  </td>
+                  <td className="py-2 px-4 border align-middle text-center">{op.city}</td>
+                  <td className="py-2 px-4 border align-middle text-center">{getRecolhedorNome(op.collectorId)}</td>
+                  <td className="py-2 px-4 border align-middle text-center ">{getFornecedorNome(op.supplierId)}</td>
+                  <td className="py-2 px-4 border text-center align-middle">{formatCurrency(op.value)}</td>
+                  <td className="py-2 px-4 border text-center align-middle">
                     <button onClick={() => abrirDetalhesOperacao(op)} className="text-blue-600 hover:text-blue-800">
                       <i className="fas fa-eye"></i>
                     </button>
