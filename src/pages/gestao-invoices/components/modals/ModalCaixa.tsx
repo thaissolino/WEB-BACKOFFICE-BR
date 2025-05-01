@@ -29,15 +29,15 @@ const usuariosMock = [
 
 const ModalCaixa: React.FC<ModalCaixaProps> = ({ isOpen, onClose, onSave, fornecedorEdit }) => {
   const [nome, setNome] = useState("");
-  const [taxa, setTaxa] = useState(0);
+  const [saldo, setSaldo] = useState(0);
 
   useEffect(() => {
     if (fornecedorEdit) {
       setNome(fornecedorEdit.nome || "");
-      setTaxa(fornecedorEdit.taxa || 0);
+      setSaldo(fornecedorEdit.taxa || 0);
     } else {
       setNome("Caixa Padrão");
-      setTaxa(0);
+      setSaldo(0);
     }
   }, [fornecedorEdit]);
 
@@ -59,23 +59,14 @@ const ModalCaixa: React.FC<ModalCaixaProps> = ({ isOpen, onClose, onSave, fornec
         )}
 
         <div className="space-y-4">
+
           <div>
-            <label className="block text-sm font-medium text-gray-700">Nome do Caixa</label>
-            <input
-              type="text"
-              value={nome}
-              onChange={(e) => setNome(e.target.value)}
-              className="mt-1 block w-full border border-gray-300 rounded p-2"
-              placeholder="Digite um nome para o caixa"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Taxa</label>
+            <label className="block text-sm font-medium text-gray-700">Saldo (USD)</label>
             <input
               type="number"
               step="0.01"
-              value={taxa}
-              onChange={(e) => setTaxa(Number(e.target.value))}
+              value={saldo}
+              onChange={(e) => setSaldo(Number(e.target.value))}
               className="mt-1 block w-full border border-gray-300 rounded p-2"
               placeholder="Ex: 1.05"
             />
@@ -89,7 +80,7 @@ const ModalCaixa: React.FC<ModalCaixaProps> = ({ isOpen, onClose, onSave, fornec
           <button
             onClick={() => {
               if (fornecedorEdit?.userId) {
-                onSave(nome.trim(), taxa, fornecedorEdit.userId);
+                onSave(nome.trim(), saldo, fornecedorEdit.userId);
               } else {
                 alert("Usuário não definido.");
               }

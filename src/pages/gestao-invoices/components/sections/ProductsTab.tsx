@@ -3,7 +3,7 @@ import { Plus, Edit, Trash2, Boxes, Loader2 } from "lucide-react";
 import Swal from "sweetalert2";
 import { api } from "../../../../services/api";
 
-interface Product {
+export interface Product {
   id: string;
   name: string;
   code: string;
