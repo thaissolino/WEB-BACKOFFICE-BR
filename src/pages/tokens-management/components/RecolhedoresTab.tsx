@@ -216,10 +216,7 @@ const RecolhedoresTab: React.FC = () => {
     }
     setShowConfirmModal(false);
   };
-  useEffect(() => {
-    const totalBalance = recolhedores.reduce((sum, recolhedor) => sum + recolhedor.balance, 0);
-    setSaldoAcumulado(totalBalance);
-  }, [recolhedores]);
+
   function computeBalance(r: Recolhedor, ops: Operacao[], payments: Payment[]) {
     // Get all operations for this collector and convert to negative values
     console.log("payments", payments);
@@ -256,13 +253,16 @@ const RecolhedoresTab: React.FC = () => {
 
     return balance;
   }
-
+  useEffect(() => {
+    let totalBalance = 0;
+    recolhedores.forEach((recolhedor) => {
+      totalBalance += computeBalance(recolhedor, operacoes, payments);
+    });
+    setSaldoAcumulado(totalBalance);
+  }, [recolhedores, operacoes, payments]); 
   if (loading) {
     return (
-
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex items-center justify-center h-64">
-
-
         <div className="text-center">
           <motion.div
             animate={{ rotate: 360 }}
@@ -289,27 +289,25 @@ const RecolhedoresTab: React.FC = () => {
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }} className="fade-in">
-
       <motion.div
         initial={{ y: 20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ duration: 0.4 }}
         className="bg-white p-6 rounded-lg shadow mb-6"
       >
-
         <div className="flex justify-between items-start mb-4">
           <div className="flex flex-col">
-            <h2 className="text-xl font-semibold text-blue-700">
-              <i className="fas fa-users mr-2"></i> RECOLHEDORES
-            </h2>
-            <div className="mb-6 grid grid-cols-1 md:grid-cols-1 gap-4">
+          <h2 className="text-xl font-semibold text-blue-700">
+            <i className="fas fa-users mr-2"></i> RECOLHEDORES
+          </h2>
+          <div className="mb-6 grid grid-cols-1 md:grid-cols-1 gap-4">
               <div className="bg-purple-50 p-4 rounded-lg">
                 <h3 className="font-medium mb-2">SALDO ACUMULADO</h3>
                 <p className="text-2xl font-bold text-purple-600">{formatCurrency(saldoAcumulado, 2, 'USD')}</p>
               </div>
             </div>
           </div>
-
+         
           <motion.button
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
@@ -328,7 +326,7 @@ const RecolhedoresTab: React.FC = () => {
             <thead>
               <tr className="bg-gray-200">
                 <th className="py-2 px-4 border">NOME</th>
-
+                
                 <th className="py-2 px-4 border">SALDO (USD)</th>
                 <th className="py-2 px-4 border">AÇÕES</th>
               </tr>
@@ -344,13 +342,14 @@ const RecolhedoresTab: React.FC = () => {
                     transition={{ duration: 0.2 }}
                     className="hover:bg-gray-50"
                   >
-                    <td className="py-2 px-4 border text-center align-middle">{r.name}</td>
+                    <td className="py-2 px-4 border text-center">{r.name}</td>
 
                     <td
-                      className={`py-2 px-4 border text-center align-middle font-bold ${r.balance < 0 ? "text-red-600" : "text-green-600"
-                        }`}
+                      className={`py-2 px-4 border text-center font-bold ${
+                        computeBalance(r, operacoes, payments) < 0 ? "text-red-600" : "text-green-600"
+                      }`}
                     >
-                      {formatCurrency(r.balance)}
+                      {formatCurrency(computeBalance(r, operacoes, payments))}
                     </td>
                     <td className="py-2 px-4 border space-x-2 text-center">
                       <motion.button
@@ -406,8 +405,9 @@ const RecolhedoresTab: React.FC = () => {
                 <span className="mr-4">
                   SALDO:{" "}
                   <span
-                    className={`font-bold ${computeBalance(selectedRecolhedor, operacoes, payments) < 0 ? "text-red-600" : "text-green-600"
-                      }`}
+                    className={`font-bold ${
+                      computeBalance(selectedRecolhedor, operacoes, payments) < 0 ? "text-red-600" : "text-green-600"
+                    }`}
                   >
                     {formatCurrency(computeBalance(selectedRecolhedor, operacoes, payments))}
                   </span>
@@ -448,7 +448,7 @@ const RecolhedoresTab: React.FC = () => {
                     <label className="block text-sm font-medium text-gray-700">VALOR (USD)</label>
                     <input
                       type="number"
-
+                      step="0.01"
                       className="mt-1 block w-full border border-gray-300 rounded-md p-2"
                       value={valorPagamento}
                       onChange={(e) => setValorPagamento(Number(e.target.value))}
@@ -469,8 +469,9 @@ const RecolhedoresTab: React.FC = () => {
                     whileHover={!isProcessingPayment ? { scale: 1.02 } : {}}
                     whileTap={!isProcessingPayment ? { scale: 0.98 } : {}}
                     onClick={registrarPagamento}
-                    className={`${isProcessingPayment ? "bg-blue-400" : "bg-blue-600 hover:bg-blue-700"
-                      } text-white px-4 py-2 rounded w-full flex items-center justify-center`}
+                    className={`${
+                      isProcessingPayment ? "bg-blue-400" : "bg-blue-600 hover:bg-blue-700"
+                    } text-white px-4 py-2 rounded w-full flex items-center justify-center`}
                     disabled={isProcessingPayment}
                   >
                     {isProcessingPayment ? (
@@ -539,10 +540,10 @@ const RecolhedoresTab: React.FC = () => {
                                   newPaymentId === t.id
                                     ? ["#f0f9ff", "#e0f2fe", "#f0f9ff"]
                                     : t.id.toString().startsWith("op-")
-                                      ? "#ebf5ff"
-                                      : t.id.toString().startsWith("pay-")
-                                        ? "#f0fdf4"
-                                        : "#ffffff",
+                                    ? "#ebf5ff"
+                                    : t.id.toString().startsWith("pay-")
+                                    ? "#f0fdf4"
+                                    : "#ffffff",
                               }}
                               exit={{ opacity: 0, y: -10 }}
                               transition={{
@@ -557,15 +558,16 @@ const RecolhedoresTab: React.FC = () => {
                                 t.id.toString().startsWith("op-")
                                   ? "bg-blue-50"
                                   : t.id.toString().startsWith("pay-")
-                                    ? "bg-green-50"
-                                    : ""
+                                  ? "bg-green-50"
+                                  : ""
                               }
                             >
                               <td className="py-2 px-4 border">{formatDate(t.date)}</td>
                               <td className="py-2 px-4 border">{t.descricao}</td>
                               <td
-                                className={`py-2 px-4 border text-right ${t.valor < 0 ? "text-red-600" : "text-green-600"
-                                  }`}
+                                className={`py-2 px-4 border text-right ${
+                                  t.valor < 0 ? "text-red-600" : "text-green-600"
+                                }`}
                               >
                                 {formatCurrency(t.valor)}
                               </td>

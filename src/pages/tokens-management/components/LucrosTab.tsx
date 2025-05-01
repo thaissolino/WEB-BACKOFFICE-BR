@@ -168,12 +168,12 @@ const LucrosTab: React.FC = () => {
 
                 return (
                   <tr key={op.id}>
-                    <td className="py-2 px-4 border">{formatDate(op.date)}</td>
-                    <td className="py-2 px-4 border">{op.city || "Desconhecido"}</td>
-                    <td className="py-2 px-4 border">{recolhedorNome}</td>
-                    <td className="py-2 px-4 border">{fornecedorNome}</td>
-                    <td className="py-2 px-4 border text-right">{formatCurrency(op.value || 0)}</td>
-                    <td className="py-2 px-4 border text-right">{formatCurrency(op.profit || 0)}</td>
+                    <td className="py-2 px-4 text-center border">{formatDate(op.date)}</td>
+                    <td className="py-2 px-4 text-center border">{op.city || "Desconhecido"}</td>
+                    <td className="py-2 px-4 text-center border">{recolhedorNome}</td>
+                    <td className="py-2 px-4 text-center border">{fornecedorNome}</td>
+                    <td className="py-2 px-4 border text-center">{formatCurrency(op.value || 0)}</td>
+                    <td className="py-2 px-4 border text-center">{formatCurrency(op.profit || 0)}</td>
                   </tr>
                 );
               })}
