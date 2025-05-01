@@ -345,10 +345,10 @@ const FornecedoresTab: React.FC = () => {
                     <td className="py-2 px-4 border text-center align-middle">{f.name}</td>
 
                     <td
-                      className={`py-2 px-4 border text-center align-middle font-bold  ${computeBalance(f, operacoes, payments) < 0 ? "text-red-600" : "text-green-600"
+                      className={`py-2 px-4 border text-center align-middle font-bold  ${ f.balance < 0 ? "text-red-600" : "text-green-600"
                         }`}
                     >
-                      {formatCurrency(computeBalance(f, operacoes, payments))}
+                      {formatCurrency(f.balance, 2, "USD")}
                     </td>
                     <td className="py-2 px-4 border space-x-2 text-center">
                       <motion.button
