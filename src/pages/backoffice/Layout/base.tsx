@@ -22,7 +22,7 @@ export function Layout() {
   const location = useLocation(); // Pega o caminho atual da rota
 
   // Rotas onde a Topbar não deve aparecer
-  const routesWithoutTopbar = ["/invoices-management", "/tokens-management", "/spreadsheets"];
+  const routesWithoutTopbar = ["/invoices-management", "/tokens-management", "/spreadsheets",  "/billets-management", "/scanner-billets"];
 
   // Verifica se a rota atual está na lista
   const hideTopbar = routesWithoutTopbar.includes(location.pathname);

@@ -119,6 +119,17 @@ const HeaderMenu: React.FC<HeaderMenuProps> = () => {
           </MenuItem>
           <MenuItem 
             onClick={() => {
+              setPendingNavigation("/tokens-management");
+              setOpenModal(true);
+              handleMenuClose();
+            }}
+          >
+            <DescriptionOutlinedIcon sx={{ mr: 1 }} />
+            Gerenciar Tokens
+          </MenuItem>
+
+          <MenuItem 
+            onClick={() => {
               setPendingNavigation("/invoices-management");
               setOpenModal(true);
               handleMenuClose();
@@ -129,13 +140,13 @@ const HeaderMenu: React.FC<HeaderMenuProps> = () => {
           </MenuItem>
           <MenuItem 
             onClick={() => {
-              setPendingNavigation("/tokens-management");
+              setPendingNavigation("/billets-management");
               setOpenModal(true);
               handleMenuClose();
             }}
           >
             <DescriptionOutlinedIcon sx={{ mr: 1 }} />
-            Gerenciar Tokens
+            Gerenciar Boletos
           </MenuItem>
         </Menu>
 

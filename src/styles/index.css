@@ -70,3 +70,17 @@
   .received-product {
     background-color: #f0fdf4;
   }
+
+  .codigo-boleto {
+    font-family: monospace;
+    font-size: 12px;
+    max-width: 150px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  
+  .codigo-boleto:hover {
+    white-space: normal;
+    overflow: visible;
+  }
