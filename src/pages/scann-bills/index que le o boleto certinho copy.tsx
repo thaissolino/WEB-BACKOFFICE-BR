@@ -2,9 +2,6 @@ import React, { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Html5Qrcode } from "html5-qrcode";
 import { IoArrowBack, IoCamera } from "react-icons/io5";
-import axios from "axios";
-import { showAlertError } from "./components/alertError";
-import { isAxiosError } from "./components/alertError/isAxiosError";
 
 interface BilletCamProps {
   handleClose: () => void;
@@ -31,14 +28,6 @@ const ScannBillsBackoffice = ({ handleClose }: BilletCamProps) => {
   const html5QrCodeRef = useRef<Html5Qrcode | null>(null);
 
   const navigation = useNavigate();
-
-  // Configuração do Axios
-  const api = axios.create({
-    baseURL: "http://localhost:3333",
-    headers: {
-      "Content-Type": "application/json",
-    },
-  });
 
   // Check if iOS/Safari
   const checkIsIos = () => {
@@ -93,38 +82,6 @@ const ScannBillsBackoffice = ({ handleClose }: BilletCamProps) => {
     };
   };
 
-  // Função para enviar dados do boleto para a API
-  const sendBilletToAPI = async (billetInfo: BilletData) => {
-    try {
-      // Converte o valor para o formato numérico esperado pela API
-      const numericValue = parseFloat(billetInfo.amount?.replace(".", "").replace(",", ".") || "0");
-      
-      // Formata a data para o padrão YYYY-MM-DD
-      let formattedDueDate = "0000-00-00";
-      if (billetInfo.dueDate && billetInfo.dueDate !== "Não identificado") {
-        const [day, month, year] = billetInfo.dueDate.split("/");
-        formattedDueDate = `${year}-${month}-${day}`;
-      }
-
-      const response = await api.post("/billets/create_billet", {
-        name: `Boleto ${billetInfo.barCode.substring(0, 5)}`,
-        description: `Boleto capturado via scanner - ${billetInfo.digitableLine}`,
-        data: {
-          valor: numericValue,
-          vencimento: formattedDueDate,
-          status: "pendente",
-          codigo_barras: billetInfo.barCode,
-          linha_digitavel: billetInfo.digitableLine
-        }
-      });
-
-      return response.data;
-    } catch (error) {
-      console.error("Erro ao enviar boleto para API:", error);
-      throw error;
-    }
-  };
-
   const handleNextScreen = async (barCode: string) => {
     setLoading(true);
     setError("");
@@ -134,9 +91,6 @@ const ScannBillsBackoffice = ({ handleClose }: BilletCamProps) => {
       const billetInfo = extractBilletInfo(barCode);
       setScannedData(billetInfo);
       
-      // Envia para a API
-      await sendBilletToAPI(billetInfo);
-      
       // Salva no localStorage
       const savedBillets = JSON.parse(localStorage.getItem('scannedBillets') || '[]');
       savedBillets.push(billetInfo);
@@ -144,13 +98,7 @@ const ScannBillsBackoffice = ({ handleClose }: BilletCamProps) => {
       
     } catch (error) {
       console.error("Error processing billet:", error);
-      
-      if (isAxiosError(error)) {
-        const errorMessage = (error.response?.data as { message: string })?.message;
-        setError(errorMessage || "Ocorreu um erro ao processar o boleto. Por favor, tente novamente.");
-      } else {
-        setError("Ocorreu um erro inesperado ao processar o boleto.");
-      }
+      setError("Ocorreu um erro ao processar o boleto. Por favor, tente novamente.");
     } finally {
       setLoading(false);
     }
