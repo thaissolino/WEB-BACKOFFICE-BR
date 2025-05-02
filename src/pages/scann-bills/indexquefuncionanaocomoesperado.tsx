@@ -50,60 +50,43 @@ const ScannBillsBackoffice = ({ handleClose }: BilletCamProps) => {
 
   // Função para extrair informações do código de barras
   const extractBilletInfo = (barCode: string): BilletData => {
-    // 1. Remover todos os caracteres não numéricos
+    // Remove todos os caracteres não numéricos
     const cleanCode = barCode.replace(/[^\d]/g, "");
 
-    // 2. Validar se o código de barras tem pelo menos 47 caracteres (número mínimo para boletos)
-    if (cleanCode.length < 47) {
-      return {
-        barCode: cleanCode,
-        digitableLine: "",
-        amount: "Valor não encontrado",
-        dueDate: "Data não encontrada",
-        beneficiary: "Beneficiário não encontrado",
-        timestamp: Date.now(),
-      };
-    }
-
-    // 3. Extrair linha digitável, formatando em blocos com pontos e espaços
+    // Extrai a linha digitável (normalmente os primeiros 47 ou 48 dígitos)
     const digitableLine =
       cleanCode.length >= 47
         ? `${cleanCode.substring(0, 5)}.${cleanCode.substring(5, 10)} ` +
           `${cleanCode.substring(10, 15)}.${cleanCode.substring(15, 21)} ` +
           `${cleanCode.substring(21, 26)}.${cleanCode.substring(26, 32)} ` +
           `${cleanCode.substring(32, 33)} ${cleanCode.substring(33, 47)}`
-        : cleanCode; // Caso o código de barras seja menor que o esperado, apenas retornar ele.
+        : cleanCode;
 
-    // 4. Extrair o valor do boleto da linha digitável (posições 37-47 no código de barras)
+    // Tenta extrair valor (normalmente posições 37-47 para alguns boletos)
     let amount = "0,00";
     if (cleanCode.length >= 47) {
-      const amountStr = cleanCode.substring(37, 47); // Pega os 10 dígitos representando o valor
+      const amountStr = cleanCode.substring(37, 47);
       amount = `${amountStr.substring(0, amountStr.length - 2)},${amountStr.substring(amountStr.length - 2)}`;
     }
 
-    // 5. Extrair a data de vencimento, que geralmente é representada em dias desde 07/10/1997 (Data base)
+    // Tenta extrair data de vencimento (normalmente posições 33-37 para alguns boletos)
     let dueDate = "Não identificado";
     if (cleanCode.length >= 37) {
-      const julianDate = parseInt(cleanCode.substring(33, 37)); // Pega os 4 dígitos que indicam a data de vencimento em dias.
+      const julianDate = parseInt(cleanCode.substring(33, 37));
       if (!isNaN(julianDate) && julianDate > 0) {
-        // A base para cálculo de vencimento é a data 07/10/1997
-        const baseDate = new Date(1997, 9, 7); // 07 de outubro de 1997
-        baseDate.setDate(baseDate.getDate() + julianDate); // Soma o valor da data juliana aos dias da base.
-        dueDate = baseDate.toLocaleDateString("pt-BR"); // Retorna a data formatada para o padrão pt-BR
+        // Data base é 07/10/1997 para boletos
+        const baseDate = new Date(1997, 9, 7);
+        baseDate.setDate(baseDate.getDate() + julianDate);
+        dueDate = baseDate.toLocaleDateString("pt-BR");
       }
     }
 
-    // 6. A identificação do beneficiário geralmente não está presente diretamente no código de barras.
-    //     Podemos deixar um valor padrão ou implementar uma estratégia alternativa, como buscar na API ou documento associado.
-    const beneficiary = "Beneficiário não identificado"; // Placeholder (não existe no código de barras).
-
-    // 7. Retorna os dados do boleto, incluindo código de barras, linha digitável, valor e data de vencimento.
     return {
       barCode: cleanCode,
       digitableLine,
       amount,
       dueDate,
-      beneficiary,
+      beneficiary: "Beneficiário não identificado",
       timestamp: Date.now(),
     };
   };
