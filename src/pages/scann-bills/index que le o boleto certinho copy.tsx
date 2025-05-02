@@ -1,11 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Html5Qrcode } from "html5-qrcode";
-import { IoArrowBack, IoCamera, IoCheckmarkDone } from "react-icons/io5";
-import { FaBarcode, FaMoneyBillWave, FaCalendarAlt } from "react-icons/fa";
-import axios from "axios";
-import { showAlertError } from "./components/alertError";
-import { isAxiosError } from "./components/alertError/isAxiosError";
+import { IoArrowBack, IoCamera } from "react-icons/io5";
 
 interface BilletCamProps {
   handleClose: () => void;
@@ -23,28 +19,22 @@ interface BilletData {
 const ScannBillsBackoffice = ({ handleClose }: BilletCamProps) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [cameraPermission, setCameraPermission] = useState<"granted" | "denied" | "prompt" | "unsupported">("prompt");
+  const [cameraPermission, setCameraPermission] = useState<
+    "granted" | "denied" | "prompt" | "unsupported"
+  >("prompt");
   const [isLoadingCamera, setIsLoadingCamera] = useState(true);
   const [isIosDevice, setIsIosDevice] = useState(false);
   const [scannedData, setScannedData] = useState<BilletData | null>(null);
-  const [apiStatus, setApiStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
   const html5QrCodeRef = useRef<Html5Qrcode | null>(null);
 
   const navigation = useNavigate();
-
-  // Configuração do Axios
-  const api = axios.create({
-    baseURL: "http://localhost:3333",
-    headers: {
-      "Content-Type": "application/json",
-    },
-  });
 
   // Check if iOS/Safari
   const checkIsIos = () => {
     const userAgent = window.navigator.userAgent.toLowerCase();
     const isIosDevice = /iphone|ipad|ipod/.test(userAgent);
-    const isSafari = /safari/.test(userAgent) && !/chrome|crios|fxios|edg|opr/.test(userAgent);
+    const isSafari =
+      /safari/.test(userAgent) && !/chrome|crios|fxios|edg|opr/.test(userAgent);
     setIsIosDevice(isIosDevice || isSafari);
   };
 
@@ -52,77 +42,44 @@ const ScannBillsBackoffice = ({ handleClose }: BilletCamProps) => {
 
   // Função para extrair informações do código de barras
   const extractBilletInfo = (barCode: string): BilletData => {
+    // Remove todos os caracteres não numéricos
     const cleanCode = barCode.replace(/[^\d]/g, "");
-
-    const digitableLine =
-      cleanCode.length >= 47
-        ? `${cleanCode.substring(0, 5)}.${cleanCode.substring(5, 10)} ` +
-          `${cleanCode.substring(10, 15)}.${cleanCode.substring(15, 21)} ` +
-          `${cleanCode.substring(21, 26)}.${cleanCode.substring(26, 32)} ` +
-          `${cleanCode.substring(32, 33)} ${cleanCode.substring(33, 47)}`
-        : cleanCode;
-
+    
+    // Extrai a linha digitável (normalmente os primeiros 47 ou 48 dígitos)
+    const digitableLine = cleanCode.length >= 47 ? 
+      `${cleanCode.substring(0, 5)}.${cleanCode.substring(5, 10)} ` +
+      `${cleanCode.substring(10, 15)}.${cleanCode.substring(15, 21)} ` +
+      `${cleanCode.substring(21, 26)}.${cleanCode.substring(26, 32)} ` +
+      `${cleanCode.substring(32, 33)} ${cleanCode.substring(33, 47)}` : 
+      cleanCode;
+    
+    // Tenta extrair valor (normalmente posições 37-47 para alguns boletos)
     let amount = "0,00";
     if (cleanCode.length >= 47) {
       const amountStr = cleanCode.substring(37, 47);
       amount = `${amountStr.substring(0, amountStr.length - 2)},${amountStr.substring(amountStr.length - 2)}`;
     }
-
+    
+    // Tenta extrair data de vencimento (normalmente posições 33-37 para alguns boletos)
     let dueDate = "Não identificado";
     if (cleanCode.length >= 37) {
       const julianDate = parseInt(cleanCode.substring(33, 37));
       if (!isNaN(julianDate) && julianDate > 0) {
+        // Data base é 07/10/1997 para boletos
         const baseDate = new Date(1997, 9, 7);
         baseDate.setDate(baseDate.getDate() + julianDate);
-        dueDate = baseDate.toLocaleDateString("pt-BR");
+        dueDate = baseDate.toLocaleDateString('pt-BR');
       }
     }
-
+    
     return {
       barCode: cleanCode,
       digitableLine,
       amount,
       dueDate,
       beneficiary: "Beneficiário não identificado",
-      timestamp: Date.now(),
+      timestamp: Date.now()
     };
-  };
-
-  // Função para enviar dados do boleto para a API
-  const sendBilletToAPI = async (billetInfo: BilletData) => {
-    setApiStatus("loading");
-    try {
-      const numericValue = parseFloat(billetInfo.amount?.replace(".", "").replace(",", ".") || "0");
-
-      let formattedDueDate = "0000-00-00";
-      if (billetInfo.dueDate && billetInfo.dueDate !== "Não identificado") {
-        const [day, month, year] = billetInfo.dueDate.split("/");
-        formattedDueDate = `${year}-${month}-${day}`;
-      }
-
-      await api.post("/billets/create_billet", {
-        name: `Boleto ${billetInfo.barCode.substring(0, 5)}`,
-        description: `Boleto capturado via scanner - ${billetInfo.digitableLine}`,
-        data: {
-          valor: numericValue,
-          vencimento: formattedDueDate,
-          status: "pendente",
-          codigo_barras: billetInfo.barCode,
-          linha_digitavel: billetInfo.digitableLine,
-        },
-      });
-
-      setApiStatus("success");
-
-      // Salva no localStorage
-      const savedBillets = JSON.parse(localStorage.getItem("scannedBillets") || "[]");
-      savedBillets.push(billetInfo);
-      localStorage.setItem("scannedBillets", JSON.stringify(savedBillets));
-    } catch (error) {
-      console.error("Erro ao enviar boleto para API:", error);
-      setApiStatus("error");
-      throw error;
-    }
   };
 
   const handleNextScreen = async (barCode: string) => {
@@ -130,16 +87,18 @@ const ScannBillsBackoffice = ({ handleClose }: BilletCamProps) => {
     setError("");
 
     try {
+      // Extrai informações do boleto
       const billetInfo = extractBilletInfo(barCode);
       setScannedData(billetInfo);
-      await sendBilletToAPI(billetInfo);
+      
+      // Salva no localStorage
+      const savedBillets = JSON.parse(localStorage.getItem('scannedBillets') || '[]');
+      savedBillets.push(billetInfo);
+      localStorage.setItem('scannedBillets', JSON.stringify(savedBillets));
+      
     } catch (error) {
-      if (isAxiosError(error)) {
-        const errorMessage = (error.response?.data as { message: string })?.message;
-        setError(errorMessage || "Ocorreu um erro ao processar o boleto.");
-      } else {
-        setError("Ocorreu um erro inesperado ao processar o boleto.");
-      }
+      console.error("Error processing billet:", error);
+      setError("Ocorreu um erro ao processar o boleto. Por favor, tente novamente.");
     } finally {
       setLoading(false);
     }
@@ -185,19 +144,6 @@ const ScannBillsBackoffice = ({ handleClose }: BilletCamProps) => {
       });
   };
 
-  const closeModal = () => {
-    setScannedData(null);
-    setApiStatus("idle");
-    handleClose();
-  };
-
-  const scanAgain = () => {
-    setScannedData(null);
-    setApiStatus("idle");
-    startQRScanner();
-  };
-
-  // ... (restante das funções permanecem iguais: checkCameraPermission, openSettings, handleCloseCamera)
   // Camera permission handling
   const checkCameraPermission = async () => {
     setIsLoadingCamera(true);
@@ -228,7 +174,9 @@ const ScannBillsBackoffice = ({ handleClose }: BilletCamProps) => {
           stream.getTracks().forEach((track) => track.stop());
           startQRScanner();
         } else {
-          setError("Permissão da câmera negada. Por favor, habilite o acesso à câmera nas configurações do navegador.");
+          setError(
+            "Permissão da câmera negada. Por favor, habilite o acesso à câmera nas configurações do navegador."
+          );
         }
       } else {
         try {
@@ -255,15 +203,24 @@ const ScannBillsBackoffice = ({ handleClose }: BilletCamProps) => {
     if (/iPhone|iPad|iPod/.test(navigator.userAgent)) {
       alert("Vá para Configurações > Safari > Câmera e habilite o acesso.");
     } else if (/Android/.test(navigator.userAgent)) {
-      alert("Vá para Configurações > Apps > [Nome do Navegador] > Permissões e habilite o acesso à câmera.");
+      alert(
+        "Vá para Configurações > Apps > [Nome do Navegador] > Permissões e habilite o acesso à câmera."
+      );
     } else {
-      alert("Por favor, habilite a permissão da câmera nas configurações do seu navegador.");
+      alert(
+        "Por favor, habilite a permissão da câmera nas configurações do seu navegador."
+      );
     }
   };
 
   const handleCloseCamera = async () => {
     await stopScanner();
     navigation("/paybills");
+  };
+
+  const closeModal = () => {
+    setScannedData(null);
+    startQRScanner(); // Reinicia o scanner após fechar o modal
   };
 
   useEffect(() => {
@@ -285,7 +242,6 @@ const ScannBillsBackoffice = ({ handleClose }: BilletCamProps) => {
         zIndex: 1300,
       }}
     >
-      {/* ... (código anterior do scanner permanece igual) ... */}
       {isLoadingCamera && (
         <div
           style={{
@@ -341,7 +297,8 @@ const ScannBillsBackoffice = ({ handleClose }: BilletCamProps) => {
       >
         <IoCamera style={{ fontSize: "24px" }} />
         <p style={{ fontSize: "16px", fontWeight: "500" }}>
-          Aponte a câmera para a linha digitável Para poder realizar o registro dos dados do boleto.
+          Aponte a câmera para a linha digitável Para poder realizar o registro dos dados
+          do boleto.
         </p>
       </div>
 
@@ -354,7 +311,8 @@ const ScannBillsBackoffice = ({ handleClose }: BilletCamProps) => {
           right: 0,
           minHeight: "150%",
           minWidth: "150%",
-          backgroundImage: "linear-gradient(to right, #ff9500, #ff6600, #ff3300)",
+          backgroundImage:
+            "linear-gradient(to right, #ff9500, #ff6600, #ff3300)",
           zIndex: 1300,
         }}
       ></div>
@@ -397,168 +355,48 @@ const ScannBillsBackoffice = ({ handleClose }: BilletCamProps) => {
               padding: "20px",
               width: "90%",
               maxWidth: "400px",
-              textAlign: "center",
             }}
           >
-            {apiStatus === "loading" ? (
-              <div style={{ padding: "20px" }}>
-                <div
-                  className="spinner"
-                  style={{
-                    width: "50px",
-                    height: "50px",
-                    margin: "0 auto 20px",
-                    border: "5px solid #f3f3f3",
-                    borderTop: "5px solid #004A8A",
-                    borderRadius: "50%",
-                    animation: "spin 1s linear infinite",
-                  }}
-                />
-                <p style={{ fontSize: "18px", color: "#555" }}>Enviando boleto para o servidor...</p>
-              </div>
-            ) : apiStatus === "success" ? (
-              <>
-                <div
-                  style={{
-                    backgroundColor: "#e6f7ee",
-                    borderRadius: "50%",
-                    width: "60px",
-                    height: "60px",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    margin: "0 auto 15px",
-                  }}
-                >
-                  <IoCheckmarkDone style={{ color: "#28a745", fontSize: "30px" }} />
-                </div>
-                <h3 style={{ marginBottom: "15px", color: "#28a745" }}>Boleto salvo com sucesso!</h3>
-
-                <div
-                  style={{
-                    backgroundColor: "#f8f9fa",
-                    borderRadius: "8px",
-                    padding: "15px",
-                    marginBottom: "20px",
-                    textAlign: "left",
-                  }}
-                >
-                  <div style={{ display: "flex", alignItems: "center", marginBottom: "10px" }}>
-                    <FaBarcode style={{ marginRight: "10px", color: "#004A8A" }} />
-                    <div>
-                      <p style={{ fontWeight: "bold", margin: 0 }}>Código de Barras</p>
-                      <p style={{ margin: 0, wordBreak: "break-all" }}>{scannedData.barCode}</p>
-                    </div>
-                  </div>
-
-                  <div style={{ display: "flex", alignItems: "center", marginBottom: "10px" }}>
-                    <FaMoneyBillWave style={{ marginRight: "10px", color: "#004A8A" }} />
-                    <div>
-                      <p style={{ fontWeight: "bold", margin: 0 }}>Valor</p>
-                      <p style={{ margin: 0 }}>R$ {scannedData.amount}</p>
-                    </div>
-                  </div>
-
-                  <div style={{ display: "flex", alignItems: "center" }}>
-                    <FaCalendarAlt style={{ marginRight: "10px", color: "#004A8A" }} />
-                    <div>
-                      <p style={{ fontWeight: "bold", margin: 0 }}>Vencimento</p>
-                      <p style={{ margin: 0 }}>{scannedData.dueDate}</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div style={{ display: "flex", gap: "10px" }}>
-                  <button
-                    onClick={closeModal}
-                    style={{
-                      flex: 1,
-                      background: "transparent",
-                      color: "#004A8A",
-                      border: "1px solid #004A8A",
-                      padding: "10px",
-                      borderRadius: "8px",
-                      fontWeight: "bold",
-                      cursor: "pointer",
-                    }}
-                  >
-                    Voltar
-                  </button>
-                  <button
-                    onClick={scanAgain}
-                    style={{
-                      flex: 1,
-                      background: "#004A8A",
-                      color: "white",
-                      border: "none",
-                      padding: "10px",
-                      borderRadius: "8px",
-                      fontWeight: "bold",
-                      cursor: "pointer",
-                    }}
-                  >
-                    Escanear Novo
-                  </button>
-                </div>
-              </>
-            ) : apiStatus === "error" ? (
-              <>
-                <div
-                  style={{
-                    backgroundColor: "#fde8e8",
-                    borderRadius: "50%",
-                    width: "60px",
-                    height: "60px",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    margin: "0 auto 15px",
-                  }}
-                >
-                  <span style={{ color: "#dc3545", fontSize: "30px" }}>!</span>
-                </div>
-                <h3 style={{ marginBottom: "15px", color: "#dc3545" }}>Erro ao salvar boleto</h3>
-                <p style={{ color: "#6c757d", marginBottom: "20px" }}>{error || "Tente novamente mais tarde."}</p>
-
-                <div style={{ display: "flex", gap: "10px" }}>
-                  <button
-                    onClick={closeModal}
-                    style={{
-                      flex: 1,
-                      background: "transparent",
-                      color: "#004A8A",
-                      border: "1px solid #004A8A",
-                      padding: "10px",
-                      borderRadius: "8px",
-                      fontWeight: "bold",
-                      cursor: "pointer",
-                    }}
-                  >
-                    Voltar
-                  </button>
-                  <button
-                    onClick={scanAgain}
-                    style={{
-                      flex: 1,
-                      background: "#004A8A",
-                      color: "white",
-                      border: "none",
-                      padding: "10px",
-                      borderRadius: "8px",
-                      fontWeight: "bold",
-                      cursor: "pointer",
-                    }}
-                  >
-                    Tentar Novamente
-                  </button>
-                </div>
-              </>
-            ) : null}
+            <h3 style={{ marginBottom: "20px", color: "#333" }}>Dados do Boleto</h3>
+            
+            <div style={{ marginBottom: "15px" }}>
+              <p style={{ fontWeight: "bold", marginBottom: "5px" }}>Código de Barras:</p>
+              <p style={{ wordBreak: "break-all" }}>{scannedData.barCode}</p>
+            </div>
+            
+            <div style={{ marginBottom: "15px" }}>
+              <p style={{ fontWeight: "bold", marginBottom: "5px" }}>Linha Digitável:</p>
+              <p>{scannedData.digitableLine}</p>
+            </div>
+            
+            <div style={{ marginBottom: "15px" }}>
+              <p style={{ fontWeight: "bold", marginBottom: "5px" }}>Valor:</p>
+              <p>R$ {scannedData.amount}</p>
+            </div>
+            
+            <div style={{ marginBottom: "20px" }}>
+              <p style={{ fontWeight: "bold", marginBottom: "5px" }}>Vencimento:</p>
+              <p>{scannedData.dueDate}</p>
+            </div>
+            
+            <button
+              onClick={closeModal}
+              style={{
+                background: "#004A8A",
+                color: "white",
+                border: "none",
+                padding: "10px 20px",
+                borderRadius: "8px",
+                fontWeight: "bold",
+                width: "100%",
+                cursor: "pointer",
+              }}
+            >
+              Voltar
+            </button>
           </div>
         </div>
       )}
-
-      {/* ... (restante do código permanece igual) ... */}
 
       {error && (
         <div
@@ -594,7 +432,9 @@ const ScannBillsBackoffice = ({ handleClose }: BilletCamProps) => {
             >
               {error}
             </p>
-            <div style={{ display: "flex", gap: "8px", justifyContent: "center" }}>
+            <div
+              style={{ display: "flex", gap: "8px", justifyContent: "center" }}
+            >
               <button
                 onClick={handleCloseCamera}
                 style={{
