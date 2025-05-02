@@ -6,6 +6,7 @@ import { FaBarcode, FaMoneyBillWave, FaCalendarAlt } from "react-icons/fa";
 import axios from "axios";
 import { showAlertError } from "./components/alertError";
 import { isAxiosError } from "./components/alertError/isAxiosError";
+import { getMockBillet, simulateApiResponse } from "./billetMocks";
 
 interface BilletCamProps {
   handleClose: () => void;
@@ -23,22 +24,45 @@ interface BilletData {
 const ScannBillsBackoffice = ({ handleClose }: BilletCamProps) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [cameraPermission, setCameraPermission] = useState<"granted" | "denied" | "prompt" | "unsupported">("prompt");
+  const [cameraPermission, setCameraPermission] = useState<
+    "granted" | "denied" | "prompt" | "unsupported"
+  >("prompt");
   const [isLoadingCamera, setIsLoadingCamera] = useState(true);
   const [isIosDevice, setIsIosDevice] = useState(false);
   const [scannedData, setScannedData] = useState<BilletData | null>(null);
   const [apiStatus, setApiStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
+  const [mockIndex, setMockIndex] = useState(0);
   const html5QrCodeRef = useRef<Html5Qrcode | null>(null);
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const navigation = useNavigate();
+// Configuração do Axios
+const api = axios.create({
+  baseURL: process.env.REACT_APP_API_URL,
+  headers: {
+    "Content-Type": "application/json",
+  },
+});
 
-  // Configuração do Axios
-  const api = axios.create({
-    baseURL: "http://localhost:3333",
-    headers: {
-      "Content-Type": "application/json",
-    },
-  });
+// Adicione também um interceptor para logs em desenvolvimento
+api.interceptors.request.use(config => {
+  if (process.env.REACT_APP_ENV === 'development') {
+    console.log('Enviando requisição para:', config.url);
+  }
+  return config;
+});
+
+api.interceptors.response.use(response => {
+  if (process.env.REACT_APP_ENV === 'development') {
+    console.log('Resposta recebida de:', response.config.url);
+  }
+  return response;
+}, error => {
+  if (process.env.REACT_APP_ENV === 'development') {
+    console.error('Erro na requisição:', error);
+  }
+  return Promise.reject(error);
+});
 
   // Check if iOS/Safari
   const checkIsIos = () => {
@@ -52,6 +76,20 @@ const ScannBillsBackoffice = ({ handleClose }: BilletCamProps) => {
 
   // Função para extrair informações do código de barras
   const extractBilletInfo = (barCode: string): BilletData => {
+    
+    if (barCode.startsWith("mock_")) {
+      const mockId = parseInt(barCode.replace("mock_", ""));
+      const mock = getMockBillet(mockId);
+      return {
+        barCode: mock.barCode,
+        digitableLine: mock.digitableLine,
+        amount: mock.amount,
+        dueDate: mock.dueDate,
+        beneficiary: mock.beneficiary,
+        timestamp: Date.now()
+      };
+    }
+   
     const cleanCode = barCode.replace(/[^\d]/g, "");
 
     const digitableLine =
@@ -91,33 +129,45 @@ const ScannBillsBackoffice = ({ handleClose }: BilletCamProps) => {
   // Função para enviar dados do boleto para a API
   const sendBilletToAPI = async (billetInfo: BilletData) => {
     setApiStatus("loading");
+    
     try {
-      const numericValue = parseFloat(billetInfo.amount?.replace(".", "").replace(",", ".") || "0");
+      // Verifica se é um mock
+      const isMock = billetInfo.barCode === getMockBillet(mockIndex).barCode;
+      
+      if (isMock) {
+        const mock = getMockBillet(mockIndex);
+        await simulateApiResponse(mock);
+        setApiStatus("success");
+      } else {
+        // Implementação real da API
+        const numericValue = parseFloat(billetInfo.amount?.replace(".", "").replace(",", ".") || "0");
+        let formattedDueDate = "0000-00-00";
+        
+        if (billetInfo.dueDate && billetInfo.dueDate !== "Não identificado") {
+          const [day, month, year] = billetInfo.dueDate.split("/");
+          formattedDueDate = `${year}-${month}-${day}`;
+        }
 
-      let formattedDueDate = "0000-00-00";
-      if (billetInfo.dueDate && billetInfo.dueDate !== "Não identificado") {
-        const [day, month, year] = billetInfo.dueDate.split("/");
-        formattedDueDate = `${year}-${month}-${day}`;
+        await api.post("/billets/create_billet", {
+          name: `Boleto ${billetInfo.barCode.substring(0, 5)}`,
+          description: `Boleto capturado via scanner - ${billetInfo.digitableLine}`,
+          data: {
+            valor: numericValue,
+            vencimento: formattedDueDate,
+            status: "pendente",
+            codigo_barras: billetInfo.barCode,
+            linha_digitavel: billetInfo.digitableLine
+          }
+        });
+
+        setApiStatus("success");
       }
-
-      await api.post("/billets/create_billet", {
-        name: `Boleto ${billetInfo.barCode.substring(0, 5)}`,
-        description: `Boleto capturado via scanner - ${billetInfo.digitableLine}`,
-        data: {
-          valor: numericValue,
-          vencimento: formattedDueDate,
-          status: "pendente",
-          codigo_barras: billetInfo.barCode,
-          linha_digitavel: billetInfo.digitableLine,
-        },
-      });
-
-      setApiStatus("success");
-
+      
       // Salva no localStorage
-      const savedBillets = JSON.parse(localStorage.getItem("scannedBillets") || "[]");
+      const savedBillets = JSON.parse(localStorage.getItem('scannedBillets') || '[]');
       savedBillets.push(billetInfo);
-      localStorage.setItem("scannedBillets", JSON.stringify(savedBillets));
+      localStorage.setItem('scannedBillets', JSON.stringify(savedBillets));
+      
     } catch (error) {
       console.error("Erro ao enviar boleto para API:", error);
       setApiStatus("error");
