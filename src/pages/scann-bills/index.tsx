@@ -1,23 +1,30 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { service } from "../../services/ajio";
 import { Html5Qrcode } from "html5-qrcode";
 import { IoArrowBack, IoCamera } from "react-icons/io5";
-import { showAlertError } from "./components/alertError";
-import { isAxiosError } from "./components/alertError/isAxiosError";
 
 interface BilletCamProps {
   handleClose: () => void;
 }
+
+interface BilletData {
+  barCode: string;
+  digitableLine: string;
+  amount?: string;
+  dueDate?: string;
+  beneficiary?: string;
+  timestamp: number;
+}
+
 const ScannBillsBackoffice = ({ handleClose }: BilletCamProps) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [isOpen, setIsOpen] = useState(false);
   const [cameraPermission, setCameraPermission] = useState<
     "granted" | "denied" | "prompt" | "unsupported"
   >("prompt");
   const [isLoadingCamera, setIsLoadingCamera] = useState(true);
   const [isIosDevice, setIsIosDevice] = useState(false);
+  const [scannedData, setScannedData] = useState<BilletData | null>(null);
   const html5QrCodeRef = useRef<Html5Qrcode | null>(null);
 
   const navigation = useNavigate();
@@ -33,33 +40,65 @@ const ScannBillsBackoffice = ({ handleClose }: BilletCamProps) => {
 
   const isPermissionsAPISupported = "permissions" in navigator;
 
+  // Função para extrair informações do código de barras
+  const extractBilletInfo = (barCode: string): BilletData => {
+    // Remove todos os caracteres não numéricos
+    const cleanCode = barCode.replace(/[^\d]/g, "");
+    
+    // Extrai a linha digitável (normalmente os primeiros 47 ou 48 dígitos)
+    const digitableLine = cleanCode.length >= 47 ? 
+      `${cleanCode.substring(0, 5)}.${cleanCode.substring(5, 10)} ` +
+      `${cleanCode.substring(10, 15)}.${cleanCode.substring(15, 21)} ` +
+      `${cleanCode.substring(21, 26)}.${cleanCode.substring(26, 32)} ` +
+      `${cleanCode.substring(32, 33)} ${cleanCode.substring(33, 47)}` : 
+      cleanCode;
+    
+    // Tenta extrair valor (normalmente posições 37-47 para alguns boletos)
+    let amount = "0,00";
+    if (cleanCode.length >= 47) {
+      const amountStr = cleanCode.substring(37, 47);
+      amount = `${amountStr.substring(0, amountStr.length - 2)},${amountStr.substring(amountStr.length - 2)}`;
+    }
+    
+    // Tenta extrair data de vencimento (normalmente posições 33-37 para alguns boletos)
+    let dueDate = "Não identificado";
+    if (cleanCode.length >= 37) {
+      const julianDate = parseInt(cleanCode.substring(33, 37));
+      if (!isNaN(julianDate) && julianDate > 0) {
+        // Data base é 07/10/1997 para boletos
+        const baseDate = new Date(1997, 9, 7);
+        baseDate.setDate(baseDate.getDate() + julianDate);
+        dueDate = baseDate.toLocaleDateString('pt-BR');
+      }
+    }
+    
+    return {
+      barCode: cleanCode,
+      digitableLine,
+      amount,
+      dueDate,
+      beneficiary: "Beneficiário não identificado",
+      timestamp: Date.now()
+    };
+  };
+
   const handleNextScreen = async (barCode: string) => {
     setLoading(true);
     setError("");
 
     try {
-      const { data } = await service.post("payments/validate", {
-        barCode: barCode.replace(/[\s,-,/]/g, ""),
-      });
-
-      navigation("/paybills/info-invoice", {
-        state: {
-          payment_info: data.payment_info,
-          barcode_details: data.barcode_details,
-          replace: true,
-        },
-      });
+      // Extrai informações do boleto
+      const billetInfo = extractBilletInfo(barCode);
+      setScannedData(billetInfo);
+      
+      // Salva no localStorage
+      const savedBillets = JSON.parse(localStorage.getItem('scannedBillets') || '[]');
+      savedBillets.push(billetInfo);
+      localStorage.setItem('scannedBillets', JSON.stringify(savedBillets));
+      
     } catch (error) {
-      if (isAxiosError(error)) {
-        if (error.response?.status === 401) {
-          return setIsOpen(true);
-        }
-        const errorMessage = (error.response?.data as { message: string })
-          ?.message;
-        showAlertError(errorMessage || "Ocorreu um erro ao validar o boleto.");
-      } else {
-        showAlertError("Ocorreu um erro inesperado.");
-      }
+      console.error("Error processing billet:", error);
+      setError("Ocorreu um erro ao processar o boleto. Por favor, tente novamente.");
     } finally {
       setLoading(false);
     }
@@ -179,6 +218,11 @@ const ScannBillsBackoffice = ({ handleClose }: BilletCamProps) => {
     navigation("/paybills");
   };
 
+  const closeModal = () => {
+    setScannedData(null);
+    startQRScanner(); // Reinicia o scanner após fechar o modal
+  };
+
   useEffect(() => {
     checkIsIos();
     checkCameraPermission();
@@ -287,6 +331,72 @@ const ScannBillsBackoffice = ({ handleClose }: BilletCamProps) => {
           zIndex: 1400,
         }}
       ></div>
+
+      {/* Modal com dados do boleto */}
+      {scannedData && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            width: "100%",
+            height: "100%",
+            backgroundColor: "rgba(0, 0, 0, 0.8)",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            zIndex: 2000,
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: "white",
+              borderRadius: "12px",
+              padding: "20px",
+              width: "90%",
+              maxWidth: "400px",
+            }}
+          >
+            <h3 style={{ marginBottom: "20px", color: "#333" }}>Dados do Boleto</h3>
+            
+            <div style={{ marginBottom: "15px" }}>
+              <p style={{ fontWeight: "bold", marginBottom: "5px" }}>Código de Barras:</p>
+              <p style={{ wordBreak: "break-all" }}>{scannedData.barCode}</p>
+            </div>
+            
+            <div style={{ marginBottom: "15px" }}>
+              <p style={{ fontWeight: "bold", marginBottom: "5px" }}>Linha Digitável:</p>
+              <p>{scannedData.digitableLine}</p>
+            </div>
+            
+            <div style={{ marginBottom: "15px" }}>
+              <p style={{ fontWeight: "bold", marginBottom: "5px" }}>Valor:</p>
+              <p>R$ {scannedData.amount}</p>
+            </div>
+            
+            <div style={{ marginBottom: "20px" }}>
+              <p style={{ fontWeight: "bold", marginBottom: "5px" }}>Vencimento:</p>
+              <p>{scannedData.dueDate}</p>
+            </div>
+            
+            <button
+              onClick={closeModal}
+              style={{
+                background: "#004A8A",
+                color: "white",
+                border: "none",
+                padding: "10px 20px",
+                borderRadius: "8px",
+                fontWeight: "bold",
+                width: "100%",
+                cursor: "pointer",
+              }}
+            >
+              Voltar
+            </button>
+          </div>
+        </div>
+      )}
 
       {error && (
         <div
