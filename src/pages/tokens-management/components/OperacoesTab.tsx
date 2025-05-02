@@ -37,7 +37,7 @@ const OperacoesTab: React.FC = () => {
 
   const [dataOperacao, setDataOperacao] = useState<string>(new Date().toISOString().slice(0, 16));
   const [localOperacao, setLocalOperacao] = useState("");
-  const [valorOperacao, setValorOperacao] = useState<number>(0);
+  const [valorOperacao, setValorOperacao] = useState<number | null>(null);
   const [recolhedorOperacao, setRecolhedorOperacao] = useState<number | "">("");
   const [fornecedorOperacao, setFornecedorOperacao] = useState<number | "">("");
   const [taxaRecolhedorOperacao, setTaxaRecolhedorOperacao] = useState<number>(1.025);
@@ -163,11 +163,10 @@ const OperacoesTab: React.FC = () => {
             <label className="block text-sm font-medium text-gray-700">VALOR (USD)</label>
             <input
               type="number"
-
-              className="mt-1 block w-full border border-gray-300 rounded-md p-2"
-              value={valorOperacao}
-              onChange={(e) => setValorOperacao(Number(e.target.value))}
-
+              inputMode="decimal"
+              className="mt-1 block w-full border border-gray-300 rounded-md p-2 appearance-none [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+              value={valorOperacao || ""}
+              onChange={(e) => setValorOperacao(Number(e.target.value.replace(",", ".")))}
             />
           </div>
         </div>
@@ -191,7 +190,6 @@ const OperacoesTab: React.FC = () => {
               <span className="text-xs text-gray-500 mr-2">TAXA:</span>
               <input
                 type="number"
-
                 className="text-xs w-16 border border-gray-300 rounded p-1"
                 value={taxaRecolhedorOperacao}
                 onChange={(e) => setTaxaRecolhedorOperacao(Number(e.target.value))}
@@ -271,13 +269,12 @@ const OperacoesTab: React.FC = () => {
               {operacoes.map((op) => (
                 <tr key={op.id}>
                   <td className="py-2 px-4 border text-center algin-middle">
-                  {new Intl.DateTimeFormat('pt-BR', {
-                    timeZone: 'UTC',
-                    day: '2-digit',
-                    month: '2-digit',
-                    year: 'numeric'
-                  }).format(new Date(op.date))}
-                  
+                    {new Intl.DateTimeFormat("pt-BR", {
+                      timeZone: "UTC",
+                      day: "2-digit",
+                      month: "2-digit",
+                      year: "numeric",
+                    }).format(new Date(op.date))}
                   </td>
                   <td className="py-2 px-4 border align-middle text-center">{op.city}</td>
                   <td className="py-2 px-4 border align-middle text-center">{getRecolhedorNome(op.collectorId)}</td>

@@ -48,7 +48,7 @@ const RecolhedoresTab: React.FC = () => {
   const [showModal, setShowModal] = useState(false);
   const [recolhedorEdit, setRecolhedorEdit] = useState<Recolhedor | undefined>(undefined);
   const [selectedRecolhedor, setSelectedRecolhedor] = useState<Recolhedor | null>(null);
-  const [valorPagamento, setValorPagamento] = useState<number>(0);
+  const [valorPagamento, setValorPagamento] = useState<number | null>(null);
   const [descricaoPagamento, setDescricaoPagamento] = useState("");
   const [dataPagamento, setDataPagamento] = useState<string>(new Date().toISOString().split("T")[0]);
   const [loading, setLoading] = useState(true);
@@ -161,7 +161,7 @@ const RecolhedoresTab: React.FC = () => {
         collectorId: selectedRecolhedor.id,
         amount: valorPagamento,
         description: descricaoPagamento,
-        date: dataPagamento,
+        date: new Date(`${dataPagamento}T00:00:00`).toISOString(), // <-- CORRIGIDO
       };
 
       const response = await api.post("/api/payments", paymentData);
@@ -259,7 +259,7 @@ const RecolhedoresTab: React.FC = () => {
       totalBalance += computeBalance(recolhedor, operacoes, payments);
     });
     setSaldoAcumulado(totalBalance);
-  }, [recolhedores, operacoes, payments]); 
+  }, [recolhedores, operacoes, payments]);
   if (loading) {
     return (
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex items-center justify-center h-64">
@@ -297,17 +297,17 @@ const RecolhedoresTab: React.FC = () => {
       >
         <div className="flex justify-between items-start mb-4">
           <div className="flex flex-col">
-          <h2 className="text-xl font-semibold text-blue-700">
-            <i className="fas fa-users mr-2"></i> RECOLHEDORES
-          </h2>
-          <div className="mb-6 grid grid-cols-1 md:grid-cols-1 gap-4">
+            <h2 className="text-xl font-semibold text-blue-700">
+              <i className="fas fa-users mr-2"></i> RECOLHEDORES
+            </h2>
+            <div className="mb-6 grid grid-cols-1 md:grid-cols-1 gap-4">
               <div className="bg-purple-50 p-4 rounded-lg">
                 <h3 className="font-medium mb-2">SALDO ACUMULADO</h3>
-                <p className="text-2xl font-bold text-purple-600">{formatCurrency(saldoAcumulado, 2, 'USD')}</p>
+                <p className="text-2xl font-bold text-purple-600">{formatCurrency(saldoAcumulado, 2, "USD")}</p>
               </div>
             </div>
           </div>
-         
+
           <motion.button
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
@@ -326,7 +326,7 @@ const RecolhedoresTab: React.FC = () => {
             <thead>
               <tr className="bg-gray-200">
                 <th className="py-2 px-4 border">NOME</th>
-                
+
                 <th className="py-2 px-4 border">SALDO (USD)</th>
                 <th className="py-2 px-4 border">AÇÕES</th>
               </tr>
@@ -449,9 +449,10 @@ const RecolhedoresTab: React.FC = () => {
                     <input
                       type="number"
                       step="0.01"
-                      className="mt-1 block w-full border border-gray-300 rounded-md p-2"
-                      value={valorPagamento}
-                      onChange={(e) => setValorPagamento(Number(e.target.value))}
+                      inputMode="decimal"
+                      className="mt-1 block w-full border border-gray-300 rounded-md p-2 appearance-none [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                      value={valorPagamento || ""}
+                      onChange={(e) => setValorPagamento(Number(e.target.value.replace(",", ".")))}
                       disabled={isProcessingPayment}
                     />
                   </div>
@@ -505,7 +506,7 @@ const RecolhedoresTab: React.FC = () => {
                       </tr>
                     </thead>
                     <tbody>
-                      <AnimatePresence>
+                    <AnimatePresence>
                         {[
                           ...(selectedRecolhedor.transacoes || []),
                           ...operacoes
@@ -527,8 +528,8 @@ const RecolhedoresTab: React.FC = () => {
                               tipo: p.amount < 0 ? "debito" : "pagamento",
                             })),
                         ]
+                          .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()) // Ordena por data crescente
                           .slice(-6)
-                          .reverse()
                           .map((t) => (
                             <motion.tr
                               key={t.id}
@@ -538,7 +539,7 @@ const RecolhedoresTab: React.FC = () => {
                                 y: 0,
                                 backgroundColor:
                                   newPaymentId === t.id
-                                    ? ["#f0f9ff", "#e0f2fe", "#f0f9ff"]
+                                    ? ["#f0fdf4", "#dcfce7", "#f0fdf4"]
                                     : t.id.toString().startsWith("op-")
                                     ? "#ebf5ff"
                                     : t.id.toString().startsWith("pay-")

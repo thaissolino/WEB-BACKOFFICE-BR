@@ -305,7 +305,7 @@ const FornecedoresTab: React.FC = () => {
             <div className="mb-6 grid grid-cols-1 md:grid-cols-1 gap-4">
               <div className="bg-purple-50 p-4 rounded-lg">
                 <h3 className="font-medium mb-2">SALDO ACUMULADO</h3>
-                <p className="text-2xl font-bold text-purple-600">{formatCurrency(saldoAcumulado, 2, 'USD')}</p>
+                <p className="text-2xl font-bold text-purple-600">{formatCurrency(saldoAcumulado, 2, "USD")}</p>
               </div>
             </div>
           </div>
@@ -346,8 +346,9 @@ const FornecedoresTab: React.FC = () => {
                     <td className="py-2 px-4 border text-center">{f.name}</td>
 
                     <td
-                      className={`py-2 px-4 border text-center font-bold ${computeBalance(f, operacoes, payments) < 0 ? "text-red-600" : "text-green-600"
-                        }`}
+                      className={`py-2 px-4 border text-center font-bold ${
+                        computeBalance(f, operacoes, payments) < 0 ? "text-red-600" : "text-green-600"
+                      }`}
                     >
                       {formatCurrency(computeBalance(f, operacoes, payments))}
                     </td>
@@ -405,14 +406,11 @@ const FornecedoresTab: React.FC = () => {
                 <span className="mr-4">
                   SALDO:{" "}
                   <span
-                    className={`font-bold ${computeBalance(fornecedorSelecionado, operacoes, payments) < 0
-                        ? "text-red-600"
-                        : "text-green-600"
-                      }`}
+                    className={`font-bold ${
+                      computeBalance(fornecedorSelecionado, operacoes, payments) < 0 ? "text-red-600" : "text-green-600"
+                    }`}
                   >
-                    {formatCurrency(
-                      computeBalance(fornecedorSelecionado, operacoes, payments)
-                    )}
+                    {formatCurrency(computeBalance(fornecedorSelecionado, operacoes, payments))}
                   </span>
                 </span>
                 <motion.button
@@ -452,9 +450,10 @@ const FornecedoresTab: React.FC = () => {
                     <input
                       type="number"
                       step="0.01"
-                      className="mt-1 block w-full border border-gray-300 rounded-md p-2"
-                      value={valorPagamento || ''}
-                      onChange={(e) => setValorPagamento(Number(e.target.value))}
+                      inputMode="decimal"
+                      className="mt-1 block w-full border border-gray-300 rounded-md p-2 appearance-none [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                      value={valorPagamento || ""}
+                      onChange={(e) => setValorPagamento(Number(e.target.value.replace(",", ".")))}
                       disabled={isProcessingPayment}
                     />
                   </div>
@@ -472,8 +471,9 @@ const FornecedoresTab: React.FC = () => {
                     whileHover={!isProcessingPayment ? { scale: 1.02 } : {}}
                     whileTap={!isProcessingPayment ? { scale: 0.98 } : {}}
                     onClick={registrarPagamento}
-                    className={`${isProcessingPayment ? "bg-blue-400" : "bg-blue-600 hover:bg-blue-700"
-                      } text-white px-4 py-2 rounded w-full flex items-center justify-center`}
+                    className={`${
+                      isProcessingPayment ? "bg-blue-400" : "bg-blue-600 hover:bg-blue-700"
+                    } text-white px-4 py-2 rounded w-full flex items-center justify-center`}
                     disabled={isProcessingPayment}
                   >
                     {isProcessingPayment ? (
@@ -546,10 +546,10 @@ const FornecedoresTab: React.FC = () => {
                                   newPaymentId === t.id
                                     ? ["#f0fdf4", "#dcfce7", "#f0fdf4"]
                                     : t.id.toString().startsWith("op-")
-                                      ? "#ebf5ff"
-                                      : t.id.toString().startsWith("pay-")
-                                        ? "#f0fdf4"
-                                        : "#ffffff",
+                                    ? "#ebf5ff"
+                                    : t.id.toString().startsWith("pay-")
+                                    ? "#f0fdf4"
+                                    : "#ffffff",
                               }}
                               exit={{ opacity: 0, y: -10 }}
                               transition={{
@@ -564,15 +564,16 @@ const FornecedoresTab: React.FC = () => {
                                 t.id.toString().startsWith("op-")
                                   ? "bg-blue-50"
                                   : t.id.toString().startsWith("pay-")
-                                    ? "bg-green-50"
-                                    : ""
+                                  ? "bg-green-50"
+                                  : ""
                               }
                             >
                               <td className="py-2 px-4 border">{formatDate(t.date)}</td>
                               <td className="py-2 px-4 border">{t.descricao}</td>
                               <td
-                                className={`py-2 px-4 border text-right ${t.valor < 0 ? "text-red-600" : "text-green-600"
-                                  }`}
+                                className={`py-2 px-4 border text-right ${
+                                  t.valor < 0 ? "text-red-600" : "text-green-600"
+                                }`}
                               >
                                 {formatCurrency(t.valor)}
                               </td>
