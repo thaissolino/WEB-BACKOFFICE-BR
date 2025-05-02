@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { Boleto } from "./types";
 import { Camera } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import ScannBillsBackoffice from "../../scann-bills";
+import ScannBillsBackoffice from "../../scann-bills/index-funcionando-mocado-apenas";
 
 interface BoletoFormProps {
   addBoleto: (boleto: Boleto) => void;
