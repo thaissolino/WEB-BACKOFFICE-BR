@@ -60,17 +60,7 @@ const RecolhedoresTab: React.FC = () => {
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [newPaymentId, setNewPaymentId] = useState<string | null>(null);
   const [saldoAcumulado, setSaldoAcumulado] = useState(0);
-
-  const fetchData = async () => {
-    try {
-      const operacoesResponse = await api.get<Operacao[]>("/operations/list_operations");
-      console.log("operalçioes", operacoesResponse);
-      setOperacoes(operacoesResponse.data);
-    } catch (error) {
-      console.log("error ao buscar dados das operações", error);
-      console.error("Erro ao buscar dados:", error);
-    }
-  };
+  const [calculatedBalances, setCalculatedBalances] = useState<Record<number, number>>({});
 
   const fetchRecolhedores = async () => {
     setLoading(true);
@@ -78,6 +68,13 @@ const RecolhedoresTab: React.FC = () => {
     try {
       const response = await api.get<Recolhedor[]>("/collectors/list_collectors");
       setRecolhedores(response.data);
+
+      // Calcular saldos iniciais
+      const balances: Record<number, number> = {};
+      response.data.forEach((r) => {
+        balances[r.id] = computeBalance(r, operacoes, payments);
+      });
+      setCalculatedBalances(balances);
     } catch (e: any) {
       setError(e.message);
     } finally {
@@ -85,21 +82,79 @@ const RecolhedoresTab: React.FC = () => {
     }
   };
 
-  const fetchPayments = async (collectorId?: number) => {
+  const fetchAllData = async () => {
+    setLoading(true);
+    setError(null);
+
     try {
-      const query = collectorId ? `?collectorId=${collectorId}` : "";
-      const paymentsResponse = await api.get<Payment[]>(`/api/payments${query}`);
+      // 1. Primeiro carregue as operações (não dependem de outros dados)
+      const operacoesResponse = await api.get<Operacao[]>("/operations/list_operations");
+      setOperacoes(operacoesResponse.data);
+
+      // 2. Carregue todos os recolhedores
+      const recolhedoresResponse = await api.get<Recolhedor[]>("/collectors/list_collectors");
+      setRecolhedores(recolhedoresResponse.data);
+
+      // 3. Carregue todos os pagamentos (sem filtro inicial)
+      const paymentsResponse = await api.get<Payment[]>("/api/payments");
       setPayments(paymentsResponse.data);
-    } catch (error) {
-      console.error("Erro ao buscar pagamentos:", error);
+
+      // 4. Agora calcule os saldos iniciais com todos os dados disponíveis
+      const initialBalances: Record<number, number> = {};
+      recolhedoresResponse.data.forEach((r) => {
+        initialBalances[r.id] = computeBalance(r, operacoesResponse.data, paymentsResponse.data);
+      });
+      setCalculatedBalances(initialBalances);
+
+      // 5. Calcule o saldo acumulado
+      const totalBalance = Object.values(initialBalances).reduce((a, b) => a + b, 0);
+      setSaldoAcumulado(totalBalance);
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
     }
   };
 
+  // Substitua o useEffect inicial por:
   useEffect(() => {
-    fetchRecolhedores();
-    fetchData();
-    fetchPayments();
+    fetchAllData();
   }, []);
+
+  // Atualize a função abrirCaixa para lidar com o carregamento específico:
+  const abrirCaixa = async (recolhedor: Recolhedor) => {
+    setSelectedRecolhedor(recolhedor);
+    try {
+      // Carrega os dados específicos do recolhedor
+      const [recolhedorDetalhes, paymentsFiltrados] = await Promise.all([
+        api.get<Recolhedor>(`/collectors/list_collector/${recolhedor.id}`),
+        api.get<Payment[]>(`/api/payments?collectorId=${recolhedor.id}`),
+      ]);
+
+      // Atualiza os pagamentos mantendo os existentes e adicionando os filtrados
+      setPayments((prevPayments) => {
+        const updatedPayments = [
+          ...prevPayments.filter((p) => p.collectorId !== recolhedor.id),
+          ...paymentsFiltrados.data,
+        ];
+
+        // Recalcula os saldos com os novos dados
+        const updatedBalances: Record<number, number> = {};
+        recolhedores.forEach((r) => {
+          updatedBalances[r.id] = computeBalance(r, operacoes, updatedPayments);
+        });
+        setCalculatedBalances(updatedBalances);
+
+        return updatedPayments;
+      });
+
+      setSelectedRecolhedor(recolhedorDetalhes.data);
+    } catch (error: any) {
+      console.error("Erro ao buscar detalhes do recolhedor:", error.message);
+      alert("Erro ao carregar detalhes do recolhedor.");
+      setSelectedRecolhedor(null);
+    }
+  };
 
   // Clear new payment highlight after 3 seconds
   useEffect(() => {
@@ -126,20 +181,6 @@ const RecolhedoresTab: React.FC = () => {
       alert(`Erro ao salvar recolhedor: ${e.message}`);
     }
   };
-
-  const abrirCaixa = async (recolhedor: Recolhedor) => {
-    setSelectedRecolhedor(recolhedor);
-    try {
-      const response = await api.get<Recolhedor>(`/collectors/list_collector/${recolhedor.id}`);
-      setSelectedRecolhedor(response.data); // Update with transactions
-      fetchPayments(recolhedor.id); // Fetch payments for this collector
-    } catch (error: any) {
-      console.error("Erro ao buscar detalhes do recolhedor:", error.message);
-      alert("Erro ao carregar detalhes do recolhedor.");
-      setSelectedRecolhedor(null);
-    }
-  };
-
   const fecharCaixa = () => {
     setSelectedRecolhedor(null);
     setValorPagamento(0);
@@ -156,36 +197,33 @@ const RecolhedoresTab: React.FC = () => {
     setIsProcessingPayment(true);
 
     try {
-      // Create payment using the new API endpoint
       const paymentData = {
         collectorId: selectedRecolhedor.id,
         amount: valorPagamento,
         description: descricaoPagamento,
-        date: new Date(`${dataPagamento}T00:00:00`).toISOString(), // <-- CORRIGIDO
+        date: new Date(`${dataPagamento}T00:00:00`).toISOString(),
       };
 
       const response = await api.post("/api/payments", paymentData);
-      console.log("response ", response);
-
-      // Refresh payments list
-      fetchPayments(selectedRecolhedor.id);
-
-      // Update local state with the new payment
       const newPayment: Payment = response.data;
-      setNewPaymentId(`pay-${newPayment.id}`);
 
-      // Update the collector's balance
-      const updatedBalance = selectedRecolhedor.balance + valorPagamento;
+      // Atualizar a lista de pagamentos
+      const updatedPayments = [...payments, newPayment];
+      setPayments(updatedPayments);
 
-      // Update the recolhedor in the list
-      const updatedRecolhedores = recolhedores.map((r) =>
-        r.id === selectedRecolhedor.id ? { ...r, balance: updatedBalance } : r
-      );
+      // Recalcular o saldo para este recolhedor
+      const updatedBalance = computeBalance(selectedRecolhedor, operacoes, updatedPayments);
 
-      setRecolhedores(updatedRecolhedores);
-      setSelectedRecolhedor({ ...selectedRecolhedor, balance: updatedBalance });
+      // Atualizar o estado de saldos calculados
+      setCalculatedBalances((prev) => ({
+        ...prev,
+        [selectedRecolhedor.id]: updatedBalance,
+      }));
 
-      // Reset form
+      // Atualizar o saldo acumulado
+      setSaldoAcumulado(Object.values(calculatedBalances).reduce((a, b) => a + b, 0) + valorPagamento);
+
+      // Resetar o formulário
       setValorPagamento(0);
       setDescricaoPagamento("");
       setDataPagamento(new Date().toISOString().split("T")[0]);
@@ -218,27 +256,21 @@ const RecolhedoresTab: React.FC = () => {
   };
 
   function computeBalance(r: Recolhedor, ops: Operacao[], payments: Payment[]) {
-    // Get all operations for this collector and convert to negative values
-    console.log("payments", payments);
-
     const collectorOperations = ops
       .filter((o) => o.collectorId === r.id)
       .map((o) => ({
         date: o.date,
-        value: -(o.value / (o.collectorTax || r.tax || 1)), // Negative value for operations
+        value: -(o.value / (o.collectorTax || r.tax || 1)),
         type: "operation",
       }));
 
-    // Get all payments for this collector (positive values)
     const collectorPayments = payments
       .filter((p) => p.collectorId === r.id)
       .map((p) => ({
         date: p.date,
-        value: p.amount, // Positive value for payments
+        value: p.amount,
         type: "payment",
       }));
-
-    console.log("collector", collectorPayments);
 
     // Combine and sort by date
     const allTransactions = [...collectorOperations, ...collectorPayments].sort(
@@ -346,10 +378,10 @@ const RecolhedoresTab: React.FC = () => {
 
                     <td
                       className={`py-2 px-4 border text-center font-bold ${
-                        computeBalance(r, operacoes, payments) < 0 ? "text-red-600" : "text-green-600"
+                        calculatedBalances[r.id] < 0 ? "text-red-600" : "text-green-600"
                       }`}
                     >
-                      {formatCurrency(computeBalance(r, operacoes, payments))}
+                      {formatCurrency(calculatedBalances[r.id] || 0)}
                     </td>
                     <td className="py-2 px-4 border space-x-2 text-center">
                       <motion.button
@@ -406,10 +438,10 @@ const RecolhedoresTab: React.FC = () => {
                   SALDO:{" "}
                   <span
                     className={`font-bold ${
-                      computeBalance(selectedRecolhedor, operacoes, payments) < 0 ? "text-red-600" : "text-green-600"
+                      calculatedBalances[selectedRecolhedor.id] < 0 ? "text-red-600" : "text-green-600"
                     }`}
                   >
-                    {formatCurrency(computeBalance(selectedRecolhedor, operacoes, payments))}
+                    {formatCurrency(calculatedBalances[selectedRecolhedor.id] || 0)}
                   </span>
                 </span>
                 <motion.button
@@ -506,7 +538,7 @@ const RecolhedoresTab: React.FC = () => {
                       </tr>
                     </thead>
                     <tbody>
-                    <AnimatePresence>
+                      <AnimatePresence>
                         {[
                           ...(selectedRecolhedor.transacoes || []),
                           ...operacoes
