@@ -1,36 +1,52 @@
-// Nome do cache
-const CACHE_NAME = 'black-rabbit-cache';
+// 📦 Nome do cache com base no timestamp do build
+const CACHE_NAME = `black-rabbit-cache-${Date.now()}`;
 
-// Evento de instalação do Service Worker
-self.addEventListener('install', (event) => {
-  console.log('Service Worker: Instalado');
-  
-  // Não precisamos fazer nada de específico durante a instalação
-  // Apenas aguardamos a ativação
-  self.skipWaiting(); // Força a ativação imediata do Service Worker
+// 📥 Instalação do SW
+self.addEventListener('install', () => {
+  console.log('🛠️ Service Worker: Instalado');
+  self.skipWaiting(); // Ativa imediatamente
 });
 
-// Evento de ativação do Service Worker
+// 🚀 Ativação e limpeza de caches antigos
 self.addEventListener('activate', (event) => {
-  console.log('Service Worker: Ativado');
-  
-  // Ao ativar, limpar todos os caches antigos
+  console.log('⚙️ Service Worker: Ativado');
+
   event.waitUntil(
-    caches.keys().then((cacheNames) => {
-      return Promise.all(
-        cacheNames.map((cacheName) => {
-          // Exclui todos os caches, independentemente do nome
-          console.log(`Service Worker: Limpando cache ${cacheName}`);
-          return caches.delete(cacheName);
+    (async () => {
+      const cacheNames = await caches.keys();
+      await Promise.all(
+        cacheNames.map((name) => {
+          if (!name.startsWith(CACHE_NAME)) {
+            console.log(`🧹 Deletando cache antigo: ${name}`);
+            return caches.delete(name);
+          }
         })
       );
-    })
+
+      await self.clients.claim();
+
+      // 🔄 Notifica os clients para recarregarem
+      const clients = await self.clients.matchAll({ includeUncontrolled: true });
+      clients.forEach((client) => {
+        client.postMessage({ type: 'RELOAD_PAGE' });
+      });
+    })()
   );
 });
 
-// Evento de interceptação de requisições (fetch)
+// 🌐 Intercepta requisições e sempre busca da rede
 self.addEventListener('fetch', (event) => {
-  event.respondWith(
-    fetch(event.request) // Faz uma nova requisição de rede sempre
-  );
+  event.respondWith(fetch(event.request));
+});
+
+// 📩 Listener de mensagens do Service Worker
+self.addEventListener('message', (event) => {
+  if (event.data?.type === 'RELOAD_PAGE') {
+    console.log('🟢 Atualização detectada. Recarregando...');
+    self.clients.matchAll().then((clients) => {
+      clients.forEach((client) => {
+        client.postMessage({ type: 'RELOAD_PAGE' });
+      });
+    });
+  }
 });
