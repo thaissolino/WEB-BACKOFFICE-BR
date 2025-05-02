@@ -535,6 +535,7 @@ const RecolhedoresTab: React.FC = () => {
                         <th className="py-2 px-4 border">DATA</th>
                         <th className="py-2 px-4 border">DESCRIÇÃO</th>
                         <th className="py-2 px-4 border">VALOR (USD)</th>
+                        <th className="py-2 px-4 border">AÇÕES</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -547,7 +548,7 @@ const RecolhedoresTab: React.FC = () => {
                               id: `op-${op.id}`,
                               date: op.date || new Date().toISOString(),
                               valor: -(op.value || 0) / (op.collectorTax || selectedRecolhedor.tax || 1),
-                              descricao: `Operação #${op.id} - ${op.city || ""}`,
+                              descricao: `operação #${op.id} · ${op.city?.toLowerCase() || ""}`,
                               tipo: "debito",
                             })),
                           ...payments
@@ -560,8 +561,8 @@ const RecolhedoresTab: React.FC = () => {
                               tipo: p.amount < 0 ? "debito" : "pagamento",
                             })),
                         ]
-                          .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()) // Ordena por data crescente
-                          .slice(-6)
+                        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()) // ✅ mais recente por último
+                        .slice(-6)
                           .map((t) => (
                             <motion.tr
                               key={t.id}
@@ -596,13 +597,21 @@ const RecolhedoresTab: React.FC = () => {
                               }
                             >
                               <td className="py-2 px-4 border">{formatDate(t.date)}</td>
-                              <td className="py-2 px-4 border">{t.descricao}</td>
+                              <td className="py-2 px-4 border text-sm text-gray-700">{t.descricao}</td>
                               <td
                                 className={`py-2 px-4 border text-right ${
                                   t.valor < 0 ? "text-red-600" : "text-green-600"
                                 }`}
                               >
                                 {formatCurrency(t.valor)}
+                              </td>
+                              <td className="py-2 px-4 border text-right">
+                              <button
+                                // onClick={() => deletarTransacao(t.id)}
+                                className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded justify-self-end"
+                              >
+                                <i className="fas fa-trash"></i>
+                              </button>
                               </td>
                             </motion.tr>
                           ))}
