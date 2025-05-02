@@ -229,6 +229,16 @@ const FornecedoresTab: React.FC = () => {
     setShowConfirmModal(false);
   };
 
+  const deletarPagamento = async (id: number) => {
+    try {
+      await api.delete(`/api/delete_payment/${id}`);
+      setPayments((prev) => prev.filter((p) => p.id !== id));
+      alert("Pagamento deletado com sucesso.");
+    } catch (e: any) {
+      alert(`Erro ao deletar pagamento: ${e.message}`);
+    }
+  };
+
   function computeBalance(f: Fornecedor, ops: Operacao[], pays: Payment[]) {
     // Operações para este fornecedor (créditos)
     const supplierOperations = ops
@@ -580,7 +590,7 @@ const FornecedoresTab: React.FC = () => {
                               </td>
                               <td className="py-2 px-4 border text-right">
                                 <button
-                                  // onClick={() => deletarTransacao(t.id)}
+                                  onClick={() => deletarPagamento(Number(t.id.toString().replace("pay-", "")))}
                                   className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded justify-self-end"
                                 >
                                   <i className="fas fa-trash"></i>
