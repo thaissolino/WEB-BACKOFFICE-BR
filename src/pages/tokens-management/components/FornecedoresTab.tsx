@@ -169,11 +169,14 @@ const FornecedoresTab: React.FC = () => {
     setIsProcessingPayment(true);
 
     try {
+      const isHoje = dataPagamento === new Date().toISOString().split("T")[0];
+      const dataFinal = isHoje ? new Date().toISOString() : new Date(`${dataPagamento}T00:00:00`).toISOString();
+
       const paymentData = {
         supplierId: fornecedorSelecionado.id,
         amount: valorPagamento,
         description: descricaoPagamento,
-        date: new Date(`${dataPagamento}T00:00:00`).toISOString(),
+        date: dataFinal,
       };
 
       const response = await api.post("/api/payments", paymentData);
@@ -500,6 +503,7 @@ const FornecedoresTab: React.FC = () => {
                         <th className="py-2 px-4 border">DATA</th>
                         <th className="py-2 px-4 border">DESCRIÇÃO</th>
                         <th className="py-2 px-4 border">VALOR (USD)</th>
+                        <th className="py-2 px-4 border">AÇÕES</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -526,7 +530,7 @@ const FornecedoresTab: React.FC = () => {
                             })),
                         ]
                           .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()) // ✅ mais recente por último
-                          .slice(-6)
+                          .slice(0, 6)
                           .map((t) => (
                             <motion.tr
                               key={t.id}
@@ -560,7 +564,12 @@ const FornecedoresTab: React.FC = () => {
                                   : ""
                               }
                             >
-                              <td className="py-2 px-4 border">{formatDate(t.date)}</td>
+                              <td className="py-2 px-4 border text-sm text-gray-700">
+                                <div className="flex items-center gap-2" title={new Date(t.date).toISOString()}>
+                                  <i className="fas fa-clock text-gray-500"></i>
+                                  {formatDate(t.date)}
+                                </div>
+                              </td>
                               <td className="py-2 px-4 border text-sm text-gray-700">{t.descricao}</td>
                               <td
                                 className={`py-2 px-4 border text-right ${
