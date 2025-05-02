@@ -197,11 +197,14 @@ const RecolhedoresTab: React.FC = () => {
     setIsProcessingPayment(true);
 
     try {
+      const isHoje = dataPagamento === new Date().toISOString().split("T")[0];
+      const dataFinal = isHoje ? new Date().toISOString() : new Date(`${dataPagamento}T00:00:00`).toISOString();
+
       const paymentData = {
         collectorId: selectedRecolhedor.id,
         amount: valorPagamento,
         description: descricaoPagamento,
-        date: new Date(`${dataPagamento}T00:00:00`).toISOString(),
+        date: dataFinal,
       };
 
       const response = await api.post("/api/payments", paymentData);
@@ -561,8 +564,8 @@ const RecolhedoresTab: React.FC = () => {
                               tipo: p.amount < 0 ? "debito" : "pagamento",
                             })),
                         ]
-                        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()) // ✅ mais recente por último
-                        .slice(-6)
+                          .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()) // ✅ mais recente por último
+                          .slice(0, 6)
                           .map((t) => (
                             <motion.tr
                               key={t.id}
@@ -596,7 +599,12 @@ const RecolhedoresTab: React.FC = () => {
                                   : ""
                               }
                             >
-                              <td className="py-2 px-4 border">{formatDate(t.date)}</td>
+                              <td className="py-2 px-4 border text-sm text-gray-700">
+                                <div className="flex items-center gap-2" title={new Date(t.date).toISOString()}>
+                                  <i className="fas fa-clock text-gray-500"></i>
+                                  {formatDate(t.date)}
+                                </div>
+                              </td>
                               <td className="py-2 px-4 border text-sm text-gray-700">{t.descricao}</td>
                               <td
                                 className={`py-2 px-4 border text-right ${
@@ -606,12 +614,12 @@ const RecolhedoresTab: React.FC = () => {
                                 {formatCurrency(t.valor)}
                               </td>
                               <td className="py-2 px-4 border text-right">
-                              <button
-                                // onClick={() => deletarTransacao(t.id)}
-                                className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded justify-self-end"
-                              >
-                                <i className="fas fa-trash"></i>
-                              </button>
+                                <button
+                                  // onClick={() => deletarTransacao(t.id)}
+                                  className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded justify-self-end"
+                                >
+                                  <i className="fas fa-trash"></i>
+                                </button>
                               </td>
                             </motion.tr>
                           ))}
