@@ -1,7 +1,7 @@
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuthBackoffice } from "../../../hooks/authBackoffice";
-import blackRabbitLogo from "../../../assets/icons/black-rabbit-logo.jpg"; // Atualize com o caminho do logo apropriado
+import blackRabbitLogo from "../../../assets/icons/black-rabbit-logo.jpg";
 
 export function SignIn() {
   const navigate = useNavigate();
@@ -11,14 +11,43 @@ export function SignIn() {
   const [password, setPassword] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
 
+  // 🔁 Toast de atualização do Service Worker
+  useEffect(() => {
+    const toast = document.createElement("div");
+    toast.innerHTML = `
+      <div class="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-50 bg-green-600 text-white px-6 py-3 rounded-full shadow-lg animate-fadeIn toast-shadow">
+        Nova versão disponível! Atualizando...
+        <div class="h-1 bg-white mt-2 rounded animate-progressBar"></div>
+      </div>
+    `;
+
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.addEventListener("message", (event) => {
+        if (event.data?.type === "RELOAD_PAGE") {
+          document.body.appendChild(toast);
+          setTimeout(() => {
+            window.location.reload();
+          }, 2000);
+        }
+      });
+
+      window.addEventListener("load", () => {
+        navigator.serviceWorker
+          .register("/service-worker.js")
+          .then((reg) => console.log("✅ SW registrado na tela de login:", reg))
+          .catch((err) => console.error("❌ Erro ao registrar SW no login:", err));
+      });
+    }
+  }, []);
+
   async function handleForm(e: FormEvent) {
     e.preventDefault();
-  
+
     if (!(email.trim().length > 0 && password.trim().length > 0)) {
       alert("Preencha todos os campos!");
-      return; // Impede o envio se os campos estiverem vazios
+      return;
     }
-  
+
     try {
       await onSignIn({ email, password });
       localStorage.setItem("@backofficev2:token", "fakeToken");
@@ -28,7 +57,6 @@ export function SignIn() {
       console.error(err);
     }
   }
-  
 
   return (
     <>
@@ -42,7 +70,7 @@ export function SignIn() {
           <div className="text-center">
             <img src={blackRabbitLogo} alt="Black Rabbit Logo" className="mx-auto h-16 w-auto" />
             <h2 className="mt-6 text-3xl font-extrabold text-gray-900" style={{ fontFamily: "Orbitron, sans-serif" }}>
-              Bem-vindo ao <br/> <span className="text-indigo-500">Black Rabbit</span>
+              Bem-vindo ao <br /> <span className="text-indigo-500">Black Rabbit</span>
             </h2>
             <p
               className="mt-2 text-sm text-gray-600"
@@ -64,9 +92,7 @@ export function SignIn() {
           <form className="mt-8 space-y-6" onSubmit={handleForm}>
             <div className="-space-y-px rounded-md shadow-sm">
               <div>
-                <label htmlFor="email" className="sr-only">
-                  Email
-                </label>
+                <label htmlFor="email" className="sr-only">Email</label>
                 <input
                   id="email"
                   name="email"
@@ -79,9 +105,7 @@ export function SignIn() {
                 />
               </div>
               <div>
-                <label htmlFor="password" className="sr-only">
-                  Senha
-                </label>
+                <label htmlFor="password" className="sr-only">Senha</label>
                 <input
                   id="password"
                   name="password"
