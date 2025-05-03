@@ -55,7 +55,7 @@ const CaixasTab: React.FC = () => {
       setCaixas(res.data);
     } catch (error) {
       console.error("Erro ao buscar caixas:", error);
-      Swal.fire("Erro", "Erro ao carregar caixas.", "error");
+      // Swal.fire("Erro", "Erro ao carregar caixas.", "error");
     } finally {
       setLoadingFetch(false);
     }
