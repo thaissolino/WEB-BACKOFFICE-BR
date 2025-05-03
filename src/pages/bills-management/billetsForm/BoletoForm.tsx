@@ -3,6 +3,7 @@ import { Boleto } from "./types";
 import { Camera } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import ScannBillsBackoffice from "../../scann-bills/index-funcionando-mocado-apenas";
+import { api } from "../../../services/api";
 
 interface BoletoFormProps {
   addBoleto: (boleto: Boleto) => void;
@@ -16,24 +17,63 @@ const BoletoForm: React.FC<BoletoFormProps> = ({ addBoleto }) => {
   const [status, setStatus] = useState("pendente");
   const [showScanner, setShowScanner] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // const handleSubmit = (e: React.FormEvent) => {
+  //   e.preventDefault();
+  //   const newBoleto: Boleto = {
+  //     id: Date.now(),
+  //     codigo: codigoBoleto,
+  //     dataPagamento,
+  //     valor,
+  //     referencia,
+  //     status,
+  //   };
+  //   addBoleto(newBoleto);
+  //   setCodigoBoleto("");
+  //   setDataPagamento("");
+  //   setValor(0);
+  //   setReferencia("");
+  //   setStatus("pendente");
+  // };
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const newBoleto: Boleto = {
-      id: Date.now(),
-      codigo: codigoBoleto,
-      dataPagamento,
-      valor,
-      referencia,
-      status,
+  
+    const newBoleto = {
+      name: referencia,
+      description: referencia,
+      data: {
+        valor,
+        vencimento: dataPagamento,
+        status,
+        codigo: codigoBoleto, 
+      },
     };
-    addBoleto(newBoleto);
-    setCodigoBoleto("");
-    setDataPagamento("");
-    setValor(0);
-    setReferencia("");
-    setStatus("pendente");
+  
+    try {
+      const response = await api.post("/billets/create_billet", newBoleto);
+      
+      const createdBoleto: Boleto = {
+        id: response.data.id,
+        codigo: codigoBoleto,
+        dataPagamento,
+        valor,
+        referencia,
+        status,
+      };
+  
+      addBoleto(createdBoleto);
+  
+      // Resetar formulário
+      setCodigoBoleto("");
+      setDataPagamento("");
+      setValor(0);
+      setReferencia("");
+      setStatus("pendente");
+    } catch (error) {
+      console.error("Erro ao criar boleto:", error);
+      alert("Erro ao registrar boleto.");
+    }
   };
-
+  
 
   const handleShowScanner = () => {
     setShowScanner(true); // Exibe o componente
@@ -67,7 +107,7 @@ const BoletoForm: React.FC<BoletoFormProps> = ({ addBoleto }) => {
               padding: 0, // Remove qualquer padding extra
             }}
             onClick={handleShowScanner}
-            >
+          >
             <Camera size={24} /> {/* Ícone de câmera com tamanho ajustado */}
           </button>
           {showScanner && <ScannBillsBackoffice handleClose={handleClose} />}
