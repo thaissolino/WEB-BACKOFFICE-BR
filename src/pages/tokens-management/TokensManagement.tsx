@@ -3,9 +3,10 @@ import OperacoesTab from './components/OperacoesTab';
 import RecolhedoresTab from './components/RecolhedoresTab';
 import FornecedoresTab from './components/FornecedoresTab';
 import LucrosTab from './components/LucrosTab';
+import LucrosRecolhedoresTab from './components/LucrosRecolhedoresTab';
 
 const TokensManagement: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'operacoes' | 'recolhedores' | 'fornecedores' | 'lucros'>('operacoes');
+  const [activeTab, setActiveTab] = useState<'operacoes' | 'recolhedores' | 'fornecedores' | 'lucros' | 'lucros-recolhedores'>('operacoes');
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -66,6 +67,18 @@ const TokensManagement: React.FC = () => {
               <i className="fas fa-chart-line mr-2"></i> LUCROS
             </button>
           </li>
+          <li className="mr-2">
+            <button
+              className={`inline-block p-4 rounded-t-lg border-b-2 ${
+                activeTab === 'lucros-recolhedores'
+                  ? 'border-blue-600 text-blue-600'
+                  : 'border-transparent hover:text-gray-600 hover:border-gray-300'
+              }`}
+              onClick={() => setActiveTab('lucros-recolhedores')}
+            >
+              <i className="fas fa-chart-line mr-2"></i> LUCROS RECOLHEDORES
+            </button>
+          </li>
         </ul>
       </div>
 
@@ -75,6 +88,7 @@ const TokensManagement: React.FC = () => {
         {activeTab === 'recolhedores' && <RecolhedoresTab />}
         {activeTab === 'fornecedores' && <FornecedoresTab />}
         {activeTab === 'lucros' && <LucrosTab />}
+        {activeTab === 'lucros-recolhedores' && <LucrosRecolhedoresTab />}
       </div>
     </div>
   );

@@ -260,6 +260,16 @@ const RecolhedoresTab: React.FC = () => {
     setShowConfirmModal(false);
   };
 
+  const deletarOperacao = async (id: number) => {
+    try {
+      await api.delete(`/operations/delete_operation/${id}`);
+      setOperacoes((prev) => prev.filter((op) => op.id !== id));
+      alert("Operação deletada com sucesso.");
+    } catch (e: any) {
+      alert(`Erro ao deletar operação: ${e.message}`);
+    }
+  };
+
   const deletarPagamento = async (id: number) => {
     try {
       await api.delete(`/api/delete_payment/${id}`);
@@ -626,16 +636,24 @@ const RecolhedoresTab: React.FC = () => {
                             >
                               {formatCurrency(t.valor)}
                             </td>
-                            {t.id.toString().startsWith("pay-") && (
-                              <td className="py-2 px-4 border text-right">
+                            <td className="py-2 px-4 border text-right">
+                              {t.id.toString().startsWith("pay-") && (
                                 <button
                                   onClick={() => deletarPagamento(Number(t.id.toString().replace("pay-", "")))}
                                   className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded justify-self-end"
                                 >
                                   <i className="fas fa-trash"></i>
                                 </button>
-                              </td>
-                            )}
+                              )}
+                              {t.id.toString().startsWith("op-") && (
+                                <button
+                                  onClick={() => deletarOperacao(Number(t.id.toString().replace("op-", "")))}
+                                  className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded justify-self-end"
+                                >
+                                  <i className="fas fa-trash"></i>
+                                </button>
+                              )}
+                            </td>
                           </motion.tr>
                         ))}
                       </AnimatePresence>
