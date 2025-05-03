@@ -12,6 +12,7 @@ export function NewInvoiceForm({ currentInvoice, setCurrentInvoice }: NewInvoice
   const [suppliers, setSuppliers] = useState<any[]>([]);
   const [carriers, setCarriers] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
+  
 
   // Buscar fornecedores, transportadoras e produtos via API
   useEffect(() => {
@@ -131,7 +132,8 @@ export function NewInvoiceForm({ currentInvoice, setCurrentInvoice }: NewInvoice
           name="taxaSpEs"
           value={currentInvoice.taxaSpEs}
           onChange={handleInputChange}
-          className="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500"
+          // className="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500"
+           className="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500 appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
           placeholder="Valor em R$ por item"
         />
       </div>

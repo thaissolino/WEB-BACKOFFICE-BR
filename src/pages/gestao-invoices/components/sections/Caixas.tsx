@@ -1,279 +1,216 @@
-// CÓDIGO COM VISUAL REPRODUZIDO DA IMAGEM REFERÊNCIA
 import React, { useEffect, useState } from "react";
 import ModalCaixa from "../modals/ModalCaixa";
-import { formatCurrency, formatDate } from "../modals/format";
-import ConfirmModal from "../modals/ConfirmModal";
 import { api } from "../../../../services/api";
-import { Operacao } from "../../../../@types/tokens";
+import Swal from "sweetalert2";
+import { GenericSearchSelect } from "./SearchSelect";
+import { Loader2 } from "lucide-react";
 
-interface Transacao {
-  id: number;
+
+export interface Transaction {
+  id: string;
+  value: number;
+  userId: string;
   date: string;
-  valor: number;
-  descricao: string;
-  tipo: "pagamento" | "credito";
+  direction: "IN" | "OUT";
+  description: string;
+  createdAt: string; // pode ser Date se você converter
+  updatedAt: string;
 }
 
-interface Caixa {
-  id: number;
-  userId: number;
-  nome: string;
-  taxa: number;
-  saldo: number;
-  transacoes: Transacao[];
+export interface Caixa {
+  id: string;
+  name: string;
+  description: string;
+  createdAt: string;
+  updatedAt: string;
+  input: number,
+  output: number,
+  balance: number
+  transactions: Transaction[];
 }
 
-const usuariosMock = [
-  { id: 1, nome: "João Silva" },
-  { id: 2, nome: "Maria Oliveira" },
-  { id: 3, nome: "Carlos Souza" },
-  { id: 4, nome: "Ana Lima" },
-  { id: 5, nome: "Fernanda Costa" },
-  { id: 6, nome: "Bruno Rocha" },
-  { id: 7, nome: "Juliana Martins" },
-  { id: 8, nome: "Ricardo Pereira" },
-  { id: 9, nome: "Larissa Melo" },
-  { id: 10, nome: "Felipe Araújo" },
-];
 
 const CaixasTab: React.FC = () => {
   const [caixas, setCaixas] = useState<Caixa[]>([]);
-  const [caixaSelecionado, setCaixaSelecionado] = useState<Caixa | null>(null);
+  const [caixaUser, setCaixaUser] = useState<Caixa>();
   const [showModal, setShowModal] = useState(false);
-  const [editarCaixa, setEditarCaixa] = useState<Caixa | undefined>(undefined);
-  const [valorPagamento, setValorPagamento] = useState<number>(0);
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  const [loadingFetch, setLoadingFetch] = useState(false);
+  const [loadingFetch2, setLoadingFetch2] = useState(false);
+  const [loadingFetch3, setLoadingFetch3] = useState(false);
+  const [dataPagamento, setDataPagamento] = useState("");
+  const [valorPagamento, setValorPagamento] = useState("");
   const [descricaoPagamento, setDescricaoPagamento] = useState("");
-  const [dataPagamento, setDataPagamento] = useState<string>(new Date().toISOString().split("T")[0]);
-  const [caixaToDelete, setCaixaToDelete] = useState<number | null>(null);
-  const [showConfirmModal, setShowConfirmModal] = useState(false);
-  const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
-  const [operacoes, setOperacoes] = useState<Operacao[]>([]);
 
   useEffect(() => {
     fetchData();
   }, []);
 
+  console.log(selectedUserId)
+
   const fetchData = async () => {
+    setLoadingFetch(true);
     try {
-      const operacoesResponse = await api.get<Operacao[]>("/operations/list_operations");
-      console.log("operalçioes", operacoesResponse);
-      setOperacoes(operacoesResponse.data);
+      const res = await api.get("/invoice/box");
+      setCaixas(res.data);
     } catch (error) {
-      console.log("error ao buscar dados das operações", error);
-      console.error("Erro ao buscar dados:", error);
+      console.error("Erro ao buscar caixas:", error);
+      Swal.fire("Erro", "Erro ao carregar caixas.", "error");
+    } finally {
+      setLoadingFetch(false);
     }
   };
 
-  useEffect(() => {
-    if (selectedUserId !== null) {
-      const existe = caixas.some((c) => c.userId === selectedUserId);
-      if (!existe) {
-        const novo: Caixa = {
-          id: Date.now(),
-          userId: selectedUserId,
-          nome: "Caixa Padrão",
-          taxa: 0,
-          saldo: 0,
-          transacoes: [],
-        };
-        const atualizados = [...caixas, novo];
-        setCaixas(atualizados);
-        localStorage.setItem("caixas", JSON.stringify(atualizados));
+  const salvarCaixa = async (nome: string, description: string) => {
+    // Implemente lógica de criação de caixa com POST
+  };
+
+
+  // const formatCurrency = (value: number) => `$${value.toFixed(2)}`;
+  const formatDate = (dateStr: string) => new Date(dateStr).toLocaleDateString();
+
+  const caixaAtual =  caixas?.find((c) => c.id === selectedUserId);
+  console.log(caixaAtual)
+
+  console.log()
+  const fetchDatUser = async () => {
+    // setLoadingFetch(true);
+    try {
+      if(!selectedUserId)return
+      setLoadingFetch2(true)
+      const res = await api.get(`/invoice/box/transaction/${selectedUserId}`);
+      console.log(res.data)
+      setCaixaUser(res.data);
+    } catch (error) {
+      console.error("Erro ao buscar caixas:", error);
+      Swal.fire("Erro", "Erro ao carregar caixas.", "error");
+    } finally {
+      setLoadingFetch2(false)
+    }
+  };
+  
+  console.log(caixaUser)
+  
+  useEffect(()=>{
+    fetchDatUser()
+  },[selectedUserId])
+
+  const submitPayment = async()=>{
+    try {
+      if(!dataPagamento){
+        Swal.fire("Erro", "selecione um data", "error");
+          return
       }
+      if(Number(valorPagamento) === 0){
+        Swal.fire("Erro", "selecione um valor", "error");
+          return
+      }
+      if(!descricaoPagamento){
+        Swal.fire("Erro", "informe uma descrição para o pagamento", "error");
+          return
+      }
+      setLoadingFetch3(true)
+      const res = await api.post(`/invoice/box/transaction`,{
+        value: Math.abs(Number(valorPagamento)),
+        userId: selectedUserId,
+        direction: Number(valorPagamento) > 0 ? "IN" : "OUT",
+        date: dataPagamento,
+        description: descricaoPagamento
+      });
+      console.log(res.data)
+      fetchDatUser()
+    } catch (error) {
+      console.error("Erro ao buscar caixas:", error);
+      Swal.fire("Erro", "Erro ao resgistrar pagamento", "error");
+    } finally {
+      setLoadingFetch3(false)
     }
-  }, [selectedUserId]);
-
-  const salvarCaixa = (nome: string, taxa: number, userId: number) => {
-    if (editarCaixa) {
-      const updated = caixas.map((c) => (c.id === editarCaixa.id ? { ...c, nome, taxa } : c));
-      setCaixas(updated);
-      localStorage.setItem("caixas", JSON.stringify(updated));
-    } else {
-      const novo: Caixa = {
-        id: Date.now(),
-        userId,
-        nome,
-        taxa,
-        saldo: 0,
-        transacoes: [],
-      };
-      const updated = [...caixas, novo];
-      setCaixas(updated);
-      localStorage.setItem("caixas", JSON.stringify(updated));
-    }
-    setShowModal(false);
-    setEditarCaixa(undefined);
-  };
-
-  const abrirCaixa = (caixa: Caixa) => setCaixaSelecionado(caixa);
-  const fecharCaixa = () => {
-    setCaixaSelecionado(null);
-    setValorPagamento(0);
-    setDescricaoPagamento("");
-  };
-
-  const registrarPagamento = () => {
-    if (!caixaSelecionado || !selectedUserId) return;
-    if (!valorPagamento || !descricaoPagamento.trim()) {
-      alert("Preencha todos os campos de pagamento.");
-      return;
-    }
-
-    const novaTransacao: Transacao = {
-      id: Date.now(),
-      date: dataPagamento,
-      valor: valorPagamento,
-      descricao: descricaoPagamento,
-      tipo: "pagamento",
-    };
-
-    const updatedCaixas = caixas.map((c) =>
-      c.id === caixaSelecionado.id
-        ? {
-            ...c,
-            saldo: c.saldo + valorPagamento,
-            transacoes: [...c.transacoes, novaTransacao],
-          }
-        : c
-    );
-
-    setCaixas(updatedCaixas);
-    localStorage.setItem("caixas", JSON.stringify(updatedCaixas));
-    setCaixaSelecionado(updatedCaixas.find((c) => c.id === caixaSelecionado.id) || null);
-    fecharCaixa();
-    alert("Pagamento registrado!");
-  };
-
-  const confirmarDeleteCaixa = (id: number) => {
-    setCaixaToDelete(id);
-    setShowConfirmModal(true);
-  };
-
-  const deletarCaixa = () => {
-    if (caixaToDelete !== null) {
-      const updated = caixas.filter((c) => c.id !== caixaToDelete);
-      setCaixas(updated);
-      localStorage.setItem("caixas", JSON.stringify(updated));
-      setCaixaSelecionado(null);
-      setCaixaToDelete(null);
-    }
-    setShowConfirmModal(false);
-  };
-
-  const caixasDoUsuario = selectedUserId ? caixas.filter((c) => c.userId === selectedUserId) : [];
-  console.log("caixasDoUsuario", caixasDoUsuario);
-  const caixaAtual = caixasDoUsuario[0] || null;
+  }
 
   return (
     <div className="fade-in">
+      {/* Seletor de usuário */}
       <div className="bg-white p-6 rounded-lg shadow mb-6">
-        <label className="block text-sm font-medium text-gray-700 mb-2">Selecione um usuário</label>
-        <div className="flex items-center space-x-4">
-          <select
-            className="border border-gray-300 rounded p-2 w-full"
-            value={selectedUserId || ""}
-            onChange={(e) => {
-              setSelectedUserId(Number(e.target.value));
-              setCaixaSelecionado(null);
-            }}
-          >
-            <option value="" disabled>
-              -- Selecione --
-            </option>
-            {usuariosMock.map((user) => (
-              <option key={user.id} value={user.id}>
-                {user.nome}
-              </option>
-            ))}
-          </select>
-          <button
-            onClick={() => {
-              if (!selectedUserId) return;
-              setEditarCaixa({
-                id: 0,
-                nome: "Caixa Padrão",
-                taxa: 0,
-                saldo: 0,
-                userId: selectedUserId,
-                transacoes: [],
-              });
-              setShowModal(true);
-            }}
-            className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded"
-            disabled={!selectedUserId}
-          >
-            <i className="fas fa-plus mr-2"></i> ADICIONAR
-          </button>
-        </div>
+
+        {loadingFetch ? (
+          <div className="flex items-center space-x-4">
+          <p className="text-sm text-gray-500">Carregando caixas...</p>
+          </div>
+        ) : (
+          <div className="flex items-center space-x-4">
+          <GenericSearchSelect 
+              items={caixas} 
+              value={selectedUserId!} 
+              getLabel={(p) => p.name}
+              getId={(p) => p.id}
+              onChange={setSelectedUserId}
+              label="Selecione um usuário"
+          />
+           <button
+              onClick={() => setShowModal(true)}
+              className="bg-blue-500 flex flex-row text-center items-center hover:bg-blue-600 text-white px-4 py-2 rounded"
+              disabled={loadingFetch}
+            >
+              <i className="fas fa-plus mr-2"></i> ADICIONAR
+            </button>
+          </div>
+        )}
       </div>
 
-      <div className="bg-white p-6 rounded-lg shadow mb-6">
-        <h2 className="text-blue-600 font-semibold text-lg flex items-center mb-2">
-          <i className="fas fa-store mr-2"></i> CAIXAS INDIVIDUAIS
-        </h2>
-        <table className="min-w-full bg-white">
-          <thead>
-            <tr className="bg-gray-100 text-gray-700">
-              <th className="py-2 px-4 border">NOME</th>
-              <th className="py-2 px-4 border">TAXA</th>
-              <th className="py-2 px-4 border">SALDO (USD)</th>
-              <th className="py-2 px-4 border">AÇÕES</th>
-            </tr>
-          </thead>
-          <tbody>
-            {caixasDoUsuario.map((c) => (
-              <tr key={c.id} className="hover:bg-gray-50">
-                <td className="py-2 px-4 border">{c.nome}</td>
-                <td className="py-2 px-4 border">{c.taxa}</td>
-                <td
-                  className={`py-2 px-4 border text-right font-bold ${c.saldo < 0 ? "text-red-600" : "text-green-600"}`}
-                >
-                  {formatCurrency(c.saldo)}
-                </td>
-                <td className="py-2 px-4 border space-x-2 text-center">
-                  <button
-                    onClick={() => abrirCaixa(c)}
-                    className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded"
-                  >
-                    Caixa
-                  </button>
-                  <button
-                    onClick={() => {
-                      setEditarCaixa(c);
-                      setShowModal(true);
-                    }}
-                    className="bg-yellow-400 hover:bg-yellow-500 text-white px-3 py-1 rounded"
-                  >
-                    Editar
-                  </button>
-                  <button
-                    onClick={() => confirmarDeleteCaixa(c.id)}
-                    className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded"
-                  >
-                    <i className="fas fa-trash"></i>
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
+      {/* Dados do caixa selecionado */}
       {caixaAtual && (
         <div className="bg-white p-6 rounded-lg shadow mb-6">
           <div className="flex justify-between items-start mb-4">
             <h2 className="text-blue-600 font-semibold text-lg flex items-center">
-              <i className="fas fa-store mr-2"></i> CAIXA DE {caixaAtual.nome}
+              <i className="fas fa-store mr-2"></i> CAIXA DE {caixaAtual.name}
             </h2>
             <div className="text-sm text-right">
-              SALDO:{" "}
-              <span className={`font-bold ${caixaAtual.saldo < 0 ? "text-red-600" : "text-green-600"}`}>
-                {formatCurrency(caixaAtual.saldo)}
-              </span>
-            </div>
+  Entradas:{" "}
+  <span className="mr-4 font-bold text-green-600">
+    {loadingFetch2 ? (
+      <Loader2 className="inline w-4 h-4 animate-spin text-blue-500" />
+    ) : (
+      `$ ${(caixaUser?.input ?? 0).toLocaleString("en-US", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })}`
+    )}
+  </span>
+
+  Saídas:{" "}
+  <span className="mr-4 font-bold text-red-600">
+    {loadingFetch2 ? (
+      <Loader2 className="inline w-4 h-4 animate-spin text-blue-500" />
+    ) : (
+      `$ ${(caixaUser?.output ?? 0).toLocaleString("en-US", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })}`
+    )}
+  </span>
+
+  SALDO:{" "}
+  <span
+    className={`mr-2 font-bold ${
+      (caixaUser?.balance ?? 0) < 0 ? "text-red-600" : "text-green-600"
+    }`}
+  >
+    {loadingFetch2 ? (
+      <Loader2 className="inline w-4 h-4 animate-spin text-blue-500" />
+    ) : (
+      `$ ${(caixaUser?.balance ?? 0).toLocaleString("en-US", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })}`
+    )}
+  </span>
+</div>
+
+
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Registrar pagamento */}
             <div className="bg-gray-50 p-4 rounded border">
               <h3 className="font-medium mb-3 text-blue-700 border-b pb-2 flex items-center">
                 <i className="fas fa-hand-holding-usd mr-2"></i> REGISTRAR PAGAMENTO
@@ -291,11 +228,10 @@ const CaixasTab: React.FC = () => {
                 <div>
                   <label className="block text-sm font-medium text-gray-700">VALOR (USD)</label>
                   <input
-                    type="number"
-                    
-                    className="mt-1 block w-full border border-gray-300 rounded-md p-2"
+                    type="text"
+                    className="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500 appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                     value={valorPagamento}
-                    onChange={(e) => setValorPagamento(Number(e.target.value))}
+                    onChange={(e) => setValorPagamento(e.target.value)}
                   />
                 </div>
                 <div>
@@ -308,14 +244,26 @@ const CaixasTab: React.FC = () => {
                   />
                 </div>
                 <button
-                  onClick={registrarPagamento}
-                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded w-full"
+                  onClick={submitPayment}
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded w-full flex items-center justify-center"
+                  disabled={loadingFetch3}
                 >
-                  <i className="fas fa-check mr-2"></i> REGISTRAR
+                  {loadingFetch3 ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                      Registrando...
+                    </>
+                  ) : (
+                    <>
+                      <i className="fas fa-check mr-2"></i> REGISTRAR
+                    </>
+                  )}
                 </button>
+
               </div>
             </div>
 
+            {/* Histórico */}
             <div>
               <h3 className="font-medium mb-2 border-b pb-2">HISTÓRICO DE TRANSAÇÕES (ÚLTIMOS 6)</h3>
               <div className="overflow-x-auto max-h-96">
@@ -328,43 +276,56 @@ const CaixasTab: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {caixaAtual.transacoes
+                  {loadingFetch2 ? (
+                    <tr>
+                      <td colSpan={3} className="text-center py-4 text-blue-600">
+                        <Loader2 className="inline animate-spin w-4 h-4 mr-2" />
+                        Carregando transações...
+                      </td>
+                    </tr>
+                  ) : caixaUser?.transactions?.length ? (
+                    caixaUser.transactions
                       .slice(-6)
                       .reverse()
                       .map((t) => (
                         <tr key={t.id} className="bg-red-50">
-                          <td className="py-2 px-4 border">{formatDate(t.date)}</td>
-                          <td className="py-2 px-4 border">{t.descricao}</td>
+                          <td className="py-2 px-4 border text-center">{new Date(new Date(t.date).getTime() + 3 * 60 * 60 * 1000).toLocaleDateString("pt-BR")}</td>
+                          <td className="py-2 px-4 border text-center">{t.description}</td>
                           <td
                             className={`py-2 px-4 border text-right ${
-                              t.tipo === "credito" ? "text-red-600" : "text-green-600"
+                              t.direction === "OUT" ? "text-red-600" : "text-green-600"
                             }`}
                           >
-                            {t.tipo === "credito" ? "-" : "+"}
-                            {formatCurrency(Math.abs(t.valor))}
+                            {`${t.direction === "OUT" ? "-" : "+"} $ ${t.value.toLocaleString("en-US", {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            })}`}
                           </td>
                         </tr>
-                      ))}
-                  </tbody>
+                      ))
+                  ) : (
+                    <tr>
+                      <td colSpan={3} className="text-center py-4 text-gray-500">
+                        Nenhuma transação registrada.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+                  
                 </table>
+                
               </div>
             </div>
           </div>
         </div>
       )}
 
+      {/* Modal de adicionar caixa */}
       <ModalCaixa
         isOpen={showModal}
         onClose={() => setShowModal(false)}
         onSave={salvarCaixa}
-        fornecedorEdit={editarCaixa}
-      />
-      <ConfirmModal
-        isOpen={showConfirmModal}
-        title="Confirmar Exclusão"
-        message="Tem certeza que deseja deletar este caixa?"
-        onConfirm={deletarCaixa}
-        onClose={() => setShowConfirmModal(false)}
+        fetchDataUser={fetchData}
       />
     </div>
   );
