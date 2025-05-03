@@ -50,11 +50,6 @@ const BoletoForm: React.FC<BoletoFormProps> = ({ addBoleto }) => {
       }
     };
   
-    if (valor === null) {
-      alert("Preencha o valor do boleto.");
-      return;
-    }
-    
     try {
       const response = await api.post("/billets/create_billet", newBoleto);
       

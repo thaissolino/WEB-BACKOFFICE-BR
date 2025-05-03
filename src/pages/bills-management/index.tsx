@@ -50,7 +50,6 @@ const BillsManagement: React.FC<TopbarProps> = ({ setIsSidebar, isSidebar }) => 
       .then((res) => {
         const adaptados = res.data.map((boleto: any) => {
           const dados = boleto.data?.set ?? {}; // ← ACESSA `set` corretamente
-         
           return {
             id: boleto.id,
             codigo: dados.codigo ?? "n/a",
@@ -60,9 +59,7 @@ const BillsManagement: React.FC<TopbarProps> = ({ setIsSidebar, isSidebar }) => 
             status: dados.status ?? "pendente",
           };
         });
-
         setBoletos(adaptados);
-        console.log("adaptados", adaptados);
       })
       .catch((err) => {
         console.error("Erro ao carregar boletos:", err);
