@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Boleto } from "./types";
 import { formatCurrency, formatDate, formatStatus } from "./utils";
+import { api } from "../../../services/api";
 
 interface ModalBoletoProps {
   boleto: Boleto;
@@ -11,6 +12,20 @@ interface ModalBoletoProps {
 const ModalBoleto: React.FC<ModalBoletoProps> = ({ boleto, closeModal, saveChanges }) => {
   const [novoStatus, setNovoStatus] = useState(boleto.status);
 
+  const handleSave = async () => {
+    try {
+      await api.patch(`/billets/update_billet/${boleto.id}`, {
+        status: novoStatus,
+      });
+  
+      saveChanges(novoStatus); // atualiza no front
+      closeModal();
+    } catch (error) {
+      console.error("Erro ao atualizar status do boleto:", error);
+      alert("Erro ao atualizar o status do boleto.");
+    }
+  };
+  
   return (
     <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto mx-4">
@@ -63,7 +78,7 @@ const ModalBoleto: React.FC<ModalBoletoProps> = ({ boleto, closeModal, saveChang
               Cancelar
             </button>
             <button
-              onClick={() => saveChanges(novoStatus)}
+              onClick={handleSave}
               className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
             >
               Salvar Alterações
