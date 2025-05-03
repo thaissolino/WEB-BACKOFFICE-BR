@@ -289,7 +289,7 @@ const CaixasTab: React.FC = () => {
                       .reverse()
                       .map((t) => (
                         <tr key={t.id} className="bg-red-50">
-                          <td className="py-2 px-4 border text-center">{formatDate(t.date)}</td>
+                          <td className="py-2 px-4 border text-center">{new Date(new Date(t.date).getTime() + 3 * 60 * 60 * 1000).toLocaleDateString("pt-BR")}</td>
                           <td className="py-2 px-4 border text-center">{t.description}</td>
                           <td
                             className={`py-2 px-4 border text-right ${
