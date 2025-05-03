@@ -50,6 +50,20 @@ const OperacoesTab: React.FC = () => {
   const [showOperationModal, setShowOperationModal] = useState(false);
 
   useEffect(() => {
+    const rec = recolhedores.find((r) => r.id === recolhedorOperacao);
+    if (rec) {
+      setTaxaRecolhedorOperacao(rec.tax);
+    }
+  }, [recolhedorOperacao]);
+  
+  useEffect(() => {
+    const forn = fornecedores.find((f) => f.id === fornecedorOperacao);
+    if (forn) {
+      setTaxaFornecedorOperacao(forn.tax);
+    }
+  }, [fornecedorOperacao]);
+  
+  useEffect(() => {
     fetchData();
   }, []);
 
