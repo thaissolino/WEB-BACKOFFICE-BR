@@ -80,13 +80,60 @@ const OperacoesTab: React.FC = () => {
 
   const { valorFornecedor, valorRecolhedor, lucro } = calcularResumo();
 
+  // const registrarOperacao = async () => {
+  //   if (!dataOperacao || !localOperacao || !valorOperacao || !recolhedorOperacao || !fornecedorOperacao) {
+  //     setSuccessMessage("Por favor, preencha todos os campos corretamente!");
+  //     setShowSuccessModal(true);
+  //     return;
+  //   }
+  //   const formattedDate = new Date(dataOperacao).toISOString();
+  //   const novaOperacao = {
+  //     date: formattedDate,
+  //     city: localOperacao.toUpperCase(),
+  //     value: valorOperacao,
+  //     collectorId: recolhedorOperacao,
+  //     supplierId: fornecedorOperacao,
+  //     collectorTax: taxaRecolhedorOperacao,
+  //     supplierTax: taxaFornecedorOperacao,
+  //     profit: lucro, // O lucro já foi calculado
+  //   };
+
+  //   try {
+  //     await api.post<Operacao>("/operations/create_operation", novaOperacao);
+  //     // Após criar a operação, refetch os dados para atualizar saldos e a lista de operações
+  //     await fetchData();
+
+  //     // Resetar campos
+  //     setLocalOperacao("");
+  //     setValorOperacao(0);
+  //     setRecolhedorOperacao("");
+  //     setFornecedorOperacao("");
+  //     setTaxaRecolhedorOperacao(1.025);
+  //     setTaxaFornecedorOperacao(1.05);
+
+  //     setSuccessMessage("Operação registrada com sucesso!");
+  //     setShowSuccessModal(true);
+  //   } catch (error) {
+  //     console.error("Erro ao registrar operação:", error);
+  //     setSuccessMessage("Erro ao registrar a operação. Por favor, tente novamente.");
+  //     setShowSuccessModal(true);
+  //   }
+  // };
+
   const registrarOperacao = async () => {
     if (!dataOperacao || !localOperacao || !valorOperacao || !recolhedorOperacao || !fornecedorOperacao) {
       setSuccessMessage("Por favor, preencha todos os campos corretamente!");
       setShowSuccessModal(true);
       return;
     }
-    const formattedDate = new Date(dataOperacao).toISOString();
+  
+    // Combina a data selecionada (apenas o dia) com o horário atual
+    const selectedDateOnly = dataOperacao.split("T")[0]; // ex: "2025-05-02"
+    const now = new Date();
+    const currentTime = now.toTimeString().slice(0, 8); // ex: "14:37:00"
+    const finalDate = new Date(`${selectedDateOnly}T${currentTime}`);
+    const formattedDate = finalDate.toISOString(); // Envia como UTC
+  
     const novaOperacao = {
       date: formattedDate,
       city: localOperacao.toUpperCase(),
@@ -97,12 +144,13 @@ const OperacoesTab: React.FC = () => {
       supplierTax: taxaFornecedorOperacao,
       profit: lucro, // O lucro já foi calculado
     };
-
+  
     try {
       await api.post<Operacao>("/operations/create_operation", novaOperacao);
-      // Após criar a operação, refetch os dados para atualizar saldos e a lista de operações
+  
+      // Recarrega dados para atualizar a interface
       await fetchData();
-
+  
       // Resetar campos
       setLocalOperacao("");
       setValorOperacao(0);
@@ -110,16 +158,16 @@ const OperacoesTab: React.FC = () => {
       setFornecedorOperacao("");
       setTaxaRecolhedorOperacao(1.025);
       setTaxaFornecedorOperacao(1.05);
-
+  
       setSuccessMessage("Operação registrada com sucesso!");
       setShowSuccessModal(true);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Erro ao registrar operação:", error);
       setSuccessMessage("Erro ao registrar a operação. Por favor, tente novamente.");
       setShowSuccessModal(true);
     }
   };
-
+  
   const getRecolhedorNome = (id: number) => recolhedores.find((r) => r.id === id)?.name || "DESCONHECIDO";
   const getFornecedorNome = (id: number) => fornecedores.find((f) => f.id === id)?.name || "DESCONHECIDO";
 
@@ -269,12 +317,13 @@ const OperacoesTab: React.FC = () => {
               {operacoes.map((op) => (
                 <tr key={op.id}>
                   <td className="py-2 px-4 border text-center algin-middle">
-                    {new Intl.DateTimeFormat("pt-BR", {
+                    {/* {new Intl.DateTimeFormat("pt-BR", {
                       timeZone: "UTC",
                       day: "2-digit",
                       month: "2-digit",
                       year: "numeric",
-                    }).format(new Date(op.date))}
+                    }).format(new Date(op.date))} */}
+                    {formatDate(new Date(op.date))}
                   </td>
                   <td className="py-2 px-4 border align-middle text-center">{op.city}</td>
                   <td className="py-2 px-4 border align-middle text-center">{getRecolhedorNome(op.collectorId)}</td>
