@@ -263,17 +263,47 @@ const RecolhedoresTab: React.FC = () => {
   const deletarOperacao = async (id: number) => {
     try {
       await api.delete(`/operations/delete_operation/${id}`);
-      setOperacoes((prev) => prev.filter((op) => op.id !== id));
+      
+      // Atualiza as operações
+      const updatedOperacoes = operacoes.filter((op) => op.id !== id);
+      setOperacoes(updatedOperacoes);
+      
+      // Recalcula todos os saldos
+      const updatedBalances: Record<number, number> = {};
+      recolhedores.forEach((r) => {
+        updatedBalances[r.id] = computeBalance(r, updatedOperacoes, payments);
+      });
+      setCalculatedBalances(updatedBalances);
+      
+      // Atualiza o saldo acumulado
+      const totalBalance = Object.values(updatedBalances).reduce((a, b) => a + b, 0);
+      setSaldoAcumulado(totalBalance);
+      
       alert("Operação deletada com sucesso.");
     } catch (e: any) {
       alert(`Erro ao deletar operação: ${e.message}`);
     }
   };
-
+  
   const deletarPagamento = async (id: number) => {
     try {
       await api.delete(`/api/delete_payment/${id}`);
-      setPayments((prev) => prev.filter((p) => p.id !== id));
+      
+      // Atualiza os pagamentos
+      const updatedPayments = payments.filter((p) => p.id !== id);
+      setPayments(updatedPayments);
+      
+      // Recalcula todos os saldos
+      const updatedBalances: Record<number, number> = {};
+      recolhedores.forEach((r) => {
+        updatedBalances[r.id] = computeBalance(r, operacoes, updatedPayments);
+      });
+      setCalculatedBalances(updatedBalances);
+      
+      // Atualiza o saldo acumulado
+      const totalBalance = Object.values(updatedBalances).reduce((a, b) => a + b, 0);
+      setSaldoAcumulado(totalBalance);
+      
       alert("Pagamento deletado com sucesso.");
     } catch (e: any) {
       alert(`Erro ao deletar pagamento: ${e.message}`);

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { formatCurrency, formatDate } from "./format";
 import { api } from "../../../services/api"; // Importe sua instância do Axios pré-configurada
+import { motion } from "framer-motion";
 
 interface Operacao {
   id: number;
@@ -126,7 +127,18 @@ const LucrosTab: React.FC = () => {
   };
 
   if (loading) {
-    return <div>Carregando dados...</div>;
+     return (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex items-center justify-center h-64">
+            <div className="text-center">
+              <motion.div
+                animate={{ rotate: 360 }}
+                transition={{ duration: 1, repeat: Number.POSITIVE_INFINITY, ease: "linear" }}
+                className="inline-block w-12 h-12 border-4 border-green-600 border-t-transparent rounded-full mb-4"
+              ></motion.div>
+              <p className="text-lg text-green-700 font-medium">Carregando Lucros...</p>
+            </div>
+          </motion.div>
+        );
   }
 
   if (error) {
