@@ -12,7 +12,7 @@ interface BoletoFormProps {
 const BoletoForm: React.FC<BoletoFormProps> = ({ addBoleto }) => {
   const [codigoBoleto, setCodigoBoleto] = useState("");
   const [dataPagamento, setDataPagamento] = useState("");
-  const [valor, setValor] = useState(0);
+  const [valor, setValor] = useState<number | null>(null);
   const [referencia, setReferencia] = useState("");
   const [status, setStatus] = useState("pendente");
   const [showScanner, setShowScanner] = useState(false);
@@ -41,11 +41,13 @@ const BoletoForm: React.FC<BoletoFormProps> = ({ addBoleto }) => {
       name: referencia,
       description: referencia,
       data: {
-        valor,
-        vencimento: dataPagamento,
-        status,
-        codigo: codigoBoleto, 
-      },
+        set: {
+          valor,
+          vencimento: dataPagamento,
+          status,
+          codigo: codigoBoleto,
+        }
+      }
     };
   
     try {
@@ -135,7 +137,7 @@ const BoletoForm: React.FC<BoletoFormProps> = ({ addBoleto }) => {
           <input
             type="number"
             id="valor"
-            value={valor}
+            value={valor === null ? "" : valor}
             onChange={(e) => setValor(Number(e.target.value))}
             required
             step="0.01"
