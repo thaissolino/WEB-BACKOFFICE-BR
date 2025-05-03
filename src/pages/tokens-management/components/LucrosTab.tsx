@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { formatCurrency, formatDate } from "./format";
-import {api} from "../../../services/api"; // Importe sua instância do Axios pré-configurada
+import { api } from "../../../services/api"; // Importe sua instância do Axios pré-configurada
 
 interface Operacao {
   id: number;
@@ -51,8 +51,8 @@ const LucrosTab: React.FC = () => {
         setTotalPaginas(totalCount ? Math.ceil(parseInt(totalCount, 10) / itensPorPagina) : 1);
 
         // Fetch collectors and suppliers concurrently
-        const collectorIds = Array.from(new Set<number>(response.data.map((op:any) => op.collectorId)));
-        const supplierIds = Array.from(new Set<number>(response.data.map((op:any) => op.supplierId)));
+        const collectorIds = Array.from(new Set<number>(response.data.map((op: any) => op.collectorId)));
+        const supplierIds = Array.from(new Set<number>(response.data.map((op: any) => op.supplierId)));
 
         const fetchCollectors = Promise.all(
           collectorIds.map(async (id) => {
@@ -83,7 +83,6 @@ const LucrosTab: React.FC = () => {
         // Filter out any null results in case of failed requests
         setRecolhedores(collectorsData.filter((r): r is Recolhedor => r !== null));
         setFornecedores(suppliersData.filter((f): f is Fornecedor => f !== null));
-
       } catch (e: any) {
         setError(e.message);
       } finally {
@@ -115,6 +114,16 @@ const LucrosTab: React.FC = () => {
 
   const getRecolhedorNome = (id: number) => recolhedores.find((r) => r?.id === id)?.name || "Desconhecido";
   const getFornecedorNome = (id: number) => fornecedores.find((f) => f?.id === id)?.name || "Desconhecido";
+
+  const deletarOperacao = async (id: number) => {
+    try {
+      await api.delete(`/operations/delete_operation/${id}`);
+      setOperacoes((prev) => prev.filter((op) => op.id !== id));
+      alert("Operação deletada com sucesso.");
+    } catch (e: any) {
+      alert(`Erro ao deletar operação: ${e.message}`);
+    }
+  };
 
   if (loading) {
     return <div>Carregando dados...</div>;
@@ -158,6 +167,7 @@ const LucrosTab: React.FC = () => {
                 <th className="py-2 px-4 border">FORNECEDOR</th>
                 <th className="py-2 px-4 border">VALOR OPERAÇÃO</th>
                 <th className="py-2 px-4 border">LUCRO</th>
+                <th className="py-2 px-4 border">AÇÕES</th>
               </tr>
             </thead>
             <tbody>
@@ -174,6 +184,14 @@ const LucrosTab: React.FC = () => {
                     <td className="py-2 px-4 text-center border">{fornecedorNome}</td>
                     <td className="py-2 px-4 border text-center">{formatCurrency(op.value || 0)}</td>
                     <td className="py-2 px-4 border text-center">{formatCurrency(op.profit || 0)}</td>
+                    <td className="py-2 px-4 border text-center">
+                      <button
+                        onClick={() => deletarOperacao(op.id)}
+                        className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded justify-self-end"
+                      >
+                        <i className="fas fa-trash"></i>
+                      </button>
+                    </td>
                   </tr>
                 );
               })}

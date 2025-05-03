@@ -5,7 +5,7 @@ import { Eye } from "lucide-react";
 
 interface BoletoTableProps {
   boletos: Boleto[];
-  openModal: (boletoId: number) => void;
+  openModal: (boletoId: string) => void;
 }
 
 const BoletoTable: React.FC<BoletoTableProps> = ({ boletos, openModal }) => {

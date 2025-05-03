@@ -27,12 +27,13 @@ const ScannBillsBackoffice = ({ handleClose }: BilletCamProps) => {
   const [isIosDevice, setIsIosDevice] = useState(false);
   const [scannedData, setScannedData] = useState<BilletData | null>(null);
   const html5QrCodeRef = useRef<Html5Qrcode | null>(null);
+  const [alreadyScanned, setAlreadyScanned] = useState(false);
 
   const navigation = useNavigate();
 
   // Configuração do Axios
   const api = axios.create({
-    baseURL: "http://localhost:3333",
+    baseURL: process.env.REACT_APP_API_URL,
     headers: {
       "Content-Type": "application/json",
     },
@@ -125,11 +126,13 @@ const ScannBillsBackoffice = ({ handleClose }: BilletCamProps) => {
         name: `Boleto ${billetInfo.barCode.substring(0, 5)}`,
         description: `Boleto capturado via scanner - ${billetInfo.digitableLine}`,
         data: {
-          valor: numericValue,
-          vencimento: formattedDueDate,
-          status: "pendente",
-          codigo_barras: billetInfo.barCode,
-          linha_digitavel: billetInfo.digitableLine,
+          set: {
+            valor: numericValue,
+            vencimento: formattedDueDate,
+            status: "pendente",
+            codigo_barras: billetInfo.barCode,
+            linha_digitavel: billetInfo.digitableLine,
+          },
         },
       });
 
@@ -152,10 +155,13 @@ const ScannBillsBackoffice = ({ handleClose }: BilletCamProps) => {
       // Envia para a API
       await sendBilletToAPI(billetInfo);
 
-      // Salva no localStorage
-      const savedBillets = JSON.parse(localStorage.getItem("scannedBillets") || "[]");
-      savedBillets.push(billetInfo);
-      localStorage.setItem("scannedBillets", JSON.stringify(savedBillets));
+      alert("Boleto registrado com sucesso!");
+      // handleClose();
+
+      // // Salva no localStorage
+      // const savedBillets = JSON.parse(localStorage.getItem("scannedBillets") || "[]");
+      // savedBillets.push(billetInfo);
+      // localStorage.setItem("scannedBillets", JSON.stringify(savedBillets));
     } catch (error) {
       console.error("Error processing billet:", error);
 
@@ -197,6 +203,8 @@ const ScannBillsBackoffice = ({ handleClose }: BilletCamProps) => {
         { facingMode: "environment" },
         config,
         (decodedText) => {
+          if (alreadyScanned) return;
+          setAlreadyScanned(true);
           html5QrCode.stop();
           handleNextScreen(decodedText);
         },
