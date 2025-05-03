@@ -6,6 +6,7 @@ interface ModalCaixaProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: (nome: string, descricao: string) => void;
+  fetchDataUser?: () => void
 }
 
 interface Pessoa {
@@ -13,7 +14,7 @@ interface Pessoa {
   name: string;
 }
 
-const ModalCaixa: React.FC<ModalCaixaProps> = ({ isOpen, onClose, onSave }) => {
+const ModalCaixa: React.FC<ModalCaixaProps> = ({ isOpen, onClose, onSave, fetchDataUser }) => {
   const [tipoSelecionado, setTipoSelecionado] = useState("Recolhedor");
   const [nomeSelecionado, setNomeSelecionado] = useState("");
   const [nomeOutro, setNomeOutro] = useState("");
@@ -81,7 +82,7 @@ const ModalCaixa: React.FC<ModalCaixaProps> = ({ isOpen, onClose, onSave }) => {
       onClose(); // fecha o modal após salvar
     } catch (error) {
       // @ts-ignore
-      if(error.response.data.code === "409"){
+      if(response.data.code === "409"){
         Swal.fire({
           icon: "error",
           title: "Erro",
@@ -98,6 +99,7 @@ const ModalCaixa: React.FC<ModalCaixaProps> = ({ isOpen, onClose, onSave }) => {
       });
     } finally {
       setSubmitting(false);
+      fetchDataUser?.();
     }
   };
 

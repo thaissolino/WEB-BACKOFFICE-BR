@@ -37,7 +37,7 @@ const OperacoesTab: React.FC = () => {
 
   const [dataOperacao, setDataOperacao] = useState<string>(new Date().toISOString().slice(0, 16));
   const [localOperacao, setLocalOperacao] = useState("");
-  const [valorOperacao, setValorOperacao] = useState<number>(0);
+  const [valorOperacao, setValorOperacao] = useState<number | null>(null);
   const [recolhedorOperacao, setRecolhedorOperacao] = useState<number | "">("");
   const [fornecedorOperacao, setFornecedorOperacao] = useState<number | "">("");
   const [taxaRecolhedorOperacao, setTaxaRecolhedorOperacao] = useState<number>(1.025);
@@ -49,6 +49,20 @@ const OperacoesTab: React.FC = () => {
   const [selectedOperation, setSelectedOperation] = useState<Operacao | null>(null);
   const [showOperationModal, setShowOperationModal] = useState(false);
 
+  useEffect(() => {
+    const rec = recolhedores.find((r) => r.id === recolhedorOperacao);
+    if (rec) {
+      setTaxaRecolhedorOperacao(rec.tax);
+    }
+  }, [recolhedorOperacao]);
+  
+  useEffect(() => {
+    const forn = fornecedores.find((f) => f.id === fornecedorOperacao);
+    if (forn) {
+      setTaxaFornecedorOperacao(forn.tax);
+    }
+  }, [fornecedorOperacao]);
+  
   useEffect(() => {
     fetchData();
   }, []);
@@ -80,13 +94,60 @@ const OperacoesTab: React.FC = () => {
 
   const { valorFornecedor, valorRecolhedor, lucro } = calcularResumo();
 
+  // const registrarOperacao = async () => {
+  //   if (!dataOperacao || !localOperacao || !valorOperacao || !recolhedorOperacao || !fornecedorOperacao) {
+  //     setSuccessMessage("Por favor, preencha todos os campos corretamente!");
+  //     setShowSuccessModal(true);
+  //     return;
+  //   }
+  //   const formattedDate = new Date(dataOperacao).toISOString();
+  //   const novaOperacao = {
+  //     date: formattedDate,
+  //     city: localOperacao.toUpperCase(),
+  //     value: valorOperacao,
+  //     collectorId: recolhedorOperacao,
+  //     supplierId: fornecedorOperacao,
+  //     collectorTax: taxaRecolhedorOperacao,
+  //     supplierTax: taxaFornecedorOperacao,
+  //     profit: lucro, // O lucro já foi calculado
+  //   };
+
+  //   try {
+  //     await api.post<Operacao>("/operations/create_operation", novaOperacao);
+  //     // Após criar a operação, refetch os dados para atualizar saldos e a lista de operações
+  //     await fetchData();
+
+  //     // Resetar campos
+  //     setLocalOperacao("");
+  //     setValorOperacao(0);
+  //     setRecolhedorOperacao("");
+  //     setFornecedorOperacao("");
+  //     setTaxaRecolhedorOperacao(1.025);
+  //     setTaxaFornecedorOperacao(1.05);
+
+  //     setSuccessMessage("Operação registrada com sucesso!");
+  //     setShowSuccessModal(true);
+  //   } catch (error) {
+  //     console.error("Erro ao registrar operação:", error);
+  //     setSuccessMessage("Erro ao registrar a operação. Por favor, tente novamente.");
+  //     setShowSuccessModal(true);
+  //   }
+  // };
+
   const registrarOperacao = async () => {
     if (!dataOperacao || !localOperacao || !valorOperacao || !recolhedorOperacao || !fornecedorOperacao) {
       setSuccessMessage("Por favor, preencha todos os campos corretamente!");
       setShowSuccessModal(true);
       return;
     }
-    const formattedDate = new Date(dataOperacao).toISOString();
+  
+    // Combina a data selecionada (apenas o dia) com o horário atual
+    const selectedDateOnly = dataOperacao.split("T")[0]; // ex: "2025-05-02"
+    const now = new Date();
+    const currentTime = now.toTimeString().slice(0, 8); // ex: "14:37:00"
+    const finalDate = new Date(`${selectedDateOnly}T${currentTime}`);
+    const formattedDate = finalDate.toISOString(); // Envia como UTC
+  
     const novaOperacao = {
       date: formattedDate,
       city: localOperacao.toUpperCase(),
@@ -97,12 +158,13 @@ const OperacoesTab: React.FC = () => {
       supplierTax: taxaFornecedorOperacao,
       profit: lucro, // O lucro já foi calculado
     };
-
+  
     try {
       await api.post<Operacao>("/operations/create_operation", novaOperacao);
-      // Após criar a operação, refetch os dados para atualizar saldos e a lista de operações
+  
+      // Recarrega dados para atualizar a interface
       await fetchData();
-
+  
       // Resetar campos
       setLocalOperacao("");
       setValorOperacao(0);
@@ -110,16 +172,16 @@ const OperacoesTab: React.FC = () => {
       setFornecedorOperacao("");
       setTaxaRecolhedorOperacao(1.025);
       setTaxaFornecedorOperacao(1.05);
-
+  
       setSuccessMessage("Operação registrada com sucesso!");
       setShowSuccessModal(true);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Erro ao registrar operação:", error);
       setSuccessMessage("Erro ao registrar a operação. Por favor, tente novamente.");
       setShowSuccessModal(true);
     }
   };
-
+  
   const getRecolhedorNome = (id: number) => recolhedores.find((r) => r.id === id)?.name || "DESCONHECIDO";
   const getFornecedorNome = (id: number) => fornecedores.find((f) => f.id === id)?.name || "DESCONHECIDO";
 
@@ -163,11 +225,10 @@ const OperacoesTab: React.FC = () => {
             <label className="block text-sm font-medium text-gray-700">VALOR (USD)</label>
             <input
               type="number"
-              step="0.01"
-              className="mt-1 block w-full border border-gray-300 rounded-md p-2"
-              value={valorOperacao}
-              onChange={(e) => setValorOperacao(Number(e.target.value))}
-              placeholder="0.00"
+              inputMode="decimal"
+              className="mt-1 block w-full border border-gray-300 rounded-md p-2 appearance-none [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+              value={valorOperacao || ""}
+              onChange={(e) => setValorOperacao(Number(e.target.value.replace(",", ".")))}
             />
           </div>
         </div>
@@ -191,7 +252,6 @@ const OperacoesTab: React.FC = () => {
               <span className="text-xs text-gray-500 mr-2">TAXA:</span>
               <input
                 type="number"
-                step="0.001"
                 className="text-xs w-16 border border-gray-300 rounded p-1"
                 value={taxaRecolhedorOperacao}
                 onChange={(e) => setTaxaRecolhedorOperacao(Number(e.target.value))}
@@ -217,7 +277,6 @@ const OperacoesTab: React.FC = () => {
               <span className="text-xs text-gray-500 mr-2">TAXA:</span>
               <input
                 type="number"
-                step="0.01"
                 className="text-xs w-16 border border-gray-300 rounded p-1"
                 value={taxaFornecedorOperacao}
                 onChange={(e) => setTaxaFornecedorOperacao(Number(e.target.value))}
@@ -260,23 +319,31 @@ const OperacoesTab: React.FC = () => {
           <table className="min-w-full bg-white">
             <thead>
               <tr className="bg-gray-200">
-                <th className="py-2 px-4 border">DATA</th>
-                <th className="py-2 px-4 border">LOCAL</th>
-                <th className="py-2 px-4 border">RECOLHEDOR</th>
-                <th className="py-2 px-4 border">FORNECEDOR</th>
-                <th className="py-2 px-4 border">VALOR (USD)</th>
-                <th className="py-2 px-4 border">AÇÕES</th>
+                <th className="py-2 text-center px-4 border">DATA</th>
+                <th className="py-2 text-center px-4 border">LOCAL</th>
+                <th className="py-2 px-4 border text-center">RECOLHEDOR</th>
+                <th className="py-2 px-4 border text-center">FORNECEDOR</th>
+                <th className="py-2 px-4 border text-center">VALOR (USD)</th>
+                <th className="py-2 px-4 border text-center">AÇÕES</th>
               </tr>
             </thead>
             <tbody>
               {operacoes.map((op) => (
                 <tr key={op.id}>
-                  <td className="py-2 px-4 border">{formatDate(op.date)}</td>
-                  <td className="py-2 px-4 border">{op.city}</td>
-                  <td className="py-2 px-4 border">{getRecolhedorNome(op.collectorId)}</td>
-                  <td className="py-2 px-4 border">{getFornecedorNome(op.supplierId)}</td>
-                  <td className="py-2 px-4 border text-right">{formatCurrency(op.value)}</td>
-                  <td className="py-2 px-4 border text-center">
+                  <td className="py-2 px-4 border text-center algin-middle">
+                    {/* {new Intl.DateTimeFormat("pt-BR", {
+                      timeZone: "UTC",
+                      day: "2-digit",
+                      month: "2-digit",
+                      year: "numeric",
+                    }).format(new Date(op.date))} */}
+                    {formatDate(new Date(op.date))}
+                  </td>
+                  <td className="py-2 px-4 border align-middle text-center">{op.city}</td>
+                  <td className="py-2 px-4 border align-middle text-center">{getRecolhedorNome(op.collectorId)}</td>
+                  <td className="py-2 px-4 border align-middle text-center ">{getFornecedorNome(op.supplierId)}</td>
+                  <td className="py-2 px-4 border text-center align-middle">{formatCurrency(op.value)}</td>
+                  <td className="py-2 px-4 border text-center align-middle">
                     <button onClick={() => abrirDetalhesOperacao(op)} className="text-blue-600 hover:text-blue-800">
                       <i className="fas fa-eye"></i>
                     </button>

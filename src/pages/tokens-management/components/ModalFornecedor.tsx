@@ -60,7 +60,7 @@ const ModalFornecedor: React.FC<ModalFornecedorProps> = ({
               onChange={(e) => setTaxa(Number(e.target.value))}
             />
           </div>
-          <div>
+          {/* <div>
             <label className="block text-sm font-medium text-gray-700">Saldo (USD)</label>
             <input
               type="number"
@@ -68,7 +68,7 @@ const ModalFornecedor: React.FC<ModalFornecedorProps> = ({
               value={balance}
               onChange={(e) => setBalance(Number(e.target.value))}
             />
-          </div>
+          </div> */}
 
           <div className="flex justify-end space-x-3 mt-6">
             <button

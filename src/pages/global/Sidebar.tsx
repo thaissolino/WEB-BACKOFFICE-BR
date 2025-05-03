@@ -16,7 +16,6 @@ import { useAuthBackoffice } from "../../hooks/authBackoffice";
 import { EnhancedModal } from "../../components/modals/harCodedModal";
 import DescriptionOutlinedIcon from "@mui/icons-material/DescriptionOutlined";
 
-
 interface SidebarProps {
   isSidebar?: boolean;
 }
@@ -125,7 +124,6 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebar }) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
 
   return (
-    
     <Box
       sx={{
         "& .pro-sidebar-inner": {
@@ -144,7 +142,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebar }) => {
           color: "#6870fa !important",
         },
       }}
-      style={{zIndex:40}}
+      style={{ zIndex: 40 }}
     >
       <ProSidebar collapsed={isCollapsed}>
         <Menu iconShape="square">
@@ -256,7 +254,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebar }) => {
               requiresValidation={true}
             />
 
-<Item
+            <Item
               title="Gerenciar Tokens"
               to="/tokens-management"
               icon={<DescriptionOutlinedIcon />}
@@ -265,6 +263,20 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebar }) => {
               requiresValidation={true}
             />
 
+            {!isCollapsed && (
+              <Typography variant="h6" color={colors.greenAccent[300]} sx={{ m: "15px 0 5px 20px" }}>
+                Gerenciar Billets:
+              </Typography>
+            )}
+            {/* Este item agora requer validação */}
+            <Item
+              title="Gerenciar Boletos"
+              to="/billets-management"
+              icon={<TableChartOutlinedIcon />}
+              selected={selected}
+              setSelected={setSelected}
+              requiresValidation={true}
+            />
             {/* Enhanced Modal Component */}
             <EnhancedModal
               open={openModal}

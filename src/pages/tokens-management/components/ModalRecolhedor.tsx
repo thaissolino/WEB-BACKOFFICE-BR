@@ -19,18 +19,23 @@ const ModalRecolhedor: React.FC<ModalRecolhedorProps> = ({
 }) => {
   const [nome, setNome] = useState("");
   const [taxa, setTaxa] = useState(1.025);
-  const [balance, setBalance] = useState(0);
-  
+  const [balance, setBalance] = useState("");
 
   useEffect(() => {
     if (recolhedorEdit) {
       setNome(recolhedorEdit.name);
       setTaxa(recolhedorEdit.tax);
+      setBalance(String(recolhedorEdit.balance)); // Converte para string ao editar
     } else {
       setNome("");
       setTaxa(1.025);
+      setBalance("");
     }
   }, [recolhedorEdit, isOpen]);
+
+  const handleSave = () => {
+    onSave(nome, taxa, Number(balance)); // Converte para Number ao salvar
+  };
 
   if (!isOpen) return null;
 
@@ -56,23 +61,23 @@ const ModalRecolhedor: React.FC<ModalRecolhedorProps> = ({
             <label className="block text-sm font-medium text-gray-700">Taxa (USD)</label>
             <input
               type="number"
-              step="0.001"
+
               className="mt-1 block w-full border border-gray-300 rounded-md p-2"
               value={taxa}
               onChange={(e) => setTaxa(Number(e.target.value))}
             />
           </div>
 
-          <div>
+          {/* <div>
             <label className="block text-sm font-medium text-gray-700">Saldo (USD)</label>
             <input
               type="number"
-              step="0.001"
+
               className="mt-1 block w-full border border-gray-300 rounded-md p-2"
               value={balance}
-              onChange={(e) => setBalance(Number(e.target.value))}
+              onChange={(e) => setBalance(e.target.value)} // Mantém como string no onChange
             />
-          </div>
+          </div> */}
 
           <div className="flex justify-end space-x-3 mt-6">
             <button
@@ -82,7 +87,7 @@ const ModalRecolhedor: React.FC<ModalRecolhedorProps> = ({
               Cancelar
             </button>
             <button
-              onClick={() => onSave(nome, taxa, balance)}
+              onClick={handleSave} // Chama a função handleSave
               className="px-4 py-2 rounded bg-blue-600 hover:bg-blue-700 text-white"
             >
               Salvar

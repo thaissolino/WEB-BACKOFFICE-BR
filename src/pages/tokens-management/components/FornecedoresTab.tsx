@@ -48,7 +48,7 @@ const FornecedoresTab: React.FC = () => {
   const [showModal, setShowModal] = useState(false);
   const [fornecedorEdit, setFornecedorEdit] = useState<Fornecedor | undefined>(undefined);
   const [fornecedorSelecionado, setFornecedorSelecionado] = useState<Fornecedor | null>(null);
-  const [valorPagamento, setValorPagamento] = useState<number>(0);
+  const [valorPagamento, setValorPagamento] = useState<number | null>(null);
   const [descricaoPagamento, setDescricaoPagamento] = useState("");
   const [dataPagamento, setDataPagamento] = useState<string>(new Date().toISOString().split("T")[0]);
   const [loading, setLoading] = useState(true);
@@ -59,14 +59,36 @@ const FornecedoresTab: React.FC = () => {
   const [payments, setPayments] = useState<Payment[]>([]);
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [newPaymentId, setNewPaymentId] = useState<string | null>(null);
+  const [saldoAcumulado, setSaldoAcumulado] = useState(0);
+  const [calculatedBalances, setCalculatedBalances] = useState<Record<number, number>>({});
+  const [paginaAtual, setPaginaAtual] = useState(0);
+  const itensPorPagina = 6;
 
-  const fetchFornecedores = async () => {
+  const fetchAllData = async () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await api.get<Fornecedor[]>("/suppliers/list_suppliers");
-      console.log("response", response.data);
-      setFornecedores(response.data);
+      // Carrega todos os dados necessários em paralelo
+      const [fornecedoresResponse, operacoesResponse, paymentsResponse] = await Promise.all([
+        api.get<Fornecedor[]>("/suppliers/list_suppliers"),
+        api.get<Operacao[]>("/operations/list_operations"),
+        api.get<Payment[]>("/api/payments"),
+      ]);
+
+      setFornecedores(fornecedoresResponse.data);
+      setOperacoes(operacoesResponse.data);
+      setPayments(paymentsResponse.data);
+
+      // Calcula saldos iniciais
+      const balances: Record<number, number> = {};
+      fornecedoresResponse.data.forEach((f) => {
+        balances[f.id] = computeBalance(f, operacoesResponse.data, paymentsResponse.data);
+      });
+      setCalculatedBalances(balances);
+
+      // Calcula saldo acumulado
+      const totalBalance = Object.values(balances).reduce((a, b) => a + b, 0);
+      setSaldoAcumulado(totalBalance);
     } catch (e: any) {
       setError(e.message);
     } finally {
@@ -74,31 +96,8 @@ const FornecedoresTab: React.FC = () => {
     }
   };
 
-  const fetchPayments = async (supplierId?: number) => {
-    try {
-      const query = supplierId ? `?supplierId=${supplierId}` : "";
-      const paymentsResponse = await api.get<Payment[]>(`/api/payments${query}`);
-      setPayments(paymentsResponse.data);
-    } catch (error) {
-      console.error("Erro ao buscar pagamentos:", error);
-    }
-  };
-
-  const fetchData = async () => {
-    try {
-      const operacoesResponse = await api.get<Operacao[]>("/operations/list_operations");
-      console.log("operalçioes", operacoesResponse);
-      setOperacoes(operacoesResponse.data);
-    } catch (error) {
-      console.log("error ao buscar dados das operações", error);
-      console.error("Erro ao buscar dados:", error);
-    }
-  };
-
   useEffect(() => {
-    fetchFornecedores();
-    fetchData();
-    fetchPayments();
+    fetchAllData();
   }, []);
 
   // Clear new payment highlight after 3 seconds
@@ -115,8 +114,7 @@ const FornecedoresTab: React.FC = () => {
     try {
       if (fornecedorEdit) {
         await api.put(`/suppliers/update_supplier/${fornecedorEdit.id}`, { name, tax, balance });
-        // After successful edit, refetch the fornecedores
-        fetchFornecedores();
+        fetchAllData(); // Refetch after successful edit
       } else {
         const response = await api.post<Fornecedor>("/suppliers/create_supplier", { name, tax, balance });
         setFornecedores([...fornecedores, response.data]);
@@ -131,9 +129,25 @@ const FornecedoresTab: React.FC = () => {
   const abrirCaixa = async (fornecedor: Fornecedor) => {
     setFornecedorSelecionado(fornecedor);
     try {
-      const response = await api.get<Fornecedor>(`/suppliers/list_supplier/${fornecedor.id}`);
-      setFornecedorSelecionado(response.data); // Update with transactions
-      fetchPayments(fornecedor.id); // Fetch payments for this collector
+      const [fornecedorResponse, paymentsResponse] = await Promise.all([
+        api.get<Fornecedor>(`/suppliers/list_supplier/${fornecedor.id}`),
+        api.get<Payment[]>(`/api/payments?supplierId=${fornecedor.id}`),
+      ]);
+
+      setFornecedorSelecionado(fornecedorResponse.data);
+
+      // Atualiza os pagamentos e recalcula os saldos
+      setPayments((prev) => {
+        const updatedPayments = [...prev.filter((p) => p.supplierId !== fornecedor.id), ...paymentsResponse.data];
+
+        const updatedBalances: Record<number, number> = {};
+        fornecedores.forEach((f) => {
+          updatedBalances[f.id] = computeBalance(f, operacoes, updatedPayments);
+        });
+        setCalculatedBalances(updatedBalances);
+
+        return updatedPayments;
+      });
     } catch (error: any) {
       console.error("Erro ao buscar detalhes do fornecedor:", error.message);
       alert("Erro ao carregar detalhes do fornecedor.");
@@ -143,7 +157,7 @@ const FornecedoresTab: React.FC = () => {
 
   const fecharCaixa = () => {
     setFornecedorSelecionado(null);
-    setValorPagamento(0);
+    setValorPagamento(null);
     setDescricaoPagamento("");
   };
 
@@ -157,40 +171,38 @@ const FornecedoresTab: React.FC = () => {
     setIsProcessingPayment(true);
 
     try {
-      // Create payment using the new API endpoint
+      const isHoje = dataPagamento === new Date().toISOString().split("T")[0];
+      const dataFinal = isHoje ? new Date().toISOString() : new Date(`${dataPagamento}T00:00:00`).toISOString();
+
       const paymentData = {
         supplierId: fornecedorSelecionado.id,
         amount: valorPagamento,
         description: descricaoPagamento,
-        date: dataPagamento,
+        date: dataFinal,
       };
 
       const response = await api.post("/api/payments", paymentData);
-      console.log("response ", response);
-
-      // Refresh payments list
-      fetchPayments(fornecedorSelecionado.id);
-
-      // Update local state with the new payment
       const newPayment: Payment = response.data;
-      setNewPaymentId(`pay-${newPayment.id}`);
 
-      // Update the collector's balance
-      const updatedBalance = fornecedorSelecionado.balance + valorPagamento;
+      // Atualiza a lista de pagamentos
+      const updatedPayments = [...payments, newPayment];
+      setPayments(updatedPayments);
 
-      // Update the recolhedor in the list
-      const updatedFornecedores = fornecedores.map((f) =>
-        f.id === fornecedorSelecionado.id ? { ...f, balance: updatedBalance } : f
-      );
+      // Recalcula TODOS os saldos após um novo pagamento
+      const updatedBalances: Record<number, number> = {};
+      fornecedores.forEach((f) => {
+        updatedBalances[f.id] = computeBalance(f, operacoes, updatedPayments);
+      });
 
-      setFornecedores(updatedFornecedores);
-      setFornecedorSelecionado({ ...fornecedorSelecionado, balance: updatedBalance });
+      setCalculatedBalances(updatedBalances);
+      setSaldoAcumulado(Object.values(updatedBalances).reduce((a, b) => a + b, 0));
 
       // Reset form
-      setValorPagamento(0);
+      setValorPagamento(null);
       setDescricaoPagamento("");
       setDataPagamento(new Date().toISOString().split("T")[0]);
 
+      setNewPaymentId(`pay-${newPayment.id}`);
       alert("Pagamento registrado com sucesso!");
     } catch (e: any) {
       console.log("error", e);
@@ -211,6 +223,7 @@ const FornecedoresTab: React.FC = () => {
         await api.delete(`/suppliers/delete_supplier/${fornecedorToDelete}`);
         setFornecedores(fornecedores.filter((f) => f.id !== fornecedorToDelete));
         setFornecedorToDelete(null);
+        fetchAllData(); // Recarrega todos os dados para atualizar os saldos
       } catch (e: any) {
         alert(`Erro ao deletar fornecedor: ${e.message}`);
       }
@@ -218,35 +231,77 @@ const FornecedoresTab: React.FC = () => {
     setShowConfirmModal(false);
   };
 
-  function computeBalance(f: Fornecedor, ops: Operacao[], payments: Payment[]) {
-    // Get all operations for this collector and convert to negative values
-    console.log("payments", payments);
 
+   const deletarOperacao = async (id: number) => {
+      try {
+        await api.delete(`/operations/delete_operation/${id}`);
+        setOperacoes((prev) => prev.filter((op) => op.id !== id));
+        alert("Operação deletada com sucesso.");
+      } catch (e: any) {
+        alert(`Erro ao deletar operação: ${e.message}`);
+      }
+    };
+
+    
+  const deletarPagamento = async (id: number) => {
+    try {
+      await api.delete(`/api/delete_payment/${id}`);
+      setPayments((prev) => prev.filter((p) => p.id !== id));
+      alert("Pagamento deletado com sucesso.");
+    } catch (e: any) {
+      alert(`Erro ao deletar pagamento: ${e.message}`);
+    }
+  };
+
+  const todasTransacoes = [
+    ...(fornecedorSelecionado?.transacoes || []),
+    ...operacoes
+      .filter((op) => op.supplierId === fornecedorSelecionado?.id)
+      .map((op) => ({
+        id: `op-${op.id}`,
+        date: op.date || new Date().toISOString(),
+        valor: -(op.value || 0) / (op.supplierTax || fornecedorSelecionado?.tax || 1),
+        descricao: `operação #${op.id} · ${op.city?.toLowerCase() || ""}`,
+        tipo: "debito",
+      })),
+    ...payments
+      .filter((p) => p.supplierId === fornecedorSelecionado?.id)
+      .map((p) => ({
+        id: `pay-${p.id}`,
+        date: p.date,
+        valor: p.amount,
+        descricao: p.description,
+        tipo: "pagamento",
+      })),
+  ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+  const transacoesPaginadas = todasTransacoes.slice(paginaAtual * itensPorPagina, (paginaAtual + 1) * itensPorPagina);
+
+  function computeBalance(f: Fornecedor, ops: Operacao[], pays: Payment[]) {
+    // Operações para este fornecedor (créditos)
     const supplierOperations = ops
       .filter((o) => o.supplierId === f.id)
       .map((o) => ({
         date: o.date,
-        value: -(o.value / (o.supplierTax || f.tax || 1)), // Negative value for operations
+        value: -o.value / (o.supplierTax || f.tax || 1), // Valor positivo para crédito
         type: "operation",
       }));
 
-    // Get all payments for this supplier (positive values)
-    const supplierPayments = payments
+    // Pagamentos para este fornecedor (débitos)
+    const supplierPayments = pays
       .filter((p) => p.supplierId === f.id)
       .map((p) => ({
         date: p.date,
-        value: p.amount, // Positive value for payments
+        value: p.amount, // Valor negativo para pagamentos
         type: "payment",
       }));
 
-    console.log("supplier", supplierPayments);
-
-    // Combine and sort by date
+    // Combina e ordena por data
     const allTransactions = [...supplierOperations, ...supplierPayments].sort(
       (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
     );
 
-    // Calculate running balance
+    // Calcula saldo acumulado
     let balance = 0;
     for (const transaction of allTransactions) {
       balance += transaction.value;
@@ -290,10 +345,19 @@ const FornecedoresTab: React.FC = () => {
         transition={{ duration: 0.4 }}
         className="bg-white p-6 rounded-lg shadow mb-6"
       >
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-semibold text-green-700">
-            <i className="fas fa-truck mr-2"></i> FORNECEDORES
-          </h2>
+        <div className="flex justify-between items-start mb-4">
+          <div className="flex flex-col">
+            <h2 className="text-xl font-semibold text-green-700">
+              <i className="fas fa-truck mr-2"></i> FORNECEDORES
+            </h2>
+            <div className="mb-6 grid grid-cols-1 md:grid-cols-1 gap-4">
+              <div className="bg-purple-50 p-4 rounded-lg">
+                <h3 className="font-medium mb-2">SALDO ACUMULADO</h3>
+                <p className="text-2xl font-bold text-purple-600">{formatCurrency(saldoAcumulado, 2, "USD")}</p>
+              </div>
+            </div>
+          </div>
+
           <motion.button
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
@@ -312,7 +376,6 @@ const FornecedoresTab: React.FC = () => {
             <thead>
               <tr className="bg-gray-200">
                 <th className="py-2 px-4 border">NOME</th>
-                <th className="py-2 px-4 border">TAXA</th>
                 <th className="py-2 px-4 border">SALDO (USD)</th>
                 <th className="py-2 px-4 border">AÇÕES</th>
               </tr>
@@ -328,14 +391,14 @@ const FornecedoresTab: React.FC = () => {
                     transition={{ duration: 0.2 }}
                     className="hover:bg-gray-50"
                   >
-                    <td className="py-2 px-4 border">{f.name}</td>
-                    <td className="py-2 px-4 border">{f.tax}</td>
+                    <td className="py-2 px-4 border text-center">{f.name}</td>
+
                     <td
-                      className={`py-2 px-4 border text-right font-bold ${
-                        computeBalance(f, operacoes, payments) < 0 ? "text-red-600" : "text-green-600"
+                      className={`py-2 px-4 border text-center font-bold ${
+                        calculatedBalances[f.id] < 0 ? "text-red-600" : "text-green-600"
                       }`}
                     >
-                      {formatCurrency(computeBalance(f, operacoes, payments))}
+                      {formatCurrency(calculatedBalances[f.id] || 0)}
                     </td>
                     <td className="py-2 px-4 border space-x-2 text-center">
                       <motion.button
@@ -392,10 +455,10 @@ const FornecedoresTab: React.FC = () => {
                   SALDO:{" "}
                   <span
                     className={`font-bold ${
-                      computeBalance(fornecedorSelecionado, operacoes, payments) < 0 ? "text-red-600" : "text-green-600"
+                      calculatedBalances[fornecedorSelecionado.id] < 0 ? "text-red-600" : "text-green-600"
                     }`}
                   >
-                    {formatCurrency(computeBalance(fornecedorSelecionado, operacoes, payments))}
+                    {formatCurrency(calculatedBalances[fornecedorSelecionado.id] || 0)}
                   </span>
                 </span>
                 <motion.button
@@ -435,9 +498,10 @@ const FornecedoresTab: React.FC = () => {
                     <input
                       type="number"
                       step="0.01"
-                      className="mt-1 block w-full border border-gray-300 rounded-md p-2"
-                      value={valorPagamento}
-                      onChange={(e) => setValorPagamento(Number(e.target.value))}
+                      inputMode="decimal"
+                      className="mt-1 block w-full border border-gray-300 rounded-md p-2 appearance-none [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                      value={valorPagamento || ""}
+                      onChange={(e) => setValorPagamento(Number(e.target.value.replace(",", ".")))}
                       disabled={isProcessingPayment}
                     />
                   </div>
@@ -478,7 +542,6 @@ const FornecedoresTab: React.FC = () => {
                 </div>
               </motion.div>
 
-              {/* Histórico */}
               <motion.div initial={{ x: 20, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ delay: 0.2 }}>
                 <h3 className="font-medium mb-2 border-b pb-2">HISTÓRICO DE TRANSAÇÕES (ÚLTIMOS 6)</h3>
                 <div className="overflow-x-auto max-h-96">
@@ -488,80 +551,104 @@ const FornecedoresTab: React.FC = () => {
                         <th className="py-2 px-4 border">DATA</th>
                         <th className="py-2 px-4 border">DESCRIÇÃO</th>
                         <th className="py-2 px-4 border">VALOR (USD)</th>
+                        <th className="py-2 px-4 border">AÇÕES</th>
                       </tr>
                     </thead>
                     <tbody>
                       <AnimatePresence>
-                        {[
-                          ...(fornecedorSelecionado.transacoes || []),
-                          ...operacoes
-                            .filter((op) => op.supplierId === fornecedorSelecionado.id)
-                            .map((op) => ({
-                              id: `op-${op.id}`,
-                              date: op.date || new Date().toISOString(),
-                              valor: -(op.value || 0) / (op.supplierTax || fornecedorSelecionado.tax || 1),
-                              descricao: `Operação #${op.id} - ${op.city || ""}`,
-                              tipo: "debito",
-                            })),
-                          ...payments
-                            .filter((p) => p.supplierId === fornecedorSelecionado.id)
-                            .map((p) => ({
-                              id: `pay-${p.id}`,
-                              date: p.date,
-                              valor: p.amount,
-                              descricao: p.description,
-                              tipo: p.amount < 0 ? "debito" : "pagamento",
-                            })),
-                        ]
-                          .slice(-6)
-                          .reverse()
-                          .map((t) => (
-                            <motion.tr
-                              key={t.id}
-                              initial={{ opacity: 0, y: 10 }}
-                              animate={{
-                                opacity: 1,
-                                y: 0,
-                                backgroundColor:
-                                  newPaymentId === t.id
-                                    ? ["#f0fdf4", "#dcfce7", "#f0fdf4"]
-                                    : t.id.toString().startsWith("op-")
-                                    ? "#ebf5ff"
-                                    : t.id.toString().startsWith("pay-")
-                                    ? "#f0fdf4"
-                                    : "#ffffff",
-                              }}
-                              exit={{ opacity: 0, y: -10 }}
-                              transition={{
-                                duration: 0.3,
-                                backgroundColor: {
-                                  duration: 1.5,
-                                  repeat: newPaymentId === t.id ? 2 : 0,
-                                  repeatType: "reverse",
-                                },
-                              }}
-                              className={
-                                t.id.toString().startsWith("op-")
-                                  ? "bg-blue-50"
+                        {transacoesPaginadas.map((t) => (
+                          <motion.tr
+                            key={t.id}
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{
+                              opacity: 1,
+                              y: 0,
+                              backgroundColor:
+                                newPaymentId === t.id
+                                  ? ["#f0fdf4", "#dcfce7", "#f0fdf4"]
+                                  : t.id.toString().startsWith("op-")
+                                  ? "#ebf5ff"
                                   : t.id.toString().startsWith("pay-")
-                                  ? "bg-green-50"
-                                  : ""
-                              }
+                                  ? "#f0fdf4"
+                                  : "#ffffff",
+                            }}
+                            exit={{ opacity: 0, y: -10 }}
+                            transition={{
+                              duration: 0.3,
+                              backgroundColor: {
+                                duration: 1.5,
+                                repeat: newPaymentId === t.id ? 2 : 0,
+                                repeatType: "reverse",
+                              },
+                            }}
+                            className={
+                              t.id.toString().startsWith("op-")
+                                ? "bg-blue-50"
+                                : t.id.toString().startsWith("pay-")
+                                ? "bg-green-50"
+                                : ""
+                            }
+                          >
+                            <td className="py-2 px-4 border text-sm text-gray-700">
+                              <div className="flex items-center gap-2" title={new Date(t.date).toISOString()}>
+                                <i className="fas fa-clock text-gray-500"></i>
+                                {formatDate(t.date)}
+                              </div>
+                            </td>
+                            <td className="py-2 px-4 border text-sm text-gray-700">{t.descricao}</td>
+                            <td
+                              className={`py-2 px-4 border text-right ${
+                                t.valor < 0 ? "text-red-600" : "text-green-600"
+                              }`}
                             >
-                              <td className="py-2 px-4 border">{formatDate(t.date)}</td>
-                              <td className="py-2 px-4 border">{t.descricao}</td>
-                              <td
-                                className={`py-2 px-4 border text-right ${
-                                  t.valor < 0 ? "text-red-600" : "text-green-600"
-                                }`}
-                              >
-                                {formatCurrency(t.valor)}
-                              </td>
-                            </motion.tr>
-                          ))}
+                              {formatCurrency(t.valor)}
+                            </td>
+                            <td className="py-2 px-4 border text-right">
+                              {t.id.toString().startsWith("pay-") && (
+                                <button
+                                  onClick={() => deletarPagamento(Number(t.id.toString().replace("pay-", "")))}
+                                  className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded justify-self-end"
+                                >
+                                  <i className="fas fa-trash"></i>
+                                </button>
+                              )}
+                              {t.id.toString().startsWith("op-") && (
+                                <button
+                                  onClick={() => deletarOperacao(Number(t.id.toString().replace("op-", "")))}
+                                  className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded justify-self-end"
+                                >
+                                  <i className="fas fa-trash"></i>
+                                </button>
+                              )}
+                            </td>
+                          </motion.tr>
+                        ))}
                       </AnimatePresence>
                     </tbody>
                   </table>
+                  <div className="flex justify-between items-center mt-4">
+                    <button
+                      onClick={() => setPaginaAtual((prev) => Math.max(0, prev - 1))}
+                      disabled={paginaAtual === 0}
+                      className="px-3 py-1 bg-gray-200 text-sm rounded disabled:opacity-50"
+                    >
+                      Anterior
+                    </button>
+                    <span className="text-sm text-gray-600">
+                      Página {paginaAtual + 1} de {Math.ceil(todasTransacoes.length / itensPorPagina)}
+                    </span>
+                    <button
+                      onClick={() =>
+                        setPaginaAtual((prev) =>
+                          Math.min(prev + 1, Math.ceil(todasTransacoes.length / itensPorPagina) - 1)
+                        )
+                      }
+                      disabled={(paginaAtual + 1) * itensPorPagina >= todasTransacoes.length}
+                      className="px-3 py-1 bg-gray-200 text-sm rounded disabled:opacity-50"
+                    >
+                      Próxima
+                    </button>
+                  </div>
                 </div>
               </motion.div>
             </div>

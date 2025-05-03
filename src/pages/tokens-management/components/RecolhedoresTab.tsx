@@ -48,7 +48,7 @@ const RecolhedoresTab: React.FC = () => {
   const [showModal, setShowModal] = useState(false);
   const [recolhedorEdit, setRecolhedorEdit] = useState<Recolhedor | undefined>(undefined);
   const [selectedRecolhedor, setSelectedRecolhedor] = useState<Recolhedor | null>(null);
-  const [valorPagamento, setValorPagamento] = useState<number>(0);
+  const [valorPagamento, setValorPagamento] = useState<number | null>(null);
   const [descricaoPagamento, setDescricaoPagamento] = useState("");
   const [dataPagamento, setDataPagamento] = useState<string>(new Date().toISOString().split("T")[0]);
   const [loading, setLoading] = useState(true);
@@ -59,17 +59,10 @@ const RecolhedoresTab: React.FC = () => {
   const [payments, setPayments] = useState<Payment[]>([]);
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [newPaymentId, setNewPaymentId] = useState<string | null>(null);
-
-  const fetchData = async () => {
-    try {
-      const operacoesResponse = await api.get<Operacao[]>("/operations/list_operations");
-      console.log("operalçioes", operacoesResponse);
-      setOperacoes(operacoesResponse.data);
-    } catch (error) {
-      console.log("error ao buscar dados das operações", error);
-      console.error("Erro ao buscar dados:", error);
-    }
-  };
+  const [saldoAcumulado, setSaldoAcumulado] = useState(0);
+  const [calculatedBalances, setCalculatedBalances] = useState<Record<number, number>>({});
+  const [paginaAtual, setPaginaAtual] = useState(0);
+  const itensPorPagina = 6;
 
   const fetchRecolhedores = async () => {
     setLoading(true);
@@ -77,6 +70,13 @@ const RecolhedoresTab: React.FC = () => {
     try {
       const response = await api.get<Recolhedor[]>("/collectors/list_collectors");
       setRecolhedores(response.data);
+
+      // Calcular saldos iniciais
+      const balances: Record<number, number> = {};
+      response.data.forEach((r) => {
+        balances[r.id] = computeBalance(r, operacoes, payments);
+      });
+      setCalculatedBalances(balances);
     } catch (e: any) {
       setError(e.message);
     } finally {
@@ -84,21 +84,79 @@ const RecolhedoresTab: React.FC = () => {
     }
   };
 
-  const fetchPayments = async (collectorId?: number) => {
+  const fetchAllData = async () => {
+    setLoading(true);
+    setError(null);
+
     try {
-      const query = collectorId ? `?collectorId=${collectorId}` : "";
-      const paymentsResponse = await api.get<Payment[]>(`/api/payments${query}`);
+      // 1. Primeiro carregue as operações (não dependem de outros dados)
+      const operacoesResponse = await api.get<Operacao[]>("/operations/list_operations");
+      setOperacoes(operacoesResponse.data);
+
+      // 2. Carregue todos os recolhedores
+      const recolhedoresResponse = await api.get<Recolhedor[]>("/collectors/list_collectors");
+      setRecolhedores(recolhedoresResponse.data);
+
+      // 3. Carregue todos os pagamentos (sem filtro inicial)
+      const paymentsResponse = await api.get<Payment[]>("/api/payments");
       setPayments(paymentsResponse.data);
-    } catch (error) {
-      console.error("Erro ao buscar pagamentos:", error);
+
+      // 4. Agora calcule os saldos iniciais com todos os dados disponíveis
+      const initialBalances: Record<number, number> = {};
+      recolhedoresResponse.data.forEach((r) => {
+        initialBalances[r.id] = computeBalance(r, operacoesResponse.data, paymentsResponse.data);
+      });
+      setCalculatedBalances(initialBalances);
+
+      // 5. Calcule o saldo acumulado
+      const totalBalance = Object.values(initialBalances).reduce((a, b) => a + b, 0);
+      setSaldoAcumulado(totalBalance);
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
     }
   };
 
+  // Substitua o useEffect inicial por:
   useEffect(() => {
-    fetchRecolhedores();
-    fetchData();
-    fetchPayments();
+    fetchAllData();
   }, []);
+
+  // Atualize a função abrirCaixa para lidar com o carregamento específico:
+  const abrirCaixa = async (recolhedor: Recolhedor) => {
+    setSelectedRecolhedor(recolhedor);
+    try {
+      // Carrega os dados específicos do recolhedor
+      const [recolhedorDetalhes, paymentsFiltrados] = await Promise.all([
+        api.get<Recolhedor>(`/collectors/list_collector/${recolhedor.id}`),
+        api.get<Payment[]>(`/api/payments?collectorId=${recolhedor.id}`),
+      ]);
+
+      // Atualiza os pagamentos mantendo os existentes e adicionando os filtrados
+      setPayments((prevPayments) => {
+        const updatedPayments = [
+          ...prevPayments.filter((p) => p.collectorId !== recolhedor.id),
+          ...paymentsFiltrados.data,
+        ];
+
+        // Recalcula os saldos com os novos dados
+        const updatedBalances: Record<number, number> = {};
+        recolhedores.forEach((r) => {
+          updatedBalances[r.id] = computeBalance(r, operacoes, updatedPayments);
+        });
+        setCalculatedBalances(updatedBalances);
+
+        return updatedPayments;
+      });
+
+      setSelectedRecolhedor(recolhedorDetalhes.data);
+    } catch (error: any) {
+      console.error("Erro ao buscar detalhes do recolhedor:", error.message);
+      alert("Erro ao carregar detalhes do recolhedor.");
+      setSelectedRecolhedor(null);
+    }
+  };
 
   // Clear new payment highlight after 3 seconds
   useEffect(() => {
@@ -125,20 +183,6 @@ const RecolhedoresTab: React.FC = () => {
       alert(`Erro ao salvar recolhedor: ${e.message}`);
     }
   };
-
-  const abrirCaixa = async (recolhedor: Recolhedor) => {
-    setSelectedRecolhedor(recolhedor);
-    try {
-      const response = await api.get<Recolhedor>(`/collectors/list_collector/${recolhedor.id}`);
-      setSelectedRecolhedor(response.data); // Update with transactions
-      fetchPayments(recolhedor.id); // Fetch payments for this collector
-    } catch (error: any) {
-      console.error("Erro ao buscar detalhes do recolhedor:", error.message);
-      alert("Erro ao carregar detalhes do recolhedor.");
-      setSelectedRecolhedor(null);
-    }
-  };
-
   const fecharCaixa = () => {
     setSelectedRecolhedor(null);
     setValorPagamento(0);
@@ -155,36 +199,36 @@ const RecolhedoresTab: React.FC = () => {
     setIsProcessingPayment(true);
 
     try {
-      // Create payment using the new API endpoint
+      const isHoje = dataPagamento === new Date().toISOString().split("T")[0];
+      const dataFinal = isHoje ? new Date().toISOString() : new Date(`${dataPagamento}T00:00:00`).toISOString();
+
       const paymentData = {
         collectorId: selectedRecolhedor.id,
         amount: valorPagamento,
         description: descricaoPagamento,
-        date: dataPagamento,
+        date: dataFinal,
       };
 
       const response = await api.post("/api/payments", paymentData);
-      console.log("response ", response);
-
-      // Refresh payments list
-      fetchPayments(selectedRecolhedor.id);
-
-      // Update local state with the new payment
       const newPayment: Payment = response.data;
-      setNewPaymentId(`pay-${newPayment.id}`);
 
-      // Update the collector's balance
-      const updatedBalance = selectedRecolhedor.balance + valorPagamento;
+      // Atualizar a lista de pagamentos
+      const updatedPayments = [...payments, newPayment];
+      setPayments(updatedPayments);
 
-      // Update the recolhedor in the list
-      const updatedRecolhedores = recolhedores.map((r) =>
-        r.id === selectedRecolhedor.id ? { ...r, balance: updatedBalance } : r
-      );
+      // Recalcular o saldo para este recolhedor
+      const updatedBalance = computeBalance(selectedRecolhedor, operacoes, updatedPayments);
 
-      setRecolhedores(updatedRecolhedores);
-      setSelectedRecolhedor({ ...selectedRecolhedor, balance: updatedBalance });
+      // Atualizar o estado de saldos calculados
+      setCalculatedBalances((prev) => ({
+        ...prev,
+        [selectedRecolhedor.id]: updatedBalance,
+      }));
 
-      // Reset form
+      // Atualizar o saldo acumulado
+      setSaldoAcumulado(Object.values(calculatedBalances).reduce((a, b) => a + b, 0) + valorPagamento);
+
+      // Resetar o formulário
       setValorPagamento(0);
       setDescricaoPagamento("");
       setDataPagamento(new Date().toISOString().split("T")[0]);
@@ -216,28 +260,66 @@ const RecolhedoresTab: React.FC = () => {
     setShowConfirmModal(false);
   };
 
-  function computeBalance(r: Recolhedor, ops: Operacao[], payments: Payment[]) {
-    // Get all operations for this collector and convert to negative values
-    console.log("payments", payments);
+  const deletarOperacao = async (id: number) => {
+    try {
+      await api.delete(`/operations/delete_operation/${id}`);
+      setOperacoes((prev) => prev.filter((op) => op.id !== id));
+      alert("Operação deletada com sucesso.");
+    } catch (e: any) {
+      alert(`Erro ao deletar operação: ${e.message}`);
+    }
+  };
 
+  const deletarPagamento = async (id: number) => {
+    try {
+      await api.delete(`/api/delete_payment/${id}`);
+      setPayments((prev) => prev.filter((p) => p.id !== id));
+      alert("Pagamento deletado com sucesso.");
+    } catch (e: any) {
+      alert(`Erro ao deletar pagamento: ${e.message}`);
+    }
+  };
+
+  const todasTransacoes = [
+    ...(selectedRecolhedor!?.transacoes || []),
+    ...operacoes
+      .filter((op) => op.collectorId === selectedRecolhedor!?.id)
+      .map((op) => ({
+        id: `op-${op.id}`,
+        date: op.date || new Date().toISOString(),
+        valor: -(op.value || 0) / (op.collectorTax || selectedRecolhedor!?.tax || 1),
+        descricao: `operação #${op.id} · ${op.city?.toLowerCase() || ""}`,
+        tipo: "debito",
+      })),
+    ...payments
+      .filter((p) => p.collectorId === selectedRecolhedor!?.id)
+      .map((p) => ({
+        id: `pay-${p.id}`,
+        date: p.date,
+        valor: p.amount,
+        descricao: p.description,
+        tipo: "pagamento",
+      })),
+  ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+  const transacoesPaginadas = todasTransacoes.slice(paginaAtual * itensPorPagina, (paginaAtual + 1) * itensPorPagina);
+
+  function computeBalance(r: Recolhedor, ops: Operacao[], payments: Payment[]) {
     const collectorOperations = ops
       .filter((o) => o.collectorId === r.id)
       .map((o) => ({
         date: o.date,
-        value: -(o.value / (o.collectorTax || r.tax || 1)), // Negative value for operations
+        value: -(o.value / (o.collectorTax || r.tax || 1)),
         type: "operation",
       }));
 
-    // Get all payments for this collector (positive values)
     const collectorPayments = payments
       .filter((p) => p.collectorId === r.id)
       .map((p) => ({
         date: p.date,
-        value: p.amount, // Positive value for payments
+        value: p.amount,
         type: "payment",
       }));
-
-    console.log("collector", collectorPayments);
 
     // Combine and sort by date
     const allTransactions = [...collectorOperations, ...collectorPayments].sort(
@@ -252,7 +334,13 @@ const RecolhedoresTab: React.FC = () => {
 
     return balance;
   }
-
+  useEffect(() => {
+    let totalBalance = 0;
+    recolhedores.forEach((recolhedor) => {
+      totalBalance += computeBalance(recolhedor, operacoes, payments);
+    });
+    setSaldoAcumulado(totalBalance);
+  }, [recolhedores, operacoes, payments]);
   if (loading) {
     return (
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex items-center justify-center h-64">
@@ -288,10 +376,19 @@ const RecolhedoresTab: React.FC = () => {
         transition={{ duration: 0.4 }}
         className="bg-white p-6 rounded-lg shadow mb-6"
       >
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-semibold text-blue-700">
-            <i className="fas fa-users mr-2"></i> RECOLHEDORES
-          </h2>
+        <div className="flex justify-between items-start mb-4">
+          <div className="flex flex-col">
+            <h2 className="text-xl font-semibold text-blue-700">
+              <i className="fas fa-users mr-2"></i> RECOLHEDORES
+            </h2>
+            <div className="mb-6 grid grid-cols-1 md:grid-cols-1 gap-4">
+              <div className="bg-purple-50 p-4 rounded-lg">
+                <h3 className="font-medium mb-2">SALDO ACUMULADO</h3>
+                <p className="text-2xl font-bold text-purple-600">{formatCurrency(saldoAcumulado, 2, "USD")}</p>
+              </div>
+            </div>
+          </div>
+
           <motion.button
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
@@ -310,7 +407,7 @@ const RecolhedoresTab: React.FC = () => {
             <thead>
               <tr className="bg-gray-200">
                 <th className="py-2 px-4 border">NOME</th>
-                <th className="py-2 px-4 border">TAXA</th>
+
                 <th className="py-2 px-4 border">SALDO (USD)</th>
                 <th className="py-2 px-4 border">AÇÕES</th>
               </tr>
@@ -326,14 +423,14 @@ const RecolhedoresTab: React.FC = () => {
                     transition={{ duration: 0.2 }}
                     className="hover:bg-gray-50"
                   >
-                    <td className="py-2 px-4 border">{r.name}</td>
-                    <td className="py-2 px-4 border">{r.tax}</td>
+                    <td className="py-2 px-4 border text-center">{r.name}</td>
+
                     <td
-                      className={`py-2 px-4 border text-right font-bold ${
-                        computeBalance(r, operacoes, payments) < 0 ? "text-red-600" : "text-green-600"
+                      className={`py-2 px-4 border text-center font-bold ${
+                        calculatedBalances[r.id] < 0 ? "text-red-600" : "text-green-600"
                       }`}
                     >
-                      {formatCurrency(computeBalance(r, operacoes, payments))}
+                      {formatCurrency(calculatedBalances[r.id] || 0)}
                     </td>
                     <td className="py-2 px-4 border space-x-2 text-center">
                       <motion.button
@@ -390,10 +487,10 @@ const RecolhedoresTab: React.FC = () => {
                   SALDO:{" "}
                   <span
                     className={`font-bold ${
-                      computeBalance(selectedRecolhedor, operacoes, payments) < 0 ? "text-red-600" : "text-green-600"
+                      calculatedBalances[selectedRecolhedor.id] < 0 ? "text-red-600" : "text-green-600"
                     }`}
                   >
-                    {formatCurrency(computeBalance(selectedRecolhedor, operacoes, payments))}
+                    {formatCurrency(calculatedBalances[selectedRecolhedor.id] || 0)}
                   </span>
                 </span>
                 <motion.button
@@ -433,9 +530,10 @@ const RecolhedoresTab: React.FC = () => {
                     <input
                       type="number"
                       step="0.01"
-                      className="mt-1 block w-full border border-gray-300 rounded-md p-2"
-                      value={valorPagamento}
-                      onChange={(e) => setValorPagamento(Number(e.target.value))}
+                      inputMode="decimal"
+                      className="mt-1 block w-full border border-gray-300 rounded-md p-2 appearance-none [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                      value={valorPagamento || ""}
+                      onChange={(e) => setValorPagamento(Number(e.target.value.replace(",", ".")))}
                       disabled={isProcessingPayment}
                     />
                   </div>
@@ -486,80 +584,104 @@ const RecolhedoresTab: React.FC = () => {
                         <th className="py-2 px-4 border">DATA</th>
                         <th className="py-2 px-4 border">DESCRIÇÃO</th>
                         <th className="py-2 px-4 border">VALOR (USD)</th>
+                        <th className="py-2 px-4 border">AÇÕES</th>
                       </tr>
                     </thead>
                     <tbody>
                       <AnimatePresence>
-                        {[
-                          ...(selectedRecolhedor.transacoes || []),
-                          ...operacoes
-                            .filter((op) => op.collectorId === selectedRecolhedor.id)
-                            .map((op) => ({
-                              id: `op-${op.id}`,
-                              date: op.date || new Date().toISOString(),
-                              valor: -(op.value || 0) / (op.collectorTax || selectedRecolhedor.tax || 1),
-                              descricao: `Operação #${op.id} - ${op.city || ""}`,
-                              tipo: "debito",
-                            })),
-                          ...payments
-                            .filter((p) => p.collectorId === selectedRecolhedor.id)
-                            .map((p) => ({
-                              id: `pay-${p.id}`,
-                              date: p.date,
-                              valor: p.amount,
-                              descricao: p.description,
-                              tipo: p.amount < 0 ? "debito" : "pagamento",
-                            })),
-                        ]
-                          .slice(-6)
-                          .reverse()
-                          .map((t) => (
-                            <motion.tr
-                              key={t.id}
-                              initial={{ opacity: 0, y: 10 }}
-                              animate={{
-                                opacity: 1,
-                                y: 0,
-                                backgroundColor:
-                                  newPaymentId === t.id
-                                    ? ["#f0f9ff", "#e0f2fe", "#f0f9ff"]
-                                    : t.id.toString().startsWith("op-")
-                                    ? "#ebf5ff"
-                                    : t.id.toString().startsWith("pay-")
-                                    ? "#f0fdf4"
-                                    : "#ffffff",
-                              }}
-                              exit={{ opacity: 0, y: -10 }}
-                              transition={{
-                                duration: 0.3,
-                                backgroundColor: {
-                                  duration: 1.5,
-                                  repeat: newPaymentId === t.id ? 2 : 0,
-                                  repeatType: "reverse",
-                                },
-                              }}
-                              className={
-                                t.id.toString().startsWith("op-")
-                                  ? "bg-blue-50"
+                        {transacoesPaginadas.map((t) => (
+                          <motion.tr
+                            key={t.id}
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{
+                              opacity: 1,
+                              y: 0,
+                              backgroundColor:
+                                newPaymentId === t.id
+                                  ? ["#f0fdf4", "#dcfce7", "#f0fdf4"]
+                                  : t.id.toString().startsWith("op-")
+                                  ? "#ebf5ff"
                                   : t.id.toString().startsWith("pay-")
-                                  ? "bg-green-50"
-                                  : ""
-                              }
+                                  ? "#f0fdf4"
+                                  : "#ffffff",
+                            }}
+                            exit={{ opacity: 0, y: -10 }}
+                            transition={{
+                              duration: 0.3,
+                              backgroundColor: {
+                                duration: 1.5,
+                                repeat: newPaymentId === t.id ? 2 : 0,
+                                repeatType: "reverse",
+                              },
+                            }}
+                            className={
+                              t.id.toString().startsWith("op-")
+                                ? "bg-blue-50"
+                                : t.id.toString().startsWith("pay-")
+                                ? "bg-green-50"
+                                : ""
+                            }
+                          >
+                            <td className="py-2 px-4 border text-sm text-gray-700">
+                              <div className="flex items-center gap-2" title={new Date(t.date).toISOString()}>
+                                <i className="fas fa-clock text-gray-500"></i>
+                                {formatDate(t.date)}
+                              </div>
+                            </td>
+                            <td className="py-2 px-4 border text-sm text-gray-700">{t.descricao}</td>
+                            <td
+                              className={`py-2 px-4 border text-right ${
+                                t.valor < 0 ? "text-red-600" : "text-green-600"
+                              }`}
                             >
-                              <td className="py-2 px-4 border">{formatDate(t.date)}</td>
-                              <td className="py-2 px-4 border">{t.descricao}</td>
-                              <td
-                                className={`py-2 px-4 border text-right ${
-                                  t.valor < 0 ? "text-red-600" : "text-green-600"
-                                }`}
-                              >
-                                {formatCurrency(t.valor)}
-                              </td>
-                            </motion.tr>
-                          ))}
+                              {formatCurrency(t.valor)}
+                            </td>
+                            <td className="py-2 px-4 border text-right">
+                              {t.id.toString().startsWith("pay-") && (
+                                <button
+                                  onClick={() => deletarPagamento(Number(t.id.toString().replace("pay-", "")))}
+                                  className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded justify-self-end"
+                                >
+                                  <i className="fas fa-trash"></i>
+                                </button>
+                              )}
+                              {t.id.toString().startsWith("op-") && (
+                                <button
+                                  onClick={() => deletarOperacao(Number(t.id.toString().replace("op-", "")))}
+                                  className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded justify-self-end"
+                                >
+                                  <i className="fas fa-trash"></i>
+                                </button>
+                              )}
+                            </td>
+                          </motion.tr>
+                        ))}
                       </AnimatePresence>
                     </tbody>
                   </table>
+                  <div className="flex justify-between items-center mt-4">
+                    <button
+                      onClick={() => setPaginaAtual((prev) => Math.max(0, prev - 1))}
+                      disabled={paginaAtual === 0}
+                      className="px-3 py-1 bg-gray-200 text-sm rounded disabled:opacity-50"
+                    >
+                      Anterior
+                    </button>
+                    <span className="text-sm text-gray-600">
+                      Página {paginaAtual + 1} de {Math.ceil(todasTransacoes.length / itensPorPagina)}
+                    </span>
+                    <button
+                      onClick={() =>
+                        setPaginaAtual((prev) =>
+                          Math.min(prev + 1, Math.ceil(todasTransacoes.length / itensPorPagina) - 1)
+                        )
+                      }
+                      disabled={(paginaAtual + 1) * itensPorPagina >= todasTransacoes.length}
+                      className="px-3 py-1 bg-gray-200 text-sm rounded disabled:opacity-50"
+                    >
+                      Próxima
+                    </button>
+                  </div>
                 </div>
               </motion.div>
             </div>
