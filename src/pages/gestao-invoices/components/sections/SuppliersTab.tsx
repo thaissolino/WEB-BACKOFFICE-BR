@@ -82,7 +82,13 @@ export function SuppliersTab() {
         await api.patch(`/invoice/supplier/${currentSupplier.id}`, currentSupplier);
         Swal.fire("Sucesso!", "Fornecedor atualizado com sucesso.", "success");
       } else {
-        await api.post('/invoice/supplier', currentSupplier);
+        const res = await api.post('/invoice/supplier', currentSupplier);
+        if(res.data)
+        await api.post(`/invoice/box`,{
+          name: res.data.name,
+          description: `fornecedor - ${res.data.name}`,
+          type: "supplier"
+        });
         Swal.fire("Sucesso!", "Fornecedor criado com sucesso.", "success");
       }
       await fetchData();
