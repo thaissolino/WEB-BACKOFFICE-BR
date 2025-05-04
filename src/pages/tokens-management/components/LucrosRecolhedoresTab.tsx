@@ -163,8 +163,8 @@ const LucrosRecolhedoresFusionTab: React.FC = () => {
                     if (!op.date || isNaN(new Date(op.date).getTime())) return null;
                     const recolhedorNome = getRecolhedorNome(op.collectorId);
                     const fornecedorNome = getFornecedorNome(op.supplierId);
-                    //  <p className="text-lg">{formatCurrency(operation.value - operation.collectorTax || 0)}</p>
-                    return (
+
+              return (
                       <tr key={op.id}>
                         <td className="py-2 px-4 text-center border">{formatDate(op.date)}</td>
                         <td className="py-2 px-4 text-center border">{op.city || "Desconhecido"}</td>
