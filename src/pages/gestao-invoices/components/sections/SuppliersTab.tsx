@@ -39,7 +39,7 @@ export function SuppliersTab() {
     setShowModal(true);
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = async (supplier: Supplier) => {
     const result = await Swal.fire({
       title: 'Tem certeza?',
       text: "Você não poderá reverter isso!",
@@ -54,7 +54,8 @@ export function SuppliersTab() {
     if (result.isConfirmed) {
       setIsSubmitting(true);
       try {
-        await api.delete(`/invoice/supplier/${id}`);
+        await api.delete(`/invoice/supplier/${supplier.id}`);
+        await api.delete(`/invoice/box/user/name/${supplier.name}`);
         await fetchData();
         Swal.fire("Sucesso!", "Fornecedor excluído permanentemente.", "success");
       } catch (error) {
@@ -82,7 +83,13 @@ export function SuppliersTab() {
         await api.patch(`/invoice/supplier/${currentSupplier.id}`, currentSupplier);
         Swal.fire("Sucesso!", "Fornecedor atualizado com sucesso.", "success");
       } else {
-        await api.post('/invoice/supplier', currentSupplier);
+        const res = await api.post('/invoice/supplier', currentSupplier);
+        if(res.data)
+        await api.post(`/invoice/box`,{
+          name: res.data.name,
+          description: `fornecedor - ${res.data.name}`,
+          type: "supplier"
+        });
         Swal.fire("Sucesso!", "Fornecedor criado com sucesso.", "success");
       }
       await fetchData();
@@ -160,7 +167,7 @@ export function SuppliersTab() {
                           <Edit size={16} />
                         </button>
                         <button
-                          onClick={() => handleDelete(supplier.id)}
+                          onClick={() => handleDelete(supplier)}
                           className="text-red-600 hover:text-red-900"
                           disabled={isSubmitting}
                         >

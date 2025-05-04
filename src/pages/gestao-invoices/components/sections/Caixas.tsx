@@ -4,7 +4,7 @@ import { api } from "../../../../services/api";
 import Swal from "sweetalert2";
 import { GenericSearchSelect } from "./SearchSelect";
 import { Loader2 } from "lucide-react";
-
+import { motion, AnimatePresence } from "framer-motion";
 
 export interface Transaction {
   id: string;
@@ -41,6 +41,8 @@ const CaixasTab: React.FC = () => {
   const [dataPagamento, setDataPagamento] = useState("");
   const [valorPagamento, setValorPagamento] = useState("");
   const [descricaoPagamento, setDescricaoPagamento] = useState("");
+  const [loadingClearId, setLoadingClearId] = useState<string | null>(null);
+
 
   useEffect(() => {
     fetchData();
@@ -65,9 +67,23 @@ const CaixasTab: React.FC = () => {
     // Implemente lógica de criação de caixa com POST
   };
 
-
-  // const formatCurrency = (value: number) => `$${value.toFixed(2)}`;
-  const formatDate = (dateStr: string) => new Date(dateStr).toLocaleDateString();
+  const limparHistorico = async (recolhedorId: string) => {
+    // const confirm = window.confirm("Deseja realmente excluir TODO o histórico de transações deste recolhedor?");
+    // if (!confirm) return;
+  
+    setLoadingClearId(recolhedorId);
+    try {
+      await api.delete(`/invoice/box/trasnsaction/user/${recolhedorId}`);
+      await fetchDatUser();
+      // alert("Histórico excluído com sucesso.");
+    } catch (e: any) {
+      Swal.fire("Erro", "Erro ao apagar registo de pagamento", "error");
+    } finally {
+      setLoadingClearId(null);
+      
+    }
+  };
+  
 
   const caixaAtual =  caixas?.find((c) => c.id === selectedUserId);
   console.log(caixaAtual)
@@ -79,6 +95,7 @@ const CaixasTab: React.FC = () => {
       if(!selectedUserId)return
       setLoadingFetch2(true)
       const res = await api.get(`/invoice/box/transaction/${selectedUserId}`);
+
       console.log(res.data)
       setCaixaUser(res.data);
     } catch (error) {
@@ -88,6 +105,11 @@ const CaixasTab: React.FC = () => {
       setLoadingFetch2(false)
     }
   };
+
+  function isValidNumber(value: string): boolean {
+    const number = Number(value);
+    return !isNaN(number) && isFinite(number);
+  }
   
   console.log(caixaUser)
   
@@ -103,6 +125,10 @@ const CaixasTab: React.FC = () => {
       }
       if(Number(valorPagamento) === 0){
         Swal.fire("Erro", "selecione um valor", "error");
+          return
+      }
+      if(!isValidNumber(valorPagamento)){
+        Swal.fire("Erro", "selecione um valor válido", "error");
           return
       }
       if(!descricaoPagamento){
@@ -189,7 +215,7 @@ const CaixasTab: React.FC = () => {
     )}
   </span>
 
-  SALDO:{" "}
+  Saldo:{" "}
   <span
     className={`mr-2 font-bold ${
       (caixaUser?.balance ?? 0) < 0 ? "text-red-600" : "text-green-600"
@@ -273,12 +299,13 @@ const CaixasTab: React.FC = () => {
                       <th className="py-2 px-4 border">DATA</th>
                       <th className="py-2 px-4 border">DESCRIÇÃO</th>
                       <th className="py-2 px-4 border">VALOR (USD)</th>
+                      <th className="py-2 px-4 border">AÇÕES</th>
                     </tr>
                   </thead>
                   <tbody>
                   {loadingFetch2 ? (
                     <tr>
-                      <td colSpan={3} className="text-center py-4 text-blue-600">
+                      <td colSpan={4} className="text-center py-4 text-blue-600">
                         <Loader2 className="inline animate-spin w-4 h-4 mr-2" />
                         Carregando transações...
                       </td>
@@ -289,7 +316,9 @@ const CaixasTab: React.FC = () => {
                       .reverse()
                       .map((t) => (
                         <tr key={t.id} className="bg-red-50">
-                          <td className="py-2 px-4 border text-center">{new Date(new Date(t.date).getTime() + 3 * 60 * 60 * 1000).toLocaleDateString("pt-BR")}</td>
+                          <td className="py-2 px-4 border text-center">
+                            {new Date(new Date(t.date).getTime() + 3 * 60 * 60 * 1000).toLocaleDateString("pt-BR")}
+                          </td>
                           <td className="py-2 px-4 border text-center">{t.description}</td>
                           <td
                             className={`py-2 px-4 border text-right ${
@@ -301,16 +330,35 @@ const CaixasTab: React.FC = () => {
                               maximumFractionDigits: 2,
                             })}`}
                           </td>
+                          <td className="py-2 px-4 border text-center">
+                            <motion.button
+                              whileHover={{ scale: 1.05 }}
+                              whileTap={{ scale: 0.95 }}
+                              onClick={() => limparHistorico(t.id)}
+                              disabled={loadingClearId === t.id}
+                              className={`${
+                                loadingClearId === t.id ? "bg-red-600 cursor-not-allowed" : "bg-red-500 hover:bg-red-700"
+                              } text-white px-3 py-1 rounded`}
+                            >
+                              {loadingClearId === t.id ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                              ) : (
+                                <i className="fas fa-trash"></i>
+                                                    
+                              )}
+                            </motion.button>
+                          </td>
                         </tr>
                       ))
                   ) : (
                     <tr>
-                      <td colSpan={3} className="text-center py-4 text-gray-500">
+                      <td colSpan={4} className="text-center py-4 text-gray-500">
                         Nenhuma transação registrada.
                       </td>
                     </tr>
                   )}
                 </tbody>
+
                   
                 </table>
                 
