@@ -59,7 +59,7 @@ const LucrosRecolhedoresFusionTab: React.FC = () => {
 
   const lucroMesAtual = operacoesFiltradas
     .filter((op) => new Date(op.date).getMonth() === new Date().getMonth())
-    .reduce((acc, op) => acc + (op.profit || 0), 0);
+    .reduce((acc, op) => acc + (op.value - (op.value || 0) / (op.collectorTax || 0) || 0), 0);
 
   const lucroMesAnterior = operacoesFiltradas
     .filter((op) => {
@@ -67,7 +67,7 @@ const LucrosRecolhedoresFusionTab: React.FC = () => {
       const mesAtual = new Date().getMonth();
       return d.getMonth() === (mesAtual === 0 ? 11 : mesAtual - 1);
     })
-    .reduce((acc, op) => acc + (op.profit || 0), 0);
+    .reduce((acc, op) => acc + (op.value - (op.value || 0) / (op.collectorTax || 0) || 0), 0);
 
   useEffect(() => {
     fetchAllData();
@@ -112,23 +112,23 @@ const LucrosRecolhedoresFusionTab: React.FC = () => {
           <i className="fas fa-chart-line mr-2"></i> HISTÓRICO DE LUCROS
         </h2>
         {selectedRecolhedor && (
-            <>
-        <div className="mb-6 grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-blue-50 p-4 rounded-lg">
-            <h3 className="font-medium mb-2">LUCRO ESTE MÊS</h3>
-            <p className="text-2xl font-bold text-blue-600">{formatCurrency(lucroMesAtual)}</p>
-          </div>
-          <div className="bg-green-50 p-4 rounded-lg">
-            <h3 className="font-medium mb-2">LUCRO MÊS ANTERIOR</h3>
-            <p className="text-2xl font-bold text-green-600">{formatCurrency(lucroMesAnterior)}</p>
-          </div>
-          <div className="bg-purple-50 p-4 rounded-lg">
-            <h3 className="font-medium mb-2">TOTAL ACUMULADO</h3>
-            <p className="text-2xl font-bold text-purple-600">{formatCurrency(lucroMesAtual + lucroMesAnterior)}</p>
-          </div>
-        </div>
-        </>
-          )}
+          <>
+            <div className="mb-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="bg-blue-50 p-4 rounded-lg">
+                <h3 className="font-medium mb-2">LUCRO ESTE MÊS</h3>
+                <p className="text-2xl font-bold text-blue-600">{formatCurrency(lucroMesAtual)}</p>
+              </div>
+              <div className="bg-green-50 p-4 rounded-lg">
+                <h3 className="font-medium mb-2">LUCRO MÊS ANTERIOR</h3>
+                <p className="text-2xl font-bold text-green-600">{formatCurrency(lucroMesAnterior)}</p>
+              </div>
+              <div className="bg-purple-50 p-4 rounded-lg">
+                <h3 className="font-medium mb-2">TOTAL ACUMULADO</h3>
+                <p className="text-2xl font-bold text-purple-600">{formatCurrency(lucroMesAtual + lucroMesAnterior)}</p>
+              </div>
+            </div>
+          </>
+        )}
         <div className="bg-white p-6 rounded-lg shadow mb-6">
           <div className="flex items-center space-x-4">
             <GenericSearchSelect
@@ -164,15 +164,16 @@ const LucrosRecolhedoresFusionTab: React.FC = () => {
                     const recolhedorNome = getRecolhedorNome(op.collectorId);
                     const fornecedorNome = getFornecedorNome(op.supplierId);
 
-                    return (
+              return (
                       <tr key={op.id}>
                         <td className="py-2 px-4 text-center border">{formatDate(op.date)}</td>
                         <td className="py-2 px-4 text-center border">{op.city || "Desconhecido"}</td>
                         <td className="py-2 px-4 text-center border">{recolhedorNome}</td>
                         <td className="py-2 px-4 text-center border">{fornecedorNome}</td>
                         <td className="py-2 px-4 border text-center">{formatCurrency(op.value || 0)}</td>
-                        <td className="py-2 px-4 border text-center text-green-500 border-lime-500 bg-yellow-100">
-                          {formatCurrency(op.profit || 0)}
+                        <td className="py-2 px-4 border text-center text-green-500 border-lime-500 bg-yellow-100 text-lg">
+                          {/* {formatCurrency(op.profit || 0)} */}
+                          {formatCurrency(op.value - (op.value || 0) / (op.collectorTax || 0))}
                         </td>
                       </tr>
                     );
