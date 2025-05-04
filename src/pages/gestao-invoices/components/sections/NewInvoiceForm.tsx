@@ -12,16 +12,17 @@ export function NewInvoiceForm({ currentInvoice, setCurrentInvoice }: NewInvoice
   const [suppliers, setSuppliers] = useState<any[]>([]);
   const [carriers, setCarriers] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
-  
+  const [taxaSpEs, setTaxaSpEs] = useState<string>(
+    currentInvoice.taxaSpEs === 0 ? '' : currentInvoice.taxaSpEs.toString().replace('.', ',')
+  );
 
-  // Buscar fornecedores, transportadoras e produtos via API
   useEffect(() => {
     const fetchData = async () => {
       try {
         const suppliersResponse = await api.get('/invoice/supplier');
         const carriersResponse = await api.get('/invoice/carriers');
         const productsResponse = await api.get('/invoice/product');
-        
+
         setSuppliers(suppliersResponse.data);
         setCarriers(carriersResponse.data);
         setProducts(productsResponse.data);
@@ -34,12 +35,17 @@ export function NewInvoiceForm({ currentInvoice, setCurrentInvoice }: NewInvoice
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    setCurrentInvoice({ ...currentInvoice, [name]: value });
+
+    if (name === 'taxaSpEs') {
+      if (/^[0-9]*[.,]?[0-9]{0,2}$/.test(value)) {
+        setTaxaSpEs(value);
+        const numericValue = parseFloat(value.replace(',', '.')) || 0;
+        setCurrentInvoice({ ...currentInvoice, taxaSpEs: numericValue });
+      }
+    } else {
+      setCurrentInvoice({ ...currentInvoice, [name]: value });
+    }
   };
-
-
-
-  
 
   return (
     <div className="lg:col-span-1 bg-white p-6 rounded-lg shadow-md">
@@ -127,18 +133,16 @@ export function NewInvoiceForm({ currentInvoice, setCurrentInvoice }: NewInvoice
           Frete SP x ES (R$ por item)
         </label>
         <input
-          type="number"
+          type="text"
+          inputMode="decimal"
           step="0.01"
           name="taxaSpEs"
-          value={currentInvoice.taxaSpEs}
+          value={taxaSpEs}
           onChange={handleInputChange}
-          // className="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500"
-           className="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500 appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
           placeholder="Valor em R$ por item"
+          className="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500 appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
         />
       </div>
-
-
     </div>
   );
 }
