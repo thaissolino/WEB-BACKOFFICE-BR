@@ -24,7 +24,7 @@ interface Transaction {
 export interface Caixa {
   id: string;
   name: string;
-  type: "freteiro" | "fornecedor";
+  type: "freteiro" | "fornecedor" | "parceiro";
 
   description: string;
   createdAt: string;
@@ -65,9 +65,10 @@ const CaixasTab: React.FC = () => {
     setIsLoading(true);
     try {
       // Fetch only carriers and suppliers in parallel
-      const [carriersRes, suppliersRes] = await Promise.all([
+      const [carriersRes, suppliersRes, partnerRes] = await Promise.all([
         api.get("/invoice/carriers"),
         api.get("/invoice/supplier"),
+        api.get("/invoice/partner"),
       ]);
 
       // Combine carriers and suppliers with type labels
@@ -81,8 +82,13 @@ const CaixasTab: React.FC = () => {
         typeInvoice: "fornecedor",
       }));
 
+      const partnerItems = partnerRes.data.map((item: any) => ({
+        ...item,
+        typeInvoice: "parceiro",
+      }));
+
       // Combine all items
-      const combined = [...carrierItems, ...supplierItems];
+      const combined = [...carrierItems, ...supplierItems, ...partnerItems];
       setCombinedItems(combined);
 
       console.log("All data fetched:", combined);
@@ -178,7 +184,7 @@ const CaixasTab: React.FC = () => {
 
       // Use the appropriate endpoint based on the item type
       let endpoint = `/invoice/box/transaction/${selectedUserId}`;
-      if (selectedItem.typeInvoice === "freteiro" || selectedItem.typeInvoice === "fornecedor") {
+      if (selectedItem.typeInvoice === "freteiro" || selectedItem.typeInvoice === "fornecedor" || selectedItem.typeInvoice === "parceiro") {
         // Assuming the endpoint is the same for both types
         endpoint = `/invoice/box/transaction/${selectedUserId}`;
       }
@@ -275,7 +281,7 @@ const CaixasTab: React.FC = () => {
         direction: Number(formData.value) > 0 ? "IN" : "OUT",
         date: formData.date,
         description: formData.description,
-        entityType: selectedEntity.typeInvoice === "freteiro" ? "CARRIER" : "SUPPLIER",
+        entityType: selectedEntity.typeInvoice === "freteiro" ? "CARRIER" : selectedEntity.typeInvoice === "parceiro" ? "PARTNER" : selectedEntity.typeInvoice === "fornecedor" ? "SUPPLIER" : "",
         userId: caixaUser?.id,
       });
 
@@ -322,7 +328,17 @@ const CaixasTab: React.FC = () => {
             <GenericSearchSelect
               items={combinedItems}
               value={selectedEntity?.id || ""}
-              getLabel={(p) => `${p.name} (${p.typeInvoice === "freteiro" ? "Transportadora" : "Fornecedor"})`}
+              getLabel={(p) =>
+                `${p.name} (${
+                  p.typeInvoice === "freteiro"
+                    ? "Transportadora"
+                    : p.typeInvoice === "fornecedor"
+                    ? "Fornecedor"
+                    : p.typeInvoice === "parceiro"
+                    ? "Parceiro"
+                    : ""
+                })`
+              }
               getId={(p) => p.id}
               onChange={(id) => {
                 const entity = combinedItems.find((item) => item.id === id);
@@ -349,7 +365,14 @@ const CaixasTab: React.FC = () => {
         <div className="bg-white p-6 rounded-lg shadow mb-6">
           <div className="flex justify-between items-start mb-4">
             <h2 className="text-blue-600 font-semibold text-lg">
-              {selectedEntity.typeInvoice === "freteiro" ? "TRANSPORTADORA" : selectedEntity.typeInvoice === "fornecedor" ? "FORNECEDOR" : selectedEntity.typeInvoice === "parceiro" ? "PARCEIRO" : ""} : {selectedEntity.name}
+              {selectedEntity.typeInvoice === "freteiro"
+                ? "TRANSPORTADORA"
+                : selectedEntity.typeInvoice === "fornecedor"
+                ? "FORNECEDOR"
+                : selectedEntity.typeInvoice === "parceiro"
+                ? "PARCEIRO"
+                : ""}{" "}
+              : {selectedEntity.name}
             </h2>
             <div className="text-sm text-right">
               Entradas:{" "}
