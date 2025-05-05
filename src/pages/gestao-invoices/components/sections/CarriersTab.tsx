@@ -104,6 +104,21 @@ export function CarriersTab() {
     if (!currentCarrier) return;
     try {
       setIsSubmitting(true);
+
+      const trimmedName = currentCarrier.name.trim();
+
+      const carrierExists = carriers.some(
+        (supplier) =>
+          supplier.name.toLowerCase() === trimmedName.toLowerCase() &&
+          (!currentCarrier.id || supplier.id !== currentCarrier.id) &&
+          supplier.active !== false
+      );
+
+      if (carrierExists) {
+        Swal.fire("Erro", "Já existe um freteiro cadastrado com este nome.", "error");
+        return;
+      }
+
       if (currentCarrier.id) {
         // Edição
         await api.patch(`/invoice/carriers/${currentCarrier.id}`, currentCarrier);

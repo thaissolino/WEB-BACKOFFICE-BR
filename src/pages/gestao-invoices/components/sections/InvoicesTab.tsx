@@ -16,7 +16,7 @@ export function InvoicesTab() {
     products: [],
     amountTaxcarrier: 0,
     amountTaxcarrier2: 0, 
-    taxaSpEs: 0.0,
+    taxaSpEs: "",
     carrierId: "",
     carrier2Id: "",
     paid: false,

@@ -3,7 +3,7 @@ import { Plus, Edit, Trash2, Users, Loader2 } from "lucide-react";
 import Swal from "sweetalert2";
 import { api } from "../../../../services/api";
 
-interface Supplier {
+export interface Supplier {
   id: string;
   name: string;
   phone: string;
@@ -114,6 +114,18 @@ export function SuppliersTab() {
       return;
     }
 
+    const supplierExists = suppliers.some(
+      (supplier) =>
+        supplier.name.toLowerCase() === trimmedName.toLowerCase() &&
+        (!currentSupplier.id || supplier.id !== currentSupplier.id) &&
+        supplier.active !== false
+    );
+
+    if (supplierExists) {
+      Swal.fire("Erro", "Já existe um fornecedor cadastrado com este nome.", "error");
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       if (currentSupplier.id) {
@@ -135,6 +147,8 @@ export function SuppliersTab() {
             name: res.data.name,
             description: `fornecedor - ${res.data.name}`,
             type: "supplier",
+            tabsType: "invoice",
+              });
           });
         Swal.fire({
           icon: "success",
