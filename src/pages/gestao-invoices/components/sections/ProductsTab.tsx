@@ -23,7 +23,7 @@ export function ProductsTab() {
   const fetchData = async () => {
     setIsLoading(true);
     try {
-      const response = await api.get<Product[]>('/invoice/product');
+      const response = await api.get<Product[]>("/invoice/product");
       setProducts(response.data);
     } catch (error) {
       console.error("Erro ao buscar produtos:", error);
@@ -43,14 +43,17 @@ export function ProductsTab() {
 
   const handleDelete = async (id: string) => {
     const result = await Swal.fire({
-      title: 'Tem certeza?',
+      title: "Tem certeza?",
       text: "Você não poderá reverter esta ação!",
-      icon: 'warning',
+      icon: "warning",
       showCancelButton: true,
-      confirmButtonColor: '#3085d6',
-      cancelButtonColor: '#d33',
-      confirmButtonText: 'Sim, excluir!',
-      cancelButtonText: 'Cancelar'
+      buttonsStyling: false, // desativa os estilos padrões do SweetAlert2
+      customClass: {
+        confirmButton: "bg-blue-600 text-white hover:bg-blue-700 px-4 py-2 rounded font-semibold mr-2",
+        cancelButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
+      },
+      confirmButtonText: "Sim, excluir!",
+      cancelButtonText: "Cancelar",
     });
 
     if (result.isConfirmed) {
@@ -58,10 +61,28 @@ export function ProductsTab() {
       try {
         await api.delete(`/invoice/product/${id}`);
         await fetchData();
-        Swal.fire("Sucesso!", "Produto excluído permanentemente.", "success");
+        Swal.fire({
+          icon: "success",
+          title: "Sucesso!",
+          text: "Produto excluído permanentemente.",
+          confirmButtonText: "Ok",
+          buttonsStyling: false,
+          customClass: {
+            confirmButton: "bg-green-600 text-white hover:bg-green-700 px-4 py-2 rounded font-semibold",
+          },
+        });
       } catch (error) {
         console.error("Erro ao excluir produto:", error);
-        Swal.fire("Erro!", "Não foi possível excluir o produto.", "error");
+        Swal.fire({
+          icon: "error",
+          title: "Erro!",
+          text: "Não foi possível excluir o produto.",
+          confirmButtonText: "Ok",
+          buttonsStyling: false,
+          customClass: {
+            confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
+          },
+        });
       } finally {
         setIsSubmitting(false);
       }
@@ -74,7 +95,15 @@ export function ProductsTab() {
     const trimmedName = currentProduct.name.trim();
     const trimmedCode = currentProduct.code.trim();
     if (trimmedName === "" || trimmedCode === "") {
-      Swal.fire("Erro", "Nome e código do produto são obrigatórios.", "error");
+      Swal.fire({
+        icon: "error",
+        title: "Erro",
+        text: "Nome e código do produto são obrigatórios.",
+        buttonsStyling: false,
+        customClass: {
+          confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
+        },
+      });
       return;
     }
 
@@ -82,17 +111,43 @@ export function ProductsTab() {
     try {
       if (currentProduct.id) {
         await api.patch(`/invoice/product/${currentProduct.id}`, currentProduct);
-        Swal.fire("Sucesso!", "Produto atualizado com sucesso.", "success");
+        Swal.fire({
+          icon: "success",
+          title: "Sucesso!",
+          text: "Produto atualizado com sucesso.",
+          confirmButtonText: "Ok",
+          buttonsStyling: false,
+          customClass: {
+            confirmButton: "bg-green-600 text-white hover:bg-green-700 px-4 py-2 rounded font-semibold",
+          },
+        });
       } else {
-        await api.post('/invoice/product', currentProduct);
-        Swal.fire("Sucesso!", "Produto criado com sucesso.", "success");
+        await api.post("/invoice/product", currentProduct);
+        Swal.fire({
+          icon: "success",
+          title: "Sucesso!",
+          text: "Produto criado com sucesso.",
+          confirmButtonText: "Ok",
+          buttonsStyling: false,
+          customClass: {
+            confirmButton: "bg-green-600 text-white hover:bg-green-700 px-4 py-2 rounded font-semibold",
+          },
+        });
       }
       await fetchData();
       setShowModal(false);
       setCurrentProduct(null);
     } catch (error) {
       console.error("Erro ao salvar produto:", error);
-      Swal.fire("Erro!", "Não foi possível salvar o produto.", "error");
+      Swal.fire({
+        icon: "error",
+        title: "Erro!",
+        text: "Não foi possível salvar o produto.",
+        buttonsStyling: false,
+        customClass: {
+          confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
+        },
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -109,7 +164,7 @@ export function ProductsTab() {
           onClick={() => {
             let maiorCodigo = 0;
 
-            products.forEach(p => {
+            products.forEach((p) => {
               const numero = parseInt(p.code);
               if (!isNaN(numero) && numero > maiorCodigo) {
                 maiorCodigo = numero;
@@ -129,11 +184,7 @@ export function ProductsTab() {
           className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded flex items-center"
           disabled={isLoading || isSubmitting}
         >
-          {isLoading ? (
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          ) : (
-            <Plus className="mr-2" size={16} />
-          )}
+          {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2" size={16} />}
           Novo Produto
         </button>
       </div>
@@ -148,54 +199,61 @@ export function ProductsTab() {
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nome</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Código</th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Preço Médio ($)</th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Peso Médio (kg)</th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Código
+                </th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Preço Médio ($)
+                </th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Peso Médio (kg)
+                </th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Ações
+                </th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {products.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="px-6 py-4 text-center text-gray-500">
-                    {isLoading ? 'Carregando...' : 'Nenhum produto cadastrado'}
+                    {isLoading ? "Carregando..." : "Nenhum produto cadastrado"}
                   </td>
                 </tr>
               ) : (
-                products.map((product) => (
-                  product.active !== false && (
-                    <tr key={product.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{product.name}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{product.code}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right">
-                        R$ {product.priceweightAverage.toFixed(2)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right">
-                        {product.weightAverage.toFixed(2)} kg
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <button
-                          onClick={() => handleEdit(product)}
-                          className="text-blue-600 hover:text-blue-900 mr-3"
-                          disabled={isSubmitting}
-                        >
-                          <Edit size={16} />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(product.id)}
-                          className="text-red-600 hover:text-red-900"
-                          disabled={isSubmitting}
-                        >
-                          {isSubmitting ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <Trash2 size={16} />
-                          )}
-                        </button>
-                      </td>
-                    </tr>
-                  )
-                ))
+                products.map(
+                  (product) =>
+                    product.active !== false && (
+                      <tr key={product.id} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                          {product.name}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{product.code}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right">
+                          R$ {product.priceweightAverage.toFixed(2)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right">
+                          {product.weightAverage.toFixed(2)} kg
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                          <button
+                            onClick={() => handleEdit(product)}
+                            className="text-blue-600 hover:text-blue-900 mr-3"
+                            disabled={isSubmitting}
+                          >
+                            <Edit size={16} />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(product.id)}
+                            className="text-red-600 hover:text-red-900"
+                            disabled={isSubmitting}
+                          >
+                            {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 size={16} />}
+                          </button>
+                        </td>
+                      </tr>
+                    )
+                )
               )}
             </tbody>
           </table>
@@ -205,9 +263,7 @@ export function ProductsTab() {
       {showModal && currentProduct && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white p-6 rounded-lg w-full max-w-md">
-            <h3 className="text-lg font-medium mb-4">
-              {currentProduct.id ? "Editar Produto" : "Novo Produto"}
-            </h3>
+            <h3 className="text-lg font-medium mb-4">{currentProduct.id ? "Editar Produto" : "Novo Produto"}</h3>
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Nome</label>
@@ -235,7 +291,9 @@ export function ProductsTab() {
                     type="number"
                     step="0.01"
                     value={currentProduct.priceweightAverage}
-                    onChange={(e) => setCurrentProduct({ ...currentProduct, priceweightAverage: parseFloat(e.target.value) || 0 })}
+                    onChange={(e) =>
+                      setCurrentProduct({ ...currentProduct, priceweightAverage: parseFloat(e.target.value) || 0 })
+                    }
                     className="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500"
                     disabled={isSubmitting}
                   />
@@ -246,7 +304,9 @@ export function ProductsTab() {
                     type="number"
                     step="0.01"
                     value={currentProduct.weightAverage}
-                    onChange={(e) => setCurrentProduct({ ...currentProduct, weightAverage: parseFloat(e.target.value) || 0 })}
+                    onChange={(e) =>
+                      setCurrentProduct({ ...currentProduct, weightAverage: parseFloat(e.target.value) || 0 })
+                    }
                     className="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500"
                     disabled={isSubmitting}
                   />
@@ -281,7 +341,9 @@ export function ProductsTab() {
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     Salvando...
                   </>
-                ) : 'Salvar'}
+                ) : (
+                  "Salvar"
+                )}
               </button>
             </div>
           </div>

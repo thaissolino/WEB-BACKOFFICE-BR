@@ -24,7 +24,15 @@ export function SuppliersTab() {
       setSuppliers(response.data);
     } catch (error) {
       console.error("Erro ao buscar fornecedores:", error);
-      // Swal.fire("Erro!", "Não foi possível carregar os fornecedores.", "error");
+      // Swal.fire({
+      //   icon: "error",
+      //   title: "Erro!",
+      //   text: "Não foi possível carregar os fornecedores.",
+      //   buttonsStyling: false,
+      //   customClass: {
+      //     confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
+      //   },
+      // });
     } finally {
       setIsLoading(false);
     }
@@ -45,8 +53,11 @@ export function SuppliersTab() {
       text: "Você não poderá reverter isso!",
       icon: "warning",
       showCancelButton: true,
-      confirmButtonColor: "#3085d6",
-      cancelButtonColor: "#d33",
+      buttonsStyling: false, // desativa os estilos padrões do SweetAlert2
+      customClass: {
+        confirmButton: "bg-blue-600 text-white hover:bg-blue-700 px-4 py-2 rounded font-semibold mr-2",
+        cancelButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
+      },
       confirmButtonText: "Sim, excluir!",
       cancelButtonText: "Cancelar",
     });
@@ -57,10 +68,28 @@ export function SuppliersTab() {
         await api.delete(`/invoice/supplier/${supplier.id}`);
         await api.delete(`/invoice/box/user/name/${supplier.name}`);
         await fetchData();
-        Swal.fire("Sucesso!", "Fornecedor excluído permanentemente.", "success");
+        Swal.fire({
+          icon: "success",
+          title: "Sucesso!",
+          text: "Fornecedor excluído permanentemente.",
+          confirmButtonText: "Ok",
+          buttonsStyling: false,
+          customClass: {
+            confirmButton: "bg-green-600 text-white hover:bg-green-700 px-4 py-2 rounded font-semibold",
+          },
+        });
       } catch (error) {
         console.error("Erro ao excluir fornecedor:", error);
-        Swal.fire("Erro!", "Não foi possível excluir o fornecedor.", "error");
+        Swal.fire({
+          icon: "error",
+          title: "Erro!",
+          text: "Não foi possível excluir o fornecedor.",
+          confirmButtonText: "Ok",
+          buttonsStyling: false,
+          customClass: {
+            confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
+          },
+        });
       } finally {
         setIsSubmitting(false);
       }
@@ -73,7 +102,15 @@ export function SuppliersTab() {
     const trimmedName = currentSupplier.name.trim();
     const trimmedPhone = currentSupplier.phone.trim();
     if (trimmedName === "" || trimmedPhone === "") {
-      Swal.fire("Erro", "Nome e telefone do fornecedor são obrigatórios.", "error");
+      Swal.fire({
+        icon: "error",
+        title: "Erro",
+        text: "Nome e telefone do fornecedor são obrigatórios.",
+        buttonsStyling: false,
+        customClass: {
+          confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
+        },
+      });
       return;
     }
 
@@ -93,7 +130,16 @@ export function SuppliersTab() {
     try {
       if (currentSupplier.id) {
         await api.patch(`/invoice/supplier/${currentSupplier.id}`, currentSupplier);
-        Swal.fire("Sucesso!", "Fornecedor atualizado com sucesso.", "success");
+        Swal.fire({
+          icon: "success",
+          title: "Sucesso!",
+          text: "Fornecedor atualizado com sucesso.",
+          confirmButtonText: "Ok",
+          buttonsStyling: false,
+          customClass: {
+            confirmButton: "bg-green-600 text-white hover:bg-green-700 px-4 py-2 rounded font-semibold",
+          },
+        });
       } else {
         const res = await api.post("/invoice/supplier", currentSupplier);
         if (res.data)
@@ -102,15 +148,33 @@ export function SuppliersTab() {
             description: `fornecedor - ${res.data.name}`,
             type: "supplier",
             tabsType: "invoice",
+              });
           });
-        Swal.fire("Sucesso!", "Fornecedor criado com sucesso.", "success");
+        Swal.fire({
+          icon: "success",
+          title: "Sucesso!",
+          text: "Fornecedor criado com sucesso.",
+          confirmButtonText: "Ok",
+          buttonsStyling: false,
+          customClass: {
+            confirmButton: "bg-green-600 text-white hover:bg-green-700 px-4 py-2 rounded font-semibold",
+          },
+        });
       }
       await fetchData();
       setShowModal(false);
       setCurrentSupplier(null);
     } catch (error) {
       console.error("Erro ao salvar fornecedor:", error);
-      Swal.fire("Erro!", "Não foi possível salvar o fornecedor.", "error");
+      Swal.fire({
+        icon: "error",
+        title: "Erro!",
+        text: "Não foi possível salvar o fornecedor.",
+        buttonsStyling: false,
+        customClass: {
+          confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
+        },
+      });
     } finally {
       setIsSubmitting(false);
     }

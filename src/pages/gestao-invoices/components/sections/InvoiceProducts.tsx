@@ -183,41 +183,57 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
         icon: 'warning',
         title: 'Atenção',
         text: 'Adicione pelo menos um produto à invoice!',
-        confirmButtonColor: '#3085d6',
+        confirmButtonText: 'Ok',
+        buttonsStyling: false,
+        customClass: {
+          confirmButton: 'bg-blue-600 text-white hover:bg-blue-700 px-4 py-2 rounded font-semibold',
+        },
       });
       return;
     }
-
+  
     if (!currentInvoice.number) {
       Swal.fire({
         icon: 'warning',
         title: 'Atenção',
         text: 'Informe o número da invoice!',
-        confirmButtonColor: '#3085d6',
+        confirmButtonText: 'Ok',
+        buttonsStyling: false,
+        customClass: {
+          confirmButton: 'bg-blue-600 text-white hover:bg-blue-700 px-4 py-2 rounded font-semibold',
+        },
       });
       return;
     }
-
+  
     if (!currentInvoice.date) {
       Swal.fire({
         icon: 'warning',
         title: 'Atenção',
         text: 'Informe a data da invoice!',
-        confirmButtonColor: '#3085d6',
+        confirmButtonText: 'Ok',
+        buttonsStyling: false,
+        customClass: {
+          confirmButton: 'bg-blue-600 text-white hover:bg-blue-700 px-4 py-2 rounded font-semibold',
+        },
       });
       return;
     }
-
+  
     if (!currentInvoice.supplierId) {
       Swal.fire({
         icon: 'warning',
         title: 'Atenção',
         text: 'Selecione um fornecedor!',
-        confirmButtonColor: '#3085d6',
+        confirmButtonText: 'Ok',
+        buttonsStyling: false,
+        customClass: {
+          confirmButton: 'bg-blue-600 text-white hover:bg-blue-700 px-4 py-2 rounded font-semibold',
+        },
       });
       return;
     }
-
+  
     setIsSaving(true);
     try {
       const response = await api.post('/invoice/create', currentInvoice);
@@ -225,8 +241,34 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
         icon: 'success',
         title: 'Sucesso!',
         text: 'Invoice salva com sucesso!',
-        confirmButtonColor: '#3085d6',
+        confirmButtonText: 'Ok',
+        buttonsStyling: false,
+        customClass: {
+          confirmButton: 'bg-blue-600 text-white hover:bg-blue-700 px-4 py-2 rounded font-semibold',
+        },
       });
+  
+      setCurrentInvoice({
+        id: null,
+        number: '',
+        date: new Date().toISOString().split('T')[0],
+        supplierId: '',
+        products: [],
+        carrierId: '',
+        carrier2Id: '',
+        taxaSpEs: 0.0,
+        paid: false,
+        paidDate: null,
+        paidDollarRate: null,
+        completed: false,
+        completedDate: null,
+        amountTaxcarrier: 0,
+        amountTaxcarrier2: 0,
+        amountTaxSpEs: 0,
+        overallValue: 0,
+        subAmount: 0,
+      });
+
       
       // setCurrentInvoice({
       //   id: null,
@@ -248,19 +290,24 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
       //   overallValue: 0,
       //   subAmount: 0
       // });
+
     } catch (error) {
       console.error('Erro ao salvar a invoice:', error);
       Swal.fire({
         icon: 'error',
         title: 'Erro',
         text: 'Erro ao salvar a invoice',
-        confirmButtonColor: '#3085d6',
+        confirmButtonText: 'Ok',
+        buttonsStyling: false,
+        customClass: {
+          confirmButton: 'bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold',
+        },
       });
     } finally {
       setIsSaving(false);
     }
   };
-
+  
   useEffect(() => {
     calculateProductTotal();
   }, [productForm.quantity, priceData, weightData, productForm.productId]);

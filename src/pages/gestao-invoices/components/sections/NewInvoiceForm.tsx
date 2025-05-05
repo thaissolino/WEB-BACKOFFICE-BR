@@ -13,7 +13,7 @@ export function NewInvoiceForm({ currentInvoice, setCurrentInvoice }: NewInvoice
   const [carriers, setCarriers] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
   const [taxaSpEs, setTaxaSpEs] = useState<string>(
-    currentInvoice.taxaSpEs === null ? '' : currentInvoice.taxaSpEs.toString().replace('.', ',')
+    currentInvoice.taxaSpEs === 0 ? '' : currentInvoice.taxaSpEs.toString().replace('.', ',')
   );
   
 

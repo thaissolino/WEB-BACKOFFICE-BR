@@ -9,7 +9,7 @@ import { InvoiceProduct } from "../sections/InvoiceProducts";
     carrierId: string;
     carrier2Id: string;
 
-    taxaSpEs: string;
+    taxaSpEs: string | number;
 
     amountTaxcarrier:     number;
     amountTaxcarrier2:     number;
