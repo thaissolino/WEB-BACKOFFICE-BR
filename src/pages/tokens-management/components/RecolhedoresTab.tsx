@@ -38,6 +38,7 @@ export interface Operacao {
   city: string;
   value: number;
   collectorId: number;
+  comission: number;
   supplierId: number;
   collectorTax: number;
   supplierTax: number;
@@ -173,7 +174,7 @@ const RecolhedoresTab: React.FC = () => {
   const salvarRecolhedor = async (name: string, tax: number, balance: number, comission: number) => {
     try {
       if (recolhedorEdit) {
-        await api.put(`/collectors/update_collector/${recolhedorEdit.id}`, { name, tax, balance });
+        await api.put(`/collectors/update_collector/${recolhedorEdit.id}`, { name, tax, balance, comission });
         fetchRecolhedores(); // Refetch after successful edit
       } else {
         const response = await api.post<Recolhedor>("/collectors/create_collector", { name, tax, balance, comission });
@@ -319,8 +320,8 @@ const RecolhedoresTab: React.FC = () => {
       .map((op) => ({
         id: `op-${op.id}`,
         date: op.date || new Date().toISOString(),
-        valor: -(op.value || 0) / (op.collectorTax || selectedRecolhedor!?.tax || 1),
-        descricao: `operação #${op.id} · ${op.city?.toLowerCase() || ""}`,
+        valor: -op.comission>0 || op.comission !== null ? -op.comission : - (op.value || 0) / (op.collectorTax || selectedRecolhedor!?.tax || 1),
+        descricao: op.comission > 0 || op.comission !== null  ? `Comissão #${op.id} · ${op.city?.toLowerCase() || ""}`: `Operação #${op.id} · ${op.city?.toLowerCase() || ""}`,
         tipo: "debito",
       })),
     ...payments

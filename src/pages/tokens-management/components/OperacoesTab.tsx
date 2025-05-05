@@ -3,6 +3,7 @@ import { formatCurrency, formatDate } from "./format";
 import SuccessModal from "./SuccessModal";
 import OperationDetailsModal from "./OperationDetailsModal";
 import { api } from "../../../services/api";
+import { NumericCellType } from "handsontable/cellTypes";
 
 interface Operacao {
   id: number;
@@ -11,6 +12,7 @@ interface Operacao {
   value: number;
   collectorId: number;
   supplierId: number;
+  comission: number;
   collectorTax: number;
   supplierTax: number;
   profit: number;
@@ -20,6 +22,7 @@ interface Recolhedor {
   id: number;
   name: string;
   tax: number;
+  comission: number;
   balance: number;
 }
 
@@ -55,14 +58,14 @@ const OperacoesTab: React.FC = () => {
       setTaxaRecolhedorOperacao(rec.tax);
     }
   }, [recolhedorOperacao]);
-  
+
   useEffect(() => {
     const forn = fornecedores.find((f) => f.id === fornecedorOperacao);
     if (forn) {
       setTaxaFornecedorOperacao(forn.tax);
     }
   }, [fornecedorOperacao]);
-  
+
   useEffect(() => {
     fetchData();
   }, []);
@@ -140,14 +143,18 @@ const OperacoesTab: React.FC = () => {
       setShowSuccessModal(true);
       return;
     }
-  
+
     // Combina a data selecionada (apenas o dia) com o horário atual
     const selectedDateOnly = dataOperacao.split("T")[0]; // ex: "2025-05-02"
     const now = new Date();
     const currentTime = now.toTimeString().slice(0, 8); // ex: "14:37:00"
     const finalDate = new Date(`${selectedDateOnly}T${currentTime}`);
     const formattedDate = finalDate.toISOString(); // Envia como UTC
-  
+    const getRecolhedorComission = (id: number) => recolhedores.find((r) => r.id === id)?.comission || 0;
+    const comissionPercentage = getRecolhedorComission(recolhedorOperacao); // % de comissão
+
+    const lucro = valorOperacao - (valorOperacao / (taxaRecolhedorOperacao || 1)); // Cálculo do lucro
+    const comissionValue = lucro * (comissionPercentage / 100); // Valor da comissão (sem arredondamento)
     const novaOperacao = {
       date: formattedDate,
       city: localOperacao.toUpperCase(),
@@ -158,13 +165,28 @@ const OperacoesTab: React.FC = () => {
       supplierTax: taxaFornecedorOperacao,
       profit: lucro, // O lucro já foi calculado
     };
-  
+    const comissaoOperacao = {
+      date: formattedDate,
+      city: localOperacao.toUpperCase(),
+      value: comissionValue,
+      collectorId: recolhedorOperacao,
+      supplierId: fornecedorOperacao,
+      collectorTax: taxaRecolhedorOperacao,
+      comission: comissionValue,
+      supplierTax: taxaFornecedorOperacao,
+      profit: comissionValue, // O lucro já foi calculado
+    };
+
+    const collector = recolhedorOperacao;
     try {
       await api.post<Operacao>("/operations/create_operation", novaOperacao);
-  
+
+      if (comissionValue > 0) {
+        await api.post<Operacao>("/operations/create_operation", comissaoOperacao);
+      }
       // Recarrega dados para atualizar a interface
       await fetchData();
-  
+
       // Resetar campos
       setLocalOperacao("");
       setValorOperacao(0);
@@ -172,7 +194,7 @@ const OperacoesTab: React.FC = () => {
       setFornecedorOperacao("");
       setTaxaRecolhedorOperacao(1.025);
       setTaxaFornecedorOperacao(1.05);
-  
+
       setSuccessMessage("Operação registrada com sucesso!");
       setShowSuccessModal(true);
     } catch (error: any) {
@@ -181,9 +203,10 @@ const OperacoesTab: React.FC = () => {
       setShowSuccessModal(true);
     }
   };
-  
+
   const getRecolhedorNome = (id: number) => recolhedores.find((r) => r.id === id)?.name || "DESCONHECIDO";
   const getFornecedorNome = (id: number) => fornecedores.find((f) => f.id === id)?.name || "DESCONHECIDO";
+
 
   const abrirDetalhesOperacao = (operacao: Operacao) => {
     setSelectedOperation(operacao);
@@ -328,28 +351,25 @@ const OperacoesTab: React.FC = () => {
               </tr>
             </thead>
             <tbody>
-              {operacoes.map((op) => (
-                <tr key={op.id}>
-                  <td className="py-2 px-4 border text-center algin-middle">
-                    {/* {new Intl.DateTimeFormat("pt-BR", {
-                      timeZone: "UTC",
-                      day: "2-digit",
-                      month: "2-digit",
-                      year: "numeric",
-                    }).format(new Date(op.date))} */}
-                    {formatDate(new Date(op.date))}
-                  </td>
-                  <td className="py-2 px-4 border align-middle text-center">{op.city}</td>
-                  <td className="py-2 px-4 border align-middle text-center">{getRecolhedorNome(op.collectorId)}</td>
-                  <td className="py-2 px-4 border align-middle text-center ">{getFornecedorNome(op.supplierId)}</td>
-                  <td className="py-2 px-4 border text-center align-middle">{formatCurrency(op.value)}</td>
-                  <td className="py-2 px-4 border text-center align-middle">
-                    <button onClick={() => abrirDetalhesOperacao(op)} className="text-blue-600 hover:text-blue-800">
-                      <i className="fas fa-eye"></i>
-                    </button>
-                  </td>
-                </tr>
-              ))}
+              {operacoes
+                .filter(op => op.comission == 0 || op.comission == null) // Filtra apenas comissões válidas
+                .map((op) => (
+                  <tr key={op.id}>
+                    <td className="py-2 px-4 border text-center align-middle">
+                      {formatDate(new Date(op.date))}
+                    </td>
+                    <td className="py-2 px-4 border align-middle text-center">{op.city}</td>
+                    <td className="py-2 px-4 border align-middle text-center">{getRecolhedorNome(op.collectorId)}</td>
+                    <td className="py-2 px-4 border align-middle text-center">{getFornecedorNome(op.supplierId)}</td>
+                    <td className="py-2 px-4 border text-center align-middle">{formatCurrency(op.value)}</td>
+                    <td className="py-2 px-4 border text-center align-middle">
+                      <button onClick={() => abrirDetalhesOperacao(op)} className="text-blue-600 hover:text-blue-800">
+                        <i className="fas fa-eye"></i>
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              }
             </tbody>
           </table>
         </div>

@@ -178,7 +178,7 @@ const LucrosRecolhedoresFusionTab: React.FC = () => {
                           {formatCurrency(op.value - (op.value || 0) / (op.collectorTax || 0))}
                         </td>
                         <td className="py-2 px-4 border text-center">
-                          {selectedRecolhedor.comission}%
+                        {((op.value - op.value / (op.collectorTax || 1)) * (selectedRecolhedor.comission / 100)).toFixed(4)}
                         </td>
                       </tr>
                     );
