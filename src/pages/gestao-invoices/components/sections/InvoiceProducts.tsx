@@ -107,6 +107,12 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
   const weightData = productForm.weight || products.find((item) => item.id === productForm.productId)?.weightAverage || '';
   const priceData = productForm.value || products.find((item) => item.id === productForm.productId)?.priceweightAverage || '';
 
+  const totalWithFreight = amountTaxCarrieFrete1 + amountTaxCarrieFrete2 + subTotal
+
+  console.log(amountTaxCarrieFrete1)
+  console.log(amountTaxCarrieFrete2)
+  console.log(subTotal)
+  console.log(totalWithFreight)
   const calculateProductTotal = () => {
     const quantity = parseFloat(productForm.quantity) || 0;
     const value = parseFloat(priceData) || 0;
@@ -222,26 +228,26 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
         confirmButtonColor: '#3085d6',
       });
       
-      setCurrentInvoice({
-        id: null,
-        number: '',
-        date: new Date().toISOString().split('T')[0],
-        supplierId: '',
-        products: [],
-        carrierId: '',
-        carrier2Id: '',
-        taxaSpEs: 0.0,
-        paid: false,
-        paidDate: null,
-        paidDollarRate: null,
-        completed: false,
-        completedDate: null,
-        amountTaxcarrier: 0,
-        amountTaxcarrier2: 0,
-        amountTaxSpEs: 0,
-        overallValue: 0,
-        subAmount: 0
-      });
+      // setCurrentInvoice({
+      //   id: null,
+      //   number: '',
+      //   date: new Date().toISOString().split('T')[0],
+      //   supplierId: '',
+      //   products: [],
+      //   carrierId: '',
+      //   carrier2Id: '',
+      //   taxaSpEs: 0.0,
+      //   paid: false,
+      //   paidDate: null,
+      //   paidDollarRate: null,
+      //   completed: false,
+      //   completedDate: null,
+      //   amountTaxcarrier: 0,
+      //   amountTaxcarrier2: 0,
+      //   amountTaxSpEs: 0,
+      //   overallValue: 0,
+      //   subAmount: 0
+      // });
     } catch (error) {
       console.error('Erro ao salvar a invoice:', error);
       Swal.fire({
@@ -428,7 +434,7 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
 
           <div className="bg-gray-50 p-4 rounded-lg border">
             <h3 className="font-medium mb-3 text-blue-700 border-b pb-2">Resumo da Invoice</h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
               {/* <div className="bg-white p-3 rounded border">
                 <p className="text-sm text-gray-600">Subtotal:</p>
                 <p id="subtotal" className="text-lg font-semibold">$ {subTotal.toLocaleString('en-US', {  currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits:2 }) || "0.00"}</p>
@@ -440,6 +446,10 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
               <div className="bg-white p-3 rounded border">
                 <p className="text-sm text-gray-600">Frete 2:</p>
                 <p id="shippingCost" className="text-lg font-semibold">$ {amountTaxCarrieFrete2.toLocaleString('en-US', {  currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits:2 }) || "0.00"}</p>
+              </div>
+              <div className="bg-white p-3 rounded border">
+                <p className="text-sm text-gray-600">Total com frete:</p>
+                <p id="taxCost" className="text-lg font-semibold">$ {totalWithFreight.toLocaleString('pt-BR', {  currency: 'BRL', minimumFractionDigits: 2, maximumFractionDigits:2 }) || "0.00"}</p>
               </div>
               <div className="bg-white p-3 rounded border">
                 <p className="text-sm text-gray-600">Frete SP x ES:</p>
