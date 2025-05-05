@@ -88,7 +88,15 @@ const CaixasTab: React.FC = () => {
       console.log("All data fetched:", combined);
     } catch (error) {
       console.error("Erro ao buscar dados:", error);
-      Swal.fire("Erro", "Erro ao carregar dados.", "error");
+      Swal.fire({
+        icon: "error",
+        title: "Erro!",
+        text: "Erro ao carregar dados.",
+        buttonsStyling: false,
+        customClass: {
+          confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
+        },
+      });
     } finally {
       setLoadingFetch(false);
       setIsLoading(false);
@@ -109,7 +117,15 @@ const CaixasTab: React.FC = () => {
       console.log("entity", entity);
     } catch (error) {
       console.error("Erro ao buscar dados:", error);
-      Swal.fire("Erro", "Erro ao carregar dados.", "error");
+      Swal.fire({
+        icon: "error",
+        title: "Erro!",
+        text: "Erro ao carregar caixas.",
+        buttonsStyling: false,
+        customClass: {
+          confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
+        },
+      });
     } finally {
       setLoadingFetch2(false);
     }
@@ -129,7 +145,15 @@ const CaixasTab: React.FC = () => {
       await fetchDatUser();
       // alert("Histórico excluído com sucesso.");
     } catch (e: any) {
-      Swal.fire("Erro", "Erro ao apagar registo de pagamento", "error");
+      Swal.fire({
+        icon: "error",
+        title: "Erro!",
+        text: "Erro ao apagar registo de pagamento",
+        buttonsStyling: false,
+        customClass: {
+          confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
+        },
+      });
     } finally {
       setLoadingClearId(null);
     }
@@ -164,7 +188,15 @@ const CaixasTab: React.FC = () => {
       setCaixaUser(res.data);
     } catch (error) {
       console.error("Erro ao buscar dados:", error);
-      Swal.fire("Erro", "Erro ao carregar dados.", "error");
+      Swal.fire({
+        icon: "error",
+        title: "Erro!",
+        text: "Erro ao carregar caixas.",
+        buttonsStyling: false,
+        customClass: {
+          confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
+        },
+      });
     } finally {
       setLoadingFetch2(false);
     }
@@ -186,19 +218,51 @@ const CaixasTab: React.FC = () => {
   const submitPayment = async () => {
     try {
       if (!formData.date) {
-        Swal.fire("Erro", "Selecione uma data", "error");
+        Swal.fire({
+          icon: "error",
+          title: "Erro!",
+          text: "selecione um data",
+          buttonsStyling: false,
+          customClass: {
+            confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
+          },
+        });
         return;
       }
       if (!isValidNumber(formData.value)) {
-        Swal.fire("Erro", "Informe um valor válido", "error");
+        Swal.fire({
+          icon: "error",
+          title: "Erro!",
+          text: "selecione um valor válido",
+          buttonsStyling: false,
+          customClass: {
+            confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
+          },
+        });
         return;
       }
       if (!formData.description) {
-        Swal.fire("Erro", "Informe uma descrição para o pagamento", "error");
+        Swal.fire({
+          icon: "error",
+          title: "Erro!",
+          text: "Informe uma descrição para o pagamento",
+          buttonsStyling: false,
+          customClass: {
+            confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
+          },
+        });
         return;
       }
       if (!selectedEntity) {
-        Swal.fire("Erro", "Nenhum usuário selecionado", "error");
+        Swal.fire({
+          icon: "error",
+          title: "Erro!",
+          text: "Nenhum usuário selecionado",
+          buttonsStyling: false,
+          customClass: {
+            confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
+          },
+        });
         return;
       }
 
@@ -218,10 +282,28 @@ const CaixasTab: React.FC = () => {
       await fetchEntityData(selectedEntity.id);
       setFormData({ date: "", value: "", description: "" });
       fetchDatUser();
-      Swal.fire("Sucesso", "Transação registrada com sucesso", "success");
+      Swal.fire({
+        icon: "success",
+        title: "Sucesso",
+        text: "Transação registrada com sucesso",
+        confirmButtonText: "Ok",
+        buttonsStyling: false,
+        customClass: {
+          confirmButton: "bg-green-600 text-white hover:bg-green-700 px-4 py-2 rounded font-semibold",
+        },
+      });
     } catch (error) {
       console.error("Erro ao buscar caixas:", error);
-      Swal.fire("Erro", "Erro ao resgistrar pagamento", "error");
+      Swal.fire({
+        icon: "error",
+        title: "Erro",
+        text: "Erro ao resgistrar pagamento",
+        confirmButtonText: "Ok",
+        buttonsStyling: false,
+        customClass: {
+          confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
+        },
+      });
     } finally {
       setLoadingFetch3(false);
     }
@@ -382,7 +464,7 @@ const CaixasTab: React.FC = () => {
                     ) : selectedEntity.TransactionBoxUserInvoice?.length ? (
                       selectedEntity.TransactionBoxUserInvoice.slice()
                         .reverse()
-                        .map((t : any) => (
+                        .map((t: any) => (
                           <tr key={t.id} className="hover:bg-gray-50">
                             <td className="py-2 px-4 border text-center">
                               {new Date(t.date).toLocaleDateString("pt-BR")}
