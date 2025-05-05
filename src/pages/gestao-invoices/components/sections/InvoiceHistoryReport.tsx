@@ -403,7 +403,7 @@ export function InvoiceHistoryReport({ invoiceHistory:invoices, setInvoiceHistor
                         </div>
                     </div>
                     
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
                         <div className="bg-gray-50 p-3 rounded border">
                             <p className="text-sm text-gray-600">Frete 1:</p>
                             <p id="modalInvoiceSubtotal" className="text-lg font-semibold">$ {selectedInvoice.amountTaxcarrier.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})}</p>
@@ -413,8 +413,12 @@ export function InvoiceHistoryReport({ invoiceHistory:invoices, setInvoiceHistor
                             <p id="modalInvoiceShipping" className="text-lg font-semibold">$ {selectedInvoice.amountTaxcarrier2.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})}</p>
                         </div>
                         <div className="bg-gray-50 p-3 rounded border">
+                            <p className="text-sm text-gray-600">Total com frete:</p>
+                            <p id="modalInvoiceTax" className="text-lg font-semibold">R$ {(selectedInvoice.subAmount + selectedInvoice.amountTaxcarrier + selectedInvoice.amountTaxcarrier2).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2})}</p>
+                        </div>
+                        <div className="bg-gray-50 p-3 rounded border">
                             <p className="text-sm text-gray-600">Frete SP x ES:</p>
-                            <p id="modalInvoiceTax" className="text-lg font-semibold">R$ {selectedInvoice.amountTaxSpEs.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2})}</p>
+                            <p id="modalInvoiceTax" className="text-lg font-semibold">R$ {(selectedInvoice.amountTaxSpEs).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2})}</p>
                         </div>
                     </div>
                     
