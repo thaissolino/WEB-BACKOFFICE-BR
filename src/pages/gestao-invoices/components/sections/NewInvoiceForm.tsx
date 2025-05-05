@@ -13,8 +13,9 @@ export function NewInvoiceForm({ currentInvoice, setCurrentInvoice }: NewInvoice
   const [carriers, setCarriers] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
   const [taxaSpEs, setTaxaSpEs] = useState<string>(
-    currentInvoice.taxaSpEs === 0 ? '' : currentInvoice.taxaSpEs.toString().replace('.', ',')
+    currentInvoice.taxaSpEs === null ? '' : currentInvoice.taxaSpEs.toString().replace('.', ',')
   );
+  
 
   useEffect(() => {
     const fetchData = async () => {
@@ -35,12 +36,13 @@ export function NewInvoiceForm({ currentInvoice, setCurrentInvoice }: NewInvoice
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-
     if (name === 'taxaSpEs') {
       if (/^[0-9]*[.,]?[0-9]{0,2}$/.test(value)) {
         setTaxaSpEs(value);
-        const numericValue = parseFloat(value.replace(',', '.')) || 0;
-        setCurrentInvoice({ ...currentInvoice, taxaSpEs: numericValue });
+        setCurrentInvoice({ 
+          ...currentInvoice, 
+          taxaSpEs: value.replace(',', '.')  // ← string, ponto decimal
+        });
       }
     } else {
       setCurrentInvoice({ ...currentInvoice, [name]: value });
@@ -137,7 +139,7 @@ export function NewInvoiceForm({ currentInvoice, setCurrentInvoice }: NewInvoice
           inputMode="decimal"
           step="0.01"
           name="taxaSpEs"
-          value={taxaSpEs}
+          value={String(taxaSpEs)}
           onChange={handleInputChange}
           placeholder="Valor em R$ por item"
           className="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500 appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"

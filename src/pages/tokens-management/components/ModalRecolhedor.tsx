@@ -3,9 +3,10 @@ import React, { useState, useEffect } from "react";
 interface ModalRecolhedorProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (nome: string, taxa: number, balance: number) => void;
+  onSave: (nome: string, taxa: number, balance: number, comission: number) => void;
   recolhedorEdit?: {
     name: string;
+    comission: number;
     balance: number;
     tax: number;
   };
@@ -20,7 +21,7 @@ const ModalRecolhedor: React.FC<ModalRecolhedorProps> = ({
   const [nome, setNome] = useState("");
   const [taxa, setTaxa] = useState(1.025);
   const [balance, setBalance] = useState("");
-
+  const [comission, setComision] = useState("");
   useEffect(() => {
     if (recolhedorEdit) {
       setNome(recolhedorEdit.name);
@@ -34,7 +35,7 @@ const ModalRecolhedor: React.FC<ModalRecolhedorProps> = ({
   }, [recolhedorEdit, isOpen]);
 
   const handleSave = () => {
-    onSave(nome, taxa, Number(balance)); // Converte para Number ao salvar
+    onSave(nome, taxa, Number(balance), Number(comission)); // Converte para Number ao salvar
   };
 
   if (!isOpen) return null;
@@ -45,7 +46,6 @@ const ModalRecolhedor: React.FC<ModalRecolhedorProps> = ({
         <h2 className="text-xl font-semibold mb-4 text-blue-700">
           {recolhedorEdit ? "Editar Recolhedor" : "Novo Recolhedor"}
         </h2>
-
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700">Nome</label>
@@ -58,10 +58,18 @@ const ModalRecolhedor: React.FC<ModalRecolhedorProps> = ({
             />
           </div>
           <div>
+            <label className="block text-sm font-medium text-gray-700">Comissão (%)</label>
+            <input
+              type="number"
+              className="mt-1 block w-full border border-gray-300 rounded-md p-2"
+              value={comission}
+              onChange={(e) => setComision(e.target.value)}
+            />
+          </div>
+          <div>
             <label className="block text-sm font-medium text-gray-700">Taxa (USD)</label>
             <input
               type="number"
-
               className="mt-1 block w-full border border-gray-300 rounded-md p-2"
               value={taxa}
               onChange={(e) => setTaxa(Number(e.target.value))}

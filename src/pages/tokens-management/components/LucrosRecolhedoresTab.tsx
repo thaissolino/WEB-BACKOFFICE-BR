@@ -14,6 +14,7 @@ interface Recolhedor {
   id: number;
   name: string;
   tax: number;
+  comission: number;
 }
 
 export interface Operacao {
@@ -156,6 +157,7 @@ const LucrosRecolhedoresFusionTab: React.FC = () => {
                     <th className="py-2 px-4 border">FORNECEDOR</th>
                     <th className="py-2 px-4 border">VALOR OPERAÇÃO</th>
                     <th className="py-2 px-4 border">LUCRO</th>
+                    <th className="py-2 px-4 border">COMMISSÃO %</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -174,6 +176,9 @@ const LucrosRecolhedoresFusionTab: React.FC = () => {
                         <td className="py-2 px-4 border text-center text-green-500 border-lime-500 bg-yellow-100 text-lg">
                           {/* {formatCurrency(op.profit || 0)} */}
                           {formatCurrency(op.value - (op.value || 0) / (op.collectorTax || 0))}
+                        </td>
+                        <td className="py-2 px-4 border text-center">
+                          {selectedRecolhedor.comission}%
                         </td>
                       </tr>
                     );

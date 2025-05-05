@@ -22,34 +22,61 @@ export function GenericSearchSelect<T>({
   const [searchTerm, setSearchTerm] = useState("");
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLUListElement>(null);
+  const [focusedIndex, setFocusedIndex] = useState(-1);
 
-  const filtered = items.filter(item =>
+  const filtered = items.filter((item) =>
     getLabel(item).toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const selectedItem = items.find(item => getId(item) === value);
+  const selectedItem = items.find((item) => getId(item) === value);
   const selectedLabel = selectedItem ? getLabel(selectedItem) : "";
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setIsOpen(false);
+        setFocusedIndex(-1); // Reset focus on close
       }
     };
 
-    const handleKeyDown = (event: KeyboardEvent) => {
+    const handleKeyDownDocument = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         setIsOpen(false);
+        setFocusedIndex(-1); // Reset focus on close
       }
     };
 
     document.addEventListener("mousedown", handleClickOutside);
-    document.addEventListener("keydown", handleKeyDown);
+    document.addEventListener("keydown", handleKeyDownDocument);
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
-      document.removeEventListener("keydown", handleKeyDown);
+      document.removeEventListener("keydown", handleKeyDownDocument);
     };
   }, []);
+
+  const handleKeyDownInput = (event: React.KeyboardEvent)=> {
+    if (isOpen && filtered.length > 0) {
+      if (event.key === "ArrowDown") {
+        event.preventDefault();
+        setFocusedIndex((prevIndex) => Math.min(prevIndex + 1, filtered.length - 1));
+        if (listRef.current && focusedIndex + 1 < filtered.length) {
+          listRef.current.children[focusedIndex + 1]?.scrollIntoView({ block: "nearest" });
+        }
+      } else if (event.key === "ArrowUp") {
+        event.preventDefault();
+        setFocusedIndex((prevIndex) => Math.max(prevIndex - 1, -1));
+        if (listRef.current && focusedIndex - 1 >= 0) {
+          listRef.current.children[focusedIndex - 1]?.scrollIntoView({ block: "nearest" });
+        }
+      } else if (event.key === "Enter" && focusedIndex !== -1) {
+        onChange(getId(filtered[focusedIndex]));
+        setIsOpen(false);
+        setSearchTerm("");
+        setFocusedIndex(-1);
+      }
+    }
+  };
 
   return (
     <div ref={dropdownRef} className="relative w-full ">
@@ -68,20 +95,27 @@ export function GenericSearchSelect<T>({
             type="text"
             placeholder={placeholder}
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            onChange={(e) => {
+              setSearchTerm(e.target.value);
+              setFocusedIndex(-1); // Reset focus on search
+            }}
+            onKeyDown={handleKeyDownInput}
             className="w-full p-2 border-b border-gray-200 focus:outline-none"
             autoFocus
           />
-          <ul className="max-h-48 overflow-y-auto">
-            {filtered.map((item) => (
+          <ul ref={listRef} className="max-h-48 overflow-y-auto">
+            {filtered.map((item, index) => (
               <li
                 key={getId(item)}
                 onClick={() => {
                   onChange(getId(item));
                   setIsOpen(false);
                   setSearchTerm("");
+                  setFocusedIndex(-1);
                 }}
-                className="px-3 py-2 hover:bg-blue-100 cursor-pointer text-sm"
+                className={`px-3 py-2 hover:bg-blue-100 cursor-pointer text-sm ${
+                  index === focusedIndex ? "bg-blue-200" : ""
+                }`}
               >
                 {getLabel(item)}
               </li>
