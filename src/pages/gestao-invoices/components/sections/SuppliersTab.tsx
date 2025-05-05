@@ -20,11 +20,19 @@ export function SuppliersTab() {
   const fetchData = async () => {
     setIsLoading(true);
     try {
-      const response = await api.get<Supplier[]>('/invoice/supplier');
+      const response = await api.get<Supplier[]>("/invoice/supplier");
       setSuppliers(response.data);
     } catch (error) {
       console.error("Erro ao buscar fornecedores:", error);
-      // Swal.fire("Erro!", "Não foi possível carregar os fornecedores.", "error");
+      // Swal.fire({
+      //   icon: "error",
+      //   title: "Erro!",
+      //   text: "Não foi possível carregar os fornecedores.",
+      //   buttonsStyling: false,
+      //   customClass: {
+      //     confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
+      //   },
+      // });
     } finally {
       setIsLoading(false);
     }
@@ -41,14 +49,17 @@ export function SuppliersTab() {
 
   const handleDelete = async (supplier: Supplier) => {
     const result = await Swal.fire({
-      title: 'Tem certeza?',
+      title: "Tem certeza?",
       text: "Você não poderá reverter isso!",
-      icon: 'warning',
+      icon: "warning",
       showCancelButton: true,
-      confirmButtonColor: '#3085d6',
-      cancelButtonColor: '#d33',
-      confirmButtonText: 'Sim, excluir!',
-      cancelButtonText: 'Cancelar'
+      buttonsStyling: false, // desativa os estilos padrões do SweetAlert2
+      customClass: {
+        confirmButton: "bg-blue-600 text-white hover:bg-blue-700 px-4 py-2 rounded font-semibold mr-2",
+        cancelButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
+      },
+      confirmButtonText: "Sim, excluir!",
+      cancelButtonText: "Cancelar",
     });
 
     if (result.isConfirmed) {
@@ -57,10 +68,28 @@ export function SuppliersTab() {
         await api.delete(`/invoice/supplier/${supplier.id}`);
         await api.delete(`/invoice/box/user/name/${supplier.name}`);
         await fetchData();
-        Swal.fire("Sucesso!", "Fornecedor excluído permanentemente.", "success");
+        Swal.fire({
+          icon: "success",
+          title: "Sucesso!",
+          text: "Fornecedor excluído permanentemente.",
+          confirmButtonText: "Ok",
+          buttonsStyling: false,
+          customClass: {
+            confirmButton: "bg-green-600 text-white hover:bg-green-700 px-4 py-2 rounded font-semibold",
+          },
+        });
       } catch (error) {
         console.error("Erro ao excluir fornecedor:", error);
-        Swal.fire("Erro!", "Não foi possível excluir o fornecedor.", "error");
+        Swal.fire({
+          icon: "error",
+          title: "Erro!",
+          text: "Não foi possível excluir o fornecedor.",
+          confirmButtonText: "Ok",
+          buttonsStyling: false,
+          customClass: {
+            confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
+          },
+        });
       } finally {
         setIsSubmitting(false);
       }
@@ -73,7 +102,15 @@ export function SuppliersTab() {
     const trimmedName = currentSupplier.name.trim();
     const trimmedPhone = currentSupplier.phone.trim();
     if (trimmedName === "" || trimmedPhone === "") {
-      Swal.fire("Erro", "Nome e telefone do fornecedor são obrigatórios.", "error");
+      Swal.fire({
+        icon: "error",
+        title: "Erro",
+        text: "Nome e telefone do fornecedor são obrigatórios.",
+        buttonsStyling: false,
+        customClass: {
+          confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
+        },
+      });
       return;
     }
 
@@ -81,23 +118,49 @@ export function SuppliersTab() {
     try {
       if (currentSupplier.id) {
         await api.patch(`/invoice/supplier/${currentSupplier.id}`, currentSupplier);
-        Swal.fire("Sucesso!", "Fornecedor atualizado com sucesso.", "success");
-      } else {
-        const res = await api.post('/invoice/supplier', currentSupplier);
-        if(res.data)
-        await api.post(`/invoice/box`,{
-          name: res.data.name,
-          description: `fornecedor - ${res.data.name}`,
-          type: "supplier"
+        Swal.fire({
+          icon: "success",
+          title: "Sucesso!",
+          text: "Fornecedor atualizado com sucesso.",
+          confirmButtonText: "Ok",
+          buttonsStyling: false,
+          customClass: {
+            confirmButton: "bg-green-600 text-white hover:bg-green-700 px-4 py-2 rounded font-semibold",
+          },
         });
-        Swal.fire("Sucesso!", "Fornecedor criado com sucesso.", "success");
+      } else {
+        const res = await api.post("/invoice/supplier", currentSupplier);
+        if (res.data)
+          await api.post(`/invoice/box`, {
+            name: res.data.name,
+            description: `fornecedor - ${res.data.name}`,
+            type: "supplier",
+          });
+        Swal.fire({
+          icon: "success",
+          title: "Sucesso!",
+          text: "Fornecedor criado com sucesso.",
+          confirmButtonText: "Ok",
+          buttonsStyling: false,
+          customClass: {
+            confirmButton: "bg-green-600 text-white hover:bg-green-700 px-4 py-2 rounded font-semibold",
+          },
+        });
       }
       await fetchData();
       setShowModal(false);
       setCurrentSupplier(null);
     } catch (error) {
       console.error("Erro ao salvar fornecedor:", error);
-      Swal.fire("Erro!", "Não foi possível salvar o fornecedor.", "error");
+      Swal.fire({
+        icon: "error",
+        title: "Erro!",
+        text: "Não foi possível salvar o fornecedor.",
+        buttonsStyling: false,
+        customClass: {
+          confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
+        },
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -107,7 +170,7 @@ export function SuppliersTab() {
     <div className="bg-white p-6 rounded-lg shadow">
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-xl font-semibold text-blue-700">
-          <Users className="mr-2 inline" size={18} /> 
+          <Users className="mr-2 inline" size={18} />
           Cadastro de Fornecedores
         </h2>
         <button
@@ -122,11 +185,7 @@ export function SuppliersTab() {
           className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded flex items-center"
           disabled={isLoading || isSubmitting}
         >
-          {isLoading ? (
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          ) : (
-            <Plus className="mr-2" size={16} />
-          )}
+          {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2" size={16} />}
           Novo Fornecedor
         </button>
       </div>
@@ -141,46 +200,49 @@ export function SuppliersTab() {
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nome</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Telefone</th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Telefone
+                </th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Ações
+                </th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {suppliers.length === 0 ? (
                 <tr>
                   <td colSpan={3} className="px-6 py-4 text-center text-gray-500">
-                    {isLoading ? 'Carregando...' : 'Nenhum fornecedor cadastrado'}
+                    {isLoading ? "Carregando..." : "Nenhum fornecedor cadastrado"}
                   </td>
                 </tr>
               ) : (
-                suppliers.map((supplier) => (
-                  supplier.active !== false && (
-                    <tr key={supplier.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{supplier.name}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{supplier.phone}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <button
-                          onClick={() => handleEdit(supplier)}
-                          className="text-blue-600 hover:text-blue-900 mr-3"
-                          disabled={isSubmitting}
-                        >
-                          <Edit size={16} />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(supplier)}
-                          className="text-red-600 hover:text-red-900"
-                          disabled={isSubmitting}
-                        >
-                          {isSubmitting ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <Trash2 size={16} />
-                          )}
-                        </button>
-                      </td>
-                    </tr>
-                  )
-                ))
+                suppliers.map(
+                  (supplier) =>
+                    supplier.active !== false && (
+                      <tr key={supplier.id} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                          {supplier.name}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{supplier.phone}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                          <button
+                            onClick={() => handleEdit(supplier)}
+                            className="text-blue-600 hover:text-blue-900 mr-3"
+                            disabled={isSubmitting}
+                          >
+                            <Edit size={16} />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(supplier)}
+                            className="text-red-600 hover:text-red-900"
+                            disabled={isSubmitting}
+                          >
+                            {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 size={16} />}
+                          </button>
+                        </td>
+                      </tr>
+                    )
+                )
               )}
             </tbody>
           </table>
@@ -190,9 +252,7 @@ export function SuppliersTab() {
       {showModal && currentSupplier && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white p-6 rounded-lg w-full max-w-md">
-            <h3 className="text-lg font-medium mb-4">
-              {currentSupplier.id ? "Editar Fornecedor" : "Novo Fornecedor"}
-            </h3>
+            <h3 className="text-lg font-medium mb-4">{currentSupplier.id ? "Editar Fornecedor" : "Novo Fornecedor"}</h3>
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Nome</label>
@@ -233,7 +293,9 @@ export function SuppliersTab() {
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     Salvando...
                   </>
-                ) : 'Salvar'}
+                ) : (
+                  "Salvar"
+                )}
               </button>
             </div>
           </div>

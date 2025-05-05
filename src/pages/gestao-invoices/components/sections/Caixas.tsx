@@ -23,12 +23,11 @@ export interface Caixa {
   description: string;
   createdAt: string;
   updatedAt: string;
-  input: number,
-  output: number,
-  balance: number
+  input: number;
+  output: number;
+  balance: number;
   transactions: Transaction[];
 }
-
 
 const CaixasTab: React.FC = () => {
   const [caixas, setCaixas] = useState<Caixa[]>([]);
@@ -43,12 +42,11 @@ const CaixasTab: React.FC = () => {
   const [descricaoPagamento, setDescricaoPagamento] = useState("");
   const [loadingClearId, setLoadingClearId] = useState<string | null>(null);
 
-
   useEffect(() => {
     fetchData();
   }, []);
 
-  console.log(selectedUserId)
+  console.log(selectedUserId);
 
   const fetchData = async () => {
     setLoadingFetch(true);
@@ -57,7 +55,15 @@ const CaixasTab: React.FC = () => {
       setCaixas(res.data);
     } catch (error) {
       console.error("Erro ao buscar caixas:", error);
-      // Swal.fire("Erro", "Erro ao carregar caixas.", "error");
+      // Swal.fire({
+      //   icon: "error",
+      //   title: "Erro!",
+      //   text: "Erro ao carregar caixas.",
+      //   buttonsStyling: false,
+      //   customClass: {
+      //     confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
+      //   },
+      // });
     } finally {
       setLoadingFetch(false);
     }
@@ -70,39 +76,53 @@ const CaixasTab: React.FC = () => {
   const limparHistorico = async (recolhedorId: string) => {
     // const confirm = window.confirm("Deseja realmente excluir TODO o histórico de transações deste recolhedor?");
     // if (!confirm) return;
-  
+
     setLoadingClearId(recolhedorId);
     try {
       await api.delete(`/invoice/box/trasnsaction/user/${recolhedorId}`);
       await fetchDatUser();
       // alert("Histórico excluído com sucesso.");
     } catch (e: any) {
-      Swal.fire("Erro", "Erro ao apagar registo de pagamento", "error");
+      Swal.fire({
+        icon: "error",
+        title: "Erro!",
+        text: "Erro ao apagar registo de pagamento",
+        buttonsStyling: false,
+        customClass: {
+          confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
+        },
+      });
     } finally {
       setLoadingClearId(null);
-      
     }
   };
-  
 
-  const caixaAtual =  caixas?.find((c) => c.id === selectedUserId);
-  console.log(caixaAtual)
+  const caixaAtual = caixas?.find((c) => c.id === selectedUserId);
+  console.log(caixaAtual);
 
-  console.log()
+  console.log();
   const fetchDatUser = async () => {
     // setLoadingFetch(true);
     try {
-      if(!selectedUserId)return
-      setLoadingFetch2(true)
+      if (!selectedUserId) return;
+      setLoadingFetch2(true);
       const res = await api.get(`/invoice/box/transaction/${selectedUserId}`);
 
-      console.log(res.data)
+      console.log(res.data);
       setCaixaUser(res.data);
     } catch (error) {
       console.error("Erro ao buscar caixas:", error);
-      Swal.fire("Erro", "Erro ao carregar caixas.", "error");
+      Swal.fire({
+        icon: "error",
+        title: "Erro!",
+        text: "Erro ao carregar caixas.",
+        buttonsStyling: false,
+        customClass: {
+          confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
+        },
+      });
     } finally {
-      setLoadingFetch2(false)
+      setLoadingFetch2(false);
     }
   };
 
@@ -110,69 +130,108 @@ const CaixasTab: React.FC = () => {
     const number = Number(value);
     return !isNaN(number) && isFinite(number);
   }
-  
-  console.log(caixaUser)
-  
-  useEffect(()=>{
-    fetchDatUser()
-  },[selectedUserId])
 
-  const submitPayment = async()=>{
+  console.log(caixaUser);
+
+  useEffect(() => {
+    fetchDatUser();
+  }, [selectedUserId]);
+
+  const submitPayment = async () => {
     try {
-      if(!dataPagamento){
-        Swal.fire("Erro", "selecione um data", "error");
-          return
+      if (!dataPagamento) {
+        Swal.fire({
+          icon: "error",
+          title: "Erro!",
+          text: "selecione um data",
+          buttonsStyling: false,
+          customClass: {
+            confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
+          },
+        });
+        return;
       }
-      if(Number(valorPagamento) === 0){
-        Swal.fire("Erro", "selecione um valor", "error");
-          return
+      if (Number(valorPagamento) === 0) {
+        Swal.fire({
+          icon: "error",
+          title: "Erro!",
+          text: "selecione um valor",
+          buttonsStyling: false,
+          customClass: {
+            confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
+          },
+        });
+        return;
       }
-      if(!isValidNumber(valorPagamento)){
-        Swal.fire("Erro", "selecione um valor válido", "error");
-          return
+      if (!isValidNumber(valorPagamento)) {
+        Swal.fire({
+          icon: "error",
+          title: "Erro!",
+          text: "selecione um valor válido",
+          buttonsStyling: false,
+          customClass: {
+            confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
+          },
+        });
+        return;
       }
-      if(!descricaoPagamento){
-        Swal.fire("Erro", "informe uma descrição para o pagamento", "error");
-          return
+      if (!descricaoPagamento) {
+        Swal.fire({
+          icon: "error",
+          title: "Erro!",
+          text: "informe uma descrição para o pagamento",
+          buttonsStyling: false,
+          customClass: {
+            confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
+          },
+        });
+        return;
       }
-      setLoadingFetch3(true)
-      const res = await api.post(`/invoice/box/transaction`,{
+      setLoadingFetch3(true);
+      const res = await api.post(`/invoice/box/transaction`, {
         value: Math.abs(Number(valorPagamento)),
         userId: selectedUserId,
         direction: Number(valorPagamento) > 0 ? "IN" : "OUT",
         date: dataPagamento,
-        description: descricaoPagamento
+        description: descricaoPagamento,
       });
-      console.log(res.data)
-      fetchDatUser()
+      console.log(res.data);
+      fetchDatUser();
     } catch (error) {
       console.error("Erro ao buscar caixas:", error);
-      Swal.fire("Erro", "Erro ao resgistrar pagamento", "error");
+      Swal.fire({
+        icon: "error",
+        title: "Erro!",
+        text: "Erro ao resgistrar pagamento",
+        buttonsStyling: false,
+        customClass: {
+          confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
+        },
+      });
     } finally {
-      setLoadingFetch3(false)
+      setLoadingFetch3(false);
     }
-  }
+  };
 
   return (
     <div className="fade-in">
       {/* Seletor de usuário */}
       <div className="bg-white p-6 rounded-lg shadow mb-6">
-
         {loadingFetch ? (
           <div className="flex items-center space-x-4">
-          <p className="text-sm text-gray-500">Carregando caixas...</p>
+            <p className="text-sm text-gray-500">Carregando caixas...</p>
           </div>
         ) : (
           <div className="flex items-center space-x-4">
-          <GenericSearchSelect 
-              items={caixas} 
-              value={selectedUserId!} 
+            <GenericSearchSelect
+              items={caixas}
+              value={selectedUserId!}
               getLabel={(p) => p.name}
               getId={(p) => p.id}
               onChange={setSelectedUserId}
               label="Selecione um usuário"
-          />
-           <button
+            />
+            <button
               onClick={() => setShowModal(true)}
               className="bg-blue-500 flex flex-row text-center items-center hover:bg-blue-600 text-white px-4 py-2 rounded"
               disabled={loadingFetch}
@@ -191,48 +250,40 @@ const CaixasTab: React.FC = () => {
               <i className="fas fa-store mr-2"></i> CAIXA DE {caixaAtual.name}
             </h2>
             <div className="text-sm text-right">
-  Entradas:{" "}
-  <span className="mr-4 font-bold text-green-600">
-    {loadingFetch2 ? (
-      <Loader2 className="inline w-4 h-4 animate-spin text-blue-500" />
-    ) : (
-      `$ ${(caixaUser?.input ?? 0).toLocaleString("en-US", {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      })}`
-    )}
-  </span>
-
-  Saídas:{" "}
-  <span className="mr-4 font-bold text-red-600">
-    {loadingFetch2 ? (
-      <Loader2 className="inline w-4 h-4 animate-spin text-blue-500" />
-    ) : (
-      `$ ${(caixaUser?.output ?? 0).toLocaleString("en-US", {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      })}`
-    )}
-  </span>
-
-  Saldo:{" "}
-  <span
-    className={`mr-2 font-bold ${
-      (caixaUser?.balance ?? 0) < 0 ? "text-red-600" : "text-green-600"
-    }`}
-  >
-    {loadingFetch2 ? (
-      <Loader2 className="inline w-4 h-4 animate-spin text-blue-500" />
-    ) : (
-      `$ ${(caixaUser?.balance ?? 0).toLocaleString("en-US", {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      })}`
-    )}
-  </span>
-</div>
-
-
+              Entradas:{" "}
+              <span className="mr-4 font-bold text-green-600">
+                {loadingFetch2 ? (
+                  <Loader2 className="inline w-4 h-4 animate-spin text-blue-500" />
+                ) : (
+                  `$ ${(caixaUser?.input ?? 0).toLocaleString("en-US", {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}`
+                )}
+              </span>
+              Saídas:{" "}
+              <span className="mr-4 font-bold text-red-600">
+                {loadingFetch2 ? (
+                  <Loader2 className="inline w-4 h-4 animate-spin text-blue-500" />
+                ) : (
+                  `$ ${(caixaUser?.output ?? 0).toLocaleString("en-US", {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}`
+                )}
+              </span>
+              Saldo:{" "}
+              <span className={`mr-2 font-bold ${(caixaUser?.balance ?? 0) < 0 ? "text-red-600" : "text-green-600"}`}>
+                {loadingFetch2 ? (
+                  <Loader2 className="inline w-4 h-4 animate-spin text-blue-500" />
+                ) : (
+                  `$ ${(caixaUser?.balance ?? 0).toLocaleString("en-US", {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}`
+                )}
+              </span>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -285,7 +336,6 @@ const CaixasTab: React.FC = () => {
                     </>
                   )}
                 </button>
-
               </div>
             </div>
 
@@ -303,65 +353,63 @@ const CaixasTab: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody>
-                  {loadingFetch2 ? (
-                    <tr>
-                      <td colSpan={4} className="text-center py-4 text-blue-600">
-                        <Loader2 className="inline animate-spin w-4 h-4 mr-2" />
-                        Carregando transações...
-                      </td>
-                    </tr>
-                  ) : caixaUser?.transactions?.length ? (
-                    caixaUser.transactions
-                      .slice(-6)
-                      .reverse()
-                      .map((t) => (
-                        <tr key={t.id} className="bg-red-50">
-                          <td className="py-2 px-4 border text-center">
-                            {new Date(new Date(t.date).getTime() + 3 * 60 * 60 * 1000).toLocaleDateString("pt-BR")}
-                          </td>
-                          <td className="py-2 px-4 border text-center">{t.description}</td>
-                          <td
-                            className={`py-2 px-4 border text-right ${
-                              t.direction === "OUT" ? "text-red-600" : "text-green-600"
-                            }`}
-                          >
-                            {`${t.direction === "OUT" ? "-" : "+"} $ ${t.value.toLocaleString("en-US", {
-                              minimumFractionDigits: 2,
-                              maximumFractionDigits: 2,
-                            })}`}
-                          </td>
-                          <td className="py-2 px-4 border text-center">
-                            <motion.button
-                              whileHover={{ scale: 1.05 }}
-                              whileTap={{ scale: 0.95 }}
-                              onClick={() => limparHistorico(t.id)}
-                              disabled={loadingClearId === t.id}
-                              className={`${
-                                loadingClearId === t.id ? "bg-red-600 cursor-not-allowed" : "bg-red-500 hover:bg-red-700"
-                              } text-white px-3 py-1 rounded`}
+                    {loadingFetch2 ? (
+                      <tr>
+                        <td colSpan={4} className="text-center py-4 text-blue-600">
+                          <Loader2 className="inline animate-spin w-4 h-4 mr-2" />
+                          Carregando transações...
+                        </td>
+                      </tr>
+                    ) : caixaUser?.transactions?.length ? (
+                      caixaUser.transactions
+                        .slice(-6)
+                        .reverse()
+                        .map((t) => (
+                          <tr key={t.id} className="bg-red-50">
+                            <td className="py-2 px-4 border text-center">
+                              {new Date(new Date(t.date).getTime() + 3 * 60 * 60 * 1000).toLocaleDateString("pt-BR")}
+                            </td>
+                            <td className="py-2 px-4 border text-center">{t.description}</td>
+                            <td
+                              className={`py-2 px-4 border text-right ${
+                                t.direction === "OUT" ? "text-red-600" : "text-green-600"
+                              }`}
                             >
-                              {loadingClearId === t.id ? (
-                                <Loader2 className="w-4 h-4 animate-spin" />
-                              ) : (
-                                <i className="fas fa-trash"></i>
-                                                    
-                              )}
-                            </motion.button>
-                          </td>
-                        </tr>
-                      ))
-                  ) : (
-                    <tr>
-                      <td colSpan={4} className="text-center py-4 text-gray-500">
-                        Nenhuma transação registrada.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-
-                  
+                              {`${t.direction === "OUT" ? "-" : "+"} $ ${t.value.toLocaleString("en-US", {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2,
+                              })}`}
+                            </td>
+                            <td className="py-2 px-4 border text-center">
+                              <motion.button
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
+                                onClick={() => limparHistorico(t.id)}
+                                disabled={loadingClearId === t.id}
+                                className={`${
+                                  loadingClearId === t.id
+                                    ? "bg-red-600 cursor-not-allowed"
+                                    : "bg-red-500 hover:bg-red-700"
+                                } text-white px-3 py-1 rounded`}
+                              >
+                                {loadingClearId === t.id ? (
+                                  <Loader2 className="w-4 h-4 animate-spin" />
+                                ) : (
+                                  <i className="fas fa-trash"></i>
+                                )}
+                              </motion.button>
+                            </td>
+                          </tr>
+                        ))
+                    ) : (
+                      <tr>
+                        <td colSpan={4} className="text-center py-4 text-gray-500">
+                          Nenhuma transação registrada.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
                 </table>
-                
               </div>
             </div>
           </div>

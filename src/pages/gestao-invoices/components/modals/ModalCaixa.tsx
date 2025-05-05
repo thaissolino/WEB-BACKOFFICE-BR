@@ -6,7 +6,7 @@ interface ModalCaixaProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: (nome: string, descricao: string) => void;
-  fetchDataUser?: () => void
+  fetchDataUser?: () => void;
 }
 
 interface Pessoa {
@@ -34,32 +34,52 @@ const ModalCaixa: React.FC<ModalCaixaProps> = ({ isOpen, onClose, onSave, fetchD
     setDescricao("");
     setLoading(true);
 
-    Promise.all([
-      api.get("/collectors/list_collectors"),
-      api.get("/invoice/supplier")
-    ])
+    Promise.all([api.get("/collectors/list_collectors"), api.get("/invoice/supplier")])
       .then(([resRecolhedores, resFornecedores]) => {
         setRecolhedores(resRecolhedores.data);
         setFornecedores(resFornecedores.data);
       })
       .catch((error) => {
         console.error("Erro ao buscar dados:", error);
-        Swal.fire("Erro", "Erro ao carregar dados.", "error");
+        Swal.fire({
+          icon: "error",
+          title: "Erro",
+          text: "Erro ao carregar dados.",
+          buttonsStyling: false,
+          customClass: {
+            confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
+          },
+        });
       })
       .finally(() => setLoading(false));
   }, [isOpen]);
 
   const handleSalvar = async () => {
-    const nomeFinal =
-      tipoSelecionado === "Outro" ? nomeOutro.trim() : nomeSelecionado;
+    const nomeFinal = tipoSelecionado === "Outro" ? nomeOutro.trim() : nomeSelecionado;
 
     if (!nomeFinal) {
-      Swal.fire("Atenção", "Por favor, selecione ou digite um nome válido.", "warning");
+      Swal.fire({
+        icon: "warning",
+        title: "Atenção",
+        text: "Por favor, selecione ou digite um nome válido.",
+        buttonsStyling: false,
+        customClass: {
+          confirmButton: "bg-yellow-500 text-white hover:bg-yellow-600 px-4 py-2 rounded font-semibold mr-2",
+        },
+      });
       return;
     }
 
     if (!descricao) {
-      Swal.fire("Atenção", "Por favor, adicione uma descrição!", "warning");
+      Swal.fire({
+        icon: "warning",
+        title: "Atenção",
+        text: "Por favor, adicione uma descrição!",
+        buttonsStyling: false,
+        customClass: {
+          confirmButton: "bg-yellow-500 text-white hover:bg-yellow-600 px-4 py-2 rounded font-semibold mr-2",
+        },
+      });
       return;
     }
 
@@ -75,27 +95,36 @@ const ModalCaixa: React.FC<ModalCaixaProps> = ({ isOpen, onClose, onSave, fetchD
         icon: "success",
         title: "Sucesso!",
         text: "Dados salvos com sucesso!",
-        confirmButtonColor: "#3085d6",
+        buttonsStyling: false,
+        customClass: {
+          confirmButton: "bg-blue-600 text-white hover:bg-blue-700 px-4 py-2 rounded font-semibold mr-2",
+        },
       });
 
       onSave(nomeFinal, descricao);
-      onClose(); // fecha o modal após salvar
+      onClose();
     } catch (error) {
       // @ts-ignore
-      if(response.data.code === "409"){
+      if (response.data.code === "409") {
         Swal.fire({
           icon: "error",
           title: "Erro",
           text: "Usuario ja existe",
-          confirmButtonColor: "#3085d6",
+          buttonsStyling: false,
+          customClass: {
+            confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold mr-2",
+          },
         });
-        return
+        return;
       }
       Swal.fire({
         icon: "error",
         title: "Erro",
         text: "Erro ao salvar os dados.",
-        confirmButtonColor: "#3085d6",
+        buttonsStyling: false,
+        customClass: {
+          confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold mr-2",
+        },
       });
     } finally {
       setSubmitting(false);
@@ -112,9 +141,7 @@ const ModalCaixa: React.FC<ModalCaixaProps> = ({ isOpen, onClose, onSave, fetchD
 
         {/* Tipo de Caixa */}
         <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Tipo de Caixa
-          </label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Tipo de Caixa</label>
           <select
             value={tipoSelecionado}
             onChange={(e) => setTipoSelecionado(e.target.value)}
@@ -134,9 +161,7 @@ const ModalCaixa: React.FC<ModalCaixaProps> = ({ isOpen, onClose, onSave, fetchD
           <>
             {tipoSelecionado === "Recolhedor" && (
               <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Selecione o Recolhedor
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Selecione o Recolhedor</label>
                 <select
                   value={nomeSelecionado}
                   onChange={(e) => setNomeSelecionado(e.target.value)}
@@ -155,9 +180,7 @@ const ModalCaixa: React.FC<ModalCaixaProps> = ({ isOpen, onClose, onSave, fetchD
 
             {tipoSelecionado === "Fornecedor" && (
               <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Selecione o Fornecedor
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Selecione o Fornecedor</label>
                 <select
                   value={nomeSelecionado}
                   onChange={(e) => setNomeSelecionado(e.target.value)}
@@ -176,9 +199,7 @@ const ModalCaixa: React.FC<ModalCaixaProps> = ({ isOpen, onClose, onSave, fetchD
 
             {tipoSelecionado === "Outro" && (
               <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Nome da Caixa
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Nome da Caixa</label>
                 <input
                   type="text"
                   value={nomeOutro}
@@ -194,9 +215,7 @@ const ModalCaixa: React.FC<ModalCaixaProps> = ({ isOpen, onClose, onSave, fetchD
 
         {/* Descrição */}
         <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Descrição da Caixa
-          </label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Descrição da Caixa</label>
           <textarea
             value={descricao}
             onChange={(e) => setDescricao(e.target.value)}
@@ -210,20 +229,12 @@ const ModalCaixa: React.FC<ModalCaixaProps> = ({ isOpen, onClose, onSave, fetchD
         {/* Visualização da escolha */}
         <div className="bg-gray-100 p-3 rounded text-sm text-gray-600 mb-4">
           Nome da caixa:{" "}
-          <strong>
-            {tipoSelecionado === "Outro"
-              ? nomeOutro || "Nenhum"
-              : nomeSelecionado || "Nenhum"}
-          </strong>
+          <strong>{tipoSelecionado === "Outro" ? nomeOutro || "Nenhum" : nomeSelecionado || "Nenhum"}</strong>
         </div>
 
         {/* Botões */}
         <div className="flex justify-end space-x-3">
-          <button
-            onClick={onClose}
-            disabled={submitting}
-            className="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded"
-          >
+          <button onClick={onClose} disabled={submitting} className="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded">
             Cancelar
           </button>
           <button
