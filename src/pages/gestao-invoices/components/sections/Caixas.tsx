@@ -31,8 +31,7 @@ export interface Caixa {
   updatedAt: string;
   input: number;
   output: number;
-  balance: number;
-//  balance?: number;
+  balance?: number;
   transactions: Transaction[];
 }
 
@@ -40,7 +39,7 @@ const CaixasTab: React.FC = () => {
   const [combinedItems, setCombinedItems] = useState<any[]>([]);
   const [caixaUser, setCaixaUser] = useState<Caixa>();
   const [showModal, setShowModal] = useState(false);
-  const [selectedEntity, setSelectedEntity] = useState<Entity | null>(null);
+  const [selectedEntity, setSelectedEntity] = useState<any | null>(null);
 
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [loadingFetch, setLoadingFetch] = useState(false);
@@ -88,16 +87,7 @@ const CaixasTab: React.FC = () => {
 
       console.log("All data fetched:", combined);
     } catch (error) {
-      console.error("Erro ao buscar caixas:", error);
-      // Swal.fire({
-      //   icon: "error",
-      //   title: "Erro!",
-      //   text: "Erro ao carregar caixas.",
-      //   buttonsStyling: false,
-      //   customClass: {
-      //     confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
-      //   },
-      // });
+      console.error("Erro ao buscar dados:", error);
       Swal.fire("Erro", "Erro ao carregar dados.", "error");
     } finally {
       setLoadingFetch(false);
@@ -139,23 +129,13 @@ const CaixasTab: React.FC = () => {
       await fetchDatUser();
       // alert("Histórico excluído com sucesso.");
     } catch (e: any) {
-      Swal.fire({
-        icon: "error",
-        title: "Erro!",
-        text: "Erro ao apagar registo de pagamento",
-        buttonsStyling: false,
-        customClass: {
-          confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
-        },
-      });
+      Swal.fire("Erro", "Erro ao apagar registo de pagamento", "error");
     } finally {
       setLoadingClearId(null);
     }
   };
 
-  const caixaAtual = caixas?.find((c) => c.id === selectedUserId);
-
-<!--   const caixaAtual = combinedItems.find((c) => c.id === selectedUserId); -->
+  const caixaAtual = combinedItems.find((c) => c.id === selectedUserId);
   console.log(caixaAtual);
 
   console.log();
@@ -163,43 +143,28 @@ const CaixasTab: React.FC = () => {
     try {
       if (!selectedUserId) return;
       setLoadingFetch2(true);
-      const res = await api.get(`/invoice/box/transaction/${selectedUserId}`);
 
+      // Find the selected item to determine its type
+      const selectedItem = combinedItems.find((item) => item.id === selectedUserId);
+
+      if (!selectedItem) {
+        console.error("Item selecionado não encontrado");
+        return;
+      }
+
+      // Use the appropriate endpoint based on the item type
+      let endpoint = `/invoice/box/transaction/${selectedUserId}`;
+      if (selectedItem.typeInvoice === "freteiro" || selectedItem.typeInvoice === "fornecedor") {
+        // Assuming the endpoint is the same for both types
+        endpoint = `/invoice/box/transaction/${selectedUserId}`;
+      }
+
+      const res = await api.get(endpoint);
       console.log(res.data);
       setCaixaUser(res.data);
     } catch (error) {
-      console.error("Erro ao buscar caixas:", error);
-      Swal.fire({
-        icon: "error",
-        title: "Erro!",
-        text: "Erro ao carregar caixas.",
-        buttonsStyling: false,
-        customClass: {
-          confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
-        },
-      });
-
-      // Find the selected item to determine its type
-//       const selectedItem = combinedItems.find((item) => item.id === selectedUserId);
-
-//       if (!selectedItem) {
-//         console.error("Item selecionado não encontrado");
-//         return;
-//       }
-
-//       // Use the appropriate endpoint based on the item type
-//       let endpoint = `/invoice/box/transaction/${selectedUserId}`;
-//       if (selectedItem.typeInvoice === "freteiro" || selectedItem.typeInvoice === "fornecedor") {
-//         // Assuming the endpoint is the same for both types
-//         endpoint = `/invoice/box/transaction/${selectedUserId}`;
-//       }
-
-//       const res = await api.get(endpoint);
-//       console.log(res.data);
-//       setCaixaUser(res.data);
-//     } catch (error) {
-//       console.error("Erro ao buscar dados:", error);
-//       Swal.fire("Erro", "Erro ao carregar dados.", "error");
+      console.error("Erro ao buscar dados:", error);
+      Swal.fire("Erro", "Erro ao carregar dados.", "error");
     } finally {
       setLoadingFetch2(false);
     }
@@ -216,115 +181,47 @@ const CaixasTab: React.FC = () => {
     fetchDatUser();
   }, [selectedUserId]);
 
+  console.log("selectedEntity", selectedEntity);
+
   const submitPayment = async () => {
     try {
-      if (!dataPagamento) {
-        Swal.fire({
-          icon: "error",
-          title: "Erro!",
-          text: "selecione um data",
-          buttonsStyling: false,
-          customClass: {
-            confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
-          },
-        });
+      if (!formData.date) {
+        Swal.fire("Erro", "Selecione uma data", "error");
         return;
       }
-      if (Number(valorPagamento) === 0) {
-        Swal.fire({
-          icon: "error",
-          title: "Erro!",
-          text: "selecione um valor",
-          buttonsStyling: false,
-          customClass: {
-            confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
-          },
-        });
+      if (!isValidNumber(formData.value)) {
+        Swal.fire("Erro", "Informe um valor válido", "error");
         return;
       }
-      if (!isValidNumber(valorPagamento)) {
-        Swal.fire({
-          icon: "error",
-          title: "Erro!",
-          text: "selecione um valor válido",
-          buttonsStyling: false,
-          customClass: {
-            confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
-          },
-        });
+      if (!formData.description) {
+        Swal.fire("Erro", "Informe uma descrição para o pagamento", "error");
         return;
       }
-      if (!descricaoPagamento) {
-        Swal.fire({
-          icon: "error",
-          title: "Erro!",
-          text: "informe uma descrição para o pagamento",
-          buttonsStyling: false,
-          customClass: {
-            confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
-          },
-        });
+      if (!selectedEntity) {
+        Swal.fire("Erro", "Nenhum usuário selecionado", "error");
         return;
       }
+
+      console.log("selectedEntity", selectedEntity);
+
       setLoadingFetch3(true);
-      const res = await api.post(`/invoice/box/transaction`, {
-        value: Math.abs(Number(valorPagamento)),
-        userId: selectedUserId,
-        direction: Number(valorPagamento) > 0 ? "IN" : "OUT",
-        date: dataPagamento,
-        description: descricaoPagamento,
+      await api.post(`/invoice/box/transaction`, {
+        value: Math.abs(Number(formData.value)),
+        entityId: selectedEntity.id,
+        direction: Number(formData.value) > 0 ? "IN" : "OUT",
+        date: formData.date,
+        description: formData.description,
+        entityType: selectedEntity.typeInvoice === "freteiro" ? "CARRIER" : "SUPPLIER",
+        userId: caixaUser?.id,
       });
-      console.log(res.data);
+
+      await fetchEntityData(selectedEntity.id);
+      setFormData({ date: "", value: "", description: "" });
       fetchDatUser();
-//   console.log("selectedEntity", selectedEntity);
-
-//   const submitPayment = async () => {
-//     try {
-//       if (!formData.date) {
-//         Swal.fire("Erro", "Selecione uma data", "error");
-//         return;
-//       }
-//       if (!isValidNumber(formData.value)) {
-//         Swal.fire("Erro", "Informe um valor válido", "error");
-//         return;
-//       }
-//       if (!formData.description) {
-//         Swal.fire("Erro", "Informe uma descrição para o pagamento", "error");
-//         return;
-//       }
-//       if (!selectedEntity) {
-//         Swal.fire("Erro", "Nenhum usuário selecionado", "error");
-//         return;
-//       }
-
-//       console.log("selectedEntity", selectedEntity);
-
-//       setLoadingFetch3(true);
-//       await api.post(`/invoice/box/transaction`, {
-//         value: Math.abs(Number(formData.value)),
-//         entityId: selectedEntity.id,
-//         direction: Number(formData.value) > 0 ? "IN" : "OUT",
-//         date: formData.date,
-//         description: formData.description,
-//         entityType: selectedEntity.typeInvoice === "freteiro" ? "CARRIER" : "SUPPLIER",
-//         userId: caixaUser?.id,
-//       });
-
-//       await fetchEntityData(selectedEntity.id);
-//       setFormData({ date: "", value: "", description: "" });
-//       fetchDatUser();
-//       Swal.fire("Sucesso", "Transação registrada com sucesso", "success");
+      Swal.fire("Sucesso", "Transação registrada com sucesso", "success");
     } catch (error) {
       console.error("Erro ao buscar caixas:", error);
-      Swal.fire({
-        icon: "error",
-        title: "Erro!",
-        text: "Erro ao resgistrar pagamento",
-        buttonsStyling: false,
-        customClass: {
-          confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
-        },
-      });
+      Swal.fire("Erro", "Erro ao resgistrar pagamento", "error");
     } finally {
       setLoadingFetch3(false);
     }
@@ -341,14 +238,9 @@ const CaixasTab: React.FC = () => {
         ) : (
           <div className="flex items-center space-x-4">
             <GenericSearchSelect
-              items={caixas}
-              value={selectedUserId!}
-              getLabel={(p) => p.name}
-
-<!--               items={combinedItems}
+              items={combinedItems}
               value={selectedEntity?.id || ""}
-              getLabel={(p) => `${p.name} (${p.typeInvoice === "freteiro" ? "Transportadora" : "Fornecedor"})`} -->
-
+              getLabel={(p) => `${p.name} (${p.typeInvoice === "freteiro" ? "Transportadora" : "Fornecedor"})`}
               getId={(p) => p.id}
               onChange={(id) => {
                 const entity = combinedItems.find((item) => item.id === id);
@@ -381,13 +273,9 @@ const CaixasTab: React.FC = () => {
               Entradas:{" "}
               <span className="mr-4 font-bold text-green-600">
                 {loadingFetch2 ? (
-                  <Loader2 className="inline w-4 h-4 animate-spin text-blue-500" />
+                  <Loader2 className="inline w-4 h-4 animate-spin" />
                 ) : (
-                  `$ ${(caixaUser?.input ?? 0).toLocaleString("en-US", {
-
-//                   <Loader2 className="inline w-4 h-4 animate-spin" />
-//                 ) : (
-//                   `$ ${(selectedEntity.input || 0).toLocaleString("pt-BR", {
+                  `$ ${(selectedEntity.input || 0).toLocaleString("pt-BR", {
                     minimumFractionDigits: 2,
                     maximumFractionDigits: 2,
                   })}`
@@ -396,34 +284,24 @@ const CaixasTab: React.FC = () => {
               Saídas:{" "}
               <span className="mr-4 font-bold text-red-600">
                 {loadingFetch2 ? (
-                  <Loader2 className="inline w-4 h-4 animate-spin text-blue-500" />
+                  <Loader2 className="inline w-4 h-4 animate-spin" />
                 ) : (
-                  `$ ${(caixaUser?.output ?? 0).toLocaleString("en-US", {
-
-//                   <Loader2 className="inline w-4 h-4 animate-spin" />
-//                 ) : (
-//                   `$ ${(selectedEntity.output || 0).toLocaleString("pt-BR", {
+                  `$ ${(selectedEntity.output || 0).toLocaleString("pt-BR", {
                     minimumFractionDigits: 2,
                     maximumFractionDigits: 2,
                   })}`
                 )}
               </span>
               Saldo:{" "}
-              <span className={`mr-2 font-bold ${(caixaUser?.balance ?? 0) < 0 ? "text-red-600" : "text-green-600"}`}>
+              <span
+                className={`font-bold ${
+                  (selectedEntity.balance?.balance || 0) < 0 ? "text-red-600" : "text-green-600"
+                }`}
+              >
                 {loadingFetch2 ? (
-                  <Loader2 className="inline w-4 h-4 animate-spin text-blue-500" />
+                  <Loader2 className="inline w-4 h-4 animate-spin" />
                 ) : (
-                  `$ ${(caixaUser?.balance ?? 0).toLocaleString("en-US", {
-
-//               <span
-//                 className={`font-bold ${
-//                   (selectedEntity.balance?.balance || 0) < 0 ? "text-red-600" : "text-green-600"
-//                 }`}
-//               >
-//                 {loadingFetch2 ? (
-//                   <Loader2 className="inline w-4 h-4 animate-spin" />
-//                 ) : (
-//                   `$ ${(selectedEntity.balance?.balance || 0).toLocaleString("pt-BR", {
+                  `$ ${(selectedEntity.balance?.balance || 0).toLocaleString("pt-BR", {
                     minimumFractionDigits: 2,
                     maximumFractionDigits: 2,
                   })}`
@@ -496,23 +374,7 @@ const CaixasTab: React.FC = () => {
                   <tbody>
                     {loadingFetch2 ? (
                       <tr>
-                        <td colSpan={4} className="text-center py-4 text-blue-600">
-                          <Loader2 className="inline animate-spin w-4 h-4 mr-2" />
-                          Carregando transações...
-                        </td>
-                      </tr>
-                    ) : caixaUser?.transactions?.length ? (
-                      caixaUser.transactions
-                        .slice(-6)
-                        .reverse()
-                        .map((t) => (
-                          <tr key={t.id} className="bg-red-50">
-                            <td className="py-2 px-4 border text-center">
-                              {new Date(new Date(t.date).getTime() + 3 * 60 * 60 * 1000).toLocaleDateString("pt-BR")}
-                            </td>
-                            <td className="py-2 px-4 border text-center">{t.description}</td>
-
-<!--                         <td colSpan={4} className="text-center py-4">
+                        <td colSpan={4} className="text-center py-4">
                           <Loader2 className="inline animate-spin w-4 h-4 mr-2" />
                           Carregando...
                         </td>
@@ -520,23 +382,18 @@ const CaixasTab: React.FC = () => {
                     ) : selectedEntity.TransactionBoxUserInvoice?.length ? (
                       selectedEntity.TransactionBoxUserInvoice.slice()
                         .reverse()
-                        .map((t) => (
+                        .map((t : any) => (
                           <tr key={t.id} className="hover:bg-gray-50">
                             <td className="py-2 px-4 border text-center">
                               {new Date(t.date).toLocaleDateString("pt-BR")}
                             </td>
-                            <td className="py-2 px-4 border">{t.description}</td> -->
+                            <td className="py-2 px-4 border">{t.description}</td>
                             <td
                               className={`py-2 px-4 border text-right ${
                                 t.direction === "OUT" ? "text-red-600" : "text-green-600"
                               }`}
                             >
-                              {`${t.direction === "OUT" ? "-" : "+"} $ ${t.value.toLocaleString("en-US", {
-                                minimumFractionDigits: 2,
-                                maximumFractionDigits: 2,
-                              })}`}
-
-<!--                               {t.direction === "OUT" ? "-" : "+"} ${t.value.toFixed(2)} -->
+                              {t.direction === "OUT" ? "-" : "+"} ${t.value.toFixed(2)}
                             </td>
                             <td className="py-2 px-4 border text-center">
                               <motion.button
@@ -544,21 +401,9 @@ const CaixasTab: React.FC = () => {
                                 whileTap={{ scale: 0.95 }}
                                 onClick={() => limparHistorico(t.id)}
                                 disabled={loadingClearId === t.id}
-                                className={`${
-                                  loadingClearId === t.id
-                                    ? "bg-red-600 cursor-not-allowed"
-                                    : "bg-red-500 hover:bg-red-700"
-                                } text-white px-3 py-1 rounded`}
+                                className="bg-red-500 hover:bg-red-700 text-white px-3 py-1 rounded"
                               >
-                                {loadingClearId === t.id ? (
-                                  <Loader2 className="w-4 h-4 animate-spin" />
-                                ) : (
-                                  <i className="fas fa-trash"></i>
-                                )}
-
-<!--                                 className="bg-red-500 hover:bg-red-700 text-white px-3 py-1 rounded"
-                              >
-                                {loadingClearId === t.id ? <Loader2 className="w-4 h-4 animate-spin" /> : "Excluir"} -->
+                                {loadingClearId === t.id ? <Loader2 className="w-4 h-4 animate-spin" /> : "Excluir"}
                               </motion.button>
                             </td>
                           </tr>
@@ -566,9 +411,7 @@ const CaixasTab: React.FC = () => {
                     ) : (
                       <tr>
                         <td colSpan={4} className="text-center py-4 text-gray-500">
-                          Nenhuma transação registrada.
-
-<!--                           Nenhuma transação registrada -->
+                          Nenhuma transação registrada
                         </td>
                       </tr>
                     )}

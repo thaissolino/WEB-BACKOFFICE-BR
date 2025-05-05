@@ -148,7 +148,6 @@ export function SuppliersTab() {
             description: `fornecedor - ${res.data.name}`,
             type: "supplier",
             tabsType: "invoice",
-              });
           });
         Swal.fire({
           icon: "success",
