@@ -122,6 +122,9 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
     setProductForm({ ...productForm, total: total.toFixed(2) });
   };
 
+  const carrierOneName = carriers.find((carrier) => carrier.id === currentInvoice.carrierId)?.name;
+  const carrierTwoName = carriers.find((carrier) => carrier.id === currentInvoice.carrier2Id)?.name;
+
   useEffect(() => {
     setCurrentInvoice((prevInvoice: Invoice) => ({
       ...prevInvoice,
@@ -488,7 +491,10 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
                 <p id="subtotal" className="text-lg font-semibold">$ {subTotal.toLocaleString('en-US', {  currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits:2 }) || "0.00"}</p>
               </div> */}
               <div className="bg-white p-3 rounded border">
-                <p className="text-sm text-gray-600">Frete 1:</p>
+                <div className=" flex flex-direction-row">
+                  <p className="text-sm text-gray-600 mr-2">Frete 1: </p>
+                  <p className="text-sm text-black font-bold">{carrierOneName}</p>
+                </div>
                 <p id="shippingCost" className="text-lg font-semibold">
                   ${" "}
                   {amountTaxCarrieFrete1.toLocaleString("en-US", {
@@ -499,7 +505,10 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
                 </p>
               </div>
               <div className="bg-white p-3 rounded border">
-                <p className="text-sm text-gray-600">Frete 2:</p>
+              <div className=" flex flex-direction-row">
+                  <p className="text-sm text-gray-600 mr-2">Frete 2: </p>
+                  <p className="text-sm text-black font-bold">{carrierTwoName}</p>
+                </div>
                 <p id="shippingCost" className="text-lg font-semibold">
                   ${" "}
                   {amountTaxCarrieFrete2.toLocaleString("en-US", {
