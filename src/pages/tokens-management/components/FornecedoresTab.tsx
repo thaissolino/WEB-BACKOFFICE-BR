@@ -232,27 +232,55 @@ const FornecedoresTab: React.FC = () => {
   };
 
 
-   const deletarOperacao = async (id: number) => {
-      try {
-        await api.delete(`/operations/delete_operation/${id}`);
-        setOperacoes((prev) => prev.filter((op) => op.id !== id));
-        alert("Operação deletada com sucesso.");
-      } catch (e: any) {
-        alert(`Erro ao deletar operação: ${e.message}`);
-      }
-    };
+  const deletarOperacao = async (id: number) => {
+    try {
+      await api.delete(`/operations/delete_operation/${id}`);
 
-    
+      // Atualiza as operações
+      const updatedOperacoes = operacoes.filter((op) => op.id !== id);
+      setOperacoes(updatedOperacoes);
+
+      // Recalcula todos os saldos
+      const updatedBalances: Record<number, number> = {};
+      fornecedores.forEach((f) => {
+        updatedBalances[f.id] = computeBalance(f, updatedOperacoes, payments);
+      });
+      setCalculatedBalances(updatedBalances);
+
+      // Atualiza o saldo acumulado
+      const totalBalance = Object.values(updatedBalances).reduce((a, b) => a + b, 0);
+      setSaldoAcumulado(totalBalance);
+
+      alert("Operação deletada com sucesso.");
+    } catch (e: any) {
+      alert(`Erro ao deletar operação: ${e.message}`);
+    }
+  };
+
   const deletarPagamento = async (id: number) => {
     try {
       await api.delete(`/api/delete_payment/${id}`);
-      setPayments((prev) => prev.filter((p) => p.id !== id));
+
+      // Atualiza os pagamentos
+      const updatedPayments = payments.filter((p) => p.id !== id);
+      setPayments(updatedPayments);
+
+      // Recalcula todos os saldos
+      const updatedBalances: Record<number, number> = {};
+      fornecedores.forEach((f) => {
+        updatedBalances[f.id] = computeBalance(f, operacoes, updatedPayments);
+      });
+      setCalculatedBalances(updatedBalances);
+
+      // Atualiza o saldo acumulado
+      const totalBalance = Object.values(updatedBalances).reduce((a, b) => a + b, 0);
+      setSaldoAcumulado(totalBalance);
+
       alert("Pagamento deletado com sucesso.");
     } catch (e: any) {
       alert(`Erro ao deletar pagamento: ${e.message}`);
     }
   };
-
   const todasTransacoes = [
     ...(fornecedorSelecionado?.transacoes || []),
     ...operacoes
@@ -309,7 +337,13 @@ const FornecedoresTab: React.FC = () => {
 
     return balance;
   }
-
+  useEffect(() => {
+    let totalBalance = 0;
+    fornecedores.forEach((fornecedor) => {
+      totalBalance += computeBalance(fornecedor, operacoes, payments);
+    });
+    setSaldoAcumulado(totalBalance);
+  }, [fornecedores, operacoes, payments]);
   if (loading) {
     return (
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex items-center justify-center h-64">
@@ -394,9 +428,8 @@ const FornecedoresTab: React.FC = () => {
                     <td className="py-2 px-4 border text-center">{f.name}</td>
 
                     <td
-                      className={`py-2 px-4 border text-center font-bold ${
-                        calculatedBalances[f.id] < 0 ? "text-red-600" : "text-green-600"
-                      }`}
+                      className={`py-2 px-4 border text-center font-bold ${calculatedBalances[f.id] < 0 ? "text-red-600" : "text-green-600"
+                        }`}
                     >
                       {formatCurrency(calculatedBalances[f.id] || 0)}
                     </td>
@@ -454,9 +487,8 @@ const FornecedoresTab: React.FC = () => {
                 <span className="mr-4">
                   SALDO:{" "}
                   <span
-                    className={`font-bold ${
-                      calculatedBalances[fornecedorSelecionado.id] < 0 ? "text-red-600" : "text-green-600"
-                    }`}
+                    className={`font-bold ${calculatedBalances[fornecedorSelecionado.id] < 0 ? "text-red-600" : "text-green-600"
+                      }`}
                   >
                     {formatCurrency(calculatedBalances[fornecedorSelecionado.id] || 0)}
                   </span>
@@ -519,9 +551,8 @@ const FornecedoresTab: React.FC = () => {
                     whileHover={!isProcessingPayment ? { scale: 1.02 } : {}}
                     whileTap={!isProcessingPayment ? { scale: 0.98 } : {}}
                     onClick={registrarPagamento}
-                    className={`${
-                      isProcessingPayment ? "bg-blue-400" : "bg-blue-600 hover:bg-blue-700"
-                    } text-white px-4 py-2 rounded w-full flex items-center justify-center`}
+                    className={`${isProcessingPayment ? "bg-blue-400" : "bg-blue-600 hover:bg-blue-700"
+                      } text-white px-4 py-2 rounded w-full flex items-center justify-center`}
                     disabled={isProcessingPayment}
                   >
                     {isProcessingPayment ? (
@@ -567,10 +598,10 @@ const FornecedoresTab: React.FC = () => {
                                 newPaymentId === t.id
                                   ? ["#f0fdf4", "#dcfce7", "#f0fdf4"]
                                   : t.id.toString().startsWith("op-")
-                                  ? "#ebf5ff"
-                                  : t.id.toString().startsWith("pay-")
-                                  ? "#f0fdf4"
-                                  : "#ffffff",
+                                    ? "#ebf5ff"
+                                    : t.id.toString().startsWith("pay-")
+                                      ? "#f0fdf4"
+                                      : "#ffffff",
                             }}
                             exit={{ opacity: 0, y: -10 }}
                             transition={{
@@ -585,8 +616,8 @@ const FornecedoresTab: React.FC = () => {
                               t.id.toString().startsWith("op-")
                                 ? "bg-blue-50"
                                 : t.id.toString().startsWith("pay-")
-                                ? "bg-green-50"
-                                : ""
+                                  ? "bg-green-50"
+                                  : ""
                             }
                           >
                             <td className="py-2 px-4 border text-sm text-gray-700">
@@ -597,9 +628,8 @@ const FornecedoresTab: React.FC = () => {
                             </td>
                             <td className="py-2 px-4 border text-sm text-gray-700">{t.descricao}</td>
                             <td
-                              className={`py-2 px-4 border text-right ${
-                                t.valor < 0 ? "text-red-600" : "text-green-600"
-                              }`}
+                              className={`py-2 px-4 border text-right ${t.valor < 0 ? "text-red-600" : "text-green-600"
+                                }`}
                             >
                               {formatCurrency(t.valor)}
                             </td>

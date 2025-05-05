@@ -12,7 +12,7 @@ interface BoletoFormProps {
 const BoletoForm: React.FC<BoletoFormProps> = ({ addBoleto }) => {
   const [codigoBoleto, setCodigoBoleto] = useState("");
   const [dataPagamento, setDataPagamento] = useState("");
-  const [valor, setValor] = useState(0);
+  const [valor, setValor] = useState<number | null>(null);
   const [referencia, setReferencia] = useState("");
   const [status, setStatus] = useState("pendente");
   const [showScanner, setShowScanner] = useState(false);
@@ -41,13 +41,20 @@ const BoletoForm: React.FC<BoletoFormProps> = ({ addBoleto }) => {
       name: referencia,
       description: referencia,
       data: {
-        valor,
-        vencimento: dataPagamento,
-        status,
-        codigo: codigoBoleto, 
-      },
+        set: {
+          valor,
+          vencimento: dataPagamento,
+          status,
+          codigo: codigoBoleto,
+        }
+      }
     };
   
+    if (valor === null) {
+      alert("Preencha o valor do boleto.");
+      return;
+    }
+    
     try {
       const response = await api.post("/billets/create_billet", newBoleto);
       
@@ -55,7 +62,7 @@ const BoletoForm: React.FC<BoletoFormProps> = ({ addBoleto }) => {
         id: response.data.id,
         codigo: codigoBoleto,
         dataPagamento,
-        valor,
+        valor: valor ?? 0,
         referencia,
         status,
       };
@@ -135,7 +142,7 @@ const BoletoForm: React.FC<BoletoFormProps> = ({ addBoleto }) => {
           <input
             type="number"
             id="valor"
-            value={valor}
+            value={valor === null ? "" : valor}
             onChange={(e) => setValor(Number(e.target.value))}
             required
             step="0.01"

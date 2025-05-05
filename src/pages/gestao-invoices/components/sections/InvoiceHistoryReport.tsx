@@ -298,7 +298,7 @@ export function InvoiceHistoryReport({ invoiceHistory:invoices, setInvoiceHistor
                             <h3 className="text-lg font-medium">Invoice #<span id="modalInvoiceNumber">{selectedInvoice.number}</span></h3>
                             <p className="text-sm text-gray-600">ID: <span id="modalInvoiceSupplier">{selectedInvoice.id}</span></p>
                             <p className="text-sm text-gray-600">Fornecedor: <span id="modalInvoiceSupplier">{selectedInvoice.supplier.name}</span></p>
-                            <p className="text-sm text-gray-600">Data: <span id="modalInvoiceDate">{new Date(selectedInvoice.date).toLocaleDateString()}</span></p>
+                            <p className="text-sm text-gray-600">Data: <span id="modalInvoiceDate">{new Date(new Date(selectedInvoice.date).getTime() + 3 * 60 * 60 * 1000).toLocaleDateString("pt-BR")}</span></p>
                             <p className="text-sm text-gray-600">Freteiro: <span id="modalInvoiceCarrier">{selectedInvoice.carrier.name} - {selectedInvoice.carrier?.value} {getShippingTypeText(selectedInvoice.carrier?.type)}</span></p>
                             <p className="text-sm text-gray-600">
                               Freteiro 2:{" "}

@@ -3,6 +3,7 @@ import { Box, Loader2, Plus, Save, Trash2, X } from 'lucide-react';
 import { api } from '../../../../services/api';
 import { Invoice } from '../types/invoice';
 import Swal from 'sweetalert2';
+import { ProductSearchSelect } from './SupplierSearchSelect';
 
 export type InvoiceProduct = {
   id: string;
@@ -56,6 +57,7 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
           api.get('/invoice/product'),
           api.get('/invoice/carriers')
         ]);
+        console.log(productsResponse.data)
         setProducts(productsResponse.data);
         setCarriers(carriersResponse.data);
       } catch (error) {
@@ -81,7 +83,7 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
 
   const subTotal = currentInvoice.products.reduce((acc, item) => acc + Number(item.total), 0);
   const taxSpEs = currentInvoice.products.reduce((acc: number, item) => {
-    return acc + item.quantity * currentInvoice.taxaSpEs;
+    return acc + item.quantity * Number(currentInvoice.taxaSpEs);
   }, 0);
   
   const shippingStrategies: Record<string, (carrierSelectedType: Carrier, item: InvoiceProduct) => number> = {
@@ -290,19 +292,14 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
           <h3 className="font-medium mb-3 text-blue-700 border-b pb-2">Adicionar Produto</h3>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
             <div className="relative">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Produto</label>
-              <select
+              {/* <label className="block text-sm font-medium text-gray-700 mb-1">Produto</label> */}
+              <ProductSearchSelect
+                products={products}
                 value={productForm.productId}
-                onChange={(e) => setProductForm({ ...productForm, productId: e.target.value })}
-                className="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500"
+                onChange={(e:any) => setProductForm({ ...productForm, productId: e })}
+                
               >
-                <option value="">Selecione um produto</option>
-                {products.map((product) => (
-                  <option key={product.id} value={product.id}>
-                    {product.name}
-                  </option>
-                ))}
-              </select>
+              </ProductSearchSelect>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Quantidade</label>
@@ -313,7 +310,7 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
                   console.log(e.target.value)
                   setProductForm({ ...productForm, quantity: e.target.value });
                 }}
-                className="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500 appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                 placeholder="Qtd"
               />
             </div>
@@ -326,7 +323,7 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
                 onChange={(e) => {
                   setProductForm({ ...productForm, value: e.target.value });
                 }}
-                className="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500 appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                 placeholder="$"
               />
             </div>
@@ -339,7 +336,7 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
                 onChange={(e) => {
                   setProductForm({ ...productForm, weight: e.target.value });
                 }}
-                className="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500 appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                 placeholder="kg"
               />
             </div>

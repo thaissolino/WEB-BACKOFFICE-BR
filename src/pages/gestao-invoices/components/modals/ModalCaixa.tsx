@@ -1,95 +1,237 @@
 import React, { useEffect, useState } from "react";
+import { api } from "../../../../services/api";
+import Swal from "sweetalert2";
 
 interface ModalCaixaProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (nome: string, taxa: number, userId: number) => void;
-  fornecedorEdit?: {
-    id: number;
-    nome: string;
-    taxa: number;
-    saldo: number;
-    userId: number;
-    transacoes: any[];
-  };
+  onSave: (nome: string, descricao: string) => void;
+  fetchDataUser?: () => void
 }
 
-const usuariosMock = [
-  { id: 1, nome: "João Silva" },
-  { id: 2, nome: "Maria Oliveira" },
-  { id: 3, nome: "Carlos Souza" },
-  { id: 4, nome: "Ana Lima" },
-  { id: 5, nome: "Fernanda Costa" },
-  { id: 6, nome: "Bruno Rocha" },
-  { id: 7, nome: "Juliana Martins" },
-  { id: 8, nome: "Ricardo Pereira" },
-  { id: 9, nome: "Larissa Melo" },
-  { id: 10, nome: "Felipe Araújo" },
-];
+interface Pessoa {
+  id: number;
+  name: string;
+}
 
-const ModalCaixa: React.FC<ModalCaixaProps> = ({ isOpen, onClose, onSave, fornecedorEdit }) => {
-  const [nome, setNome] = useState("");
-  const [saldo, setSaldo] = useState(""); // Inicializa como string vazia
+const ModalCaixa: React.FC<ModalCaixaProps> = ({ isOpen, onClose, onSave, fetchDataUser }) => {
+  const [tipoSelecionado, setTipoSelecionado] = useState("Recolhedor");
+  const [nomeSelecionado, setNomeSelecionado] = useState("");
+  const [nomeOutro, setNomeOutro] = useState("");
+  const [descricao, setDescricao] = useState("");
+
+  const [recolhedores, setRecolhedores] = useState<Pessoa[]>([]);
+  const [fornecedores, setFornecedores] = useState<Pessoa[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false); // novo loading do submit
 
   useEffect(() => {
-    if (fornecedorEdit) {
-      setNome(fornecedorEdit.nome || "");
-      setSaldo(String(fornecedorEdit.taxa || 0)); // Converte para string ao editar
-    } else {
-      setNome("Caixa Padrão");
-      setSaldo(""); // Inicializa como string vazia
+    if (!isOpen) return;
+
+    setTipoSelecionado("Recolhedor");
+    setNomeSelecionado("");
+    setNomeOutro("");
+    setDescricao("");
+    setLoading(true);
+
+    Promise.all([
+      api.get("/collectors/list_collectors"),
+      api.get("/invoice/supplier")
+    ])
+      .then(([resRecolhedores, resFornecedores]) => {
+        setRecolhedores(resRecolhedores.data);
+        setFornecedores(resFornecedores.data);
+      })
+      .catch((error) => {
+        console.error("Erro ao buscar dados:", error);
+        Swal.fire("Erro", "Erro ao carregar dados.", "error");
+      })
+      .finally(() => setLoading(false));
+  }, [isOpen]);
+
+  const handleSalvar = async () => {
+    const nomeFinal =
+      tipoSelecionado === "Outro" ? nomeOutro.trim() : nomeSelecionado;
+
+    if (!nomeFinal) {
+      Swal.fire("Atenção", "Por favor, selecione ou digite um nome válido.", "warning");
+      return;
     }
-  }, [fornecedorEdit]);
 
-  if (!isOpen) return null;
+    if (!descricao) {
+      Swal.fire("Atenção", "Por favor, adicione uma descrição!", "warning");
+      return;
+    }
 
-  const nomeUsuario = fornecedorEdit
-    ? usuariosMock.find((u) => u.id === fornecedorEdit.userId)?.nome || "Usuário não encontrado"
-    : "";
+    try {
+      setSubmitting(true);
 
-  const handleSave = () => {
-    if (fornecedorEdit?.userId) {
-      onSave(nome.trim(), Number(saldo), fornecedorEdit.userId); // Converte para Number ao salvar
-    } else {
-      alert("Usuário não definido.");
+      await api.post("/invoice/box", {
+        name: nomeFinal,
+        description: descricao,
+      });
+
+      Swal.fire({
+        icon: "success",
+        title: "Sucesso!",
+        text: "Dados salvos com sucesso!",
+        confirmButtonColor: "#3085d6",
+      });
+
+      onSave(nomeFinal, descricao);
+      onClose(); // fecha o modal após salvar
+    } catch (error) {
+      // @ts-ignore
+      if(response.data.code === "409"){
+        Swal.fire({
+          icon: "error",
+          title: "Erro",
+          text: "Usuario ja existe",
+          confirmButtonColor: "#3085d6",
+        });
+        return
+      }
+      Swal.fire({
+        icon: "error",
+        title: "Erro",
+        text: "Erro ao salvar os dados.",
+        confirmButtonColor: "#3085d6",
+      });
+    } finally {
+      setSubmitting(false);
+      fetchDataUser?.();
     }
   };
+
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white p-6 rounded-lg w-full max-w-md">
-        <h2 className="text-lg font-semibold text-blue-500 mb-2">{fornecedorEdit ? "Editar Caixa" : "Nova Caixa"}</h2>
+        <h2 className="text-lg font-semibold text-blue-500 mb-4">Nova Caixa</h2>
 
-        {nomeUsuario && (
-          <p className="text-sm text-gray-500 mb-4">
-            <i className="fas fa-user mr-1 text-gray-400"></i> Usuário: <strong>{nomeUsuario}</strong>
-          </p>
-        )}
-
-        <div className="space-y-4">
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Saldo (USD)</label>
-            <input
-              type="number"
-
-              value={saldo}
-              onChange={(e) => setSaldo(e.target.value)} // Mantém como string no onChange
-              className="mt-1 block w-full border border-gray-300 rounded p-2"
-              placeholder="Ex: 1.05"
-            />
-          </div>
+        {/* Tipo de Caixa */}
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Tipo de Caixa
+          </label>
+          <select
+            value={tipoSelecionado}
+            onChange={(e) => setTipoSelecionado(e.target.value)}
+            className="w-full border border-gray-300 rounded p-2"
+            disabled={submitting}
+          >
+            <option value="Recolhedor">Recolhedor</option>
+            <option value="Fornecedor">Fornecedor</option>
+            <option value="Outro">Outro</option>
+          </select>
         </div>
 
-        <div className="mt-6 flex justify-end space-x-3">
-          <button onClick={onClose} className="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded">
+        {/* Campos Dinâmicos */}
+        {loading ? (
+          <div className="text-sm text-gray-500 mb-4">Carregando dados...</div>
+        ) : (
+          <>
+            {tipoSelecionado === "Recolhedor" && (
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Selecione o Recolhedor
+                </label>
+                <select
+                  value={nomeSelecionado}
+                  onChange={(e) => setNomeSelecionado(e.target.value)}
+                  className="w-full border border-gray-300 rounded p-2"
+                  disabled={submitting}
+                >
+                  <option value="">-- Escolher --</option>
+                  {recolhedores.map((r) => (
+                    <option key={r.id} value={r.name}>
+                      {r.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {tipoSelecionado === "Fornecedor" && (
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Selecione o Fornecedor
+                </label>
+                <select
+                  value={nomeSelecionado}
+                  onChange={(e) => setNomeSelecionado(e.target.value)}
+                  className="w-full border border-gray-300 rounded p-2"
+                  disabled={submitting}
+                >
+                  <option value="">-- Escolher --</option>
+                  {fornecedores.map((f) => (
+                    <option key={f.id} value={f.name}>
+                      {f.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {tipoSelecionado === "Outro" && (
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Nome da Caixa
+                </label>
+                <input
+                  type="text"
+                  value={nomeOutro}
+                  onChange={(e) => setNomeOutro(e.target.value)}
+                  className="w-full border border-gray-300 rounded p-2"
+                  placeholder="Digite o nome da caixa"
+                  disabled={submitting}
+                />
+              </div>
+            )}
+          </>
+        )}
+
+        {/* Descrição */}
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Descrição da Caixa
+          </label>
+          <textarea
+            value={descricao}
+            onChange={(e) => setDescricao(e.target.value)}
+            className="w-full border border-gray-300 rounded p-2"
+            placeholder="Digite uma descrição..."
+            rows={3}
+            disabled={submitting}
+          />
+        </div>
+
+        {/* Visualização da escolha */}
+        <div className="bg-gray-100 p-3 rounded text-sm text-gray-600 mb-4">
+          Nome da caixa:{" "}
+          <strong>
+            {tipoSelecionado === "Outro"
+              ? nomeOutro || "Nenhum"
+              : nomeSelecionado || "Nenhum"}
+          </strong>
+        </div>
+
+        {/* Botões */}
+        <div className="flex justify-end space-x-3">
+          <button
+            onClick={onClose}
+            disabled={submitting}
+            className="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded"
+          >
             Cancelar
           </button>
           <button
-            onClick={handleSave} // Chama a função handleSave
+            onClick={handleSalvar}
+            disabled={loading || submitting}
             className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded"
           >
-            Salvar
+            {submitting ? "Salvando..." : "Salvar"}
           </button>
         </div>
       </div>

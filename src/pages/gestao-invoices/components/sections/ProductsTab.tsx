@@ -107,10 +107,19 @@ export function ProductsTab() {
         </h2>
         <button
           onClick={() => {
+            let maiorCodigo = 0;
+
+            products.forEach(p => {
+              const numero = parseInt(p.code);
+              if (!isNaN(numero) && numero > maiorCodigo) {
+                maiorCodigo = numero;
+              }
+            });
+
             setCurrentProduct({
               id: "",
               name: "",
-              code: "",
+              code: String(maiorCodigo + 1), // código seguro e automático
               priceweightAverage: 0,
               weightAverage: 0,
               description: "",
@@ -215,9 +224,8 @@ export function ProductsTab() {
                 <input
                   type="text"
                   value={currentProduct.code}
-                  onChange={(e) => setCurrentProduct({ ...currentProduct, code: e.target.value })}
-                  className="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500"
-                  disabled={isSubmitting}
+                  disabled // <- campo agora é somente leitura
+                  className="w-full border border-gray-300 rounded-md p-2 bg-gray-100 cursor-not-allowed"
                 />
               </div>
               <div className="grid grid-cols-2 gap-4">

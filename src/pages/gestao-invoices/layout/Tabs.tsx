@@ -1,6 +1,6 @@
 import { JSX } from 'react';
 import { TabType } from '../InvocesManagement';
-import { FileText, Boxes, Building, Truck, DollarSign, ChartBar } from 'lucide-react';
+import { FileText, Boxes, Building, Truck, DollarSign, ChartBar, Users, Package } from 'lucide-react';
 
 interface TabsProps {
   activeTab: TabType;
@@ -10,9 +10,9 @@ interface TabsProps {
 const tabs: { id: TabType; icon: JSX.Element; label: string }[] = [
   { id: 'invoices', icon: <FileText className="mr-2" size={16} />, label: 'Invoices' },
   { id: 'products', icon: <Boxes className="mr-2" size={16} />, label: 'Produtos' },
-  { id: 'suppliers', icon: <Building className="mr-2" size={16} />, label: 'Fornecedores' },
+  { id: 'suppliers', icon: <Package className="mr-2" size={16} />, label: 'Fornecedores' },
   { id: 'carriers', icon: <Truck className="mr-2" size={16} />, label: 'Freteiros' },
-  { id: 'media-dolar', icon: <DollarSign className="mr-2" size={16} />, label: 'Média Dólar' },
+  { id: 'others', icon: <Users className="mr-2" size={16} />, label: 'Outros' },  { id: 'media-dolar', icon: <DollarSign className="mr-2" size={16} />, label: 'Média Dólar' },
   { id: 'relatorios', icon: <ChartBar className="mr-2" size={16} />, label: 'Relatórios' },
   { id: 'caixas', icon: <Boxes className="mr-2" size={16} />, label: 'Caixas' },
 ];
