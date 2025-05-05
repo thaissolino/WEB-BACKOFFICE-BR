@@ -83,7 +83,7 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
 
   const subTotal = currentInvoice.products.reduce((acc, item) => acc + Number(item.total), 0);
   const taxSpEs = currentInvoice.products.reduce((acc: number, item) => {
-    return acc + item.quantity * currentInvoice.taxaSpEs;
+    return acc + item.quantity * Number(currentInvoice.taxaSpEs);
   }, 0);
   
   const shippingStrategies: Record<string, (carrierSelectedType: Carrier, item: InvoiceProduct) => number> = {

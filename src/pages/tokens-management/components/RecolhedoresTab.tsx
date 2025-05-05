@@ -19,6 +19,7 @@ interface Recolhedor {
   name: string;
   tax: number;
   balance: number;
+  comission: number;
   transacoes: Transacao[];
 }
 
@@ -42,6 +43,7 @@ export interface Operacao {
   supplierTax: number;
   profit: number;
 }
+
 
 const RecolhedoresTab: React.FC = () => {
   const [recolhedores, setRecolhedores] = useState<Recolhedor[]>([]);
@@ -168,13 +170,13 @@ const RecolhedoresTab: React.FC = () => {
     }
   }, [newPaymentId]);
 
-  const salvarRecolhedor = async (name: string, tax: number, balance: number) => {
+  const salvarRecolhedor = async (name: string, tax: number, balance: number, comission: number) => {
     try {
       if (recolhedorEdit) {
         await api.put(`/collectors/update_collector/${recolhedorEdit.id}`, { name, tax, balance });
         fetchRecolhedores(); // Refetch after successful edit
       } else {
-        const response = await api.post<Recolhedor>("/collectors/create_collector", { name, tax, balance });
+        const response = await api.post<Recolhedor>("/collectors/create_collector", { name, tax, balance, comission });
         setRecolhedores([...recolhedores, response.data]);
       }
       setShowModal(false);
