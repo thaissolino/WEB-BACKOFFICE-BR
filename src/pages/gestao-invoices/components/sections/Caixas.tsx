@@ -349,7 +349,7 @@ const CaixasTab: React.FC = () => {
         <div className="bg-white p-6 rounded-lg shadow mb-6">
           <div className="flex justify-between items-start mb-4">
             <h2 className="text-blue-600 font-semibold text-lg">
-              {selectedEntity.typeInvoice === "freteiro" ? "TRANSPORTADORA" : "FORNECEDOR"}: {selectedEntity.name}
+              {selectedEntity.typeInvoice === "freteiro" ? "TRANSPORTADORA" : selectedEntity.typeInvoice === "fornecedor" ? "FORNECEDOR" : selectedEntity.typeInvoice === "parceiro" ? "PARCEIRO" : ""} : {selectedEntity.name}
             </h2>
             <div className="text-sm text-right">
               Entradas:{" "}
