@@ -157,7 +157,7 @@ const LucrosRecolhedoresFusionTab: React.FC = () => {
                     <th className="py-2 px-4 border">FORNECEDOR</th>
                     <th className="py-2 px-4 border">VALOR OPERAÇÃO</th>
                     <th className="py-2 px-4 border">LUCRO</th>
-                    <th className="py-2 px-4 border">COMMISSÃO %</th>
+                    <th className="py-2 px-4 border">COMISSÃO %</th>
                   </tr>
                 </thead>
                 <tbody>
