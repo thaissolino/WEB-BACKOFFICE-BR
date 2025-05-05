@@ -7,8 +7,9 @@ import { CarriersTab } from './components/sections/CarriersTab';
 import { ExchangeTab } from './components/sections/ExchangeTab';
 import { ReportsTab } from './components/sections/ReportsTab';
 import CaixasTab from './components/sections/Caixas';
+import { OtherPartnersTab } from './components/sections/OtherPartners';
 
-export type TabType = 'invoices' | 'products' | 'suppliers' | 'carriers' | 'media-dolar' | 'relatorios' | 'caixas';
+export type TabType = 'invoices' | 'products' | 'suppliers' | 'carriers' | 'media-dolar' | 'relatorios' | 'caixas' | 'others';
 
 export default function InvocesManagement() {
   const [activeTab, setActiveTab] = useState<TabType>('invoices');
@@ -28,6 +29,7 @@ export default function InvocesManagement() {
           {activeTab === 'products' && <ProductsTab />}
           {activeTab === 'suppliers' && <SuppliersTab />}
           {activeTab === 'carriers' && <CarriersTab />}
+          {activeTab === 'others' && <OtherPartnersTab />}
           {activeTab === 'media-dolar' && <ExchangeTab />}
           {activeTab === 'relatorios' && <ReportsTab />}
           {activeTab === 'caixas' && <CaixasTab />}
