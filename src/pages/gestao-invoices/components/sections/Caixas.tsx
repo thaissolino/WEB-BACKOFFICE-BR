@@ -67,24 +67,12 @@ export const CaixasTab = () => {
     description: "",
   });
 
-  const {
-    getBalanceGeneral,
-    getBalanceCarrier,
-    getBalancePartner,
-    getBalanceSupplier,
-    balanceCarrier,
-    balanceGeneral,
-    balancePartner,
-    balanceSupplier,
-  } = useBalanceStore();
+  const { getBalances, balanceCarrier, balanceGeneral, balancePartner, balanceSupplier } = useBalanceStore();
 
   useEffect(() => {
     console.log("foi?");
     fetchAllData();
-    getBalanceGeneral();
-    getBalanceCarrier();
-    getBalancePartner();
-    getBalanceSupplier();
+    getBalances();
   }, []);
 
   console.log(selectedUserId);
@@ -386,10 +374,7 @@ export const CaixasTab = () => {
 
       await fetchEntityData(selectedEntity.id);
 
-      getBalanceGeneral();
-      getBalanceCarrier();
-      getBalancePartner();
-      getBalanceSupplier();
+      getBalances();
 
       setFormData({ date: "", value: "", description: "" });
       fetchDatUser();
@@ -428,36 +413,72 @@ export const CaixasTab = () => {
       </h2>
       {/* Resumo */}
       <div className="mb-6 grid grid-cols-1 md:grid-cols-4 gap-4">
-        <motion.div whileHover={{ scale: 1.02 }} className="bg-yellow-50 p-4 rounded-lg shadow">
+        <motion.div whileHover={{ scale: 1.02 }} className="bg-yellow-50 p-4 rounded-lg shadow relative group">
           <div className="flex items-center gap-2 mb-2">
             <HandCoins className="text-yellow-600 w-5 h-5" />
-            <h3 className="font-medium">TOTAL FORNECEDORES</h3>
+            <h3 className="font-medium truncate max-w-[180px]">TOTAL FORNECEDORES</h3>
           </div>
-          <p className="text-2xl font-bold text-yellow-600">{formatCurrency(balanceSupplier || 0)}</p>
+          <p className="text-2xl font-bold text-yellow-600 truncate" title={formatCurrency(balanceSupplier || 0)}>
+            {formatCurrency(balanceSupplier || 0).length > 12
+              ? `${formatCurrency(balanceSupplier || 0).substring(0, 12)}...`
+              : formatCurrency(balanceSupplier || 0)}
+          </p>
+          {formatCurrency(balanceSupplier || 0).length > 12 && (
+            <div className="absolute hidden group-hover:block bg-gray-800 text-white text-xs p-2 rounded z-10 bottom-full mb-2 whitespace-nowrap">
+              {formatCurrency(balanceSupplier || 0)}
+            </div>
+          )}
         </motion.div>
 
-        <motion.div whileHover={{ scale: 1.02 }} className="bg-blue-50 p-4 rounded-lg shadow">
+        <motion.div whileHover={{ scale: 1.02 }} className="bg-blue-50 p-4 rounded-lg shadow relative group">
           <div className="flex items-center gap-2 mb-2">
             <Truck className="text-blue-600 w-5 h-5" />
-            <h3 className="font-medium">TOTAL FRETES</h3>
+            <h3 className="font-medium truncate max-w-[180px]">TOTAL FRETES</h3>
           </div>
-          <p className="text-2xl font-bold text-blue-600">{formatCurrency(balanceCarrier || 0)}</p>
+          <p className="text-2xl font-bold text-blue-600 truncate" title={formatCurrency(balanceCarrier || 0)}>
+            {formatCurrency(balanceCarrier || 0).length > 12
+              ? `${formatCurrency(balanceCarrier || 0).substring(0, 12)}...`
+              : formatCurrency(balanceCarrier || 0)}
+          </p>
+          {formatCurrency(balanceCarrier || 0).length > 12 && (
+            <div className="absolute hidden group-hover:block bg-gray-800 text-white text-xs p-2 rounded z-10 bottom-full mb-2 whitespace-nowrap">
+              {formatCurrency(balanceCarrier || 0)}
+            </div>
+          )}
         </motion.div>
 
-        <motion.div whileHover={{ scale: 1.02 }} className="bg-teal-50 p-4 rounded-lg shadow">
+        <motion.div whileHover={{ scale: 1.02 }} className="bg-teal-50 p-4 rounded-lg shadow relative group">
           <div className="flex items-center gap-2 mb-2">
             <Handshake className="text-teal-600 w-5 h-5" />
-            <h3 className="font-medium">TOTAL PARCEIROS</h3>
+            <h3 className="font-medium truncate max-w-[180px]">TOTAL PARCEIROS</h3>
           </div>
-          <p className="text-2xl font-bold text-teal-600">{formatCurrency(balancePartner || 0)}</p>
+          <p className="text-2xl font-bold text-teal-600 truncate" title={formatCurrency(balancePartner || 0)}>
+            {formatCurrency(balancePartner || 0).length > 12
+              ? `${formatCurrency(balancePartner || 0).substring(0, 12)}...`
+              : formatCurrency(balancePartner || 0)}
+          </p>
+          {formatCurrency(balancePartner || 0).length > 12 && (
+            <div className="absolute hidden group-hover:block bg-gray-800 text-white text-xs p-2 rounded z-10 bottom-full mb-2 whitespace-nowrap">
+              {formatCurrency(balancePartner || 0)}
+            </div>
+          )}
         </motion.div>
 
-        <motion.div whileHover={{ scale: 1.02 }} className="bg-purple-50 p-4 rounded-lg shadow">
+        <motion.div whileHover={{ scale: 1.02 }} className="bg-purple-50 p-4 rounded-lg shadow relative group">
           <div className="flex items-center gap-2 mb-2">
             <CircleDollarSign className="text-purple-600 w-5 h-5" />
-            <h3 className="font-medium">TOTAL GERAL</h3>
+            <h3 className="font-medium truncate max-w-[180px]">TOTAL GERAL</h3>
           </div>
-          <p className="text-2xl font-bold text-purple-600">{formatCurrency(balanceGeneral || 0)}</p>
+          <p className="text-2xl font-bold text-purple-600 truncate" title={formatCurrency(balanceGeneral || 0)}>
+            {formatCurrency(balanceGeneral || 0).length > 12
+              ? `${formatCurrency(balanceGeneral || 0).substring(0, 12)}...`
+              : formatCurrency(balanceGeneral || 0)}
+          </p>
+          {formatCurrency(balanceGeneral || 0).length > 12 && (
+            <div className="absolute hidden group-hover:block bg-gray-800 text-white text-xs p-2 rounded z-10 bottom-full mb-2 whitespace-nowrap">
+              {formatCurrency(balanceGeneral || 0)}
+            </div>
+          )}
         </motion.div>
       </div>
       <div className="bg-white p-6 rounded-lg shadow mb-6">
