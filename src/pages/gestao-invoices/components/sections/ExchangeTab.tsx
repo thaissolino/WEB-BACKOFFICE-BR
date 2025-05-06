@@ -396,7 +396,7 @@ export function ExchangeTab() {
               ) : (
                 <>
                   {invoices
-                    .filter((item) => item.completed && !item.paid)
+                    .filter((item) =>  item.paid == false && item.completed == false)
                     .map((invoice) => (
                       <option key={invoice.id} value={invoice.id}>
                         {invoice.number} - {invoice.supplier.name} ({formatCurrency(invoice.subAmount)})
