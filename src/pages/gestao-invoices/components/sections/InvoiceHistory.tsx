@@ -90,6 +90,7 @@ interface InvoiceHistoryProps {
 }
 
 export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
+
   const [invoices, setInvoices] = useState<InvoiceData[]>([]);
   const [suppliers, setSuppliers] = useState<{ id: string; name: string }[]>([]);
   const [loading, setLoading] = useState(true);
@@ -124,7 +125,7 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
 
   useEffect(() => {
     fetchInvoicesAndSuppliers();
-  }, []);
+  }, [reloadInvoiceHistory]);
 
   const getStatusText = (invoice: InvoiceData) => {
     if (invoice.completed && invoice.paid) return "Paga";
@@ -496,7 +497,6 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
                 </p>
               </div>
             </div>
-
             <div className="bg-blue-50 p-4 rounded border">
               <div className="flex justify-between items-center">
                 <p className="text-sm font-medium text-blue-800">Total da Invoice:</p>
