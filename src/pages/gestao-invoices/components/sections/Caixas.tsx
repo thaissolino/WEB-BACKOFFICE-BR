@@ -5,6 +5,8 @@ import Swal from "sweetalert2";
 import { GenericSearchSelect } from "./SearchSelect";
 import { Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
+import { formatCurrency } from "../modals/format";
+import { Truck, HandCoins, Handshake, CircleDollarSign } from "lucide-react";
 
 interface Transaction {
   id: string;
@@ -45,7 +47,7 @@ interface TransactionHistory {
 export const CaixasTab = () => {
   const [combinedItems, setCombinedItems] = useState<any[]>([]);
   const [caixaUser, setCaixaUser] = useState<Caixa>();
-  const [showModal, setShowModal] = useState(false);
+  // const [showModal, setShowModal] = useState(false);
   const [selectedEntity, setSelectedEntity] = useState<any | null>(null);
   const [totalBalance, setTotalBalance] = useState<number>(0);
 
@@ -398,8 +400,8 @@ export const CaixasTab = () => {
   return (
     <div className="fade-in">
       {/* Total Balance Display */}
-      <div className="bg-white p-4 rounded-lg shadow mb-4">
-        {/* <h2 className="text-lg font-semibold">
+      {/* <div className="bg-white p-4 rounded-lg shadow mb-4"> */}
+      {/* <h2 className="text-lg font-semibold">
           Saldo Total: $
           {combinedItems
             .reduce((total, entity) => {
@@ -411,9 +413,51 @@ export const CaixasTab = () => {
               maximumFractionDigits: 2,
             })}
         </h2> */}
+      {/* </div> */}
+      {/* Seletor de usuário total acumulado de fornecedores, outros, fretes e total geral */}
+      <h2 className="text-xl font-semibold mb-4 text-blue-700 border-b pb-2">
+        <i className="fas fa-chart-line mr-2"></i> CONTROLE CENTRAL DE CAIXAS
+      </h2>
+      {/* Resumo */}
+      <div className="mb-6 grid grid-cols-1 md:grid-cols-4 gap-4">
+        <motion.div whileHover={{ scale: 1.02 }} className="bg-yellow-50 p-4 rounded-lg shadow">
+          <div className="flex items-center gap-2 mb-2">
+            <HandCoins className="text-yellow-600 w-5 h-5" />
+            <h3 className="font-medium">TOTAL FORNECEDORES</h3>
+          </div>
+          <p className="text-2xl font-bold text-yellow-600">{formatCurrency(200)}</p>
+        </motion.div>
+
+        <motion.div whileHover={{ scale: 1.02 }} className="bg-blue-50 p-4 rounded-lg shadow">
+          <div className="flex items-center gap-2 mb-2">
+            <Truck className="text-blue-600 w-5 h-5" />
+            <h3 className="font-medium">TOTAL FRETES</h3>
+          </div>
+          <p className="text-2xl font-bold text-blue-600">{formatCurrency(200)}</p>
+        </motion.div>
+
+        <motion.div whileHover={{ scale: 1.02 }} className="bg-teal-50 p-4 rounded-lg shadow">
+          <div className="flex items-center gap-2 mb-2">
+            <Handshake className="text-teal-600 w-5 h-5" />
+            <h3 className="font-medium">TOTAL PARCEIROS</h3>
+          </div>
+          <p className="text-2xl font-bold text-teal-600">{formatCurrency(300)}</p>
+        </motion.div>
+
+        <motion.div whileHover={{ scale: 1.02 }} className="bg-purple-50 p-4 rounded-lg shadow">
+          <div className="flex items-center gap-2 mb-2">
+            <CircleDollarSign className="text-purple-600 w-5 h-5" />
+            <h3 className="font-medium">TOTAL GERAL</h3>
+          </div>
+          <p className="text-2xl font-bold text-purple-600">{formatCurrency(900 + 23)}</p>
+        </motion.div>
       </div>
-      {/* Seletor de usuário */}
       <div className="bg-white p-6 rounded-lg shadow mb-6">
+        <div className="flex items-center mb-4">
+          <i className="fas fa-search text-blue-600 mr-2"></i>
+          <h2 className="text-lg font-semibold text-blue-700">Selecionar Entidade</h2>
+        </div>
+
         {loadingFetch ? (
           <div className="flex items-center space-x-4">
             <p className="text-sm text-gray-500">Carregando caixas...</p>
@@ -423,17 +467,24 @@ export const CaixasTab = () => {
             <GenericSearchSelect
               items={combinedItems}
               value={selectedEntity?.id || ""}
-              getLabel={(p) =>
-                `${p.name} (${
-                  p.typeInvoice === "freteiro"
-                    ? "Transportadora"
-                    : p.typeInvoice === "fornecedor"
-                    ? "Fornecedor"
-                    : p.typeInvoice === "parceiro"
-                    ? "Parceiro"
-                    : ""
-                })`
-              }
+              getLabel={(p) => (
+                <span className="flex items-center">
+                  {p.typeInvoice === "freteiro" && <i className="fas fa-truck mr-2 text-blue-600"></i>}
+                  {p.typeInvoice === "fornecedor" && <i className="fas fa-hand-holding-usd mr-2 text-green-600"></i>}
+                  {p.typeInvoice === "parceiro" && <i className="fas fa-handshake mr-2 text-red-600"></i>}
+                  {p.name} (
+                  {
+                    (
+                      {
+                        freteiro: "Transportadora",
+                        fornecedor: "Fornecedor",
+                        parceiro: "Parceiro",
+                      } as const
+                    )[p.typeInvoice as "freteiro" | "fornecedor" | "parceiro"]
+                  }
+                  )
+                </span>
+              )}
               getId={(p) => p.id}
               onChange={(id) => {
                 const entity = combinedItems.find((item) => item.id === id);
@@ -444,30 +495,29 @@ export const CaixasTab = () => {
               }}
               label="Selecione um usuário"
             />
-            <button
-              onClick={() => setShowModal(true)}
-              className="bg-blue-500 flex flex-row text-center items-center hover:bg-blue-600 text-white px-4 py-2 rounded"
-              disabled={loadingFetch}
-            >
-              <i className="fas fa-plus mr-2"></i> ADICIONAR
-            </button>
           </div>
         )}
       </div>
-
       {/* Dados do caixa selecionado */}
       {selectedEntity && (
         <div className="bg-white p-6 rounded-lg shadow mb-6">
           <div className="flex justify-between items-start mb-4">
-            <h2 className="text-blue-600 font-semibold text-lg">
-              {selectedEntity.typeInvoice === "freteiro"
-                ? "TRANSPORTADORA"
-                : selectedEntity.typeInvoice === "fornecedor"
-                ? "FORNECEDOR"
-                : selectedEntity.typeInvoice === "parceiro"
-                ? "PARCEIRO"
-                : ""}{" "}
-              : {selectedEntity.name}
+            <h2 className="text-blue-600 font-semibold text-lg flex items-center space-x-2">
+              {selectedEntity.typeInvoice === "freteiro" && <i className="fas fa-truck text-blue-600"></i>}
+              {selectedEntity.typeInvoice === "fornecedor" && (
+                <i className="fas fa-hand-holding-usd text-green-600"></i>
+              )}
+              {selectedEntity.typeInvoice === "parceiro" && <i className="fas fa-handshake text-red-600"></i>}
+              <span>
+                {selectedEntity.typeInvoice === "freteiro"
+                  ? "TRANSPORTADORA"
+                  : selectedEntity.typeInvoice === "fornecedor"
+                  ? "FORNECEDOR"
+                  : selectedEntity.typeInvoice === "parceiro"
+                  ? "PARCEIRO"
+                  : ""}{" "}
+                : {selectedEntity.name}
+              </span>
             </h2>
             <div className="text-sm text-right">
               Entradas:{" "}
@@ -508,7 +558,10 @@ export const CaixasTab = () => {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="bg-gray-50 p-4 rounded border">
-              <h3 className="font-medium mb-3 text-blue-700 border-b pb-2">REGISTRAR TRANSAÇÃO</h3>
+              <h3 className="font-medium mb-3 text-blue-700 border-b pb-2">
+                {" "}
+                <i className="fas fa-hand-holding-usd mr-2"></i> REGISTRAR TRANSAÇÃO
+              </h3>
               <div className="space-y-3">
                 <div>
                   <label className="block text-sm font-medium text-gray-700">DATA</label>
@@ -619,14 +672,13 @@ export const CaixasTab = () => {
           </div>
         </div>
       )}
-
       {/* Modal de adicionar caixa */}
-      <ModalCaixa
+      {/* <ModalCaixa
         isOpen={showModal}
         onClose={() => setShowModal(false)}
         onSave={salvarCaixa}
         fetchDataUser={fetchAllData}
-      />
+      /> */}
     </div>
   );
 };
