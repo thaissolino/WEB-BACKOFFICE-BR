@@ -139,7 +139,7 @@ export const CaixasTab = ({ onHandleTotalBalance }: CaixasTabProps) => {
       });
 
       res.data.TransactionBoxUserInvoice.forEach((transactionBox: any) => {
-        setTransactionHistoryList(prev => [
+        setTransactionHistoryList((prev) => [
           ...prev,
           {
             id: transactionBox.id,
@@ -150,10 +150,10 @@ export const CaixasTab = ({ onHandleTotalBalance }: CaixasTabProps) => {
             direction: transactionBox.direction,
           },
         ]);
-      })
+      });
 
       listInvoicesBySupplier.forEach((invoice: any) => {
-        setTransactionHistoryList(prev => [
+        setTransactionHistoryList((prev) => [
           ...prev,
           {
             id: invoice.id,
@@ -166,14 +166,16 @@ export const CaixasTab = ({ onHandleTotalBalance }: CaixasTabProps) => {
         ]);
       });
 
-      console.log('transactionHistoryList', transactionHistoryList);
+      console.log("transactionHistoryList", transactionHistoryList);
 
       onHandleTotalBalance(() => {
-        return " - Saldo Total: $" +
+        return (
+          " - Saldo Total: $" +
           (0).toLocaleString("pt-BR", {
             minimumFractionDigits: 2,
             maximumFractionDigits: 2,
-          });
+          })
+        );
       });
 
       console.log("res.data", res.data);
@@ -198,7 +200,7 @@ export const CaixasTab = ({ onHandleTotalBalance }: CaixasTabProps) => {
     return transactionHistoryList.reduce((acc, transaction) => {
       return acc + (transaction.direction === "IN" ? transaction.value : -transaction.value);
     }, 0);
-  }
+  };
 
   const salvarCaixa = async (nome: string, description: string) => {
     // Implemente lógica de criação de caixa com POST
@@ -247,7 +249,11 @@ export const CaixasTab = ({ onHandleTotalBalance }: CaixasTabProps) => {
 
       // Use the appropriate endpoint based on the item type
       let endpoint = `/invoice/box/transaction/${selectedUserId}`;
-      if (selectedItem.typeInvoice === "freteiro" || selectedItem.typeInvoice === "fornecedor" || selectedItem.typeInvoice === "parceiro") {
+      if (
+        selectedItem.typeInvoice === "freteiro" ||
+        selectedItem.typeInvoice === "fornecedor" ||
+        selectedItem.typeInvoice === "parceiro"
+      ) {
         // Assuming the endpoint is the same for both types
         endpoint = `/invoice/box/transaction/${selectedUserId}`;
       }
@@ -344,7 +350,14 @@ export const CaixasTab = ({ onHandleTotalBalance }: CaixasTabProps) => {
         direction: Number(formData.value) > 0 ? "IN" : "OUT",
         date: formData.date,
         description: formData.description,
-        entityType: selectedEntity.typeInvoice === "freteiro" ? "CARRIER" : selectedEntity.typeInvoice === "parceiro" ? "PARTNER" : selectedEntity.typeInvoice === "fornecedor" ? "SUPPLIER" : "",
+        entityType:
+          selectedEntity.typeInvoice === "freteiro"
+            ? "CARRIER"
+            : selectedEntity.typeInvoice === "parceiro"
+            ? "PARTNER"
+            : selectedEntity.typeInvoice === "fornecedor"
+            ? "SUPPLIER"
+            : "",
         userId: caixaUser?.id,
       });
 
@@ -461,11 +474,7 @@ export const CaixasTab = ({ onHandleTotalBalance }: CaixasTabProps) => {
                 )}
               </span>
               Saldo:{" "}
-              <span
-                className={`font-bold ${
-                  (getTotalBalance() || 0) < 0 ? "text-red-600" : "text-green-600"
-                }`}
-              >
+              <span className={`font-bold ${(getTotalBalance() || 0) < 0 ? "text-red-600" : "text-green-600"}`}>
                 {loadingFetch2 ? (
                   <Loader2 className="inline w-4 h-4 animate-spin" />
                 ) : (
@@ -548,7 +557,8 @@ export const CaixasTab = ({ onHandleTotalBalance }: CaixasTabProps) => {
                         </td>
                       </tr>
                     ) : transactionHistoryList.length ? (
-                      transactionHistoryList.slice()
+                      transactionHistoryList
+                        .slice()
                         .reverse()
                         .map((t: any) => (
                           <tr key={t.id} className="hover:bg-gray-50">
