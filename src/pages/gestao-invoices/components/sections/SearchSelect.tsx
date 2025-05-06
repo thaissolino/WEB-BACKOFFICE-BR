@@ -1,12 +1,12 @@
-import { useEffect, useRef, useState } from "react";
+import { ReactNode, useEffect, useRef, useState } from "react";
 
 interface GenericSearchSelectProps<T> {
   items: T[];
   value: string;
-  onChange: (value: string) => void;
-  getLabel: (item: T) => string;
+  getLabel: (item: T) => ReactNode; // Suporta JSX com ícone e texto
   getId: (item: T) => string;
-  label?: string; // rótulo acima do campo
+  onChange: (value: string) => void;
+  label?: string;
   placeholder?: string;
 }
 
@@ -25,12 +25,17 @@ export function GenericSearchSelect<T>({
   const listRef = useRef<HTMLUListElement>(null);
   const [focusedIndex, setFocusedIndex] = useState(-1);
 
-  const filtered = items.filter((item) =>
-    getLabel(item).toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const getLabelAsString = (item: T) => {
+    const label = getLabel(item);
+    if (typeof label === "string") return label;
+    const tempEl = document.createElement("div");
+    tempEl.appendChild(document.createElement("span")).innerHTML = String(label);
+    return tempEl.textContent || "";
+  };
 
+  const filtered = items.filter((item) => getLabelAsString(item).toLowerCase().includes(searchTerm.toLowerCase()));
   const selectedItem = items.find((item) => getId(item) === value);
-  const selectedLabel = selectedItem ? getLabel(selectedItem) : "";
+  const selectedLabel = selectedItem ? getLabel(selectedItem) : label;
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -55,7 +60,7 @@ export function GenericSearchSelect<T>({
     };
   }, []);
 
-  const handleKeyDownInput = (event: React.KeyboardEvent)=> {
+  const handleKeyDownInput = (event: React.KeyboardEvent) => {
     if (isOpen && filtered.length > 0) {
       if (event.key === "ArrowDown") {
         event.preventDefault();
@@ -120,9 +125,7 @@ export function GenericSearchSelect<T>({
                 {getLabel(item)}
               </li>
             ))}
-            {filtered.length === 0 && (
-              <li className="px-3 py-2 text-gray-500 text-sm">Nenhum resultado</li>
-            )}
+            {filtered.length === 0 && <li className="px-3 py-2 text-gray-500 text-sm">Nenhum resultado</li>}
           </ul>
         </div>
       )}

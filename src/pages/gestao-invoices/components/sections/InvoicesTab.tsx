@@ -48,11 +48,6 @@ export function InvoicesTab() {
         />
       </div>
       <InvoiceHistory reloadTrigger={reloadInvoices} />
-           {/* onInvoiceCreated={handleInvoices}
-        />
-      </div>
-      <InvoiceHistory reloadInvoiceHistory={reloadInvoiceHistory} />
-       */}
     </div>
   );
 }
