@@ -122,6 +122,9 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
     setProductForm({ ...productForm, total: total.toFixed(2) });
   };
 
+  const carrierOneName = carriers.find((carrier) => carrier.id === currentInvoice.carrierId)?.name;
+  const carrierTwoName = carriers.find((carrier) => carrier.id === currentInvoice.carrier2Id)?.name;
+
   useEffect(() => {
     setCurrentInvoice((prevInvoice: Invoice) => ({
       ...prevInvoice,
@@ -185,7 +188,11 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
         icon: "warning",
         title: "Atenção",
         text: "Adicione pelo menos um produto à invoice!",
-        confirmButtonColor: "#3085d6",
+        confirmButtonText: "Ok",
+        buttonsStyling: false,
+        customClass: {
+          confirmButton: "bg-blue-600 text-white hover:bg-blue-700 px-4 py-2 rounded font-semibold",
+        },
       });
       return;
     }
@@ -195,7 +202,11 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
         icon: "warning",
         title: "Atenção",
         text: "Informe o número da invoice!",
-        confirmButtonColor: "#3085d6",
+        confirmButtonText: "Ok",
+        buttonsStyling: false,
+        customClass: {
+          confirmButton: "bg-blue-600 text-white hover:bg-blue-700 px-4 py-2 rounded font-semibold",
+        },
       });
       return;
     }
@@ -205,7 +216,11 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
         icon: "warning",
         title: "Atenção",
         text: "Informe a data da invoice!",
-        confirmButtonColor: "#3085d6",
+        confirmButtonText: "Ok",
+        buttonsStyling: false,
+        customClass: {
+          confirmButton: "bg-blue-600 text-white hover:bg-blue-700 px-4 py-2 rounded font-semibold",
+        },
       });
       return;
     }
@@ -215,7 +230,11 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
         icon: "warning",
         title: "Atenção",
         text: "Selecione um fornecedor!",
-        confirmButtonColor: "#3085d6",
+        confirmButtonText: "Ok",
+        buttonsStyling: false,
+        customClass: {
+          confirmButton: "bg-blue-600 text-white hover:bg-blue-700 px-4 py-2 rounded font-semibold",
+        },
       });
       return;
     }
@@ -227,10 +246,34 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
         icon: "success",
         title: "Sucesso!",
         text: "Invoice salva com sucesso!",
-        confirmButtonColor: "#3085d6",
+        confirmButtonText: "Ok",
+        buttonsStyling: false,
+        customClass: {
+          confirmButton: "bg-blue-600 text-white hover:bg-blue-700 px-4 py-2 rounded font-semibold",
+        },
       });
 
-      onInvoiceCreated();
+      setCurrentInvoice({
+        id: null,
+        number: "",
+        date: new Date().toISOString().split("T")[0],
+        supplierId: "",
+        products: [],
+        carrierId: "",
+        carrier2Id: "",
+        taxaSpEs: 0.0,
+        paid: false,
+        paidDate: null,
+        paidDollarRate: null,
+        completed: false,
+        completedDate: null,
+        amountTaxcarrier: 0,
+        amountTaxcarrier2: 0,
+        amountTaxSpEs: 0,
+        overallValue: 0,
+        subAmount: 0,
+      });
+
       // setCurrentInvoice({
       //   id: null,
       //   number: '',
@@ -260,7 +303,11 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
         icon: "error",
         title: "Erro",
         text: "Erro ao salvar a invoice",
-        confirmButtonColor: "#3085d6",
+        confirmButtonText: "Ok",
+        buttonsStyling: false,
+        customClass: {
+          confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
+        },
       });
     } finally {
       setIsSaving(false);
@@ -279,6 +326,8 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
       </div>
     );
   }
+
+  const totalQuantidade = currentInvoice.products.reduce((sum, product) => sum + product.quantity, 0);
 
   return (
     <div className="lg:col-span-2 bg-white p-6 rounded-lg shadow-md">
@@ -445,7 +494,10 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
                 <p id="subtotal" className="text-lg font-semibold">$ {subTotal.toLocaleString('en-US', {  currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits:2 }) || "0.00"}</p>
               </div> */}
               <div className="bg-white p-3 rounded border">
-                <p className="text-sm text-gray-600">Frete 1:</p>
+                <div className=" flex flex-direction-row">
+                  <p className="text-sm text-gray-600 mr-2">Frete 1: </p>
+                  <p className="text-sm text-black font-bold">{carrierOneName}</p>
+                </div>
                 <p id="shippingCost" className="text-lg font-semibold">
                   ${" "}
                   {amountTaxCarrieFrete1.toLocaleString("en-US", {
@@ -469,17 +521,7 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
                   }) || "0.00"}
                 </p>
               </div>
-              <div className="bg-white p-3 rounded border">
-                <p className="text-sm text-gray-600">Total com frete:</p>
-                <p id="taxCost" className="text-lg font-semibold">
-                  ${" "}
-                  {totalWithFreight.toLocaleString("pt-BR", {
-                    currency: "BRL",
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2,
-                  }) || "0.00"}
-                </p>
-              </div>
+
               <div className="bg-white p-3 rounded border">
                 <p className="text-sm text-gray-600">Frete SP x ES:</p>
                 <p id="taxCost" className="text-lg font-semibold">
@@ -491,14 +533,34 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
                   }) || "0.00"}
                 </p>
               </div>
+
+              <div className="bg-white p-3 rounded border">
+                <p className="text-sm text-gray-600">Total de Itens:</p>
+                <p id="taxCost" className="text-lg font-semibold flex justify-start ml-10">
+                  {totalQuantidade}
+                </p>
+              </div>
             </div>
-            <div className="bg-blue-50 p-3 rounded border">
+            <div className="bg-blue-50 p-3 rounded border  mb-5">
               <div className="flex justify-between items-center">
                 <p className="text-sm font-medium text-blue-800">Total da Invoice:</p>
                 <p id="invoiceTotal" className="text-xl font-bold text-blue-800">
                   ${" "}
                   {subTotal.toLocaleString("en-US", {
                     currency: "USD",
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  }) || "0.00"}
+                </p>
+              </div>
+            </div>
+            <div className="bg-green-50 p-3 rounded border">
+              <div className="flex justify-between items-center">
+                <p className="text-sm font-medium text-green-800">Total com frete:</p>
+                <p id="invoiceTotal" className="text-xl font-bold text-green-800">
+                  ${" "}
+                  {totalWithFreight.toLocaleString("pt-BR", {
+                    currency: "BRL",
                     minimumFractionDigits: 2,
                     maximumFractionDigits: 2,
                   }) || "0.00"}
