@@ -8,6 +8,7 @@ import { ExchangeTab } from "./components/sections/ExchangeTab";
 import { ReportsTab } from "./components/sections/ReportsTab";
 import CaixasTab from "./components/sections/Caixas";
 import { OtherPartnersTab } from "./components/sections/OtherPartners";
+import { Invoice } from "./components/types/invoice";
 
 export type TabType =
   | "invoices"
@@ -22,6 +23,28 @@ export type TabType =
 export default function InvocesManagement() {
   const [activeTab, setActiveTab] = useState<TabType>("invoices");
 
+  const [currentInvoice, setCurrentInvoice] = useState<Invoice>({
+    id: null,
+    number: `INV-${Date.now()}`,
+    date: new Date().toISOString().split("T")[0],
+    supplierId: "",
+    products: [],
+    amountTaxcarrier: 0,
+    amountTaxcarrier2: 0,
+    taxaSpEs: "",
+    carrierId: "",
+    carrier2Id: "",
+    paid: false,
+    paidDate: null,
+    paidDollarRate: null,
+    completed: false,
+    completedDate: null,
+    amountTaxSpEs: 0,
+    overallValue: 0,
+    subAmount: 0,
+  });
+
+
   return (
     <div className="bg-gray-50 min-h-screen">
       <div className="container mx-auto px-4 py-8">
@@ -33,7 +56,7 @@ export default function InvocesManagement() {
         <Tabs activeTab={activeTab} setActiveTab={setActiveTab} />
 
         <div className="mt-6">
-          {activeTab === "invoices" && <InvoicesTab />}
+          {activeTab === "invoices" && <InvoicesTab currentInvoice={currentInvoice} setCurrentInvoice={setCurrentInvoice} />}
           {activeTab === "products" && <ProductsTab />}
           {activeTab === "suppliers" && <SuppliersTab />}
           {activeTab === "carriers" && <CarriersTab />}

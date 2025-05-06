@@ -126,7 +126,11 @@ const AuthBackofficeProvider = ({ children }: AuthBackofficeProviderProps) => {
   }, []);
 
   useEffect(() => {
-    window.addEventListener("mousemove", handleMouseActivity);
+    if(process.env.REACT_APP_NODE_ENV !== "develop") {
+      console.log(process.env)
+      window.addEventListener("mousemove", handleMouseActivity)
+    };
+    
 
     return () => {
       clearTimeout(inactivityTimer);

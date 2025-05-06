@@ -4,32 +4,37 @@ import { InvoiceProducts } from "./InvoiceProducts";
 import { InvoiceHistory } from "./InvoiceHistory";
 import { Invoice } from "../types/invoice";
 
-export function InvoicesTab() {
+interface NewInvoiceFormProps {
+  currentInvoice: Invoice;
+  setCurrentInvoice: (invoice: Invoice) => void;
+}
+
+export function InvoicesTab({ currentInvoice, setCurrentInvoice }: NewInvoiceFormProps) {
   const [reload, setReload] = useState(false);
   const [reloadInvoices, setReloadInvoices] = useState(false);
 
-        const [reloadInvoiceHistory, setReloadInvoiceHistory] = useState(false) 
+  const [reloadInvoiceHistory, setReloadInvoiceHistory] = useState(false) 
 
-  const [currentInvoice, setCurrentInvoice] = useState<Invoice>({
-    id: null,
-    number: `INV-${Date.now()}`,
-    date: new Date().toISOString().split("T")[0],
-    supplierId: "",
-    products: [],
-    amountTaxcarrier: 0,
-    amountTaxcarrier2: 0,
-    taxaSpEs: "",
-    carrierId: "",
-    carrier2Id: "",
-    paid: false,
-    paidDate: null,
-    paidDollarRate: null,
-    completed: false,
-    completedDate: null,
-    amountTaxSpEs: 0,
-    overallValue: 0,
-    subAmount: 0,
-  });
+  // const [currentInvoice, setCurrentInvoice] = useState<Invoice>({
+  //   id: null,
+  //   number: `INV-${Date.now()}`,
+  //   date: new Date().toISOString().split("T")[0],
+  //   supplierId: "",
+  //   products: [],
+  //   amountTaxcarrier: 0,
+  //   amountTaxcarrier2: 0,
+  //   taxaSpEs: "",
+  //   carrierId: "",
+  //   carrier2Id: "",
+  //   paid: false,
+  //   paidDate: null,
+  //   paidDollarRate: null,
+  //   completed: false,
+  //   completedDate: null,
+  //   amountTaxSpEs: 0,
+  //   overallValue: 0,
+  //   subAmount: 0,
+  // });
 
   console.log(currentInvoice);
 
