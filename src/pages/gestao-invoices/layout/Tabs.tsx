@@ -5,6 +5,7 @@ import { FileText, Boxes, Building, Truck, DollarSign, ChartBar, Users, Package 
 interface TabsProps {
   activeTab: TabType;
   setActiveTab: (tab: TabType) => void;
+  onHandleTotalBalance: (callback: () => string) => void;
 }
 
 const tabs: { id: TabType; icon: JSX.Element; label: string }[] = [
@@ -17,14 +18,17 @@ const tabs: { id: TabType; icon: JSX.Element; label: string }[] = [
   { id: 'caixas', icon: <Boxes className="mr-2" size={16} />, label: 'Caixas' },
 ];
 
-export function Tabs({ activeTab, setActiveTab }: TabsProps) {
+export function Tabs({ activeTab, setActiveTab, onHandleTotalBalance }: TabsProps) {
   return (
     <div className="mb-6 border-b border-gray-200">
       <ul className="flex flex-wrap -mb-px">
         {tabs.map((tab) => (
           <li key={tab.id} className="mr-2">
             <button
-              onClick={() => setActiveTab(tab.id)}
+              onClick={() => {
+                setActiveTab(tab.id)
+                onHandleTotalBalance(() => "");
+              }}
               className={`inline-flex items-center p-4 border-b-2 rounded-t-lg ${
                 activeTab === tab.id
                   ? 'border-blue-600 text-blue-600'

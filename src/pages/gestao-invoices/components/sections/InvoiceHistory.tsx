@@ -85,8 +85,12 @@ type ProductData = {
   };
 }
 
+interface InvoiceHistoryProps {
+  reloadInvoiceHistory: boolean;
+}
 
-export function InvoiceHistory() {
+
+export function InvoiceHistory({ reloadInvoiceHistory }: InvoiceHistoryProps) {
   const [invoices, setInvoices] = useState<InvoiceData[]>([]);
   const [suppliers, setSuppliers] = useState<{ id: string; name: string }[]>([]);
   const [loading, setLoading] = useState(true);
@@ -116,16 +120,17 @@ export function InvoiceHistory() {
       setLoading(false);
     }
   };
+
   useEffect(() => {
     fetchInvoicesAndSuppliers();
-  }, []);
+  }, [reloadInvoiceHistory]);
 
   const getStatusText = (invoice: InvoiceData) => {
     if (invoice.completed && invoice.paid) return 'Paga';
     if (invoice.completed) return 'Concluída';
     return 'Pendente';
   };
-  
+
 
   const getStatusClass = (invoice: InvoiceData) => {
     if (invoice.completed && invoice.paid) return 'bg-green-100 text-green-800';
@@ -313,7 +318,7 @@ export function InvoiceHistory() {
                             </button>
                         </div>
                     </div>
-                    
+
                     <div className="mb-6">
                         <h4 className="font-medium mb-2 text-blue-700 border-b pb-2">Produtos Pendentes</h4>
                         <div className="overflow-x-auto">
@@ -339,7 +344,7 @@ export function InvoiceHistory() {
                                       <td className="px-4 py-2 text-sm text-right">
                                         <div className="flex justify-end items-center ">
                                           <button disabled={isSaving} onClick={()=> sendUpdateProductStatus(product)} className="flex items-center gap-1 text-white px-2 bg-green-600 hover:bg-green-300 rounded-sm">
-                                            { isSaving && isSavingId === product.id ? 
+                                            { isSaving && isSavingId === product.id ?
                                             (
                                             <> <Loader2 className="animate-spin mr-2" size={18} />
                                               Salvando...
@@ -348,7 +353,7 @@ export function InvoiceHistory() {
                                             :
                                             (
                                               <>
-                                              <Check size={18} /> Receber 
+                                              <Check size={18} /> Receber
                                               </>
                                           )}
                                           </button>
@@ -361,7 +366,7 @@ export function InvoiceHistory() {
                             </table>
                         </div>
                     </div>
-                    
+
                     <div className="mb-6">
                         <h4 className="font-medium mb-2 text-blue-700 border-b pb-2">Produtos Recebidos</h4>
                         <div className="overflow-x-auto">
@@ -399,7 +404,7 @@ export function InvoiceHistory() {
                             </table>
                         </div>
                     </div>
-                    
+
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
                         <div className="bg-gray-50 p-3 rounded border">
                             <p className="text-sm text-gray-600">Frete 1:</p>
@@ -418,7 +423,7 @@ export function InvoiceHistory() {
                             <p id="modalInvoiceTax" className="text-lg font-semibold">R$ {selectedInvoice.amountTaxSpEs.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2})}</p>
                         </div>
                     </div>
-                    
+
                     <div className="bg-blue-50 p-4 rounded border">
                         <div className="flex justify-between items-center">
                             <p className="text-sm font-medium text-blue-800">Total da Invoice:</p>
@@ -429,7 +434,7 @@ export function InvoiceHistory() {
                             <p className="text-xs font-medium text-green-600"><span id="modalInvoicePaidDate"></span> (R$ <span id="modalInvoiceDollarRate"></span>)</p>
                         </div>
                     </div>
-                    
+
                     <div className="mt-6 flex justify-end">
                         {/* <button id="printInvoiceBtn" className="bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded-md mr-2">
                             <i className="fas fa-print mr-2"></i>Imprimir

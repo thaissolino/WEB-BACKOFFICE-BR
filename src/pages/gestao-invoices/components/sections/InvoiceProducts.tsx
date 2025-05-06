@@ -31,10 +31,12 @@ export type Carrier = {
 interface InvoiceProductsProps {
   currentInvoice: Invoice
   setCurrentInvoice: (invoice: any) => void;
+  onInvoiceCreated: () => void;
   [key: string]: any;
 }
 
-export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }: InvoiceProductsProps) {
+export function InvoiceProducts(
+  { currentInvoice, setCurrentInvoice, onInvoiceCreated, ...props }: InvoiceProductsProps) {
   const [showProductForm, setShowProductForm] = useState(false);
   const [products, setProducts] = useState<any[]>([]);
   const [carriers, setCarriers] = useState<Carrier[]>([]);
@@ -85,7 +87,7 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
   const taxSpEs = currentInvoice.products.reduce((acc: number, item) => {
     return acc + item.quantity * Number(currentInvoice.taxaSpEs);
   }, 0);
-  
+
   const shippingStrategies: Record<string, (carrierSelectedType: Carrier, item: InvoiceProduct) => number> = {
     percentage: (carrierSelectedType, item) => ((item.value * (carrierSelectedType.value/100)) * item.quantity),
     perKg: (carrierSelectedType, item) => item.weight * carrierSelectedType.value,
@@ -98,7 +100,7 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
     if (!carrierSelectedType) return acc;
     return acc + shippingStrategies[carrierSelectedType.type](carrierSelectedType, item);
   }, 0);
-  
+
   const amountTaxCarrieFrete2 = currentInvoice.products.reduce((acc: number, item) => {
     if (!carrierSelectedType2) return acc;
     return acc + shippingStrategies[carrierSelectedType2.type](carrierSelectedType2, item);
@@ -227,7 +229,8 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
         text: 'Invoice salva com sucesso!',
         confirmButtonColor: '#3085d6',
       });
-      
+
+      onInvoiceCreated();
       // setCurrentInvoice({
       //   id: null,
       //   number: '',
@@ -303,7 +306,6 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
                 products={products}
                 value={productForm.productId}
                 onChange={(e:any) => setProductForm({ ...productForm, productId: e })}
-                
               >
               </ProductSearchSelect>
             </div>
