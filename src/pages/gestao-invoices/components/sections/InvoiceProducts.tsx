@@ -18,6 +18,12 @@ export type InvoiceProduct = {
   receivedQuantity: number;
 };
 
+interface InvoiceProductsProps {
+  currentInvoice: Invoice;
+  setCurrentInvoice: (invoice: any) => void;
+  onInvoiceSaved?: () => void; // 👈 Adicione isso
+  [key: string]: any;
+}
 type CarrierEnum = "percentage" | "perKg" | "perUnit";
 
 export type Carrier = {
@@ -27,12 +33,6 @@ export type Carrier = {
   value: number;
   active: true;
 };
-
-interface InvoiceProductsProps {
-  currentInvoice: Invoice;
-  setCurrentInvoice: (invoice: any) => void;
-  [key: string]: any;
-}
 
 export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }: InvoiceProductsProps) {
   const [showProductForm, setShowProductForm] = useState(false);
@@ -294,6 +294,9 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
       //   overallValue: 0,
       //   subAmount: 0
       // });
+      if (props.onInvoiceSaved) {
+        props.onInvoiceSaved();
+      }
     } catch (error) {
       console.error("Erro ao salvar a invoice:", error);
       Swal.fire({
@@ -505,7 +508,7 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
                 </p>
               </div>
               <div className="bg-white p-3 rounded border">
-              <div className=" flex flex-direction-row">
+                <div className=" flex flex-direction-row">
                   <p className="text-sm text-gray-600 mr-2">Frete 2: </p>
                   <p className="text-sm text-black font-bold">{carrierTwoName}</p>
                 </div>
