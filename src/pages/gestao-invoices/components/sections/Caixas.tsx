@@ -7,6 +7,8 @@ import { Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
 import { formatCurrency } from "../modals/format";
 import { Truck, HandCoins, Handshake, CircleDollarSign } from "lucide-react";
+import { useBalanceStore } from "../../../../store/useBalanceStore";
+import { BalanceSharp } from "@mui/icons-material";
 
 interface Transaction {
   id: string;
@@ -65,9 +67,12 @@ export const CaixasTab = () => {
     description: "",
   });
 
+  const { getBalances, balanceCarrier, balanceGeneral, balancePartner, balanceSupplier } = useBalanceStore();
+
   useEffect(() => {
     console.log("foi?");
     fetchAllData();
+    getBalances();
   }, []);
 
   console.log(selectedUserId);
@@ -133,52 +138,63 @@ export const CaixasTab = () => {
   };
 
   const fetchEntityData = async (entityId: string) => {
+    console.log("foi?");
     try {
       setTransactionHistoryList([]);
-
       setLoadingFetch2(true);
 
       const res = await api.get(`/invoice/box/transaction/${entityId}`);
-      const { data: listInvoicesBySupplier } = await api.get(`/invoice/list/supplier/${entityId}`);
-
+      console.log("res", res.data);
       const entity = combinedItems.find((item) => item.id === entityId);
       setSelectedEntity({
         ...entity,
         ...res.data,
       });
 
-      res.data.TransactionBoxUserInvoice.forEach((transactionBox: any) => {
-        setTransactionHistoryList((prev) => [
-          ...prev,
-          {
-            id: transactionBox.id,
-            date: transactionBox.date,
-            description: transactionBox.description,
-            value: transactionBox.value,
-            isInvoice: false,
-            direction: transactionBox.direction,
-          },
-        ]);
-      });
+      // Adiciona as transações normais
+      const transactions = res.data.TransactionBoxUserInvoice.map((transactionBox: any) => ({
+        id: transactionBox.id,
+        date: transactionBox.date,
+        description: transactionBox.description,
+        value: transactionBox.value,
+        isInvoice: false,
+        direction: transactionBox.direction,
+      }));
 
-      listInvoicesBySupplier.forEach((invoice: any) => {
-        setTransactionHistoryList((prev) => [
-          ...prev,
-          {
-            id: invoice.id,
-            date: invoice.date,
-            description: invoice.number,
-            value: invoice.subAmount,
-            isInvoice: true,
-            direction: "OUT",
-          },
-        ]);
-      });
+      // Busca invoices baseado no tipo da entidade
+      let invoices = [];
+      if (entity?.typeInvoice === "fornecedor") {
+        const { data: listInvoicesBySupplier } = await api.get(`/invoice/list/supplier/${entityId}`);
+        console.log("istInvoicesBySupplier", listInvoicesBySupplier);
 
-      console.log("transactionHistoryList", transactionHistoryList);
+        invoices = listInvoicesBySupplier.map((invoice: any) => ({
+          id: invoice.id,
+          date: invoice.date,
+          description: invoice.number,
+          value: invoice.subAmount,
+          isInvoice: true,
+          direction: "OUT", // Invoices são sempre saídas
+        }));
+      } else if (entity?.typeInvoice === "freteiro") {
+        const { data: listInvoicesByCarrier } = await api.get(`/invoice/list/carrier/${entityId}`);
+        console.log("istInvoicesByCarrier", listInvoicesByCarrier);
 
-      console.log("res.data", res.data);
-      console.log("entity", entity);
+        invoices = listInvoicesByCarrier.map((invoice: any) => ({
+          id: invoice.id,
+          date: invoice.date,
+          description: invoice.number,
+          value: invoice.subAmount,
+          isInvoice: true,
+          direction: "OUT", // Invoices são sempre saídas
+        }));
+      } else if (entity?.typeInvoice === "parceiro") {
+        // Se necessário, adicione lógica similar para parceiros
+      }
+
+      // Combina transações e invoices, ordenando por data
+      setTransactionHistoryList(
+        [...transactions, ...invoices].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+      );
     } catch (error) {
       console.error("Erro ao buscar dados:", error);
       Swal.fire({
@@ -368,6 +384,9 @@ export const CaixasTab = () => {
       });
 
       await fetchEntityData(selectedEntity.id);
+
+      getBalances();
+
       setFormData({ date: "", value: "", description: "" });
       fetchDatUser();
       Swal.fire({
@@ -399,57 +418,78 @@ export const CaixasTab = () => {
 
   return (
     <div className="fade-in">
-      {/* Total Balance Display */}
-      {/* <div className="bg-white p-4 rounded-lg shadow mb-4"> */}
-      {/* <h2 className="text-lg font-semibold">
-          Saldo Total: $
-          {combinedItems
-            .reduce((total, entity) => {
-              const entityBalance = entity.balance?.balance || 0;
-              return total + entityBalance;
-            }, 0)
-            .toLocaleString("pt-BR", {
-              minimumFractionDigits: 2,
-              maximumFractionDigits: 2,
-            })}
-        </h2> */}
-      {/* </div> */}
       {/* Seletor de usuário total acumulado de fornecedores, outros, fretes e total geral */}
       <h2 className="text-xl font-semibold mb-4 text-blue-700 border-b pb-2">
         <i className="fas fa-chart-line mr-2"></i> CONTROLE CENTRAL DE CAIXAS
       </h2>
       {/* Resumo */}
       <div className="mb-6 grid grid-cols-1 md:grid-cols-4 gap-4">
-        <motion.div whileHover={{ scale: 1.02 }} className="bg-yellow-50 p-4 rounded-lg shadow">
+        <motion.div whileHover={{ scale: 1.02 }} className="bg-yellow-50 p-4 rounded-lg shadow relative group">
           <div className="flex items-center gap-2 mb-2">
             <HandCoins className="text-yellow-600 w-5 h-5" />
-            <h3 className="font-medium">TOTAL FORNECEDORES</h3>
+            <h3 className="font-medium truncate max-w-[180px]">TOTAL FORNECEDORES</h3>
           </div>
-          <p className="text-2xl font-bold text-yellow-600">{formatCurrency(200)}</p>
+          <p className="text-2xl font-bold text-yellow-600 truncate" title={formatCurrency(balanceSupplier || 0)}>
+            {formatCurrency(balanceSupplier || 0).length > 12
+              ? `${formatCurrency(balanceSupplier || 0).substring(0, 12)}...`
+              : formatCurrency(balanceSupplier || 0)}
+          </p>
+          {formatCurrency(balanceSupplier || 0).length > 12 && (
+            <div className="absolute hidden group-hover:block bg-gray-800 text-white text-xs p-2 rounded z-10 bottom-full mb-2 whitespace-nowrap">
+              {formatCurrency(balanceSupplier || 0)}
+            </div>
+          )}
         </motion.div>
 
-        <motion.div whileHover={{ scale: 1.02 }} className="bg-blue-50 p-4 rounded-lg shadow">
+        <motion.div whileHover={{ scale: 1.02 }} className="bg-blue-50 p-4 rounded-lg shadow relative group">
           <div className="flex items-center gap-2 mb-2">
             <Truck className="text-blue-600 w-5 h-5" />
-            <h3 className="font-medium">TOTAL FRETES</h3>
+            <h3 className="font-medium truncate max-w-[180px]">TOTAL FRETES</h3>
           </div>
-          <p className="text-2xl font-bold text-blue-600">{formatCurrency(200)}</p>
+          <p className="text-2xl font-bold text-blue-600 truncate" title={formatCurrency(balanceCarrier || 0)}>
+            {formatCurrency(balanceCarrier || 0).length > 12
+              ? `${formatCurrency(balanceCarrier || 0).substring(0, 12)}...`
+              : formatCurrency(balanceCarrier || 0)}
+          </p>
+          {formatCurrency(balanceCarrier || 0).length > 12 && (
+            <div className="absolute hidden group-hover:block bg-gray-800 text-white text-xs p-2 rounded z-10 bottom-full mb-2 whitespace-nowrap">
+              {formatCurrency(balanceCarrier || 0)}
+            </div>
+          )}
         </motion.div>
 
-        <motion.div whileHover={{ scale: 1.02 }} className="bg-teal-50 p-4 rounded-lg shadow">
+        <motion.div whileHover={{ scale: 1.02 }} className="bg-teal-50 p-4 rounded-lg shadow relative group">
           <div className="flex items-center gap-2 mb-2">
             <Handshake className="text-teal-600 w-5 h-5" />
-            <h3 className="font-medium">TOTAL PARCEIROS</h3>
+            <h3 className="font-medium truncate max-w-[180px]">TOTAL PARCEIROS</h3>
           </div>
-          <p className="text-2xl font-bold text-teal-600">{formatCurrency(300)}</p>
+          <p className="text-2xl font-bold text-teal-600 truncate" title={formatCurrency(balancePartner || 0)}>
+            {formatCurrency(balancePartner || 0).length > 12
+              ? `${formatCurrency(balancePartner || 0).substring(0, 12)}...`
+              : formatCurrency(balancePartner || 0)}
+          </p>
+          {formatCurrency(balancePartner || 0).length > 12 && (
+            <div className="absolute hidden group-hover:block bg-gray-800 text-white text-xs p-2 rounded z-10 bottom-full mb-2 whitespace-nowrap">
+              {formatCurrency(balancePartner || 0)}
+            </div>
+          )}
         </motion.div>
 
-        <motion.div whileHover={{ scale: 1.02 }} className="bg-purple-50 p-4 rounded-lg shadow">
+        <motion.div whileHover={{ scale: 1.02 }} className="bg-purple-50 p-4 rounded-lg shadow relative group">
           <div className="flex items-center gap-2 mb-2">
             <CircleDollarSign className="text-purple-600 w-5 h-5" />
-            <h3 className="font-medium">TOTAL GERAL</h3>
+            <h3 className="font-medium truncate max-w-[180px]">TOTAL GERAL</h3>
           </div>
-          <p className="text-2xl font-bold text-purple-600">{formatCurrency(900 + 23)}</p>
+          <p className="text-2xl font-bold text-purple-600 truncate" title={formatCurrency(balanceGeneral || 0)}>
+            {formatCurrency(balanceGeneral || 0).length > 12
+              ? `${formatCurrency(balanceGeneral || 0).substring(0, 12)}...`
+              : formatCurrency(balanceGeneral || 0)}
+          </p>
+          {formatCurrency(balanceGeneral || 0).length > 12 && (
+            <div className="absolute hidden group-hover:block bg-gray-800 text-white text-xs p-2 rounded z-10 bottom-full mb-2 whitespace-nowrap">
+              {formatCurrency(balanceGeneral || 0)}
+            </div>
+          )}
         </motion.div>
       </div>
       <div className="bg-white p-6 rounded-lg shadow mb-6">
