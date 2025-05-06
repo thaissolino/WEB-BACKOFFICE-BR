@@ -6,56 +6,61 @@ interface BalanceState {
   balanceSupplier: number | null;
   balanceCarrier: number | null;
   balancePartner: number | null;
+  isLoading: boolean;
+  error: string | null;
 
-  getBalanceGeneral: () => Promise<void>;
-  getBalanceSupplier: () => Promise<void>;
-  getBalanceCarrier: () => Promise<void>;
-  getBalancePartner: () => Promise<void>;
+  getBalances: () => Promise<void>;
+  calculateGeneralBalance: () => number | null;
 }
 
-export const useBalanceStore = create<BalanceState>((set) => ({
+export const useBalanceStore = create<BalanceState>((set, get) => ({
   balanceGeneral: null,
   balanceCarrier: null,
   balancePartner: null,
   balanceSupplier: null,
+  isLoading: false,
+  error: null,
 
-  getBalanceGeneral: async () => {
+  // Método unificado para buscar todos os saldos
+  getBalances: async () => {
+    set({ isLoading: true, error: null });
+
     try {
-      const response = await api.get<{ total: number }>("/balance/general");
-      set({ balanceGeneral: response.data.total });
+      // Busca paralela para melhor performance
+      const [suppliers, carriers, partners] = await Promise.all([
+        api.get<{ total: number }>("/balance/suppliers"),
+        api.get<{ total: number }>("/balance/carriers"),
+        api.get<{ total: number }>("/balance/partners"),
+      ]);
+
+      set({
+        balanceSupplier: suppliers.data.total,
+        balanceCarrier: carriers.data.total,
+        balancePartner: partners.data.total,
+        isLoading: false,
+      });
+
+      // Calcula o saldo geral automaticamente
+      get().calculateGeneralBalance();
     } catch (err) {
-      console.error("Error fetching general balance:", err);
-      set({ balanceGeneral: null });
+      console.error("Error fetching balances:", err);
+      set({
+        error: "Failed to load balance data",
+        isLoading: false,
+      });
     }
   },
 
-  getBalanceCarrier: async () => {
-    try {
-      const response = await api.get<{ total: number }>("/balance/carriers");
-      set({ balanceCarrier: response.data.total });
-    } catch (err) {
-      console.error("Error fetching carrier balance:", err);
-      set({ balanceCarrier: null });
-    }
-  },
+  // Calcula o saldo geral baseado nos saldos específicos
+  calculateGeneralBalance: () => {
+    const { balanceSupplier, balanceCarrier, balancePartner } = get();
 
-  getBalancePartner: async () => {
-    try {
-      const response = await api.get<{ total: number }>("/balance/partners");
-      set({ balancePartner: response.data.total });
-    } catch (err) {
-      console.error("Error fetching partner balance:", err);
-      set({ balancePartner: null });
+    if (balanceSupplier === null || balanceCarrier === null || balancePartner === null) {
+      return null;
     }
-  },
 
-  getBalanceSupplier: async () => {
-    try {
-      const response = await api.get<{ total: number }>("/balance/suppliers");
-      set({ balanceSupplier: response.data.total });
-    } catch (err) {
-      console.error("Error fetching supplier balance:", err);
-      set({ balanceSupplier: null });
-    }
+    const generalBalance = balanceSupplier + balanceCarrier + balancePartner;
+    set({ balanceGeneral: generalBalance });
+    return generalBalance;
   },
 }));
