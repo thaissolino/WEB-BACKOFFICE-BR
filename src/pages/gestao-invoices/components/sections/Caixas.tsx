@@ -6,7 +6,6 @@ import Swal from "sweetalert2";
 import { GenericSearchSelect } from "./SearchSelect";
 import { Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
-import type { Supplier } from "./SuppliersTab";
 
 interface Transaction {
   id: string;
@@ -35,11 +34,26 @@ export interface Caixa {
   transactions: Transaction[];
 }
 
-const CaixasTab: React.FC = () => {
+interface TransactionHistory {
+  id: string;
+  date: string;
+  description: string;
+  value: number;
+  isInvoice: boolean;
+  direction: "IN" | "OUT";
+}
+
+interface CaixasTabProps {
+  onHandleTotalBalance: (callback: () => string) => void;
+}
+
+export const CaixasTab = ({ onHandleTotalBalance }: CaixasTabProps) => {
   const [combinedItems, setCombinedItems] = useState<any[]>([]);
   const [caixaUser, setCaixaUser] = useState<Caixa>();
   const [showModal, setShowModal] = useState(false);
   const [selectedEntity, setSelectedEntity] = useState<any | null>(null);
+
+  const [transactionHistoryList, setTransactionHistoryList] = useState<TransactionHistory[]>([]);
 
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [loadingFetch, setLoadingFetch] = useState(false);
@@ -111,15 +125,58 @@ const CaixasTab: React.FC = () => {
 
   const fetchEntityData = async (entityId: string) => {
     try {
+      setTransactionHistoryList([]);
+
       setLoadingFetch2(true);
+
       const res = await api.get(`/invoice/box/transaction/${entityId}`);
+      const { data: listInvoicesBySupplier } = await api.get(`/invoice/list/supplier/${entityId}`);
+
       const entity = combinedItems.find((item) => item.id === entityId);
       setSelectedEntity({
         ...entity,
         ...res.data,
       });
-      console.log("res.data", res.data);
 
+      res.data.TransactionBoxUserInvoice.forEach((transactionBox: any) => {
+        setTransactionHistoryList(prev => [
+          ...prev,
+          {
+            id: transactionBox.id,
+            date: transactionBox.date,
+            description: transactionBox.description,
+            value: transactionBox.value,
+            isInvoice: false,
+            direction: transactionBox.direction,
+          },
+        ]);
+      })
+
+      listInvoicesBySupplier.forEach((invoice: any) => {
+        setTransactionHistoryList(prev => [
+          ...prev,
+          {
+            id: invoice.id,
+            date: invoice.date,
+            description: invoice.number,
+            value: invoice.subAmount,
+            isInvoice: true,
+            direction: "OUT",
+          },
+        ]);
+      });
+
+      console.log('transactionHistoryList', transactionHistoryList);
+
+      onHandleTotalBalance(() => {
+        return " - Saldo Total: $" +
+          (0).toLocaleString("pt-BR", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          });
+      });
+
+      console.log("res.data", res.data);
       console.log("entity", entity);
     } catch (error) {
       console.error("Erro ao buscar dados:", error);
@@ -136,6 +193,12 @@ const CaixasTab: React.FC = () => {
       setLoadingFetch2(false);
     }
   };
+
+  const getTotalBalance = () => {
+    return transactionHistoryList.reduce((acc, transaction) => {
+      return acc + (transaction.direction === "IN" ? transaction.value : -transaction.value);
+    }, 0);
+  }
 
   const salvarCaixa = async (nome: string, description: string) => {
     // Implemente lógica de criação de caixa com POST
@@ -400,7 +463,7 @@ const CaixasTab: React.FC = () => {
               Saldo:{" "}
               <span
                 className={`font-bold ${
-                  (selectedEntity.balance?.balance || 0) < 0 ? "text-red-600" : "text-green-600"
+                  (getTotalBalance() || 0) < 0 ? "text-red-600" : "text-green-600"
                 }`}
               >
                 {loadingFetch2 ? (
@@ -484,8 +547,8 @@ const CaixasTab: React.FC = () => {
                           Carregando...
                         </td>
                       </tr>
-                    ) : selectedEntity.TransactionBoxUserInvoice?.length ? (
-                      selectedEntity.TransactionBoxUserInvoice.slice()
+                    ) : transactionHistoryList.length ? (
+                      transactionHistoryList.slice()
                         .reverse()
                         .map((t: any) => (
                           <tr key={t.id} className="hover:bg-gray-50">
