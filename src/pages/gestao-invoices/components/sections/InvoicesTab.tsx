@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { NewInvoiceForm } from "./NewInvoiceForm";
 import { InvoiceProducts } from './InvoiceProducts';
 import { InvoiceHistory } from "./InvoiceHistory";
@@ -6,7 +6,7 @@ import { Invoice } from "../types/invoice";
 
 export function InvoicesTab() {
 
-  const [reload, setReload] = useState(false)
+  const [reloadInvoiceHistory, setReloadInvoiceHistory] = useState(false)
 
   const [currentInvoice, setCurrentInvoice] = useState<Invoice>({
     id: null,
@@ -15,7 +15,7 @@ export function InvoicesTab() {
     supplierId: "",
     products: [],
     amountTaxcarrier: 0,
-    amountTaxcarrier2: 0, 
+    amountTaxcarrier2: 0,
     taxaSpEs: "",
     carrierId: "",
     carrier2Id: "",
@@ -31,6 +31,10 @@ export function InvoicesTab() {
 
   console.log(currentInvoice)
 
+  const handleInvoices = () => {
+    setReloadInvoiceHistory(true);
+  }
+
   return (
     <div className="space-y-8">
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -41,9 +45,10 @@ export function InvoicesTab() {
         <InvoiceProducts
           currentInvoice={currentInvoice}
           setCurrentInvoice={setCurrentInvoice}
+          onInvoiceCreated={handleInvoices}
         />
       </div>
-      <InvoiceHistory />
+      <InvoiceHistory reloadInvoiceHistory={reloadInvoiceHistory} />
     </div>
   );
 }

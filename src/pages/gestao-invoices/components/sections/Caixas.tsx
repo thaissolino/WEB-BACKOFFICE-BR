@@ -1,4 +1,3 @@
-import type React from "react";
 import { useEffect, useState } from "react";
 import ModalCaixa from "../modals/ModalCaixa";
 import { api } from "../../../../services/api";
@@ -6,7 +5,6 @@ import Swal from "sweetalert2";
 import { GenericSearchSelect } from "./SearchSelect";
 import { Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
-import type { Supplier } from "./SuppliersTab";
 
 interface Transaction {
   id: string;
@@ -35,11 +33,23 @@ export interface Caixa {
   transactions: Transaction[];
 }
 
-const CaixasTab: React.FC = () => {
+interface TransactionHistory {
+  id: string;
+  date: string;
+  description: string;
+  value: number;
+  isInvoice: boolean;
+  direction: "IN" | "OUT";
+}
+
+export const CaixasTab = () => {
   const [combinedItems, setCombinedItems] = useState<any[]>([]);
   const [caixaUser, setCaixaUser] = useState<Caixa>();
   const [showModal, setShowModal] = useState(false);
   const [selectedEntity, setSelectedEntity] = useState<any | null>(null);
+  const [totalBalance, setTotalBalance] = useState<number>(0);
+
+  const [transactionHistoryList, setTransactionHistoryList] = useState<TransactionHistory[]>([]);
 
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [loadingFetch, setLoadingFetch] = useState(false);
@@ -91,6 +101,17 @@ const CaixasTab: React.FC = () => {
       const combined = [...carrierItems, ...supplierItems, ...partnerItems];
       setCombinedItems(combined);
 
+      console.log("combined", combined);
+
+      // Calculate total balance from all entities
+      let total = 0;
+      combined.forEach((entity) => {
+        if (entity.balance && entity.balance.balance) {
+          total += entity.balance.balance;
+        }
+      });
+      setTotalBalance(total);
+
       console.log("All data fetched:", combined);
     } catch (error) {
       console.error("Erro ao buscar dados:", error);
@@ -111,15 +132,50 @@ const CaixasTab: React.FC = () => {
 
   const fetchEntityData = async (entityId: string) => {
     try {
+      setTransactionHistoryList([]);
+
       setLoadingFetch2(true);
+
       const res = await api.get(`/invoice/box/transaction/${entityId}`);
+      const { data: listInvoicesBySupplier } = await api.get(`/invoice/list/supplier/${entityId}`);
+
       const entity = combinedItems.find((item) => item.id === entityId);
       setSelectedEntity({
         ...entity,
         ...res.data,
       });
-      console.log("res.data", res.data);
 
+      res.data.TransactionBoxUserInvoice.forEach((transactionBox: any) => {
+        setTransactionHistoryList((prev) => [
+          ...prev,
+          {
+            id: transactionBox.id,
+            date: transactionBox.date,
+            description: transactionBox.description,
+            value: transactionBox.value,
+            isInvoice: false,
+            direction: transactionBox.direction,
+          },
+        ]);
+      });
+
+      listInvoicesBySupplier.forEach((invoice: any) => {
+        setTransactionHistoryList((prev) => [
+          ...prev,
+          {
+            id: invoice.id,
+            date: invoice.date,
+            description: invoice.number,
+            value: invoice.subAmount,
+            isInvoice: true,
+            direction: "OUT",
+          },
+        ]);
+      });
+
+      console.log("transactionHistoryList", transactionHistoryList);
+
+      console.log("res.data", res.data);
       console.log("entity", entity);
     } catch (error) {
       console.error("Erro ao buscar dados:", error);
@@ -135,6 +191,19 @@ const CaixasTab: React.FC = () => {
     } finally {
       setLoadingFetch2(false);
     }
+  };
+  const getTotalBalance = () => {
+    // Calcula o saldo baseado nas transações e invoices
+    return transactionHistoryList.reduce((acc, transaction) => {
+      // Para transações normais (não invoices)
+      if (!transaction.isInvoice) {
+        return acc + (transaction.direction === "IN" ? transaction.value : -transaction.value);
+      }
+      // Para invoices (sempre subtrai o valor)
+      else {
+        return acc - transaction.value;
+      }
+    }, 0);
   };
 
   const salvarCaixa = async (nome: string, description: string) => {
@@ -184,7 +253,11 @@ const CaixasTab: React.FC = () => {
 
       // Use the appropriate endpoint based on the item type
       let endpoint = `/invoice/box/transaction/${selectedUserId}`;
-      if (selectedItem.typeInvoice === "freteiro" || selectedItem.typeInvoice === "fornecedor" || selectedItem.typeInvoice === "parceiro") {
+      if (
+        selectedItem.typeInvoice === "freteiro" ||
+        selectedItem.typeInvoice === "fornecedor" ||
+        selectedItem.typeInvoice === "parceiro"
+      ) {
         // Assuming the endpoint is the same for both types
         endpoint = `/invoice/box/transaction/${selectedUserId}`;
       }
@@ -281,7 +354,14 @@ const CaixasTab: React.FC = () => {
         direction: Number(formData.value) > 0 ? "IN" : "OUT",
         date: formData.date,
         description: formData.description,
-        entityType: selectedEntity.typeInvoice === "freteiro" ? "CARRIER" : selectedEntity.typeInvoice === "parceiro" ? "PARTNER" : selectedEntity.typeInvoice === "fornecedor" ? "SUPPLIER" : "",
+        entityType:
+          selectedEntity.typeInvoice === "freteiro"
+            ? "CARRIER"
+            : selectedEntity.typeInvoice === "parceiro"
+            ? "PARTNER"
+            : selectedEntity.typeInvoice === "fornecedor"
+            ? "SUPPLIER"
+            : "",
         userId: caixaUser?.id,
       });
 
@@ -317,6 +397,21 @@ const CaixasTab: React.FC = () => {
 
   return (
     <div className="fade-in">
+      {/* Total Balance Display */}
+      <div className="bg-white p-4 rounded-lg shadow mb-4">
+        {/* <h2 className="text-lg font-semibold">
+          Saldo Total: $
+          {combinedItems
+            .reduce((total, entity) => {
+              const entityBalance = entity.balance?.balance || 0;
+              return total + entityBalance;
+            }, 0)
+            .toLocaleString("pt-BR", {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            })}
+        </h2> */}
+      </div>
       {/* Seletor de usuário */}
       <div className="bg-white p-6 rounded-lg shadow mb-6">
         {loadingFetch ? (
@@ -398,15 +493,11 @@ const CaixasTab: React.FC = () => {
                 )}
               </span>
               Saldo:{" "}
-              <span
-                className={`font-bold ${
-                  (selectedEntity.balance?.balance || 0) < 0 ? "text-red-600" : "text-green-600"
-                }`}
-              >
+              <span className={`font-bold ${(getTotalBalance() || 0) < 0 ? "text-red-600" : "text-green-600"}`}>
                 {loadingFetch2 ? (
                   <Loader2 className="inline w-4 h-4 animate-spin" />
                 ) : (
-                  `$ ${(selectedEntity.balance?.balance || 0).toLocaleString("pt-BR", {
+                  `$ ${getTotalBalance().toLocaleString("pt-BR", {
                     minimumFractionDigits: 2,
                     maximumFractionDigits: 2,
                   })}`
@@ -484,8 +575,9 @@ const CaixasTab: React.FC = () => {
                           Carregando...
                         </td>
                       </tr>
-                    ) : selectedEntity.TransactionBoxUserInvoice?.length ? (
-                      selectedEntity.TransactionBoxUserInvoice.slice()
+                    ) : transactionHistoryList.length ? (
+                      transactionHistoryList
+                        .slice()
                         .reverse()
                         .map((t: any) => (
                           <tr key={t.id} className="hover:bg-gray-50">

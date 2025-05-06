@@ -1,18 +1,26 @@
-import { useState } from 'react';
-import { Tabs } from './layout/Tabs';
-import { InvoicesTab } from './components/sections/InvoicesTab';
-import { ProductsTab } from './components/sections/ProductsTab';
-import { SuppliersTab } from './components/sections/SuppliersTab';
-import { CarriersTab } from './components/sections/CarriersTab';
-import { ExchangeTab } from './components/sections/ExchangeTab';
-import { ReportsTab } from './components/sections/ReportsTab';
-import CaixasTab from './components/sections/Caixas';
-import { OtherPartnersTab } from './components/sections/OtherPartners';
+import { useState } from "react";
+import { Tabs } from "./layout/Tabs";
+import { InvoicesTab } from "./components/sections/InvoicesTab";
+import { ProductsTab } from "./components/sections/ProductsTab";
+import { SuppliersTab } from "./components/sections/SuppliersTab";
+import { CarriersTab } from "./components/sections/CarriersTab";
+import { ExchangeTab } from "./components/sections/ExchangeTab";
+import { ReportsTab } from "./components/sections/ReportsTab";
+import CaixasTab from "./components/sections/Caixas";
+import { OtherPartnersTab } from "./components/sections/OtherPartners";
 
-export type TabType = 'invoices' | 'products' | 'suppliers' | 'carriers' | 'media-dolar' | 'relatorios' | 'caixas' | 'others';
+export type TabType =
+  | "invoices"
+  | "products"
+  | "suppliers"
+  | "carriers"
+  | "media-dolar"
+  | "relatorios"
+  | "caixas"
+  | "others";
 
 export default function InvocesManagement() {
-  const [activeTab, setActiveTab] = useState<TabType>('invoices');
+  const [activeTab, setActiveTab] = useState<TabType>("invoices");
 
   return (
     <div className="bg-gray-50 min-h-screen">
@@ -25,15 +33,14 @@ export default function InvocesManagement() {
         <Tabs activeTab={activeTab} setActiveTab={setActiveTab} />
 
         <div className="mt-6">
-          {activeTab === 'invoices' && <InvoicesTab />}
-          {activeTab === 'products' && <ProductsTab />}
-          {activeTab === 'suppliers' && <SuppliersTab />}
-          {activeTab === 'carriers' && <CarriersTab />}
-          {activeTab === 'others' && <OtherPartnersTab />}
-          {activeTab === 'media-dolar' && <ExchangeTab />}
-          {activeTab === 'relatorios' && <ReportsTab />}
-          {activeTab === 'caixas' && <CaixasTab />}
-
+          {activeTab === "invoices" && <InvoicesTab />}
+          {activeTab === "products" && <ProductsTab />}
+          {activeTab === "suppliers" && <SuppliersTab />}
+          {activeTab === "carriers" && <CarriersTab />}
+          {activeTab === "others" && <OtherPartnersTab />}
+          {activeTab === "media-dolar" && <ExchangeTab />}
+          {activeTab === "relatorios" && <ReportsTab />}
+          {activeTab === "caixas" && <CaixasTab />}
         </div>
       </div>
     </div>
