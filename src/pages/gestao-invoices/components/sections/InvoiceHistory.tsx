@@ -404,7 +404,7 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
             </div>
 
             <div className="mb-6">
-              <h4 className="font-medium mb-2 text-blue-700 border-b pb-2">3-Produtos Recebidos</h4>
+              <h4 className="font-medium mb-2 text-blue-700 border-b pb-2">Produtos Recebidos</h4>
               <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
