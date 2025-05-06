@@ -125,7 +125,7 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
 
   useEffect(() => {
     fetchInvoicesAndSuppliers();
-  }, [reloadInvoiceHistory]);
+  }, []);
 
   const getStatusText = (invoice: InvoiceData) => {
     if (invoice.completed && invoice.paid) return "Paga";
