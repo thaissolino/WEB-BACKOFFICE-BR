@@ -1,4 +1,3 @@
-import type React from "react";
 import { useEffect, useState } from "react";
 import ModalCaixa from "../modals/ModalCaixa";
 import { api } from "../../../../services/api";
@@ -43,15 +42,12 @@ interface TransactionHistory {
   direction: "IN" | "OUT";
 }
 
-interface CaixasTabProps {
-  onHandleTotalBalance: (callback: () => string) => void;
-}
-
-export const CaixasTab = ({ onHandleTotalBalance }: CaixasTabProps) => {
+export const CaixasTab = () => {
   const [combinedItems, setCombinedItems] = useState<any[]>([]);
   const [caixaUser, setCaixaUser] = useState<Caixa>();
   const [showModal, setShowModal] = useState(false);
   const [selectedEntity, setSelectedEntity] = useState<any | null>(null);
+  const [totalBalance, setTotalBalance] = useState<number>(0);
 
   const [transactionHistoryList, setTransactionHistoryList] = useState<TransactionHistory[]>([]);
 
@@ -104,6 +100,17 @@ export const CaixasTab = ({ onHandleTotalBalance }: CaixasTabProps) => {
       // Combine all items
       const combined = [...carrierItems, ...supplierItems, ...partnerItems];
       setCombinedItems(combined);
+
+      console.log("combined", combined);
+
+      // Calculate total balance from all entities
+      let total = 0;
+      combined.forEach((entity) => {
+        if (entity.balance && entity.balance.balance) {
+          total += entity.balance.balance;
+        }
+      });
+      setTotalBalance(total);
 
       console.log("All data fetched:", combined);
     } catch (error) {
@@ -168,16 +175,6 @@ export const CaixasTab = ({ onHandleTotalBalance }: CaixasTabProps) => {
 
       console.log("transactionHistoryList", transactionHistoryList);
 
-      onHandleTotalBalance(() => {
-        return (
-          " - Saldo Total: $" +
-          (0).toLocaleString("pt-BR", {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2,
-          })
-        );
-      });
-
       console.log("res.data", res.data);
       console.log("entity", entity);
     } catch (error) {
@@ -195,10 +192,17 @@ export const CaixasTab = ({ onHandleTotalBalance }: CaixasTabProps) => {
       setLoadingFetch2(false);
     }
   };
-
   const getTotalBalance = () => {
+    // Calcula o saldo baseado nas transações e invoices
     return transactionHistoryList.reduce((acc, transaction) => {
-      return acc + (transaction.direction === "IN" ? transaction.value : -transaction.value);
+      // Para transações normais (não invoices)
+      if (!transaction.isInvoice) {
+        return acc + (transaction.direction === "IN" ? transaction.value : -transaction.value);
+      }
+      // Para invoices (sempre subtrai o valor)
+      else {
+        return acc - transaction.value;
+      }
     }, 0);
   };
 
@@ -393,6 +397,21 @@ export const CaixasTab = ({ onHandleTotalBalance }: CaixasTabProps) => {
 
   return (
     <div className="fade-in">
+      {/* Total Balance Display */}
+      <div className="bg-white p-4 rounded-lg shadow mb-4">
+        {/* <h2 className="text-lg font-semibold">
+          Saldo Total: $
+          {combinedItems
+            .reduce((total, entity) => {
+              const entityBalance = entity.balance?.balance || 0;
+              return total + entityBalance;
+            }, 0)
+            .toLocaleString("pt-BR", {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            })}
+        </h2> */}
+      </div>
       {/* Seletor de usuário */}
       <div className="bg-white p-6 rounded-lg shadow mb-6">
         {loadingFetch ? (
@@ -478,7 +497,7 @@ export const CaixasTab = ({ onHandleTotalBalance }: CaixasTabProps) => {
                 {loadingFetch2 ? (
                   <Loader2 className="inline w-4 h-4 animate-spin" />
                 ) : (
-                  `$ ${(selectedEntity.balance?.balance || 0).toLocaleString("pt-BR", {
+                  `$ ${getTotalBalance().toLocaleString("pt-BR", {
                     minimumFractionDigits: 2,
                     maximumFractionDigits: 2,
                   })}`
