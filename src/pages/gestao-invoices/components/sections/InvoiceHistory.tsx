@@ -228,7 +228,7 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {invoices.length === 0 ? (
+              {!invoices || invoices.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-6 py-4 text-center text-gray-500">
                     Nenhuma invoice encontrada
@@ -236,6 +236,12 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
                 </tr>
               ) : (
                 invoices.map((invoice) => {
+
+                  console.log(invoice)
+
+                  if (invoice.paid || invoice.completed) return null;
+                  
+
                   const supplier = suppliers.find((s) => s.id === invoice.supplierId);
                   const subtotal = invoice.products?.reduce((sum, product) => sum + product.total, 0) || 0;
                   const total = subtotal;
@@ -263,12 +269,6 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                         <button
-                          onClick={() => openModal(invoice, false)}
-                          className="text-blue-600 hover:text-blue-900 mr-3"
-                        >
-                          <Eye size={16} />
-                        </button>
-                        <button
                           onClick={() => openModal(invoice, true)}
                           className="text-green-600 hover:text-green-900"
                         >
@@ -280,6 +280,7 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
                 })
               )}
             </tbody>
+
           </table>
         )}
       </div>

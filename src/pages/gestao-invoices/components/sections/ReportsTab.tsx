@@ -56,24 +56,23 @@ export function ReportsTab() {
 
     // Filtrar por status
     if (filters.status !== 'all') {
-      if (filters.status === 'pending' && (invoice.completed)) {
-        return false;
+      if (filters.status === 'pending') {
+        return (!invoice.completed && !invoice.paid);
       }
       if (filters.status === 'paid') {
-        return invoice.paid && invoice.completed;;
+        return invoice.paid && !invoice.completed;;
       }
       if (filters.status === 'completed' ){
-        return invoice.completed && !invoice.paid;
+        return invoice.completed && invoice.paid;
       }
     }
-
-
     return true;
   });
 
-  const pendingCount = invoices.filter((inv) => !inv.completed).length;
-  const paidCount = invoices.filter((inv) => inv.paid && inv.completed).length;
-  const completedCount = invoices.filter((inv) => inv.completed && !inv.paid).length;
+  const pendingCount = invoices.filter((inv) => !inv.completed && !inv.paid).length;
+  const paidCount = invoices.filter((inv) => inv.paid && !inv.completed).length;
+  const completedCount = invoices.filter((inv) => inv.completed && inv.paid).length;
+  const totalInvoices = invoices.length;
 
   return (
     <div className="bg-white p-6 rounded-lg shadow">
@@ -144,22 +143,27 @@ export function ReportsTab() {
       </div>
 
       {/* Dashboard de Status */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <div className="bg-white p-6 rounded-lg border text-center">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <button onClick={() => setFilters({ ...filters, status: "pending"})} className="bg-white p-6 rounded-lg border text-center">
           <h3 className="text-lg font-medium mb-2 text-blue-700">Pendentes</h3>
           <p className="text-3xl font-bold text-yellow-600">{pendingCount}</p>
           <p className="text-sm text-gray-600">Invoices aguardando pagamento</p>
-        </div>
-        <div className="bg-white p-6 rounded-lg border text-center">
+        </button>
+        <button  onClick={() => setFilters({ ...filters, status: "paid"})} className="bg-white p-6 rounded-lg border text-center">
           <h3 className="text-lg font-medium mb-2 text-blue-700">Pagas</h3>
           <p className="text-3xl font-bold text-green-600">{paidCount}</p>
           <p className="text-sm text-gray-600">Invoices pagas</p>
-        </div>
-        <div className="bg-white p-6 rounded-lg border text-center">
+        </button>
+        <button  onClick={() => setFilters({ ...filters, status: "completed"})} className="bg-white p-6 rounded-lg border text-center">
           <h3 className="text-lg font-medium mb-2 text-blue-700">Concluídas</h3>
           <p className="text-3xl font-bold text-blue-600">{completedCount}</p>
           <p className="text-sm text-gray-600">Invoices finalizadas</p>
-        </div>
+        </button>
+        <button  onClick={() => setFilters({ ...filters, status: "all"})} className="bg-white p-6 rounded-lg border text-center">
+          <h3 className="text-lg font-medium mb-2 text-indigo-700">Total</h3>
+          <p className="text-3xl font-bold text-indigo-600">{totalInvoices}</p>
+          <p className="text-sm text-gray-600">Total de Invoices</p>
+        </button>
       </div>
 
       {/* Tabela de Relatórios */}

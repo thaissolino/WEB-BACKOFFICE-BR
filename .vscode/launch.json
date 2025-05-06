@@ -2,7 +2,7 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "type": "msedge",
+      "type": "chrome",
       "request": "launch",
       "name": "Debug React App (Chrome)",
       "url": "http://localhost:3000",
