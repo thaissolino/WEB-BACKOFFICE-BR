@@ -1,9 +1,9 @@
-import { useState, useEffect } from 'react';
-import { Box, Loader2, Plus, Save, Trash2, X } from 'lucide-react';
-import { api } from '../../../../services/api';
-import { Invoice } from '../types/invoice';
-import Swal from 'sweetalert2';
-import { ProductSearchSelect } from './SupplierSearchSelect';
+import { useState, useEffect } from "react";
+import { Box, Loader2, Plus, Save, Trash2, X } from "lucide-react";
+import { api } from "../../../../services/api";
+import { Invoice } from "../types/invoice";
+import Swal from "sweetalert2";
+import { ProductSearchSelect } from "./SupplierSearchSelect";
 
 export type InvoiceProduct = {
   id: string;
@@ -16,35 +16,41 @@ export type InvoiceProduct = {
   total: number;
   received: boolean;
   receivedQuantity: number;
-}
+};
 
-type CarrierEnum = "percentage" | "perKg" |"perUnit"
+type CarrierEnum = "percentage" | "perKg" | "perUnit";
 
 export type Carrier = {
-  id:string,
-  name:string,
-  type: CarrierEnum,
-  value: number,
-  active: true
-}
+  id: string;
+  name: string;
+  type: CarrierEnum;
+  value: number;
+  active: true;
+};
 
 interface InvoiceProductsProps {
-  currentInvoice: Invoice
+  currentInvoice: Invoice;
   setCurrentInvoice: (invoice: any) => void;
+  onInvoiceCreated: () => void;
   [key: string]: any;
 }
 
-export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }: InvoiceProductsProps) {
+export function InvoiceProducts({
+  currentInvoice,
+  setCurrentInvoice,
+  onInvoiceCreated,
+  ...props
+}: InvoiceProductsProps) {
   const [showProductForm, setShowProductForm] = useState(false);
   const [products, setProducts] = useState<any[]>([]);
   const [carriers, setCarriers] = useState<Carrier[]>([]);
   const [productForm, setProductForm] = useState({
-    productId: '',
-    quantity: '',
-    value: '',
-    weight: '',
-    total: '',
-    price: ''
+    productId: "",
+    quantity: "",
+    value: "",
+    weight: "",
+    total: "",
+    price: "",
   });
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -54,14 +60,14 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
       setIsLoading(true);
       try {
         const [productsResponse, carriersResponse] = await Promise.all([
-          api.get('/invoice/product'),
-          api.get('/invoice/carriers')
+          api.get("/invoice/product"),
+          api.get("/invoice/carriers"),
         ]);
-        console.log(productsResponse.data)
+        console.log(productsResponse.data);
         setProducts(productsResponse.data);
         setCarriers(carriersResponse.data);
       } catch (error) {
-        console.error('Erro ao carregar dados:', error);
+        console.error("Erro ao carregar dados:", error);
         // Swal.fire({
         //   icon: 'error',
         //   title: 'Erro',
@@ -85,9 +91,9 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
   const taxSpEs = currentInvoice.products.reduce((acc: number, item) => {
     return acc + item.quantity * Number(currentInvoice.taxaSpEs);
   }, 0);
-  
+
   const shippingStrategies: Record<string, (carrierSelectedType: Carrier, item: InvoiceProduct) => number> = {
-    percentage: (carrierSelectedType, item) => ((item.value * (carrierSelectedType.value/100)) * item.quantity),
+    percentage: (carrierSelectedType, item) => item.value * (carrierSelectedType.value / 100) * item.quantity,
     perKg: (carrierSelectedType, item) => item.weight * carrierSelectedType.value,
     perUnit: (carrierSelectedType, item) => item.quantity * carrierSelectedType.value,
   };
@@ -98,21 +104,23 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
     if (!carrierSelectedType) return acc;
     return acc + shippingStrategies[carrierSelectedType.type](carrierSelectedType, item);
   }, 0);
-  
+
   const amountTaxCarrieFrete2 = currentInvoice.products.reduce((acc: number, item) => {
     if (!carrierSelectedType2) return acc;
     return acc + shippingStrategies[carrierSelectedType2.type](carrierSelectedType2, item);
   }, 0);
 
-  const weightData = productForm.weight || products.find((item) => item.id === productForm.productId)?.weightAverage || '';
-  const priceData = productForm.value || products.find((item) => item.id === productForm.productId)?.priceweightAverage || '';
+  const weightData =
+    productForm.weight || products.find((item) => item.id === productForm.productId)?.weightAverage || "";
+  const priceData =
+    productForm.value || products.find((item) => item.id === productForm.productId)?.priceweightAverage || "";
 
-  const totalWithFreight = amountTaxCarrieFrete1 + amountTaxCarrieFrete2 + subTotal
+  const totalWithFreight = amountTaxCarrieFrete1 + amountTaxCarrieFrete2 + subTotal;
 
-  console.log(amountTaxCarrieFrete1)
-  console.log(amountTaxCarrieFrete2)
-  console.log(subTotal)
-  console.log(totalWithFreight)
+  console.log(amountTaxCarrieFrete1);
+  console.log(amountTaxCarrieFrete2);
+  console.log(subTotal);
+  console.log(totalWithFreight);
   const calculateProductTotal = () => {
     const quantity = parseFloat(productForm.quantity) || 0;
     const value = parseFloat(priceData) || 0;
@@ -141,10 +149,10 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
 
     if (!productForm.productId || isNaN(quantity) || isNaN(value) || isNaN(total)) {
       Swal.fire({
-        icon: 'warning',
-        title: 'Atenção',
-        text: 'Preencha todos os campos obrigatórios do produto!',
-        confirmButtonColor: '#3085d6',
+        icon: "warning",
+        title: "Atenção",
+        text: "Preencha todos os campos obrigatórios do produto!",
+        confirmButtonColor: "#3085d6",
       });
       return;
     }
@@ -166,12 +174,12 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
     });
 
     setProductForm({
-      productId: '',
-      price: '',
-      quantity: '',
-      value: '',
-      weight: '',
-      total: '',
+      productId: "",
+      price: "",
+      quantity: "",
+      value: "",
+      weight: "",
+      total: "",
     });
 
     setShowProductForm(false);
@@ -180,54 +188,55 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
   const saveInvoice = async () => {
     if (currentInvoice.products.length === 0) {
       Swal.fire({
-        icon: 'warning',
-        title: 'Atenção',
-        text: 'Adicione pelo menos um produto à invoice!',
-        confirmButtonColor: '#3085d6',
+        icon: "warning",
+        title: "Atenção",
+        text: "Adicione pelo menos um produto à invoice!",
+        confirmButtonColor: "#3085d6",
       });
       return;
     }
 
     if (!currentInvoice.number) {
       Swal.fire({
-        icon: 'warning',
-        title: 'Atenção',
-        text: 'Informe o número da invoice!',
-        confirmButtonColor: '#3085d6',
+        icon: "warning",
+        title: "Atenção",
+        text: "Informe o número da invoice!",
+        confirmButtonColor: "#3085d6",
       });
       return;
     }
 
     if (!currentInvoice.date) {
       Swal.fire({
-        icon: 'warning',
-        title: 'Atenção',
-        text: 'Informe a data da invoice!',
-        confirmButtonColor: '#3085d6',
+        icon: "warning",
+        title: "Atenção",
+        text: "Informe a data da invoice!",
+        confirmButtonColor: "#3085d6",
       });
       return;
     }
 
     if (!currentInvoice.supplierId) {
       Swal.fire({
-        icon: 'warning',
-        title: 'Atenção',
-        text: 'Selecione um fornecedor!',
-        confirmButtonColor: '#3085d6',
+        icon: "warning",
+        title: "Atenção",
+        text: "Selecione um fornecedor!",
+        confirmButtonColor: "#3085d6",
       });
       return;
     }
 
     setIsSaving(true);
     try {
-      const response = await api.post('/invoice/create', currentInvoice);
+      const response = await api.post("/invoice/create", currentInvoice);
       Swal.fire({
-        icon: 'success',
-        title: 'Sucesso!',
-        text: 'Invoice salva com sucesso!',
-        confirmButtonColor: '#3085d6',
+        icon: "success",
+        title: "Sucesso!",
+        text: "Invoice salva com sucesso!",
+        confirmButtonColor: "#3085d6",
       });
-      
+
+      onInvoiceCreated();
       // setCurrentInvoice({
       //   id: null,
       //   number: '',
@@ -249,12 +258,12 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
       //   subAmount: 0
       // });
     } catch (error) {
-      console.error('Erro ao salvar a invoice:', error);
+      console.error("Erro ao salvar a invoice:", error);
       Swal.fire({
-        icon: 'error',
-        title: 'Erro',
-        text: 'Erro ao salvar a invoice',
-        confirmButtonColor: '#3085d6',
+        icon: "error",
+        title: "Erro",
+        text: "Erro ao salvar a invoice",
+        confirmButtonColor: "#3085d6",
       });
     } finally {
       setIsSaving(false);
@@ -302,18 +311,16 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
               <ProductSearchSelect
                 products={products}
                 value={productForm.productId}
-                onChange={(e:any) => setProductForm({ ...productForm, productId: e })}
-                
-              >
-              </ProductSearchSelect>
+                onChange={(e: any) => setProductForm({ ...productForm, productId: e })}
+              ></ProductSearchSelect>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Quantidade</label>
               <input
                 type="number"
-                value={productForm.quantity }
+                value={productForm.quantity}
                 onChange={(e) => {
-                  console.log(e.target.value)
+                  console.log(e.target.value);
                   setProductForm({ ...productForm, quantity: e.target.value });
                 }}
                 className="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500 appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
@@ -382,10 +389,10 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
       <div className="mb-6">
         <div className="flex justify-between items-center mb-2">
           <span className="text-sm font-medium text-gray-700">
-            Invoice: <span className="font-bold">{currentInvoice.number || '-'}</span>
+            Invoice: <span className="font-bold">{currentInvoice.number || "-"}</span>
           </span>
           <span className="text-sm text-gray-500">
-            Criada em: <span>{new Date().toLocaleDateString('pt-BR')}</span>
+            Criada em: <span>{new Date().toLocaleDateString("pt-BR")}</span>
           </span>
         </div>
 
@@ -396,9 +403,7 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Produto
                 </th>
-                <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Qtd
-                </th>
+                <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Qtd</th>
                 <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Valor ($)
                 </th>
@@ -414,16 +419,19 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
             <tbody className="divide-y divide-gray-200">
               {currentInvoice.products.map((product, index) => (
                 <tr key={index}>
-                  <td className="px-4 py-2 text-sm text-gray-800">{products.find((item) => item.id === product.id)?.name}</td>
+                  <td className="px-4 py-2 text-sm text-gray-800">
+                    {products.find((item) => item.id === product.id)?.name}
+                  </td>
                   <td className="px-4 py-2 text-sm text-right">{product.quantity}</td>
-                  <td className="px-4 py-2 text-sm text-right">{product.value.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})}</td>
+                  <td className="px-4 py-2 text-sm text-right">
+                    {product.value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </td>
                   <td className="px-4 py-2 text-sm text-right">{product.weight.toFixed(2)}</td>
-                  <td className="px-4 py-2 text-sm text-right">{product.total.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})}</td>
+                  <td className="px-4 py-2 text-sm text-right">
+                    {product.total.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </td>
                   <td className="px-4 py-2 text-center">
-                    <button
-                      onClick={() => deleteProduct(index)}
-                      className="text-red-600 hover:text-red-800"
-                    >
+                    <button onClick={() => deleteProduct(index)} className="text-red-600 hover:text-red-800">
                       <Trash2 size={16} />
                     </button>
                   </td>
@@ -441,48 +449,82 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
               </div> */}
               <div className="bg-white p-3 rounded border">
                 <p className="text-sm text-gray-600">Frete 1:</p>
-                <p id="shippingCost" className="text-lg font-semibold">$ {amountTaxCarrieFrete1.toLocaleString('en-US', {  currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits:2 }) || "0.00"}</p>
+                <p id="shippingCost" className="text-lg font-semibold">
+                  ${" "}
+                  {amountTaxCarrieFrete1.toLocaleString("en-US", {
+                    currency: "USD",
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  }) || "0.00"}
+                </p>
               </div>
               <div className="bg-white p-3 rounded border">
                 <p className="text-sm text-gray-600">Frete 2:</p>
-                <p id="shippingCost" className="text-lg font-semibold">$ {amountTaxCarrieFrete2.toLocaleString('en-US', {  currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits:2 }) || "0.00"}</p>
+                <p id="shippingCost" className="text-lg font-semibold">
+                  ${" "}
+                  {amountTaxCarrieFrete2.toLocaleString("en-US", {
+                    currency: "USD",
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  }) || "0.00"}
+                </p>
               </div>
               <div className="bg-white p-3 rounded border">
                 <p className="text-sm text-gray-600">Total com frete:</p>
-                <p id="taxCost" className="text-lg font-semibold">$ {totalWithFreight.toLocaleString('pt-BR', {  currency: 'BRL', minimumFractionDigits: 2, maximumFractionDigits:2 }) || "0.00"}</p>
+                <p id="taxCost" className="text-lg font-semibold">
+                  ${" "}
+                  {totalWithFreight.toLocaleString("pt-BR", {
+                    currency: "BRL",
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  }) || "0.00"}
+                </p>
               </div>
               <div className="bg-white p-3 rounded border">
                 <p className="text-sm text-gray-600">Frete SP x ES:</p>
-                <p id="taxCost" className="text-lg font-semibold">R$ {taxSpEs.toLocaleString('pt-BR', {  currency: 'BRL', minimumFractionDigits: 2, maximumFractionDigits:2 }) || "0.00"}</p>
+                <p id="taxCost" className="text-lg font-semibold">
+                  R${" "}
+                  {taxSpEs.toLocaleString("pt-BR", {
+                    currency: "BRL",
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  }) || "0.00"}
+                </p>
               </div>
             </div>
             <div className="bg-blue-50 p-3 rounded border">
               <div className="flex justify-between items-center">
                 <p className="text-sm font-medium text-blue-800">Total da Invoice:</p>
-                <p id="invoiceTotal" className="text-xl font-bold text-blue-800">$ {subTotal.toLocaleString('en-US', {  currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits:2 }) || "0.00"}</p>
+                <p id="invoiceTotal" className="text-xl font-bold text-blue-800">
+                  ${" "}
+                  {subTotal.toLocaleString("en-US", {
+                    currency: "USD",
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  }) || "0.00"}
+                </p>
               </div>
             </div>
-      </div>
           </div>
-          <button
-        onClick={saveInvoice}
-        className="w-full bg-blue-600 mt-4 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md flex items-center justify-center"
-        disabled={isSaving}
-      >
-        {isSaving ? (
-          <>
-            <Loader2 className="animate-spin mr-2" size={18} />
-            Salvando...
-          </>
-        ) : (
-          <>
-            <Save className="mr-2" size={18} />
-            Salvar Invoice
-          </>
-        )}
-      </button>
-
         </div>
+        <button
+          onClick={saveInvoice}
+          className="w-full bg-blue-600 mt-4 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md flex items-center justify-center"
+          disabled={isSaving}
+        >
+          {isSaving ? (
+            <>
+              <Loader2 className="animate-spin mr-2" size={18} />
+              Salvando...
+            </>
+          ) : (
+            <>
+              <Save className="mr-2" size={18} />
+              Salvar Invoice
+            </>
+          )}
+        </button>
+      </div>
     </div>
   );
 }

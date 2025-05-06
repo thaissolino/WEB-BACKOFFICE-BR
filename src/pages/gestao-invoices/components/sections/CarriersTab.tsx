@@ -60,8 +60,11 @@ export function CarriersTab() {
       text: "Você não poderá reverter isso!",
       icon: "warning",
       showCancelButton: true,
-      confirmButtonColor: "#3085d6",
-      cancelButtonColor: "#d33",
+      buttonsStyling: false, // desativa os estilos padrões do SweetAlert2
+      customClass: {
+        confirmButton: "bg-blue-600 text-white hover:bg-blue-700 px-4 py-2 rounded font-semibold mr-2",
+        cancelButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
+      },
       confirmButtonText: "Sim, excluir!",
       cancelButtonText: "Cancelar",
     });
@@ -71,10 +74,26 @@ export function CarriersTab() {
         setIsSubmitting(true);
         await api.delete(`/invoice/carriers/${id}`);
         await fetchCarriers();
-        Swal.fire("Excluído!", "O freteiro foi removido com sucesso.", "success");
+        Swal.fire({
+          icon: "success",
+          title: "Excluído!",
+          text: "O freteiro foi removido com sucesso.",
+          buttonsStyling: false,
+          customClass: {
+            confirmButton: "bg-green-600 text-white hover:bg-green-700 px-4 py-2 rounded font-semibold",
+          },
+        });
       } catch (error) {
         console.error("Erro ao excluir freteiro:", error);
-        Swal.fire("Erro!", "Ocorreu um erro ao excluir o freteiro.", "error");
+        Swal.fire({
+          icon: "error",
+          title: "Erro!",
+          text: "Ocorreu um erro ao excluir o freteiro.",
+          buttonsStyling: false,
+          customClass: {
+            confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
+          },
+        });
       } finally {
         setIsSubmitting(false);
       }
@@ -83,7 +102,6 @@ export function CarriersTab() {
 
   const handleSave = async () => {
     if (!currentCarrier) return;
-
     try {
       setIsSubmitting(true);
 
@@ -104,12 +122,30 @@ export function CarriersTab() {
       if (currentCarrier.id) {
         // Edição
         await api.patch(`/invoice/carriers/${currentCarrier.id}`, currentCarrier);
-        Swal.fire("Sucesso!", "Freteiro atualizado com sucesso.", "success");
+        Swal.fire({
+          icon: "success",
+          title: "Sucesso!",
+          text: "Freteiro atualizado com sucesso.",
+          confirmButtonText: "Ok",
+          buttonsStyling: false,
+          customClass: {
+            confirmButton: "bg-green-600 text-white hover:bg-green-700 px-4 py-2 rounded font-semibold",
+          },
+        });
       } else {
         // Novo
         const response = await api.post("/invoice/carriers", currentCarrier);
         setCarriers((prev) => [...prev, response.data]);
-        Swal.fire("Sucesso!", "Freteiro criado com sucesso.", "success");
+        Swal.fire({
+          icon: "success",
+          title: "Sucesso!",
+          text: "Freteiro criado com sucesso.",
+          confirmButtonText: "Ok",
+          buttonsStyling: false,
+          customClass: {
+            confirmButton: "bg-green-600 text-white hover:bg-green-700 px-4 py-2 rounded font-semibold",
+          },
+        });
       }
 
       setShowModal(false);
@@ -117,7 +153,15 @@ export function CarriersTab() {
       await fetchCarriers();
     } catch (error) {
       console.error("Erro ao salvar freteiro:", error);
-      Swal.fire("Erro!", "Ocorreu um erro ao salvar o freteiro.", "error");
+      Swal.fire({
+        icon: "error",
+        title: "Erro!",
+        text: "Ocorreu um erro ao salvar o freteiro.",
+        buttonsStyling: false,
+        customClass: {
+          confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
+        },
+      });
     } finally {
       setIsSubmitting(false);
     }

@@ -1,4 +1,3 @@
-import type React from "react";
 import { useEffect, useState } from "react";
 import ModalCaixa from "../modals/ModalCaixa";
 import { api } from "../../../../services/api";
@@ -6,7 +5,6 @@ import Swal from "sweetalert2";
 import { GenericSearchSelect } from "./SearchSelect";
 import { Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
-import type { Supplier } from "./SuppliersTab";
 
 interface Transaction {
   id: string;
@@ -24,7 +22,7 @@ interface Transaction {
 export interface Caixa {
   id: string;
   name: string;
-  type: "freteiro" | "fornecedor";
+  type: "freteiro" | "fornecedor" | "parceiro";
 
   description: string;
   createdAt: string;
@@ -35,11 +33,23 @@ export interface Caixa {
   transactions: Transaction[];
 }
 
-const CaixasTab: React.FC = () => {
+interface TransactionHistory {
+  id: string;
+  date: string;
+  description: string;
+  value: number;
+  isInvoice: boolean;
+  direction: "IN" | "OUT";
+}
+
+export const CaixasTab = () => {
   const [combinedItems, setCombinedItems] = useState<any[]>([]);
   const [caixaUser, setCaixaUser] = useState<Caixa>();
   const [showModal, setShowModal] = useState(false);
-  const [selectedEntity, setSelectedEntity] = useState<Entity | null>(null);
+  const [selectedEntity, setSelectedEntity] = useState<any | null>(null);
+  const [totalBalance, setTotalBalance] = useState<number>(0);
+
+  const [transactionHistoryList, setTransactionHistoryList] = useState<TransactionHistory[]>([]);
 
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [loadingFetch, setLoadingFetch] = useState(false);
@@ -65,9 +75,10 @@ const CaixasTab: React.FC = () => {
     setIsLoading(true);
     try {
       // Fetch only carriers and suppliers in parallel
-      const [carriersRes, suppliersRes] = await Promise.all([
+      const [carriersRes, suppliersRes, partnerRes] = await Promise.all([
         api.get("/invoice/carriers"),
         api.get("/invoice/supplier"),
+        api.get("/invoice/partner"),
       ]);
 
       // Combine carriers and suppliers with type labels
@@ -81,14 +92,38 @@ const CaixasTab: React.FC = () => {
         typeInvoice: "fornecedor",
       }));
 
+      const partnerItems = partnerRes.data.map((item: any) => ({
+        ...item,
+        typeInvoice: "parceiro",
+      }));
+
       // Combine all items
-      const combined = [...carrierItems, ...supplierItems];
+      const combined = [...carrierItems, ...supplierItems, ...partnerItems];
       setCombinedItems(combined);
+
+      console.log("combined", combined);
+
+      // Calculate total balance from all entities
+      let total = 0;
+      combined.forEach((entity) => {
+        if (entity.balance && entity.balance.balance) {
+          total += entity.balance.balance;
+        }
+      });
+      setTotalBalance(total);
 
       console.log("All data fetched:", combined);
     } catch (error) {
       console.error("Erro ao buscar dados:", error);
-      Swal.fire("Erro", "Erro ao carregar dados.", "error");
+      Swal.fire({
+        icon: "error",
+        title: "Erro!",
+        text: "Erro ao carregar dados.",
+        buttonsStyling: false,
+        customClass: {
+          confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
+        },
+      });
     } finally {
       setLoadingFetch(false);
       setIsLoading(false);
@@ -97,22 +132,78 @@ const CaixasTab: React.FC = () => {
 
   const fetchEntityData = async (entityId: string) => {
     try {
+      setTransactionHistoryList([]);
+
       setLoadingFetch2(true);
+
       const res = await api.get(`/invoice/box/transaction/${entityId}`);
+      const { data: listInvoicesBySupplier } = await api.get(`/invoice/list/supplier/${entityId}`);
+
       const entity = combinedItems.find((item) => item.id === entityId);
       setSelectedEntity({
         ...entity,
         ...res.data,
       });
-      console.log("res.data", res.data);
 
+      res.data.TransactionBoxUserInvoice.forEach((transactionBox: any) => {
+        setTransactionHistoryList((prev) => [
+          ...prev,
+          {
+            id: transactionBox.id,
+            date: transactionBox.date,
+            description: transactionBox.description,
+            value: transactionBox.value,
+            isInvoice: false,
+            direction: transactionBox.direction,
+          },
+        ]);
+      });
+
+      listInvoicesBySupplier.forEach((invoice: any) => {
+        setTransactionHistoryList((prev) => [
+          ...prev,
+          {
+            id: invoice.id,
+            date: invoice.date,
+            description: invoice.number,
+            value: invoice.subAmount,
+            isInvoice: true,
+            direction: "OUT",
+          },
+        ]);
+      });
+
+      console.log("transactionHistoryList", transactionHistoryList);
+
+      console.log("res.data", res.data);
       console.log("entity", entity);
     } catch (error) {
       console.error("Erro ao buscar dados:", error);
-      Swal.fire("Erro", "Erro ao carregar dados.", "error");
+      Swal.fire({
+        icon: "error",
+        title: "Erro!",
+        text: "Erro ao carregar caixas.",
+        buttonsStyling: false,
+        customClass: {
+          confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
+        },
+      });
     } finally {
       setLoadingFetch2(false);
     }
+  };
+  const getTotalBalance = () => {
+    // Calcula o saldo baseado nas transações e invoices
+    return transactionHistoryList.reduce((acc, transaction) => {
+      // Para transações normais (não invoices)
+      if (!transaction.isInvoice) {
+        return acc + (transaction.direction === "IN" ? transaction.value : -transaction.value);
+      }
+      // Para invoices (sempre subtrai o valor)
+      else {
+        return acc - transaction.value;
+      }
+    }, 0);
   };
 
   const salvarCaixa = async (nome: string, description: string) => {
@@ -129,7 +220,15 @@ const CaixasTab: React.FC = () => {
       await fetchDatUser();
       // alert("Histórico excluído com sucesso.");
     } catch (e: any) {
-      Swal.fire("Erro", "Erro ao apagar registo de pagamento", "error");
+      Swal.fire({
+        icon: "error",
+        title: "Erro!",
+        text: "Erro ao apagar registo de pagamento",
+        buttonsStyling: false,
+        customClass: {
+          confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
+        },
+      });
     } finally {
       setLoadingClearId(null);
     }
@@ -154,7 +253,11 @@ const CaixasTab: React.FC = () => {
 
       // Use the appropriate endpoint based on the item type
       let endpoint = `/invoice/box/transaction/${selectedUserId}`;
-      if (selectedItem.typeInvoice === "freteiro" || selectedItem.typeInvoice === "fornecedor") {
+      if (
+        selectedItem.typeInvoice === "freteiro" ||
+        selectedItem.typeInvoice === "fornecedor" ||
+        selectedItem.typeInvoice === "parceiro"
+      ) {
         // Assuming the endpoint is the same for both types
         endpoint = `/invoice/box/transaction/${selectedUserId}`;
       }
@@ -164,7 +267,15 @@ const CaixasTab: React.FC = () => {
       setCaixaUser(res.data);
     } catch (error) {
       console.error("Erro ao buscar dados:", error);
-      Swal.fire("Erro", "Erro ao carregar dados.", "error");
+      Swal.fire({
+        icon: "error",
+        title: "Erro!",
+        text: "Erro ao carregar caixas.",
+        buttonsStyling: false,
+        customClass: {
+          confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
+        },
+      });
     } finally {
       setLoadingFetch2(false);
     }
@@ -186,19 +297,51 @@ const CaixasTab: React.FC = () => {
   const submitPayment = async () => {
     try {
       if (!formData.date) {
-        Swal.fire("Erro", "Selecione uma data", "error");
+        Swal.fire({
+          icon: "error",
+          title: "Erro!",
+          text: "selecione um data",
+          buttonsStyling: false,
+          customClass: {
+            confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
+          },
+        });
         return;
       }
       if (!isValidNumber(formData.value)) {
-        Swal.fire("Erro", "Informe um valor válido", "error");
+        Swal.fire({
+          icon: "error",
+          title: "Erro!",
+          text: "selecione um valor válido",
+          buttonsStyling: false,
+          customClass: {
+            confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
+          },
+        });
         return;
       }
       if (!formData.description) {
-        Swal.fire("Erro", "Informe uma descrição para o pagamento", "error");
+        Swal.fire({
+          icon: "error",
+          title: "Erro!",
+          text: "Informe uma descrição para o pagamento",
+          buttonsStyling: false,
+          customClass: {
+            confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
+          },
+        });
         return;
       }
       if (!selectedEntity) {
-        Swal.fire("Erro", "Nenhum usuário selecionado", "error");
+        Swal.fire({
+          icon: "error",
+          title: "Erro!",
+          text: "Nenhum usuário selecionado",
+          buttonsStyling: false,
+          customClass: {
+            confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
+          },
+        });
         return;
       }
 
@@ -211,17 +354,42 @@ const CaixasTab: React.FC = () => {
         direction: Number(formData.value) > 0 ? "IN" : "OUT",
         date: formData.date,
         description: formData.description,
-        entityType: selectedEntity.typeInvoice === "freteiro" ? "CARRIER" : "SUPPLIER",
+        entityType:
+          selectedEntity.typeInvoice === "freteiro"
+            ? "CARRIER"
+            : selectedEntity.typeInvoice === "parceiro"
+            ? "PARTNER"
+            : selectedEntity.typeInvoice === "fornecedor"
+            ? "SUPPLIER"
+            : "",
         userId: caixaUser?.id,
       });
 
       await fetchEntityData(selectedEntity.id);
       setFormData({ date: "", value: "", description: "" });
       fetchDatUser();
-      Swal.fire("Sucesso", "Transação registrada com sucesso", "success");
+      Swal.fire({
+        icon: "success",
+        title: "Sucesso",
+        text: "Transação registrada com sucesso",
+        confirmButtonText: "Ok",
+        buttonsStyling: false,
+        customClass: {
+          confirmButton: "bg-green-600 text-white hover:bg-green-700 px-4 py-2 rounded font-semibold",
+        },
+      });
     } catch (error) {
       console.error("Erro ao buscar caixas:", error);
-      Swal.fire("Erro", "Erro ao resgistrar pagamento", "error");
+      Swal.fire({
+        icon: "error",
+        title: "Erro",
+        text: "Erro ao resgistrar pagamento",
+        confirmButtonText: "Ok",
+        buttonsStyling: false,
+        customClass: {
+          confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
+        },
+      });
     } finally {
       setLoadingFetch3(false);
     }
@@ -229,6 +397,21 @@ const CaixasTab: React.FC = () => {
 
   return (
     <div className="fade-in">
+      {/* Total Balance Display */}
+      <div className="bg-white p-4 rounded-lg shadow mb-4">
+        {/* <h2 className="text-lg font-semibold">
+          Saldo Total: $
+          {combinedItems
+            .reduce((total, entity) => {
+              const entityBalance = entity.balance?.balance || 0;
+              return total + entityBalance;
+            }, 0)
+            .toLocaleString("pt-BR", {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            })}
+        </h2> */}
+      </div>
       {/* Seletor de usuário */}
       <div className="bg-white p-6 rounded-lg shadow mb-6">
         {loadingFetch ? (
@@ -240,7 +423,17 @@ const CaixasTab: React.FC = () => {
             <GenericSearchSelect
               items={combinedItems}
               value={selectedEntity?.id || ""}
-              getLabel={(p) => `${p.name} (${p.typeInvoice === "freteiro" ? "Transportadora" : "Fornecedor"})`}
+              getLabel={(p) =>
+                `${p.name} (${
+                  p.typeInvoice === "freteiro"
+                    ? "Transportadora"
+                    : p.typeInvoice === "fornecedor"
+                    ? "Fornecedor"
+                    : p.typeInvoice === "parceiro"
+                    ? "Parceiro"
+                    : ""
+                })`
+              }
               getId={(p) => p.id}
               onChange={(id) => {
                 const entity = combinedItems.find((item) => item.id === id);
@@ -267,7 +460,14 @@ const CaixasTab: React.FC = () => {
         <div className="bg-white p-6 rounded-lg shadow mb-6">
           <div className="flex justify-between items-start mb-4">
             <h2 className="text-blue-600 font-semibold text-lg">
-              {selectedEntity.typeInvoice === "freteiro" ? "TRANSPORTADORA" : "FORNECEDOR"}: {selectedEntity.name}
+              {selectedEntity.typeInvoice === "freteiro"
+                ? "TRANSPORTADORA"
+                : selectedEntity.typeInvoice === "fornecedor"
+                ? "FORNECEDOR"
+                : selectedEntity.typeInvoice === "parceiro"
+                ? "PARCEIRO"
+                : ""}{" "}
+              : {selectedEntity.name}
             </h2>
             <div className="text-sm text-right">
               Entradas:{" "}
@@ -293,15 +493,11 @@ const CaixasTab: React.FC = () => {
                 )}
               </span>
               Saldo:{" "}
-              <span
-                className={`font-bold ${
-                  (selectedEntity.balance?.balance || 0) < 0 ? "text-red-600" : "text-green-600"
-                }`}
-              >
+              <span className={`font-bold ${(getTotalBalance() || 0) < 0 ? "text-red-600" : "text-green-600"}`}>
                 {loadingFetch2 ? (
                   <Loader2 className="inline w-4 h-4 animate-spin" />
                 ) : (
-                  `$ ${(selectedEntity.balance?.balance || 0).toLocaleString("pt-BR", {
+                  `$ ${getTotalBalance().toLocaleString("pt-BR", {
                     minimumFractionDigits: 2,
                     maximumFractionDigits: 2,
                   })}`
@@ -379,10 +575,11 @@ const CaixasTab: React.FC = () => {
                           Carregando...
                         </td>
                       </tr>
-                    ) : selectedEntity.TransactionBoxUserInvoice?.length ? (
-                      selectedEntity.TransactionBoxUserInvoice.slice()
+                    ) : transactionHistoryList.length ? (
+                      transactionHistoryList
+                        .slice()
                         .reverse()
-                        .map((t) => (
+                        .map((t: any) => (
                           <tr key={t.id} className="hover:bg-gray-50">
                             <td className="py-2 px-4 border text-center">
                               {new Date(t.date).toLocaleDateString("pt-BR")}

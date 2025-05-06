@@ -265,7 +265,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebar }) => {
 
             {!isCollapsed && (
               <Typography variant="h6" color={colors.greenAccent[300]} sx={{ m: "15px 0 5px 20px" }}>
-                Gerenciar Billets:
+                Boletos:
               </Typography>
             )}
             {/* Este item agora requer validação */}

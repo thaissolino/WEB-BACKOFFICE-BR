@@ -1,15 +1,15 @@
-import { useEffect, useState } from 'react';
-import { DollarSign, Loader2, Plus, Save } from 'lucide-react';
-import { formatCurrency } from '../../../cambiobackoffice/formatCurrencyUtil';
-import { Product } from './ProductsTab';
-import { InvoiceData } from './InvoiceHistory';
-import { api } from '../../../../services/api';
-import Swal from 'sweetalert2';
+import { useEffect, useState } from "react";
+import { DollarSign, Loader2, Plus, Save } from "lucide-react";
+import { formatCurrency } from "../../../cambiobackoffice/formatCurrencyUtil";
+import { Product } from "./ProductsTab";
+import { InvoiceData } from "./InvoiceHistory";
+import { api } from "../../../../services/api";
+import Swal from "sweetalert2";
 
 interface ExchangeTransaction {
   id: string;
   date: string;
-  type: 'compra' | 'alocacao' | 'devolucao';
+  type: "compra" | "alocacao" | "devolucao";
   usd: number;
   taxa: number;
   descricao: string;
@@ -27,53 +27,52 @@ export interface FinancialTransaction {
   updatedAt: string;
 }
 
-
 export function ExchangeTab() {
-
   const [invoices, setInvoices] = useState<InvoiceData[]>([]);
   const [suppliers, setSuppliers] = useState<{ id: string; name: string }[]>([]);
 
-    const [products, setProducts] = useState<Product[]>([]);
-    const [isSaving, setIsSaving] = useState(false);
-    const [isSaving2, setIsSaving2] = useState(false);
-    const [loading, setLoading] = useState(true);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isSaving2, setIsSaving2] = useState(false);
+  const [loading, setLoading] = useState(true);
 
-    const [historyPaymentBuy, setHistoryPaymentBuy] = useState<FinancialTransaction[] | undefined>(undefined)
+  const [historyPaymentBuy, setHistoryPaymentBuy] = useState<FinancialTransaction[] | undefined>(undefined);
 
-    const [dataPayment, setDataUpdated] = useState({
-      invoiceId:"",
-      date: new Date().toISOString().split("T")[0],
-      usd: 0
-    })
+  const [dataPayment, setDataUpdated] = useState({
+    invoiceId: "",
+    date: new Date().toISOString().split("T")[0],
+    usd: 0,
+  });
 
-    
-    const [addBalance, setAddBalance] = useState<{date:string, type: string, usd: number, rate: number, description: string}>(
-      {
-        date: new Date().toISOString().split("T")[0],
-        rate:0,
-        usd:0,
-        type:'BUY',
-        description:'Compra de dólares'
-      }
-    )
+  const [addBalance, setAddBalance] = useState<{
+    date: string;
+    type: string;
+    usd: number;
+    rate: number;
+    description: string;
+  }>({
+    date: new Date().toISOString().split("T")[0],
+    rate: 0,
+    usd: 0,
+    type: "BUY",
+    description: "Compra de dólares",
+  });
 
-        console.log(addBalance)
-    const [balance, setBalance] = useState<{balance:number, averageRate: number}>()
+  console.log(addBalance);
+  const [balance, setBalance] = useState<{ balance: number; averageRate: number }>();
 
-  const getBalance = async()=>{
+  const getBalance = async () => {
     try {
       setLoading(true);
-      const [ getBalance] = await Promise.all([
-        api.get('/invoice/exchange-balance'),
-      ]);
+      const [getBalance] = await Promise.all([api.get("/invoice/exchange-balance")]);
 
-      setBalance(getBalance.data)
+      setBalance(getBalance.data);
     } catch (error) {
-      console.error('Erro ao atualizar balance:', error);
+      console.error("Erro ao atualizar balance:", error);
     } finally {
       setLoading(false);
     }
-  }
+  };
 
   const handleInputBalance = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -81,162 +80,213 @@ export function ExchangeTab() {
   };
 
   const fetchData = async () => {
-      try {
-        setLoading(true);
-        const [invoiceResponse, getBalance, history] = await Promise.all([
-          api.get('/invoice/get'),
-          api.get('/invoice/exchange-balance'),
-          api.get('/invoice/exchange-records'),
-        ]);
+    try {
+      setLoading(true);
+      const [invoiceResponse, getBalance, history] = await Promise.all([
+        api.get("/invoice/get"),
+        api.get("/invoice/exchange-balance"),
+        api.get("/invoice/exchange-records"),
+      ]);
 
-        setBalance(getBalance.data)
-        setHistoryPaymentBuy(history.data)
-        setInvoices(invoiceResponse.data);
-      } catch (error) {
-        console.error('Erro ao buscar dados:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    useEffect(() => {
-      fetchData();
-    }, []);
-
-  const sendBuyDolar = async() => {
-   if (!addBalance.date) {
-      Swal.fire({
-        icon: 'warning',
-        title: 'Atenção',
-        text: 'Selecione uma Data!',
-        confirmButtonColor: '#27ee1a',
-      });
-      return;
+      setBalance(getBalance.data);
+      setHistoryPaymentBuy(history.data);
+      setInvoices(invoiceResponse.data);
+    } catch (error) {
+      console.error("Erro ao buscar dados:", error);
+    } finally {
+      setLoading(false);
     }
+  };
+  useEffect(() => {
+    fetchData();
+  }, []);
 
-    if (!addBalance.rate) {
-      Swal.fire({
-        icon: 'warning',
-        title: 'Atenção',
-        text: 'Informe a Taxa de Câmbio (BRL)!',
-        confirmButtonColor: '#27ee1a',
-      });
-      return;
-    }
-
+  const sendBuyDolar = async () => {
     if (!addBalance.date) {
       Swal.fire({
-        icon: 'warning',
-        title: 'Atenção',
-        text: 'Informe a Quantidade (USD)!',
-        confirmButtonColor: '#27ee1a',
+        icon: "warning",
+        title: "Atenção",
+        text: "Selecione uma Data!",
+        confirmButtonText: "Ok",
+        buttonsStyling: false,
+        customClass: {
+          confirmButton: "bg-green-600 text-white hover:bg-green-700 px-4 py-2 rounded font-semibold",
+        },
       });
       return;
     }
-
-    try {
-      setIsSaving(true)
-      const response = await api.post('/invoice/exchange-records', {
-          ...addBalance, date: new Date(addBalance.date),rate: Number(addBalance.rate), usd: Number(addBalance.usd)})
-      console.log(response.data)
-     Swal.fire({
-        icon: 'success',
-        title: 'Sucesso!',
-        text: 'Saldo adicionado com sucesso!',
-        confirmButtonColor: '#3085d6',
+  
+    if (!addBalance.rate) {
+      Swal.fire({
+        icon: "warning",
+        title: "Atenção",
+        text: "Informe a Taxa de Câmbio (BRL)!",
+        confirmButtonText: "Ok",
+        buttonsStyling: false,
+        customClass: {
+          confirmButton: "bg-green-600 text-white hover:bg-green-700 px-4 py-2 rounded font-semibold",
+        },
       });
-      setAddBalance(      {
-        date: new Date().toISOString().split("T")[0],
-        rate:0,
-        usd:0,
-        type:'BUY',
-        description:'Compra de dólares'
-      })
-      
-      await fetchData()
-    } catch (error) {
-     console.log("error")
-     Swal.fire({
-      icon: 'error',
-      title: 'Atenção',
-      text: 'Error ao Adicionar Saldo',
-      confirmButtonColor: '#27ee1a',
-    });
-    } finally{
-      setIsSaving(false)
+      return;
     }
-  }
-
-  console.log(dataPayment)
-
-  const registrarPagamento = async() => {
+  
+    if (!addBalance.usd) {
+      Swal.fire({
+        icon: "warning",
+        title: "Atenção",
+        text: "Informe a Quantidade (USD)!",
+        confirmButtonText: "Ok",
+        buttonsStyling: false,
+        customClass: {
+          confirmButton: "bg-green-600 text-white hover:bg-green-700 px-4 py-2 rounded font-semibold",
+        },
+      });
+      return;
+    }
+  
+    try {
+      setIsSaving(true);
+      const response = await api.post("/invoice/exchange-records", {
+        ...addBalance,
+        date: new Date(addBalance.date),
+        rate: Number(addBalance.rate),
+        usd: Number(addBalance.usd),
+      });
+      console.log(response.data);
+      Swal.fire({
+        icon: "success",
+        title: "Sucesso!",
+        text: "Saldo adicionado com sucesso!",
+        confirmButtonText: "Ok",
+        buttonsStyling: false,
+        customClass: {
+          confirmButton: "bg-blue-600 text-white hover:bg-blue-700 px-4 py-2 rounded font-semibold",
+        },
+      });
+      setAddBalance({
+        date: new Date().toISOString().split("T")[0],
+        rate: 0,
+        usd: 0,
+        type: "BUY",
+        description: "Compra de dólares",
+      });
+  
+      await fetchData();
+    } catch (error) {
+      console.log("error");
+      Swal.fire({
+        icon: "error",
+        title: "Atenção",
+        text: "Erro ao Adicionar Saldo",
+        confirmButtonText: "Ok",
+        buttonsStyling: false,
+        customClass: {
+          confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
+        },
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+  
+  const registrarPagamento = async () => {
     if (!dataPayment.date) {
       Swal.fire({
-        icon: 'warning',
-        title: 'Atenção',
-        text: 'Selecione uma Data!',
-        confirmButtonColor: '#27ee1a',
+        icon: "warning",
+        title: "Atenção",
+        text: "Selecione uma Data!",
+        confirmButtonText: "Ok",
+        buttonsStyling: false,
+        customClass: {
+          confirmButton: "bg-green-600 text-white hover:bg-green-700 px-4 py-2 rounded font-semibold",
+        },
       });
       return;
     }
-
+  
     if (!dataPayment.invoiceId) {
       Swal.fire({
-        icon: 'warning',
-        title: 'Atenção',
-        text: 'Informe a Invoice a ser paga!',
-        confirmButtonColor: '#27ee1a',
+        icon: "warning",
+        title: "Atenção",
+        text: "Informe a Invoice a ser paga!",
+        confirmButtonText: "Ok",
+        buttonsStyling: false,
+        customClass: {
+          confirmButton: "bg-green-600 text-white hover:bg-green-700 px-4 py-2 rounded font-semibold",
+        },
       });
       return;
     }
-    if(!balance) {
+  
+    if (!balance) {
       Swal.fire({
-        icon: 'warning',
-        title: 'Atenção',
-        text: 'Saldo ainda não validado!',
-        confirmButtonColor: '#27ee1a',
+        icon: "warning",
+        title: "Atenção",
+        text: "Saldo ainda não validado!",
+        confirmButtonText: "Ok",
+        buttonsStyling: false,
+        customClass: {
+          confirmButton: "bg-green-600 text-white hover:bg-green-700 px-4 py-2 rounded font-semibold",
+        },
       });
       return;
     }
-    if (dataPayment.usd > (balance.balance)) {
+  
+    if (dataPayment.usd > balance.balance) {
       Swal.fire({
-        icon: 'warning',
-        title: 'Atenção',
-        text: 'Saldo insuficiente!',
-        confirmButtonColor: '#27ee1a',
+        icon: "warning",
+        title: "Atenção",
+        text: "Saldo insuficiente!",
+        confirmButtonText: "Ok",
+        buttonsStyling: false,
+        customClass: {
+          confirmButton: "bg-green-600 text-white hover:bg-green-700 px-4 py-2 rounded font-semibold",
+        },
       });
       return;
     }
-
+  
     try {
-      setIsSaving2(true)
-      const response = await api.post('/invoice/exchange-records', {
-          ...dataPayment, date: new Date(dataPayment.date), usd: Number(dataPayment.usd)})
-     Swal.fire({
-        icon: 'success',
-        title: 'Sucesso!',
-        text: 'Pagamento realizado com sucesso!',
-        confirmButtonColor: '#3085d6',
+      setIsSaving2(true);
+      const response = await api.post("/invoice/exchange-records", {
+        ...dataPayment,
+        date: new Date(dataPayment.date),
+        usd: Number(dataPayment.usd),
       });
-      setDataUpdated(      {
-        invoiceId:"",
+      Swal.fire({
+        icon: "success",
+        title: "Sucesso!",
+        text: "Pagamento realizado com sucesso!",
+        confirmButtonText: "Ok",
+        buttonsStyling: false,
+        customClass: {
+          confirmButton: "bg-blue-600 text-white hover:bg-blue-700 px-4 py-2 rounded font-semibold",
+        },
+      });
+      setDataUpdated({
+        invoiceId: "",
         date: new Date().toISOString().split("T")[0],
-        usd: 0
-      })
-      
-      await fetchData()
+        usd: 0,
+      });
+  
+      await fetchData();
     } catch (error) {
-     console.log("error")
-     Swal.fire({
-      icon: 'error',
-      title: 'Atenção',
-      text: 'Error ao Realizar pagamento',
-      confirmButtonColor: '#27ee1a',
-    });
-    } finally{
-      setIsSaving2(false)
+      console.log("error");
+      Swal.fire({
+        icon: "error",
+        title: "Atenção",
+        text: "Erro ao Realizar pagamento",
+        confirmButtonText: "Ok",
+        buttonsStyling: false,
+        customClass: {
+          confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
+        },
+      });
+    } finally {
+      setIsSaving2(false);
     }
-  }
-
+  };
+  
   return (
     <div className="bg-white p-6 rounded-lg shadow">
       <h2 className="text-xl font-semibold mb-6 text-blue-700 border-b pb-2">
@@ -286,15 +336,13 @@ export function ExchangeTab() {
               className="bg-yellow-500 hover:bg-yellow-600 flex justify-center text-white px-4 py-2 rounded w-full"
             >
               {isSaving ? (
-          <>
-            <Loader2 className="animate-spin mr-2" size={18} />
-            Salvando...
-          </>
-        ) : (
-          <>
-            Registrar Compra
-          </>
-        )}
+                <>
+                  <Loader2 className="animate-spin mr-2" size={18} />
+                  Salvando...
+                </>
+              ) : (
+                <>Registrar Compra</>
+              )}
             </button>
           </div>
         </div>
@@ -306,13 +354,13 @@ export function ExchangeTab() {
             <div className="flex justify-between">
               <span className="text-gray-700">Saldo em Dólar:</span>
               <span className="font-bold">
-                {loading ? 'Carregando...' : formatCurrency(balance?.balance ?? 0, 2, 'USD')}
+                {loading ? "Carregando..." : formatCurrency(balance?.balance ?? 0, 2, "USD")}
               </span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-700">Custo Médio:</span>
               <span className="font-bold">
-              {loading ? 'Carregando...' : formatCurrency(balance?.averageRate ?? 0, 4)}
+                {loading ? "Carregando..." : formatCurrency(balance?.averageRate ?? 0, 4)}
               </span>
             </div>
           </div>
@@ -329,27 +377,33 @@ export function ExchangeTab() {
               // value={paymentForm.invoiceId}
               onChange={(e) => {
                 const invoiceId = e.target.value;
-                if(!invoiceId)return setDataUpdated({invoiceId:"", date: new Date().toISOString().split("T")[0], usd: 0})
-                const valueInvoice = invoices.find((item)=> item.id === invoiceId)
-                setDataUpdated((prev)=>(
-                  {
-                    ...prev,
-                    invoiceId: invoiceId,
-                    type: "PAYMENT",
-                    usd: valueInvoice?.subAmount || 0,
-                    description: "Pagamento Invoice",
-                  }
-                ))
+                if (!invoiceId)
+                  return setDataUpdated({ invoiceId: "", date: new Date().toISOString().split("T")[0], usd: 0 });
+                const valueInvoice = invoices.find((item) => item.id === invoiceId);
+                setDataUpdated((prev) => ({
+                  ...prev,
+                  invoiceId: invoiceId,
+                  type: "PAYMENT",
+                  usd: valueInvoice?.subAmount || 0,
+                  description: "Pagamento Invoice",
+                }));
               }}
               className="w-full h-11 border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500"
             >
               <option value="">Selecione uma invoice</option>
-              {loading?  <option>Carregando...</option>:<>{invoices.filter((item)=> item.completed && !item.paid).map((invoice) => (
-                <option key={invoice.id} value={invoice.id}>
-                  {invoice.number} - {invoice.supplier.name} ({formatCurrency(invoice.subAmount)})
-                </option>
-              ))}</> }
-              
+              {loading ? (
+                <option>Carregando...</option>
+              ) : (
+                <>
+                  {invoices
+                    .filter((item) => item.completed && !item.paid)
+                    .map((invoice) => (
+                      <option key={invoice.id} value={invoice.id}>
+                        {invoice.number} - {invoice.supplier.name} ({formatCurrency(invoice.subAmount)})
+                      </option>
+                    ))}
+                </>
+              )}
             </select>
           </div>
           <div>
@@ -381,15 +435,13 @@ export function ExchangeTab() {
               className="w-full bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded flex items-center justify-center"
             >
               {isSaving2 ? (
-          <>
-            <Loader2 className="animate-spin mr-2" size={18} />
-            Salvando...
-          </>
-        ) : (
-          <>
-            Registrar Pagamento
-          </>
-        )}
+                <>
+                  <Loader2 className="animate-spin mr-2" size={18} />
+                  Salvando...
+                </>
+              ) : (
+                <>Registrar Pagamento</>
+              )}
             </button>
           </div>
           <div className="bg-blue-100 p-2 rounded hidden" id="infoAlocacao"></div>
@@ -420,34 +472,28 @@ export function ExchangeTab() {
               ) : (
                 (historyPaymentBuy ?? []).map((transacao) => {
                   const rowClass =
-                    transacao.type === 'BUY'
-                      ? 'bg-green-50'
-                      : transacao.type === 'PAYMENT'
-                      ? 'bg-blue-50'
-                      : 'bg-yellow-50';
+                    transacao.type === "BUY"
+                      ? "bg-green-50"
+                      : transacao.type === "PAYMENT"
+                      ? "bg-blue-50"
+                      : "bg-yellow-50";
 
                   return (
                     <tr key={transacao.id} className="hover:bg-gray-50">
                       <td className={`py-2 px-2 border ${rowClass} text-center`}>
-                      {new Date(new Date(transacao.date).getTime() + 3 * 60 * 60 * 1000).toLocaleDateString("pt-BR")}
+                        {new Date(new Date(transacao.date).getTime() + 3 * 60 * 60 * 1000).toLocaleDateString("pt-BR")}
                       </td>
                       <td className={`py-2 px-4 border ${rowClass} text-center`}>
-                        {transacao.type === 'BUY'
-                          ? 'Compra'
-                          : transacao.type === 'PAYMENT'
-                          ? 'Pagamento'
-                          : 'Devolução'}
+                        {transacao.type === "BUY" ? "Compra" : transacao.type === "PAYMENT" ? "Pagamento" : "Devolução"}
                       </td>
                       <td className={`py-2 px-4 border ${rowClass} text-center font-mono`}>
-                        {transacao.type === "BUY" ? '+' : '-'}
-                        {formatCurrency(transacao.usd, 2, 'USD') || "-"}
+                        {transacao.type === "BUY" ? "+" : "-"}
+                        {formatCurrency(transacao.usd, 2, "USD") || "-"}
                       </td>
                       <td className={`py-2 px-4 border ${rowClass} text-center font-mono`}>
-                        {formatCurrency(transacao.rate, 4)|| "-"}
+                        {formatCurrency(transacao.rate, 4) || "-"}
                       </td>
-                      <td className={`py-2 px-4 border ${rowClass} text-center`}>
-                        {transacao.description}
-                      </td>
+                      <td className={`py-2 px-4 border ${rowClass} text-center`}>{transacao.description}</td>
                     </tr>
                   );
                 })

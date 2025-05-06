@@ -425,7 +425,7 @@ export function InvoiceHistoryReport({ invoiceHistory:invoices, setInvoiceHistor
                     <div className="bg-blue-50 p-4 rounded border">
                         <div className="flex justify-between items-center">
                             <p className="text-sm font-medium text-blue-800">Total da Invoice:</p>
-                            <p id="modalInvoiceTotal" className="text-xl font-bold text-blue-800">$ {selectedInvoice.subAmount.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})}</p>
+                            <p id="modalInvoiceTotal" className="text-xl font-bold text-blue-800">R$ {selectedInvoice.subAmount.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2})}</p>
                         </div>
                         <div className="flex justify-between items-center mt-1" id="modalInvoicePaymentInfo">
                             <p className="text-xs text-green-600">Pago em:</p>
