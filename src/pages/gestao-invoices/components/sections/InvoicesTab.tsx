@@ -8,7 +8,7 @@ export function InvoicesTab() {
   const [reload, setReload] = useState(false);
   const [reloadInvoices, setReloadInvoices] = useState(false);
 
-        {/* const [reloadInvoiceHistory, setReloadInvoiceHistory] = useState(false) /*} 
+        const [reloadInvoiceHistory, setReloadInvoiceHistory] = useState(false) 
 
   const [currentInvoice, setCurrentInvoice] = useState<Invoice>({
     id: null,
@@ -48,11 +48,11 @@ export function InvoicesTab() {
         />
       </div>
       <InvoiceHistory reloadTrigger={reloadInvoices} />
-        {*/     onInvoiceCreated={handleInvoices}
+           {/* onInvoiceCreated={handleInvoices}
         />
       </div>
       <InvoiceHistory reloadInvoiceHistory={reloadInvoiceHistory} />
-        /*} 
+       */}
     </div>
   );
 }
