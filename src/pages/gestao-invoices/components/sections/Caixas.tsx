@@ -138,52 +138,63 @@ export const CaixasTab = () => {
   };
 
   const fetchEntityData = async (entityId: string) => {
+    console.log("foi?");
     try {
       setTransactionHistoryList([]);
-
       setLoadingFetch2(true);
 
       const res = await api.get(`/invoice/box/transaction/${entityId}`);
-      const { data: listInvoicesBySupplier } = await api.get(`/invoice/list/supplier/${entityId}`);
-
+      console.log("res", res.data);
       const entity = combinedItems.find((item) => item.id === entityId);
       setSelectedEntity({
         ...entity,
         ...res.data,
       });
 
-      res.data.TransactionBoxUserInvoice.forEach((transactionBox: any) => {
-        setTransactionHistoryList((prev) => [
-          ...prev,
-          {
-            id: transactionBox.id,
-            date: transactionBox.date,
-            description: transactionBox.description,
-            value: transactionBox.value,
-            isInvoice: false,
-            direction: transactionBox.direction,
-          },
-        ]);
-      });
+      // Adiciona as transações normais
+      const transactions = res.data.TransactionBoxUserInvoice.map((transactionBox: any) => ({
+        id: transactionBox.id,
+        date: transactionBox.date,
+        description: transactionBox.description,
+        value: transactionBox.value,
+        isInvoice: false,
+        direction: transactionBox.direction,
+      }));
 
-      listInvoicesBySupplier.forEach((invoice: any) => {
-        setTransactionHistoryList((prev) => [
-          ...prev,
-          {
-            id: invoice.id,
-            date: invoice.date,
-            description: invoice.number,
-            value: invoice.subAmount,
-            isInvoice: true,
-            direction: "OUT",
-          },
-        ]);
-      });
+      // Busca invoices baseado no tipo da entidade
+      let invoices = [];
+      if (entity?.typeInvoice === "fornecedor") {
+        const { data: listInvoicesBySupplier } = await api.get(`/invoice/list/supplier/${entityId}`);
+        console.log("istInvoicesBySupplier", listInvoicesBySupplier);
 
-      console.log("transactionHistoryList", transactionHistoryList);
+        invoices = listInvoicesBySupplier.map((invoice: any) => ({
+          id: invoice.id,
+          date: invoice.date,
+          description: invoice.number,
+          value: invoice.subAmount,
+          isInvoice: true,
+          direction: "OUT", // Invoices são sempre saídas
+        }));
+      } else if (entity?.typeInvoice === "freteiro") {
+        const { data: listInvoicesByCarrier } = await api.get(`/invoice/list/carrier/${entityId}`);
+        console.log("istInvoicesByCarrier", listInvoicesByCarrier);
 
-      console.log("res.data", res.data);
-      console.log("entity", entity);
+        invoices = listInvoicesByCarrier.map((invoice: any) => ({
+          id: invoice.id,
+          date: invoice.date,
+          description: invoice.number,
+          value: invoice.subAmount,
+          isInvoice: true,
+          direction: "OUT", // Invoices são sempre saídas
+        }));
+      } else if (entity?.typeInvoice === "parceiro") {
+        // Se necessário, adicione lógica similar para parceiros
+      }
+
+      // Combina transações e invoices, ordenando por data
+      setTransactionHistoryList(
+        [...transactions, ...invoices].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+      );
     } catch (error) {
       console.error("Erro ao buscar dados:", error);
       Swal.fire({
