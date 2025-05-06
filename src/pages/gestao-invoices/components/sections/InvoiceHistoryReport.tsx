@@ -129,14 +129,15 @@ export function InvoiceHistoryReport({
   }, []);
 
   const getStatusText = (invoice: InvoiceData) => {
-    if (invoice.completed && invoice.paid) return "Paga";
-    if (invoice.completed) return "Concluída";
+    console.log(invoice)
+    if (invoice.completed && invoice.paid) return "Concluída";
+    if (!invoice.completed && invoice.paid ) return "Pago";
     return "Pendente";
   };
 
   const getStatusClass = (invoice: InvoiceData) => {
-    if (invoice.completed && invoice.paid) return "bg-green-100 text-green-800";
-    if (invoice.completed) return "bg-blue-100 text-blue-800";
+    if (invoice.completed && invoice.paid) return "bg-blue-100 text-blue-800";
+    if (!invoice.completed && invoice.paid ) return "bg-green-100 text-green-800";
     return "bg-yellow-100 text-yellow-800";
   };
 
@@ -262,19 +263,25 @@ export function InvoiceHistoryReport({
                           {getStatusText(invoice)}
                         </span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <button
-                          onClick={() => openModal(invoice, false)}
-                          className="text-blue-600 hover:text-blue-900 mr-3"
-                        >
-                          <Eye size={16} />
-                        </button>
-                        <button
-                          onClick={() => openModal(invoice, true)}
-                          className="text-green-600 hover:text-green-900"
-                        >
-                          <Edit size={16} />
-                        </button>
+                      <td className="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
+                        {
+                          (invoice.completed && invoice.paid)? 
+                          <button
+                            onClick={() => openModal(invoice, false)}
+                            className="text-blue-600 hover:text-blue-900 "
+                          >
+                            <Eye size={16} />
+                          </button>
+                          :
+                          <button
+                            onClick={() => openModal(invoice, true)}
+                            className="text-green-600 hover:text-green-900"
+                          >
+                            <Edit size={16} />
+                          </button>
+                        }
+                        
+                        
                       </td>
                     </tr>
                   );
@@ -569,7 +576,7 @@ export function InvoiceHistoryReport({
                   {selectedInvoice.paidDate
                     ? `${new Date(selectedInvoice.paidDate).toLocaleString("pt-BR")}` +
                       (selectedInvoice.paidDollarRate ? ` (R$ ${selectedInvoice.paidDollarRate.toFixed(4)})` : "")
-                    : "você apagou a data no codigo por favor devolver isso"}
+                    : "data não foi incluida"}
                 </p>
               </div>
             </div>

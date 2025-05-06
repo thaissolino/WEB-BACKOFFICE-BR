@@ -252,6 +252,7 @@ export function ExchangeTab() {
         ...dataPayment,
         date: new Date(dataPayment.date),
         usd: Number(dataPayment.usd),
+        rate: balance?.averageRate
       });
       Swal.fire({
         icon: "success",
@@ -385,7 +386,7 @@ export function ExchangeTab() {
                   invoiceId: invoiceId,
                   type: "PAYMENT",
                   usd: valueInvoice?.subAmount || 0,
-                  description: "Pagamento Invoice",
+                  description: `Pagamento Invoice - ${valueInvoice?.number}`,
                 }));
               }}
               className="w-full h-11 border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500"
@@ -396,7 +397,7 @@ export function ExchangeTab() {
               ) : (
                 <>
                   {invoices
-                    .filter((item) =>  item.paid == false && item.completed == false)
+                    .filter((item) => !item.completed && !item.paid)
                     .map((invoice) => (
                       <option key={invoice.id} value={invoice.id}>
                         {invoice.number} - {invoice.supplier.name} ({formatCurrency(invoice.subAmount)})
