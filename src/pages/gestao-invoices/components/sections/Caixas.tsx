@@ -7,6 +7,8 @@ import { Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
 import { formatCurrency } from "../modals/format";
 import { Truck, HandCoins, Handshake, CircleDollarSign } from "lucide-react";
+import { useBalanceStore } from "../../../../store/useBalanceStore";
+import { BalanceSharp } from "@mui/icons-material";
 
 interface Transaction {
   id: string;
@@ -65,9 +67,24 @@ export const CaixasTab = () => {
     description: "",
   });
 
+  const {
+    getBalanceGeneral,
+    getBalanceCarrier,
+    getBalancePartner,
+    getBalanceSupplier,
+    balanceCarrier,
+    balanceGeneral,
+    balancePartner,
+    balanceSupplier,
+  } = useBalanceStore();
+
   useEffect(() => {
     console.log("foi?");
     fetchAllData();
+    getBalanceGeneral();
+    getBalanceCarrier();
+    getBalancePartner();
+    getBalanceSupplier();
   }, []);
 
   console.log(selectedUserId);
@@ -368,6 +385,12 @@ export const CaixasTab = () => {
       });
 
       await fetchEntityData(selectedEntity.id);
+
+      getBalanceGeneral();
+      getBalanceCarrier();
+      getBalancePartner();
+      getBalanceSupplier();
+
       setFormData({ date: "", value: "", description: "" });
       fetchDatUser();
       Swal.fire({
@@ -399,21 +422,6 @@ export const CaixasTab = () => {
 
   return (
     <div className="fade-in">
-      {/* Total Balance Display */}
-      {/* <div className="bg-white p-4 rounded-lg shadow mb-4"> */}
-      {/* <h2 className="text-lg font-semibold">
-          Saldo Total: $
-          {combinedItems
-            .reduce((total, entity) => {
-              const entityBalance = entity.balance?.balance || 0;
-              return total + entityBalance;
-            }, 0)
-            .toLocaleString("pt-BR", {
-              minimumFractionDigits: 2,
-              maximumFractionDigits: 2,
-            })}
-        </h2> */}
-      {/* </div> */}
       {/* Seletor de usuário total acumulado de fornecedores, outros, fretes e total geral */}
       <h2 className="text-xl font-semibold mb-4 text-blue-700 border-b pb-2">
         <i className="fas fa-chart-line mr-2"></i> CONTROLE CENTRAL DE CAIXAS
@@ -425,7 +433,7 @@ export const CaixasTab = () => {
             <HandCoins className="text-yellow-600 w-5 h-5" />
             <h3 className="font-medium">TOTAL FORNECEDORES</h3>
           </div>
-          <p className="text-2xl font-bold text-yellow-600">{formatCurrency(200)}</p>
+          <p className="text-2xl font-bold text-yellow-600">{formatCurrency(balanceSupplier || 0)}</p>
         </motion.div>
 
         <motion.div whileHover={{ scale: 1.02 }} className="bg-blue-50 p-4 rounded-lg shadow">
@@ -433,7 +441,7 @@ export const CaixasTab = () => {
             <Truck className="text-blue-600 w-5 h-5" />
             <h3 className="font-medium">TOTAL FRETES</h3>
           </div>
-          <p className="text-2xl font-bold text-blue-600">{formatCurrency(200)}</p>
+          <p className="text-2xl font-bold text-blue-600">{formatCurrency(balanceCarrier || 0)}</p>
         </motion.div>
 
         <motion.div whileHover={{ scale: 1.02 }} className="bg-teal-50 p-4 rounded-lg shadow">
@@ -441,7 +449,7 @@ export const CaixasTab = () => {
             <Handshake className="text-teal-600 w-5 h-5" />
             <h3 className="font-medium">TOTAL PARCEIROS</h3>
           </div>
-          <p className="text-2xl font-bold text-teal-600">{formatCurrency(300)}</p>
+          <p className="text-2xl font-bold text-teal-600">{formatCurrency(balancePartner || 0)}</p>
         </motion.div>
 
         <motion.div whileHover={{ scale: 1.02 }} className="bg-purple-50 p-4 rounded-lg shadow">
@@ -449,7 +457,7 @@ export const CaixasTab = () => {
             <CircleDollarSign className="text-purple-600 w-5 h-5" />
             <h3 className="font-medium">TOTAL GERAL</h3>
           </div>
-          <p className="text-2xl font-bold text-purple-600">{formatCurrency(900 + 23)}</p>
+          <p className="text-2xl font-bold text-purple-600">{formatCurrency(balanceGeneral || 0)}</p>
         </motion.div>
       </div>
       <div className="bg-white p-6 rounded-lg shadow mb-6">
