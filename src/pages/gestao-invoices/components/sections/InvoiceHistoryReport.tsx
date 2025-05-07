@@ -6,6 +6,18 @@ import { Product } from "./ProductsTab";
 import { ModalReceiveProduct } from "../modals/ModalReceiveProduct";
 import { an } from "framer-motion/dist/types.d-B50aGbjN";
 
+export type exchange =  {
+  id: string;
+  date: Date;
+  type: string;
+  usd: number;
+  rate: number;
+  description: string;
+  invoiceId: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export type InvoiceData = {
   id: string;
   number: string;
@@ -104,17 +116,19 @@ export function InvoiceHistoryReport({
   const [products, setProducts] = useState<Product[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [isSavingId, setIsSavingId] = useState("");
+  const [exchanges, setExchangeResponse] = useState<exchange[]>([]);
   const [selectedProductToReceive, setSelectedProductToReceive] = useState<ProductData | null>(null);
 
   const fetchInvoicesAndSuppliers = async () => {
     try {
       setLoading(true);
-      const [invoiceResponse, supplierResponse, productsResponse] = await Promise.all([
+      const [invoiceResponse, supplierResponse, productsResponse, exchangeResponse] = await Promise.all([
         api.get("/invoice/get"),
         api.get("/invoice/supplier"),
         api.get("/invoice/product"),
+        api.get("/invoice/exchange-records"),
       ]);
-
+      setExchangeResponse(exchangeResponse.data)
       setProducts(productsResponse.data);
       setInvoices(invoiceResponse.data);
       setSuppliers(supplierResponse.data);
@@ -192,6 +206,8 @@ export function InvoiceHistoryReport({
     }
   };
 
+  const taxInvoice = exchanges.find((item)=> item.invoiceId === selectedInvoice?.id)
+
   return (
     <div className="mt-8 bg-white p-6 pt-4 rounded-lg shadow">
       <h2 className="text-xl  w-full justify-between items-center flex  flex-row font-semibold mb-4 text-blue-700 border-b pb-2">
@@ -224,7 +240,7 @@ export function InvoiceHistoryReport({
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Status
                 </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Ações
                 </th>
               </tr>
@@ -241,6 +257,7 @@ export function InvoiceHistoryReport({
                   const supplier = suppliers.find((s) => s.id === invoice.supplierId);
                   const subtotal = invoice.products?.reduce((sum, product) => sum + product.total, 0) || 0;
                   const total = subtotal;
+                  const tax = exchanges.find((item)=> item.invoiceId === invoice.id)
 
                   return (
                     <tr key={invoice.id} className="hover:bg-gray-50">
@@ -263,26 +280,26 @@ export function InvoiceHistoryReport({
                           {getStatusText(invoice)}
                         </span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
-                        {
-                          (invoice.completed && invoice.paid)? 
-                          <button
-                            onClick={() => openModal(invoice, false)}
-                            className="text-blue-600 hover:text-blue-900 "
-                          >
-                            <Eye size={16} />
-                          </button>
-                          :
-                          <button
-                            onClick={() => openModal(invoice, true)}
-                            className="text-green-600 hover:text-green-900"
-                          >
-                            <Edit size={16} />
-                          </button>
-                        }
-                        
-                        
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <div className="flex justify-end items-center">
+                          {invoice.completed && invoice.paid ? (
+                            <button
+                              onClick={() => openModal(invoice, false)}
+                              className="text-blue-600 hover:text-blue-900"
+                            >
+                              <Eye size={16} />
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => openModal(invoice, true)}
+                              className="text-green-600 hover:text-green-900"
+                            >
+                              <Edit size={16} />
+                            </button>
+                          )}
+                        </div>
                       </td>
+
                     </tr>
                   );
                 })
@@ -335,6 +352,12 @@ export function InvoiceHistoryReport({
                       : "não existe"}
                   </span>
                 </p>
+                <p className="text-sm text-gray-600">
+                  Frete Sp x ES: R${" "}
+                  <span id="modalInvoiceCarrier">
+                    {selectedInvoice.taxaSpEs}
+                  </span>
+                </p>
               </div>
               <div>
                 <span id="modalInvoiceStatus" className="px-3 py-1 rounded-full text-xs font-medium"></span>
@@ -381,7 +404,7 @@ export function InvoiceHistoryReport({
                           <td className="px-4 py-2 text-sm text-right">{product.quantity}</td>
                           <td className="px-4 py-2 text-sm text-right">{product.value.toFixed(2)}</td>
                           <td className="px-4 py-2 text-sm text-right">{product.weight.toFixed(2)}</td>
-                          <td className="px-4 py-2 text-sm text-right">{product.total.toFixed(2)}</td>
+                          <td className="px-4 py-2 text-sm text-right">{product.total.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})}</td>
                           <td className="px-4 py-2 text-sm text-right">
                             <div className="flex justify-end items-center ">
                               {/* <button disabled={isSaving} onClick={()=> sendUpdateProductStatus(product)} className="flex items-center gap-1 text-white px-2 bg-green-600 hover:bg-green-300 rounded-sm">
@@ -507,7 +530,7 @@ export function InvoiceHistoryReport({
                           </td>
                           <td className="px-4 py-2 text-sm text-right">{product.value.toFixed(2)}</td>
                           <td className="px-4 py-2 text-sm text-right">{product.weight.toFixed(2)}</td>
-                          <td className="px-4 py-2 text-sm text-right">{product.total.toFixed(2)}</td>
+                          <td className="px-4 py-2 text-sm text-right">{product.total.toLocaleString("en-US", {minimumFractionDigits:2, maximumFractionDigits:2})}</td>
                         </tr>
                       ))}
                   </tbody>
@@ -519,32 +542,87 @@ export function InvoiceHistoryReport({
               <div className="bg-gray-50 p-3 rounded border">
                 <p className="text-sm text-gray-600">Frete 1:</p>
                 <p id="modalInvoiceSubtotal" className="text-lg font-semibold">
-                  ${" "}
-                  {selectedInvoice.amountTaxcarrier.toLocaleString("en-US", {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2,
-                  })}
+                  {taxInvoice?.rate ? (
+                    <>
+                      R${" "}
+                      {(selectedInvoice.amountTaxcarrier * taxInvoice.rate).toLocaleString("pt-BR", {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}
+                    </>
+                  ) : (
+                    <>
+                      ${" "}
+                      {selectedInvoice.amountTaxcarrier.toLocaleString("en-US", {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}
+                    </>
+                  )}
                 </p>
+
               </div>
               <div className="bg-gray-50 p-3 rounded border">
-                <p className="text-sm text-gray-600">Frete 2:</p>
+                <p className="text-sm text-gray-600">Frete :</p>
                 <p id="modalInvoiceShipping" className="text-lg font-semibold">
-                  ${" "}
+                {/* R${" "}
                   {selectedInvoice.amountTaxcarrier2.toLocaleString("en-US", {
                     minimumFractionDigits: 2,
                     maximumFractionDigits: 2,
-                  })}
+                  })} */}
+
+                  {taxInvoice?.rate ? (
+                    <>
+                      R${" "}
+                      {(selectedInvoice.amountTaxcarrier2 * taxInvoice.rate).toLocaleString("pt-BR", {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}
+                    </>
+                  ) : (
+                    <>
+                      ${" "}
+                      {selectedInvoice.amountTaxcarrier2.toLocaleString("en-US", {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}
+                    </>
+                  )}
                 </p>
               </div>
               <div className="bg-gray-50 p-3 rounded border">
                 <p className="text-sm text-gray-600">Total com frete:</p>
                 <p id="modalInvoiceTax" className="text-lg font-semibold">
-                  R${" "}
+                  {/* R${" "}
                   {(
                     selectedInvoice.subAmount +
                     selectedInvoice.amountTaxcarrier +
                     selectedInvoice.amountTaxcarrier2
-                  ).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  ).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} */}
+
+                  {taxInvoice?.rate ? (
+                    <>
+                      R${" "}
+                      {((selectedInvoice.subAmount +
+                    selectedInvoice.amountTaxcarrier +
+                    selectedInvoice.amountTaxcarrier2) * taxInvoice.rate).toLocaleString("pt-BR", {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}
+                    </>
+                  ) : (
+                    <>
+                      ${" "}
+                      {(
+                    selectedInvoice.subAmount +
+                    selectedInvoice.amountTaxcarrier +
+                    selectedInvoice.amountTaxcarrier2
+                  ).toLocaleString("en-US", {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}
+                    </>
+                  )}
                 </p>
               </div>
               <div className="bg-gray-50 p-3 rounded border">
@@ -563,19 +641,42 @@ export function InvoiceHistoryReport({
               <div className="flex justify-between items-center">
                 <p className="text-sm font-medium text-blue-800">Total da Invoice:</p>
                 <p id="modalInvoiceTotal" className="text-xl font-bold text-blue-800">
-                  R${" "}
+                  {/* R${" "}
                   {selectedInvoice.subAmount.toLocaleString("pt-BR", {
                     minimumFractionDigits: 2,
                     maximumFractionDigits: 2,
-                  })}
+                  })} */}
+
+                  {taxInvoice?.rate ? (
+                    <>
+                      R${" "}
+                      {(((selectedInvoice.subAmount +
+                    selectedInvoice.amountTaxcarrier +
+                    selectedInvoice.amountTaxcarrier2) * taxInvoice.rate) + selectedInvoice.amountTaxSpEs).toLocaleString("pt-BR", {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}
+                    </>
+                  ) : (
+                    <>
+                      ${" "}
+                      {(
+                    selectedInvoice.subAmount 
+                  ).toLocaleString("en-US", {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}
+                    </>
+                  )}
+                  
                 </p>
               </div>
               <div className="flex justify-between items-center mt-1" id="modalInvoicePaymentInfo">
                 <p className="text-xs text-green-600">Pago em:</p>
                 <p className="text-xs font-medium text-green-600">
                   {selectedInvoice.paidDate
-                    ? `${new Date(selectedInvoice.paidDate).toLocaleString("pt-BR")}` +
-                      (selectedInvoice.paidDollarRate ? ` (R$ ${selectedInvoice.paidDollarRate.toFixed(4)})` : "")
+                    ? `${new Date(selectedInvoice.paidDate).toLocaleDateString("pt-BR")}` +
+                      (taxInvoice?.rate ? ` (R$ ${taxInvoice?.rate.toFixed(4)})` : "")
                     : "data não foi incluida"}
                 </p>
               </div>
