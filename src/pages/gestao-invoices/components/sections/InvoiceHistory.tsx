@@ -100,6 +100,8 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
   const [isSaving, setIsSaving] = useState(false);
   const [isSavingId, setIsSavingId] = useState("");
   const [showAddProductForm, setShowAddProductForm] = useState(false);
+  const [currentPage, setCurrentPage] = useState(0);
+  const itemsPerPage = 10;
   const [newProduct, setNewProduct] = useState({
     productId: "",
     quantity: 1,
@@ -109,6 +111,7 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
     // total será calculado no momento do envio
     // received e receivedQuantity têm valores padrão
   });
+
   useEffect(() => {
     fetchInvoicesAndSuppliers();
   }, [reloadTrigger]); // atualiza quando for alterado
@@ -287,6 +290,7 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
     }
   };
 
+  const invoicesToShow = invoices.filter((invoice) => !invoice.paid && !invoice.completed);
   const totalQuantidade = selectedInvoice?.products.reduce((sum, product) => sum + product.quantity, 0);
 
   return (
@@ -327,56 +331,80 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {!invoices || invoices.length === 0 ? (
+              {invoices.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-6 py-4 text-center text-gray-500">
                     Nenhuma invoice encontrada
                   </td>
                 </tr>
               ) : (
-                invoices.map((invoice) => {
+                invoices
+                  .filter((invoice) => !invoice.paid && !invoice.completed) // ✅ Filtro aplicado antes
+                  .slice(currentPage * itemsPerPage, (currentPage + 1) * itemsPerPage) // ✅ Paginação
+                  .map((invoice) => {
+                    const supplier = suppliers.find((s) => s.id === invoice.supplierId);
+                    const subtotal = invoice.products?.reduce((sum, product) => sum + product.total, 0) || 0;
+                    const total = subtotal;
 
-                  if (invoice.paid || invoice.completed) return null;
-
-                  const supplier = suppliers.find((s) => s.id === invoice.supplierId);
-                  const subtotal = invoice.products?.reduce((sum, product) => sum + product.total, 0) || 0;
-                  const total = subtotal;
-
-                  return (
-                    <tr key={invoice.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        {invoice.number}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{supplier?.name || "-"}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {new Date(new Date(invoice.date).getTime() + 3 * 60 * 60 * 1000).toLocaleDateString("pt-BR")}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right">
-                        {formatCurrency(total)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span
-                          className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusClass(
-                            invoice
-                          )}`}
-                        >
-                          {getStatusText(invoice)}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <button
-                          onClick={() => openModal(invoice, true)}
-                          className="text-green-600 hover:text-green-900"
-                        >
-                          <Edit size={16} />
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })
+                    return (
+                      <tr key={invoice.id} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                          {invoice.number}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{supplier?.name || "-"}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {new Date(new Date(invoice.date).getTime() + 3 * 60 * 60 * 1000).toLocaleDateString("pt-BR")}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right">
+                          {formatCurrency(total)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span
+                            className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusClass(
+                              invoice
+                            )}`}
+                          >
+                            {getStatusText(invoice)}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                          <button
+                            onClick={() => openModal(invoice, true)}
+                            className="text-green-600 hover:text-green-900"
+                          >
+                            <Edit size={16} />
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })
               )}
             </tbody>
           </table>
+        )}
+        {/* Paginação */}
+        {invoices.length > itemsPerPage && (
+          <div className="flex justify-between items-center mt-4">
+            <button
+              onClick={() => setCurrentPage((prev) => Math.max(0, prev - 1))}
+              disabled={currentPage === 0}
+              className="px-3 py-1 bg-gray-200 text-sm rounded disabled:opacity-50"
+            >
+              Anterior
+            </button>
+            <span className="text-sm text-gray-600">
+              Página {currentPage + 1} de {Math.ceil(invoices.length / itemsPerPage)}
+            </span>
+            <button
+              onClick={() =>
+                setCurrentPage((prev) => Math.min(prev + 1, Math.ceil(invoices.length / itemsPerPage) - 1))
+              }
+              disabled={(currentPage + 1) * itemsPerPage >= invoices.length}
+              className="px-3 py-1 bg-gray-200 text-sm rounded disabled:opacity-50"
+            >
+              Próxima
+            </button>
+          </div>
         )}
       </div>
 
@@ -407,7 +435,7 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
                         value={newProduct.productId}
                         onChange={(e) => {
                           const product = products.find((p) => p.id === e.target.value);
-
+                          
                           setNewProduct({
                             ...newProduct,
                             productId: e.target.value,

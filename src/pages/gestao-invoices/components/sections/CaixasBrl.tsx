@@ -69,6 +69,14 @@ export const CaixasTabBrl = () => {
 
   const { getBalances, balancePartnerBRL } = useBalanceStore();
 
+  const [currentPage, setCurrentPage] = useState(0);
+  const itemsPerPage = 6; // ou o número que preferir
+
+  const paginatedTransactions = transactionHistoryList.slice(
+    currentPage * itemsPerPage,
+    (currentPage + 1) * itemsPerPage
+  );
+
   useEffect(() => {
     console.log("foi?");
     fetchAllData();
@@ -83,7 +91,7 @@ export const CaixasTabBrl = () => {
     try {
       // Fetch only carriers and suppliers in parallel
       const [partnerRes] = await Promise.all([api.get("/invoice/partner")]);
-
+  
       const partnerItems = partnerRes.data.brl.map((item: any) => ({
         ...item,
         typeInvoice: "parceiro",
@@ -414,6 +422,7 @@ export const CaixasTabBrl = () => {
             <Handshake className="text-teal-600 w-5 h-5" />
             <h3 className="font-medium truncate max-w-[180px]">TOTAL DE PARCEIROS</h3>
           </div>
+
           <p className="text-2xl font-bold text-teal-600 truncate ml-10" title={formatCurrency(balancePartnerBRL || 0)}>
             {combinedItems.length}{" "}
           </p>
@@ -612,41 +621,45 @@ export const CaixasTabBrl = () => {
                           Carregando...
                         </td>
                       </tr>
-                    ) : transactionHistoryList.length ? (
-                      transactionHistoryList
-                        .slice()
-                        .reverse()
-                        .map((t: any) => (
-                          <tr key={t.id} className="odd:bg-blue-50 even:bg-green-50">
-                            <td className="py-2 px-4 border text-center">
-                              {new Date(t.date).toLocaleDateString("pt-BR")}
-                            </td>
-                            <td className="py-2 px-4 border">{t.description}</td>
-                            <td
-                              className={`py-2 px-4 border text-right ${
-                                t.direction === "OUT" ? "text-red-600" : "text-green-600"
-                              }`}
+                    ) : paginatedTransactions.length ? (
+                      paginatedTransactions.map((t: any) => (
+                        <motion.tr
+                          key={t.id}
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -10 }}
+                          transition={{ duration: 0.3 }}
+                          className="odd:bg-blue-50 even:bg-green-50"
+                        >
+                          <td className="py-2 px-4 border text-center">
+                            {new Date(t.date).toLocaleDateString("pt-BR")}
+                          </td>
+                          <td className="py-2 px-4 border">{t.description}</td>
+                          <td
+                            className={`py-2 px-4 border text-right ${
+                              t.direction === "OUT" ? "text-red-600" : "text-green-600"
+                            }`}
+                          >
+                            {t.direction === "OUT" ? "-" : "+"}
+                            {new Intl.NumberFormat("en-US", {
+                              style: "currency",
+                              currency: "USD",
+                              minimumFractionDigits: 2,
+                            }).format(t.value)}{" "}
+                          </td>
+                          <td className="py-2 px-4 border text-center">
+                            <motion.button
+                              whileHover={{ scale: 1.05 }}
+                              whileTap={{ scale: 0.95 }}
+                              onClick={() => limparHistorico(t.id)}
+                              disabled={loadingClearId === t.id}
+                              className="bg-red-500 hover:bg-red-700 text-white px-3 py-1 rounded"
                             >
-                              {t.direction === "OUT" ? "-" : "+"}
-                              {new Intl.NumberFormat("en-US", {
-                                style: "currency",
-                                currency: "USD",
-                                minimumFractionDigits: 2,
-                              }).format(t.value)}{" "}
-                            </td>
-                            <td className="py-2 px-4 border text-center">
-                              <motion.button
-                                whileHover={{ scale: 1.05 }}
-                                whileTap={{ scale: 0.95 }}
-                                onClick={() => limparHistorico(t.id)}
-                                disabled={loadingClearId === t.id}
-                                className="bg-red-500 hover:bg-red-700 text-white px-3 py-1 rounded"
-                              >
-                                {loadingClearId === t.id ? <Loader2 className="w-4 h-4 animate-spin" /> : "Excluir"}
-                              </motion.button>
-                            </td>
-                          </tr>
-                        ))
+                              {loadingClearId === t.id ? <Loader2 className="w-4 h-4 animate-spin" /> : "Excluir"}
+                            </motion.button>
+                          </td>
+                        </motion.tr>
+                      ))
                     ) : (
                       <tr>
                         <td colSpan={4} className="text-center py-4 text-gray-500">
@@ -656,6 +669,31 @@ export const CaixasTabBrl = () => {
                     )}
                   </tbody>
                 </table>
+                {transactionHistoryList.length > itemsPerPage && (
+                  <div className="flex justify-between items-center mt-4">
+                    <button
+                      onClick={() => setCurrentPage((prev) => Math.max(0, prev - 1))}
+                      disabled={currentPage === 0}
+                      className="px-3 py-1 bg-gray-200 text-sm rounded disabled:opacity-50"
+                    >
+                      Anterior
+                    </button>
+                    <span className="text-sm text-gray-600">
+                      Página {currentPage + 1} de {Math.ceil(transactionHistoryList.length / itemsPerPage)}
+                    </span>
+                    <button
+                      onClick={() =>
+                        setCurrentPage((prev) =>
+                          Math.min(prev + 1, Math.ceil(transactionHistoryList.length / itemsPerPage) - 1)
+                        )
+                      }
+                      disabled={(currentPage + 1) * itemsPerPage >= transactionHistoryList.length}
+                      className="px-3 py-1 bg-gray-200 text-sm rounded disabled:opacity-50"
+                    >
+                      Próxima
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           </div>
