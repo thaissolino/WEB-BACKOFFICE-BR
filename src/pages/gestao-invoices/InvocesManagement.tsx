@@ -9,6 +9,7 @@ import { ReportsTab } from "./components/sections/ReportsTab";
 import CaixasTab from "./components/sections/Caixas";
 import { OtherPartnersTab } from "./components/sections/OtherPartners";
 import { Invoice } from "./components/types/invoice";
+import CaixasTabBrl from "./components/sections/CaixasBrl";
 
 export type TabType =
   | "invoices"
@@ -18,7 +19,8 @@ export type TabType =
   | "media-dolar"
   | "relatorios"
   | "caixas"
-  | "others";
+  | "others"
+  | "caixas-brl";
 
 export default function InvocesManagement() {
   const [activeTab, setActiveTab] = useState<TabType>("invoices");
@@ -44,7 +46,6 @@ export default function InvocesManagement() {
     subAmount: 0,
   });
 
-
   return (
     <div className="bg-gray-50 min-h-screen">
       <div className="container mx-auto px-4 py-8">
@@ -56,7 +57,9 @@ export default function InvocesManagement() {
         <Tabs activeTab={activeTab} setActiveTab={setActiveTab} />
 
         <div className="mt-6">
-          {activeTab === "invoices" && <InvoicesTab currentInvoice={currentInvoice} setCurrentInvoice={setCurrentInvoice} />}
+          {activeTab === "invoices" && (
+            <InvoicesTab currentInvoice={currentInvoice} setCurrentInvoice={setCurrentInvoice} />
+          )}
           {activeTab === "products" && <ProductsTab />}
           {activeTab === "suppliers" && <SuppliersTab />}
           {activeTab === "carriers" && <CarriersTab />}
@@ -64,6 +67,7 @@ export default function InvocesManagement() {
           {activeTab === "media-dolar" && <ExchangeTab />}
           {activeTab === "relatorios" && <ReportsTab />}
           {activeTab === "caixas" && <CaixasTab />}
+          {activeTab === "caixas-brl" && <CaixasTabBrl />}
         </div>
       </div>
     </div>

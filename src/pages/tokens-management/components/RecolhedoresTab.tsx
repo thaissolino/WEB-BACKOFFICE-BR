@@ -45,7 +45,6 @@ export interface Operacao {
   profit: number;
 }
 
-
 const RecolhedoresTab: React.FC = () => {
   const [recolhedores, setRecolhedores] = useState<Recolhedor[]>([]);
   const [showModal, setShowModal] = useState(false);
@@ -266,47 +265,47 @@ const RecolhedoresTab: React.FC = () => {
   const deletarOperacao = async (id: number) => {
     try {
       await api.delete(`/operations/delete_operation/${id}`);
-      
+
       // Atualiza as operações
       const updatedOperacoes = operacoes.filter((op) => op.id !== id);
       setOperacoes(updatedOperacoes);
-      
+
       // Recalcula todos os saldos
       const updatedBalances: Record<number, number> = {};
       recolhedores.forEach((r) => {
         updatedBalances[r.id] = computeBalance(r, updatedOperacoes, payments);
       });
       setCalculatedBalances(updatedBalances);
-      
+
       // Atualiza o saldo acumulado
       const totalBalance = Object.values(updatedBalances).reduce((a, b) => a + b, 0);
       setSaldoAcumulado(totalBalance);
-      
+
       alert("Operação deletada com sucesso.");
     } catch (e: any) {
       alert(`Erro ao deletar operação: ${e.message}`);
     }
   };
-  
+
   const deletarPagamento = async (id: number) => {
     try {
       await api.delete(`/api/delete_payment/${id}`);
-      
+
       // Atualiza os pagamentos
       const updatedPayments = payments.filter((p) => p.id !== id);
       setPayments(updatedPayments);
-      
+
       // Recalcula todos os saldos
       const updatedBalances: Record<number, number> = {};
       recolhedores.forEach((r) => {
         updatedBalances[r.id] = computeBalance(r, operacoes, updatedPayments);
       });
       setCalculatedBalances(updatedBalances);
-      
+
       // Atualiza o saldo acumulado
       const totalBalance = Object.values(updatedBalances).reduce((a, b) => a + b, 0);
       setSaldoAcumulado(totalBalance);
-      
+
       alert("Pagamento deletado com sucesso.");
     } catch (e: any) {
       alert(`Erro ao deletar pagamento: ${e.message}`);
@@ -320,8 +319,14 @@ const RecolhedoresTab: React.FC = () => {
       .map((op) => ({
         id: `op-${op.id}`,
         date: op.date || new Date().toISOString(),
-        valor: -op.comission>0 || op.comission !== null ? -op.comission : - (op.value || 0) / (op.collectorTax || selectedRecolhedor!?.tax || 1),
-        descricao: op.comission > 0 || op.comission !== null  ? `Comissão #${op.id} · ${op.city?.toLowerCase() || ""}`: `Operação #${op.id} · ${op.city?.toLowerCase() || ""}`,
+        valor:
+          -op.comission > 0 || op.comission !== null
+            ? -op.comission
+            : -(op.value || 0) / (op.collectorTax || selectedRecolhedor!?.tax || 1),
+        descricao:
+          op.comission > 0 || op.comission !== null
+            ? `Comissão #${op.id} · ${op.city?.toLowerCase() || ""}`
+            : `Operação #${op.id} · ${op.city?.toLowerCase() || ""}`,
         tipo: "debito",
       })),
     ...payments
@@ -629,14 +634,7 @@ const RecolhedoresTab: React.FC = () => {
                             animate={{
                               opacity: 1,
                               y: 0,
-                              backgroundColor:
-                                newPaymentId === t.id
-                                  ? ["#f0fdf4", "#dcfce7", "#f0fdf4"]
-                                  : t.id.toString().startsWith("op-")
-                                  ? "#ebf5ff"
-                                  : t.id.toString().startsWith("pay-")
-                                  ? "#f0fdf4"
-                                  : "#ffffff",
+                              backgroundColor: newPaymentId === t.id ? ["#f0fdf4", "#dcfce7", "#f0fdf4"] : undefined,
                             }}
                             exit={{ opacity: 0, y: -10 }}
                             transition={{
@@ -647,13 +645,7 @@ const RecolhedoresTab: React.FC = () => {
                                 repeatType: "reverse",
                               },
                             }}
-                            className={
-                              t.id.toString().startsWith("op-")
-                                ? "bg-blue-50"
-                                : t.id.toString().startsWith("pay-")
-                                ? "bg-green-50"
-                                : ""
-                            }
+                            className="odd:bg-blue-50 even:bg-green-50"
                           >
                             <td className="py-2 px-4 border text-sm text-gray-700">
                               <div className="flex items-center gap-2" title={new Date(t.date).toISOString()}>
