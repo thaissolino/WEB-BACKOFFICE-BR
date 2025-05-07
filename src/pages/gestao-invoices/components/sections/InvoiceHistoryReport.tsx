@@ -6,7 +6,7 @@ import { Product } from "./ProductsTab";
 import { ModalReceiveProduct } from "../modals/ModalReceiveProduct";
 import { an } from "framer-motion/dist/types.d-B50aGbjN";
 
-export type exchange =  {
+export type exchange = {
   id: string;
   date: Date;
   type: string;
@@ -16,7 +16,7 @@ export type exchange =  {
   invoiceId: string;
   createdAt: Date;
   updatedAt: Date;
-}
+};
 
 export type InvoiceData = {
   id: string;
@@ -118,6 +118,8 @@ export function InvoiceHistoryReport({
   const [isSavingId, setIsSavingId] = useState("");
   const [exchanges, setExchangeResponse] = useState<exchange[]>([]);
   const [selectedProductToReceive, setSelectedProductToReceive] = useState<ProductData | null>(null);
+  const [currentPage, setCurrentPage] = useState(0);
+  const itemsPerPage = 10;
 
   const fetchInvoicesAndSuppliers = async () => {
     try {
@@ -128,7 +130,7 @@ export function InvoiceHistoryReport({
         api.get("/invoice/product"),
         api.get("/invoice/exchange-records"),
       ]);
-      setExchangeResponse(exchangeResponse.data)
+      setExchangeResponse(exchangeResponse.data);
       setProducts(productsResponse.data);
       setInvoices(invoiceResponse.data);
       setSuppliers(supplierResponse.data);
@@ -143,15 +145,15 @@ export function InvoiceHistoryReport({
   }, []);
 
   const getStatusText = (invoice: InvoiceData) => {
-    console.log(invoice)
+    console.log(invoice);
     if (invoice.completed && invoice.paid) return "Concluída";
-    if (!invoice.completed && invoice.paid ) return "Pago";
+    if (!invoice.completed && invoice.paid) return "Pago";
     return "Pendente";
   };
 
   const getStatusClass = (invoice: InvoiceData) => {
     if (invoice.completed && invoice.paid) return "bg-blue-100 text-blue-800";
-    if (!invoice.completed && invoice.paid ) return "bg-green-100 text-green-800";
+    if (!invoice.completed && invoice.paid) return "bg-green-100 text-green-800";
     return "bg-yellow-100 text-yellow-800";
   };
 
@@ -206,7 +208,7 @@ export function InvoiceHistoryReport({
     }
   };
 
-  const taxInvoice = exchanges.find((item)=> item.invoiceId === selectedInvoice?.id)
+  const taxInvoice = exchanges.find((item) => item.invoiceId === selectedInvoice?.id);
 
   return (
     <div className="mt-8 bg-white p-6 pt-4 rounded-lg shadow">
@@ -253,11 +255,11 @@ export function InvoiceHistoryReport({
                   </td>
                 </tr>
               ) : (
-                invoices.map((invoice) => {
+                invoices.slice(currentPage * itemsPerPage, (currentPage + 1) * itemsPerPage).map((invoice) => {
                   const supplier = suppliers.find((s) => s.id === invoice.supplierId);
                   const subtotal = invoice.products?.reduce((sum, product) => sum + product.total, 0) || 0;
                   const total = subtotal;
-                  const tax = exchanges.find((item)=> item.invoiceId === invoice.id)
+                  const tax = exchanges.find((item) => item.invoiceId === invoice.id);
 
                   return (
                     <tr key={invoice.id} className="hover:bg-gray-50">
@@ -299,13 +301,36 @@ export function InvoiceHistoryReport({
                           )}
                         </div>
                       </td>
-
                     </tr>
                   );
                 })
               )}
             </tbody>
           </table>
+        )}
+        {/* Paginação */}
+        {invoices.length > itemsPerPage && (
+          <div className="flex justify-between items-center mt-4">
+            <button
+              onClick={() => setCurrentPage((prev) => Math.max(0, prev - 1))}
+              disabled={currentPage === 0}
+              className="px-3 py-1 bg-gray-200 text-sm rounded disabled:opacity-50"
+            >
+              Anterior
+            </button>
+            <span className="text-sm text-gray-600">
+              Página {currentPage + 1} de {Math.ceil(invoices.length / itemsPerPage)}
+            </span>
+            <button
+              onClick={() =>
+                setCurrentPage((prev) => Math.min(prev + 1, Math.ceil(invoices.length / itemsPerPage) - 1))
+              }
+              disabled={(currentPage + 1) * itemsPerPage >= invoices.length}
+              className="px-3 py-1 bg-gray-200 text-sm rounded disabled:opacity-50"
+            >
+              Próxima
+            </button>
+          </div>
         )}
       </div>
 
@@ -353,10 +378,7 @@ export function InvoiceHistoryReport({
                   </span>
                 </p>
                 <p className="text-sm text-gray-600">
-                  Frete Sp x ES: R${" "}
-                  <span id="modalInvoiceCarrier">
-                    {selectedInvoice.taxaSpEs}
-                  </span>
+                  Frete Sp x ES: R$ <span id="modalInvoiceCarrier">{selectedInvoice.taxaSpEs}</span>
                 </p>
               </div>
               <div>
@@ -404,7 +426,12 @@ export function InvoiceHistoryReport({
                           <td className="px-4 py-2 text-sm text-right">{product.quantity}</td>
                           <td className="px-4 py-2 text-sm text-right">{product.value.toFixed(2)}</td>
                           <td className="px-4 py-2 text-sm text-right">{product.weight.toFixed(2)}</td>
-                          <td className="px-4 py-2 text-sm text-right">{product.total.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})}</td>
+                          <td className="px-4 py-2 text-sm text-right">
+                            {product.total.toLocaleString("en-US", {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            })}
+                          </td>
                           <td className="px-4 py-2 text-sm text-right">
                             <div className="flex justify-end items-center ">
                               {/* <button disabled={isSaving} onClick={()=> sendUpdateProductStatus(product)} className="flex items-center gap-1 text-white px-2 bg-green-600 hover:bg-green-300 rounded-sm">
@@ -530,7 +557,12 @@ export function InvoiceHistoryReport({
                           </td>
                           <td className="px-4 py-2 text-sm text-right">{product.value.toFixed(2)}</td>
                           <td className="px-4 py-2 text-sm text-right">{product.weight.toFixed(2)}</td>
-                          <td className="px-4 py-2 text-sm text-right">{product.total.toLocaleString("en-US", {minimumFractionDigits:2, maximumFractionDigits:2})}</td>
+                          <td className="px-4 py-2 text-sm text-right">
+                            {product.total.toLocaleString("en-US", {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            })}
+                          </td>
                         </tr>
                       ))}
                   </tbody>
@@ -560,12 +592,11 @@ export function InvoiceHistoryReport({
                     </>
                   )}
                 </p>
-
               </div>
               <div className="bg-gray-50 p-3 rounded border">
                 <p className="text-sm text-gray-600">Frete :</p>
                 <p id="modalInvoiceShipping" className="text-lg font-semibold">
-                {/* R${" "}
+                  {/* R${" "}
                   {selectedInvoice.amountTaxcarrier2.toLocaleString("en-US", {
                     minimumFractionDigits: 2,
                     maximumFractionDigits: 2,
@@ -603,9 +634,12 @@ export function InvoiceHistoryReport({
                   {taxInvoice?.rate ? (
                     <>
                       R${" "}
-                      {((selectedInvoice.subAmount +
-                    selectedInvoice.amountTaxcarrier +
-                    selectedInvoice.amountTaxcarrier2) * taxInvoice.rate).toLocaleString("pt-BR", {
+                      {(
+                        (selectedInvoice.subAmount +
+                          selectedInvoice.amountTaxcarrier +
+                          selectedInvoice.amountTaxcarrier2) *
+                        taxInvoice.rate
+                      ).toLocaleString("pt-BR", {
                         minimumFractionDigits: 2,
                         maximumFractionDigits: 2,
                       })}
@@ -614,10 +648,10 @@ export function InvoiceHistoryReport({
                     <>
                       ${" "}
                       {(
-                    selectedInvoice.subAmount +
-                    selectedInvoice.amountTaxcarrier +
-                    selectedInvoice.amountTaxcarrier2
-                  ).toLocaleString("en-US", {
+                        selectedInvoice.subAmount +
+                        selectedInvoice.amountTaxcarrier +
+                        selectedInvoice.amountTaxcarrier2
+                      ).toLocaleString("en-US", {
                         minimumFractionDigits: 2,
                         maximumFractionDigits: 2,
                       })}
@@ -650,9 +684,13 @@ export function InvoiceHistoryReport({
                   {taxInvoice?.rate ? (
                     <>
                       R${" "}
-                      {(((selectedInvoice.subAmount +
-                    selectedInvoice.amountTaxcarrier +
-                    selectedInvoice.amountTaxcarrier2) * taxInvoice.rate) + selectedInvoice.amountTaxSpEs).toLocaleString("pt-BR", {
+                      {(
+                        (selectedInvoice.subAmount +
+                          selectedInvoice.amountTaxcarrier +
+                          selectedInvoice.amountTaxcarrier2) *
+                          taxInvoice.rate +
+                        selectedInvoice.amountTaxSpEs
+                      ).toLocaleString("pt-BR", {
                         minimumFractionDigits: 2,
                         maximumFractionDigits: 2,
                       })}
@@ -660,15 +698,12 @@ export function InvoiceHistoryReport({
                   ) : (
                     <>
                       ${" "}
-                      {(
-                    selectedInvoice.subAmount 
-                  ).toLocaleString("en-US", {
+                      {selectedInvoice.subAmount.toLocaleString("en-US", {
                         minimumFractionDigits: 2,
                         maximumFractionDigits: 2,
                       })}
                     </>
                   )}
-                  
                 </p>
               </div>
               <div className="flex justify-between items-center mt-1" id="modalInvoicePaymentInfo">
