@@ -104,8 +104,8 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
   const [newProduct, setNewProduct] = useState({
     productId: "",
     quantity: 1,
-    value: 0,
-    weight: 0,
+    value: "",
+    weight: "",
     // Os campos abaixo são calculados ou têm valores padrão
     // total será calculado no momento do envio
     // received e receivedQuantity têm valores padrão
@@ -122,6 +122,7 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
         api.get("/invoice/product"),
       ]);
 
+      console.log(invoiceResponse)
       setProducts(productsResponse.data);
       setInvoices(invoiceResponse.data);
       setSuppliers(supplierResponse.data);
@@ -135,6 +136,20 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
   useEffect(() => {
     fetchInvoicesAndSuppliers();
   }, []);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        closeModal();
+      }
+    };
+  
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, []);
+  
 
   const getStatusText = (invoice: InvoiceData) => {
     if (invoice.completed && invoice.paid) return "Paga";
@@ -205,14 +220,14 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
       setIsSaving(true);
       
       // Calcula o total baseado nos valores fornecidos
-      const total = newProduct.value * newProduct.quantity;
+      const total = Number(newProduct.value) * newProduct.quantity;
       
       await api.post("/invoice/product/add-invoice", {
         invoiceId: selectedInvoice.id,
         productId: newProduct.productId,
         quantity: newProduct.quantity,
-        value: newProduct.value,
-        weight: newProduct.weight,
+        value: Number(newProduct.value),
+        weight: Number(newProduct.weight),
         total: total, // Calculado automaticamente
         received: false, // Padrão para false quando adiciona novo produto
         receivedQuantity: 0 // Padrão 0 quando adiciona novo produto
@@ -223,18 +238,19 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
 
       
       // Atualiza a lista completa de invoices
-      const [invoiceResponse] = await Promise.all([api.get("/invoice/get")]);
+      const [invoiceResponse] = await Promise.all([api.get("/invoice/get")]); 
 
       const findInvoice = invoiceResponse.data.find((item: InvoiceData) => item.id === selectedInvoice.id);
 
+      fetchInvoicesAndSuppliers()
       setSelectedInvoice(findInvoice);
       
       // Reseta o formulário
       setNewProduct({
         productId: "",
         quantity: 1,
-        value: 0,
-        weight: 0,
+        value: "",
+        weight: "",
       });
       setShowAddProductForm(false);
       
@@ -292,7 +308,7 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
               ) : (
                 invoices.map((invoice) => {
 
-                  console.log(invoice)
+                  // console.log(invoice)
 
                   if (invoice.paid || invoice.completed) return null;
 
@@ -345,8 +361,9 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
         <div
           id="modalViewInvoice"
           className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50 "
+          onClick={closeModal}
         >
-          <div className="bg-white p-6 rounded-lg w-full max-w-4xl max-h-[90vh] overflow-y-auto mx-4">
+          <div  onClick={(e) => e.stopPropagation()} className="bg-white p-6 rounded-lg w-full max-w-4xl max-h-[90vh] overflow-y-auto mx-4">
             {/* Seção para adicionar novo produto */}
             <div className="mb-6">
               {!showAddProductForm ? (
@@ -366,11 +383,12 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
                         value={newProduct.productId}
                         onChange={(e) => {
                           const product = products.find(p => p.id === e.target.value);
+                          console.log(product)
                           setNewProduct({
                             ...newProduct,
                             productId: e.target.value,
-                            value: product?.priceweightAverage || 0,
-                            weight: product?.weightAverage || 0,
+                            value: product ? String(product.priceweightAverage) : "",
+                            weight: product ? String(product.priceweightAverage) : "",
                           });
                         }}
                       >
@@ -397,24 +415,39 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Valor ($)</label>
                       <input
-                        type="number"
-                        step="0.01"
-                        min="0"
+                        type="text"
+                        placeholder="digite o valor"
+                        inputMode="decimal"
                         className="w-full p-2 border border-gray-300 rounded-md text-sm"
-                        value={newProduct.value}
-                        onChange={(e) => setNewProduct({ ...newProduct, value: Number(e.target.value) })}
+                        value={newProduct.value }
+                        onChange={(e) => {
+                          const inputValue = e.target.value;
+
+                          // Permite número com ponto ou vírgula, até duas casas decimais
+                          if (/^\d*[.,]?\d{0,2}$/.test(inputValue) || inputValue === "") {
+                            setNewProduct({ ...newProduct, value: inputValue.replace(',', '.') });
+                          }
+                        }}
                       />
+
                     </div>
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Peso (kg)</label>
                       <input
-                        type="number"
-                        step="0.01"
-                        min="0"
+                         type="text"
+                         placeholder="digite o valor"
+                         inputMode="decimal"
                         className="w-full p-2 border border-gray-300 rounded-md text-sm"
                         value={newProduct.weight}
-                        onChange={(e) => setNewProduct({ ...newProduct, weight: Number(e.target.value) })}
+                        onChange={(e) => {
+                          const inputValue = e.target.value;
+
+                          // Permite número com ponto ou vírgula, até duas casas decimais
+                          if (/^\d*[.,]?\d{0,2}$/.test(inputValue) || inputValue === "") {
+                            setNewProduct({ ...newProduct, weight: inputValue.replace(',', '.') });
+                          }
+                        }}
                       />
                     </div>
                   </div>
