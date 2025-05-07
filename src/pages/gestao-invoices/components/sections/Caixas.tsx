@@ -548,6 +548,7 @@ export const CaixasTab = () => {
                   )
                 </span>
               )}
+              getSearchString={(p) => p.name}
               getId={(p) => p.id}
               onChange={(id) => {
                 const entity = combinedItems.find((item) => item.id === id);
@@ -638,7 +639,7 @@ export const CaixasTab = () => {
                 <div>
                   <label className="block text-sm font-medium text-gray-700">VALOR</label>
                   <input
-                    type="text"
+                    type="number"
                     className="w-full border border-gray-300 rounded-md p-2"
                     value={formData.value}
                     onChange={(e) => setFormData({ ...formData, value: e.target.value })}
@@ -702,7 +703,7 @@ export const CaixasTab = () => {
                           className="odd:bg-blue-50 even:bg-green-50"
                         >
                           <td className="py-2 px-4 border text-center">
-                            {new Date(t.date).toLocaleDateString("pt-BR")}
+                            {new Date(t.date).toLocaleDateString("pt-BR", {timeZone: "UTC"})}
                           </td>
                           <td className="py-2 px-4 border">{t.description}</td>
                           <td
