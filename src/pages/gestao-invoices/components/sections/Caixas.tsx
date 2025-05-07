@@ -228,15 +228,30 @@ export const CaixasTab = () => {
     // Implemente lógica de criação de caixa com POST
   };
 
+
   const limparHistorico = async (recolhedorId: string) => {
     // const confirm = window.confirm("Deseja realmente excluir TODO o histórico de transações deste recolhedor?");
     // if (!confirm) return;
 
     setLoadingClearId(recolhedorId);
     try {
+      setLoadingFetch3(true);
+     
       await api.delete(`/invoice/box/trasnsaction/user/${recolhedorId}`);
-      await fetchDatUser();
-      // alert("Histórico excluído com sucesso.");
+      
+      await fetchEntityData(selectedEntity.id);
+      fetchDatUser();
+      Swal.fire({
+        icon: "success",
+        title: "Sucesso",
+        text: "Transação deletada com sucesso",
+        confirmButtonText: "Ok",
+        buttonsStyling: false,
+        customClass: {
+          confirmButton: "bg-green-600 text-white hover:bg-green-700 px-4 py-2 rounded font-semibold",
+        },
+      });
+      
     } catch (e: any) {
       Swal.fire({
         icon: "error",
@@ -376,10 +391,10 @@ export const CaixasTab = () => {
           selectedEntity.typeInvoice === "freteiro"
             ? "CARRIER"
             : selectedEntity.typeInvoice === "parceiro"
-            ? "PARTNER"
-            : selectedEntity.typeInvoice === "fornecedor"
-            ? "SUPPLIER"
-            : "",
+              ? "PARTNER"
+              : selectedEntity.typeInvoice === "fornecedor"
+                ? "SUPPLIER"
+                : "",
         userId: caixaUser?.id,
       });
 
@@ -552,10 +567,10 @@ export const CaixasTab = () => {
                 {selectedEntity.typeInvoice === "freteiro"
                   ? "TRANSPORTADORA"
                   : selectedEntity.typeInvoice === "fornecedor"
-                  ? "FORNECEDOR"
-                  : selectedEntity.typeInvoice === "parceiro"
-                  ? "PARCEIRO"
-                  : ""}{" "}
+                    ? "FORNECEDOR"
+                    : selectedEntity.typeInvoice === "parceiro"
+                      ? "PARCEIRO"
+                      : ""}{" "}
                 : {selectedEntity.name}
               </span>
             </h2>
@@ -673,15 +688,14 @@ export const CaixasTab = () => {
                         .slice()
                         .reverse()
                         .map((t: any) => (
-                          <tr key={t.id} className="hover:bg-gray-50">
+                          <tr key={t.id} className="odd:bg-white even:bg-gray-200 ">
                             <td className="py-2 px-4 border text-center">
                               {new Date(t.date).toLocaleDateString("pt-BR")}
                             </td>
                             <td className="py-2 px-4 border">{t.description}</td>
                             <td
-                              className={`py-2 px-4 border text-right ${
-                                t.direction === "OUT" ? "text-red-600" : "text-green-600"
-                              }`}
+                              className={`py-2 px-4 border text-right ${t.direction === "OUT" ? "text-red-600" : "text-green-600"
+                                }`}
                             >
                               {t.direction === "OUT" ? "-" : "+"} ${t.value.toFixed(2)}
                             </td>
