@@ -1,4 +1,4 @@
-import { History, Eye, Edit, XIcon, RotateCcw, Check, Loader2 } from "lucide-react";
+import { History, Eye, Edit, XIcon, RotateCcw, Check, Loader2, PlusCircle } from "lucide-react";
 import { useEffect, useState } from "react";
 import { api } from "../../../../services/api";
 import { Invoice } from "../types/invoice"; // Se necessário, ajuste o caminho do tipo
@@ -100,7 +100,16 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
   const [products, setProducts] = useState<Product[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [isSavingId, setIsSavingId] = useState("");
-
+  const [showAddProductForm, setShowAddProductForm] = useState(false);
+  const [newProduct, setNewProduct] = useState({
+    productId: "",
+    quantity: 1,
+    value: 0,
+    weight: 0,
+    // Os campos abaixo são calculados ou têm valores padrão
+    // total será calculado no momento do envio
+    // received e receivedQuantity têm valores padrão
+  });
   useEffect(() => {
     fetchInvoicesAndSuppliers();
   }, [reloadTrigger]); // atualiza quando for alterado
@@ -189,7 +198,53 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
       setIsSaving(false);
     }
   };
+  const handleAddNewProduct = async () => {
+    if (!selectedInvoice || !newProduct.productId) return;
+  
+    try {
+      setIsSaving(true);
+      
+      // Calcula o total baseado nos valores fornecidos
+      const total = newProduct.value * newProduct.quantity;
+      
+      await api.post("/invoice/product/add-invoice", {
+        invoiceId: selectedInvoice.id,
+        productId: newProduct.productId,
+        quantity: newProduct.quantity,
+        value: newProduct.value,
+        weight: newProduct.weight,
+        total: total, // Calculado automaticamente
+        received: false, // Padrão para false quando adiciona novo produto
+        receivedQuantity: 0 // Padrão 0 quando adiciona novo produto
+      });
+  
+      // Atualiza a invoice selecionada
 
+
+      
+      // Atualiza a lista completa de invoices
+      const [invoiceResponse] = await Promise.all([api.get("/invoice/get")]);
+
+      const findInvoice = invoiceResponse.data.find((item: InvoiceData) => item.id === selectedInvoice.id);
+
+      setSelectedInvoice(findInvoice);
+      
+      // Reseta o formulário
+      setNewProduct({
+        productId: "",
+        quantity: 1,
+        value: 0,
+        weight: 0,
+      });
+      setShowAddProductForm(false);
+      
+    } catch (error) {
+      console.error("Erro ao adicionar produto:", error);
+      // Você pode adicionar tratamento de erro mais específico aqui
+    } finally {
+      setIsSaving(false);
+    }
+  };
   return (
     <div className="mt-8 bg-white p-6 pt-4 rounded-lg shadow">
       <h2 className="text-xl  w-full justify-between items-center flex  flex-row font-semibold mb-4 text-blue-700 border-b pb-2">
@@ -240,7 +295,7 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
                   console.log(invoice)
 
                   if (invoice.paid || invoice.completed) return null;
-                  
+
 
                   const supplier = suppliers.find((s) => s.id === invoice.supplierId);
                   const subtotal = invoice.products?.reduce((sum, product) => sum + product.total, 0) || 0;
@@ -292,6 +347,103 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
           className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50 "
         >
           <div className="bg-white p-6 rounded-lg w-full max-w-4xl max-h-[90vh] overflow-y-auto mx-4">
+            {/* Seção para adicionar novo produto */}
+            <div className="mb-6">
+              {!showAddProductForm ? (
+                <button
+                  onClick={() => setShowAddProductForm(true)}
+                  className="flex items-center gap-2 text-blue-600 hover:text-blue-800 mb-4"
+                >
+                  <PlusCircle className="inline" size={16} /> Adicionar Novo Produto
+                </button>
+              ) : (
+                <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 mb-4">
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Produto</label>
+                      <select
+                        className="w-full p-2 border border-gray-300 rounded-md text-sm"
+                        value={newProduct.productId}
+                        onChange={(e) => {
+                          const product = products.find(p => p.id === e.target.value);
+                          setNewProduct({
+                            ...newProduct,
+                            productId: e.target.value,
+                            value: product?.priceweightAverage || 0,
+                            weight: product?.weightAverage || 0,
+                          });
+                        }}
+                      >
+                        <option value="">Selecione</option>
+                        {products.filter(p => p.active).map(product => (
+                          <option key={product.id} value={product.id}>
+                            {product.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Qtd</label>
+                      <input
+                        type="number"
+                        min="1"
+                        className="w-full p-2 border border-gray-300 rounded-md text-sm"
+                        value={newProduct.quantity}
+                        onChange={(e) => setNewProduct({ ...newProduct, quantity: Number(e.target.value) })}
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Valor ($)</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        className="w-full p-2 border border-gray-300 rounded-md text-sm"
+                        value={newProduct.value}
+                        onChange={(e) => setNewProduct({ ...newProduct, value: Number(e.target.value) })}
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Peso (kg)</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        className="w-full p-2 border border-gray-300 rounded-md text-sm"
+                        value={newProduct.weight}
+                        onChange={(e) => setNewProduct({ ...newProduct, weight: Number(e.target.value) })}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end space-x-2 mt-4">
+                    <button
+                      onClick={() => setShowAddProductForm(false)}
+                      className="px-3 py-1 text-sm border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      onClick={handleAddNewProduct}
+                      disabled={!newProduct.productId || isSaving}
+                      className="px-3 py-1 text-sm bg-green-600 text-white rounded-md hover:bg-green-700 disabled:bg-green-300"
+                    >
+                      {isSaving ? (
+                        <>
+                          <Loader2 className="animate-spin mr-2 inline" size={14} />
+                          Salvando...
+                        </>
+                      ) : (
+                        "Adicionar Produto"
+                      )}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
             <div className="flex justify-between items-start mb-4">
               <div>
                 <h3 className="text-lg font-medium">
@@ -324,8 +476,8 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
                   <span id="modalInvoiceCarrier">
                     {selectedInvoice.carrier2
                       ? `${selectedInvoice.carrier2.name} - ${selectedInvoice.carrier2.value} ${getShippingTypeText(
-                          selectedInvoice.carrier2.type
-                        )}`
+                        selectedInvoice.carrier2.type
+                      )}`
                       : "não existe"}
                   </span>
                 </p>
