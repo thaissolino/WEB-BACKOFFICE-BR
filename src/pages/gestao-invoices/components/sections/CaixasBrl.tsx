@@ -67,7 +67,7 @@ export const CaixasTabBrl = () => {
     description: "",
   });
 
-  const { getBalances, balanceCarrier, balanceGeneral, balancePartner, balanceSupplier } = useBalanceStore();
+  const { getBalances, balancePartnerBRL } = useBalanceStore();
 
   useEffect(() => {
     console.log("foi?");
@@ -82,17 +82,16 @@ export const CaixasTabBrl = () => {
     setIsLoading(true);
     try {
       // Fetch only carriers and suppliers in parallel
-      const [partnerRes] = await Promise.all([
-        api.get("/invoice/partner"),
-      ]);
+      const [partnerRes] = await Promise.all([api.get("/invoice/partner")]);
 
-    
-      const partnerItems = partnerRes.data.map((item: any) => ({
+      const partnerItems = partnerRes.data.brl.map((item: any) => ({
         ...item,
         typeInvoice: "parceiro",
       }));
 
-     
+      console.log("partinerItems", partnerItems);
+
+      setCombinedItems(partnerItems);
 
       // Calculate total balance from all entities
       let total = 0;
@@ -268,9 +267,7 @@ export const CaixasTabBrl = () => {
 
       // Use the appropriate endpoint based on the item type
       let endpoint = `/invoice/box/transaction/${selectedUserId}`;
-      if (
-        selectedItem.typeInvoice === "parceiro"
-      ) {
+      if (selectedItem.typeInvoice === "parceiro") {
         // Assuming the endpoint is the same for both types
         endpoint = `/invoice/box/transaction/${selectedUserId}`;
       }
@@ -367,8 +364,7 @@ export const CaixasTabBrl = () => {
         direction: Number(formData.value) > 0 ? "IN" : "OUT",
         date: formData.date,
         description: formData.description,
-        entityType:
-        selectedEntity.typeInvoice === "parceiro",
+        entityType: selectedEntity.typeInvoice === "parceiro",
         userId: caixaUser?.id,
       });
 
@@ -418,17 +414,9 @@ export const CaixasTabBrl = () => {
             <Handshake className="text-teal-600 w-5 h-5" />
             <h3 className="font-medium truncate max-w-[180px]">TOTAL DE PARCEIROS</h3>
           </div>
-          <p className="text-2xl font-bold text-teal-600 truncate ml-10" title={formatCurrency(balancePartner || 0)}>
-            {/* {formatCurrency(balancePartner || 0).length > 12
-              ? `${formatCurrency(balancePartner || 0).substring(0, 12)}...`
-              : formatCurrency(balancePartner || 0)} */}
-              43
+          <p className="text-2xl font-bold text-teal-600 truncate ml-10" title={formatCurrency(balancePartnerBRL || 0)}>
+            {combinedItems.length}{" "}
           </p>
-          {formatCurrency(balancePartner || 0).length > 12 && (
-            <div className="absolute hidden group-hover:block bg-gray-800 text-white text-xs p-2 rounded z-10 bottom-full mb-2 whitespace-nowrap">
-              {formatCurrency(balancePartner || 0)}
-            </div>
-          )}
         </motion.div>
 
         <motion.div whileHover={{ scale: 1.02 }} className="bg-purple-50 p-4 rounded-lg shadow relative group">
@@ -436,14 +424,14 @@ export const CaixasTabBrl = () => {
             <CircleDollarSign className="text-purple-600 w-5 h-5" />
             <h3 className="font-medium truncate max-w-[180px]">BALANÇO GERAL</h3>
           </div>
-          <p className="text-2xl font-bold text-purple-600 truncate" title={formatCurrency(balanceGeneral || 0)}>
-            {formatCurrency(balanceGeneral || 0).length > 12
-              ? `${formatCurrency(balanceGeneral || 0).substring(0, 12)}...`
-              : formatCurrency(balanceGeneral || 0)}
+          <p className="text-2xl font-bold text-purple-600 truncate" title={formatCurrency(balancePartnerBRL || 0)}>
+            {formatCurrency(balancePartnerBRL || 0).length > 12
+              ? `${formatCurrency(balancePartnerBRL || 0).substring(0, 12)}...`
+              : formatCurrency(balancePartnerBRL || 0)}
           </p>
-          {formatCurrency(balanceGeneral || 0).length > 12 && (
+          {formatCurrency(balancePartnerBRL || 0).length > 12 && (
             <div className="absolute hidden group-hover:block bg-gray-800 text-white text-xs p-2 rounded z-10 bottom-full mb-2 whitespace-nowrap">
-              {formatCurrency(balanceGeneral || 0)}
+              {formatCurrency(balancePartnerBRL || 0)}
             </div>
           )}
         </motion.div>

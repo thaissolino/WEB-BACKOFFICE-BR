@@ -2,45 +2,52 @@ import { create } from "zustand";
 import { api } from "../services/api";
 
 interface BalanceState {
-  balanceGeneral: number | null;
+  balanceGeneralBRL: number | null; // Total geral em BRL
+  balanceGeneralUSD: number | null; // Total geral em USD
   balanceSupplier: number | null;
   balanceCarrier: number | null;
-  balancePartner: number | null;
+  balancePartnerBRL: number | null; // New
+  balancePartnerUSD: number | null; // New
   isLoading: boolean;
   error: string | null;
 
   getBalances: () => Promise<void>;
-  calculateGeneralBalance: () => number | null;
+  calculateGeneralBalance: () => { generalBalanceBRL: number; generalBalanceUSD: number } | null;
 }
 
 export const useBalanceStore = create<BalanceState>((set, get) => ({
-  balanceGeneral: null,
+  balanceGeneralBRL: null,
+  balanceGeneralUSD: null,
   balanceCarrier: null,
-  balancePartner: null,
+  balancePartnerBRL: null, // New
+  balancePartnerUSD: null, // New
   balanceSupplier: null,
   isLoading: false,
   error: null,
 
-  // Método unificado para buscar todos os saldos
+  // Unified method to fetch all balances
   getBalances: async () => {
     set({ isLoading: true, error: null });
 
     try {
-      // Busca paralela para melhor performance
+      // Parallel requests for better performance
       const [suppliers, carriers, partners] = await Promise.all([
         api.get<{ total: number }>("/balance/suppliers"),
         api.get<{ total: number }>("/balance/carriers"),
-        api.get<{ total: number }>("/balance/partners"),
+        api.get<{ brlPartners: { total: number }; usdPartners: { total: number } }>("/balance/partners"),
       ]);
+
+      console.log("partners", partners);
 
       set({
         balanceSupplier: suppliers.data.total,
         balanceCarrier: carriers.data.total,
-        balancePartner: partners.data.total,
+        balancePartnerBRL: partners.data.brlPartners.total, // New
+        balancePartnerUSD: partners.data.usdPartners.total, // New
         isLoading: false,
       });
 
-      // Calcula o saldo geral automaticamente
+      // Automatically calculate general balance
       get().calculateGeneralBalance();
     } catch (err) {
       console.error("Error fetching balances:", err);
@@ -51,16 +58,26 @@ export const useBalanceStore = create<BalanceState>((set, get) => ({
     }
   },
 
-  // Calcula o saldo geral baseado nos saldos específicos
+  // Calculate general balance based on specific balances
   calculateGeneralBalance: () => {
-    const { balanceSupplier, balanceCarrier, balancePartner } = get();
+    const { balanceSupplier, balanceCarrier, balancePartnerBRL, balancePartnerUSD } = get();
 
-    if (balanceSupplier === null || balanceCarrier === null || balancePartner === null) {
+    console.log("teste", balanceSupplier, balanceCarrier, balancePartnerBRL, balancePartnerUSD);
+
+    if (
+      balanceSupplier === null ||
+      balanceCarrier === null ||
+      balancePartnerBRL === null ||
+      balancePartnerUSD === null
+    ) {
       return null;
     }
 
-    const generalBalance = balanceSupplier + balanceCarrier + balancePartner;
-    set({ balanceGeneral: generalBalance });
-    return generalBalance;
+    // You might want to convert currencies here if needed
+    // For now, we're just summing all values assuming they're in the same currency
+    const generalBalanceUSD = balanceSupplier + balanceCarrier + balancePartnerUSD;
+    const generalBalanceBRL = balanceSupplier + balanceCarrier + balancePartnerBRL;
+    set({ balanceGeneralBRL: generalBalanceBRL, balanceGeneralUSD: generalBalanceUSD });
+    return { generalBalanceBRL, generalBalanceUSD };
   },
 }));
