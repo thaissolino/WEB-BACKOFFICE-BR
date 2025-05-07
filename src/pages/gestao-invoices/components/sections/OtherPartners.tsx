@@ -3,26 +3,32 @@ import { Plus, Edit, Trash2, Users, Loader2 } from "lucide-react";
 import Swal from "sweetalert2";
 import { api } from "../../../../services/api";
 
-interface OtherPartnersTabProps {
+interface Partner {
   id: string;
   name: string;
   phone: string;
-  currency: string;
+  currency: "BRL" | "USD";
   active?: boolean;
 }
 
+interface PartnersResponse {
+  all: Partner[];
+  brl: Partner[];
+  usd: Partner[];
+}
+
 export function OtherPartnersTab() {
-  const [partners, setpartners] = useState<OtherPartnersTabProps[]>([]);
+  const [partners, setPartners] = useState<Partner[]>([]);
   const [showModal, setShowModal] = useState(false);
-  const [currentpartner, setCurrentpartner] = useState<OtherPartnersTabProps | null>(null);
+  const [currentpartner, setCurrentpartner] = useState<Partner | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const fetchData = async () => {
     setIsLoading(true);
     try {
-      const response = await api.get<OtherPartnersTabProps[]>("/invoice/partner");
-      setpartners(response.data);
+      const response = await api.get<PartnersResponse>("/invoice/partner");
+      setPartners(response.data.all);
     } catch (error) {
       console.error("Erro ao buscar Parceiroes:", error);
       // Swal.fire({
@@ -43,12 +49,12 @@ export function OtherPartnersTab() {
     fetchData();
   }, []);
 
-  const handleEdit = (partner: OtherPartnersTabProps) => {
+  const handleEdit = (partner: Partner) => {
     setCurrentpartner(partner);
     setShowModal(true);
   };
 
-  const handleDelete = async (partner: OtherPartnersTabProps) => {
+  const handleDelete = async (partner: Partner) => {
     const result = await Swal.fire({
       title: "Tem certeza?",
       text: "Você não poderá reverter isso!",
@@ -150,7 +156,18 @@ export function OtherPartnersTab() {
           },
         });
       } else {
-        const res = await api.post("/invoice/partner", currentpartner);
+        console.log("currentpartner", currentpartner);
+        const payload = {
+          id: currentpartner.id,
+          name: currentpartner.name,
+          phone: currentpartner.phone,
+          currency: currentpartner.currency || "BRL",
+        };
+
+        console.log("Payload enviado:", payload);
+
+        const res = await api.post("/invoice/partner", payload);
+        console.log("res", res.data);
         if (res.data)
           await api.post(`/invoice/box`, {
             name: res.data.name,
@@ -202,7 +219,7 @@ export function OtherPartnersTab() {
               id: "",
               name: "",
               phone: "",
-              currency: "",
+              currency: "BRL",
             });
             setShowModal(true);
           }}
@@ -319,7 +336,7 @@ export function OtherPartnersTab() {
                 <label className="block text-sm font-medium text-gray-700 mb-1">Moeda</label>
                 <select
                   value={currentpartner.currency || "BRL"}
-                  onChange={(e) => setCurrentpartner({ ...currentpartner, currency: e.target.value })}
+                  onChange={(e) => setCurrentpartner({ ...currentpartner, currency: e.target.value as "BRL" | "USD" })}
                   className="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500"
                   disabled={isSubmitting}
                 >

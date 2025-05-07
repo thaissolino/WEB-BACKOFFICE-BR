@@ -67,7 +67,7 @@ export const CaixasTab = () => {
     description: "",
   });
 
-  const { getBalances, balanceCarrier, balanceGeneral, balancePartner, balanceSupplier } = useBalanceStore();
+  const { getBalances, balanceCarrier, balanceGeneralUSD, balancePartnerUSD, balanceSupplier } = useBalanceStore();
 
   useEffect(() => {
     console.log("foi?");
@@ -99,7 +99,9 @@ export const CaixasTab = () => {
         typeInvoice: "fornecedor",
       }));
 
-      const partnerItems = partnerRes.data.map((item: any) => ({
+      console.log("partners", partnerRes);
+
+      const partnerItems = partnerRes.data.usd.map((item: any) => ({
         ...item,
         typeInvoice: "parceiro",
       }));
@@ -476,14 +478,14 @@ export const CaixasTab = () => {
             <Handshake className="text-teal-600 w-5 h-5" />
             <h3 className="font-medium truncate max-w-[180px]">TOTAL PARCEIROS</h3>
           </div>
-          <p className="text-2xl font-bold text-teal-600 truncate" title={formatCurrency(balancePartner || 0)}>
-            {formatCurrency(balancePartner || 0).length > 12
-              ? `${formatCurrency(balancePartner || 0).substring(0, 12)}...`
-              : formatCurrency(balancePartner || 0)}
+          <p className="text-2xl font-bold text-teal-600 truncate" title={formatCurrency(balancePartnerUSD || 0)}>
+            {formatCurrency(balancePartnerUSD || 0).length > 12
+              ? `${formatCurrency(balancePartnerUSD || 0).substring(0, 12)}...`
+              : formatCurrency(balancePartnerUSD || 0)}
           </p>
-          {formatCurrency(balancePartner || 0).length > 12 && (
+          {formatCurrency(balancePartnerUSD || 0).length > 12 && (
             <div className="absolute hidden group-hover:block bg-gray-800 text-white text-xs p-2 rounded z-10 bottom-full mb-2 whitespace-nowrap">
-              {formatCurrency(balancePartner || 0)}
+              {formatCurrency(balancePartnerUSD || 0)}
             </div>
           )}
         </motion.div>
@@ -493,14 +495,14 @@ export const CaixasTab = () => {
             <CircleDollarSign className="text-purple-600 w-5 h-5" />
             <h3 className="font-medium truncate max-w-[180px]">TOTAL GERAL</h3>
           </div>
-          <p className="text-2xl font-bold text-purple-600 truncate" title={formatCurrency(balanceGeneral || 0)}>
-            {formatCurrency(balanceGeneral || 0).length > 12
-              ? `${formatCurrency(balanceGeneral || 0).substring(0, 12)}...`
-              : formatCurrency(balanceGeneral || 0)}
+          <p className="text-2xl font-bold text-purple-600 truncate" title={formatCurrency(balanceGeneralUSD || 0)}>
+            {formatCurrency(balanceGeneralUSD || 0).length > 12
+              ? `${formatCurrency(balanceGeneralUSD || 0).substring(0, 12)}...`
+              : formatCurrency(balanceGeneralUSD || 0)}
           </p>
-          {formatCurrency(balanceGeneral || 0).length > 12 && (
+          {formatCurrency(balanceGeneralUSD || 0).length > 12 && (
             <div className="absolute hidden group-hover:block bg-gray-800 text-white text-xs p-2 rounded z-10 bottom-full mb-2 whitespace-nowrap">
-              {formatCurrency(balanceGeneral || 0)}
+              {formatCurrency(balanceGeneralUSD || 0)}
             </div>
           )}
         </motion.div>

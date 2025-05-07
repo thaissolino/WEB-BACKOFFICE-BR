@@ -90,7 +90,6 @@ interface InvoiceHistoryProps {
 }
 
 export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
-
   const [invoices, setInvoices] = useState<InvoiceData[]>([]);
   const [suppliers, setSuppliers] = useState<{ id: string; name: string }[]>([]);
   const [loading, setLoading] = useState(true);
@@ -198,15 +197,45 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
       setIsSaving(false);
     }
   };
-  const handleAddNewProduct = async () => {
-    if (!selectedInvoice || !newProduct.productId) return;
-  
+
+  const handleDeleteProduct = async (productId: string) => {
+    if (!selectedInvoice) return;
+
+    console.log("procuct", productId);
+
     try {
       setIsSaving(true);
-      
+
+      // Chama a API para deletar o produto
+      await api.delete(`/invoice/product/delete/${productId}`, {
+        data: {
+          invoiceProductId: productId,
+          invoiceId: selectedInvoice.id,
+        },
+      });
+
+      // Atualiza a invoice selecionada
+      const [invoiceResponse] = await Promise.all([api.get("/invoice/get")]);
+      const findInvoice = invoiceResponse.data.find((item: InvoiceData) => item.id === selectedInvoice.id);
+
+      setSelectedInvoice(findInvoice);
+      setInvoices(invoiceResponse.data);
+    } catch (error) {
+      console.error("Erro ao deletar produto:", error);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleAddNewProduct = async () => {
+    if (!selectedInvoice || !newProduct.productId) return;
+
+    try {
+      setIsSaving(true);
+
       // Calcula o total baseado nos valores fornecidos
       const total = newProduct.value * newProduct.quantity;
-      
+
       await api.post("/invoice/product/add-invoice", {
         invoiceId: selectedInvoice.id,
         productId: newProduct.productId,
@@ -215,20 +244,18 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
         weight: newProduct.weight,
         total: total, // Calculado automaticamente
         received: false, // Padrão para false quando adiciona novo produto
-        receivedQuantity: 0 // Padrão 0 quando adiciona novo produto
+        receivedQuantity: 0, // Padrão 0 quando adiciona novo produto
       });
-  
+
       // Atualiza a invoice selecionada
 
-
-      
       // Atualiza a lista completa de invoices
       const [invoiceResponse] = await Promise.all([api.get("/invoice/get")]);
 
       const findInvoice = invoiceResponse.data.find((item: InvoiceData) => item.id === selectedInvoice.id);
 
       setSelectedInvoice(findInvoice);
-      
+
       // Reseta o formulário
       setNewProduct({
         productId: "",
@@ -237,7 +264,6 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
         weight: 0,
       });
       setShowAddProductForm(false);
-      
     } catch (error) {
       console.error("Erro ao adicionar produto:", error);
       // Você pode adicionar tratamento de erro mais específico aqui
@@ -245,6 +271,9 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
       setIsSaving(false);
     }
   };
+
+  const totalQuantidade = selectedInvoice?.products.reduce((sum, product) => sum + product.quantity, 0);
+
   return (
     <div className="mt-8 bg-white p-6 pt-4 rounded-lg shadow">
       <h2 className="text-xl  w-full justify-between items-center flex  flex-row font-semibold mb-4 text-blue-700 border-b pb-2">
@@ -291,11 +320,9 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
                 </tr>
               ) : (
                 invoices.map((invoice) => {
-
-                  console.log(invoice)
+                  console.log(invoice);
 
                   if (invoice.paid || invoice.completed) return null;
-
 
                   const supplier = suppliers.find((s) => s.id === invoice.supplierId);
                   const subtotal = invoice.products?.reduce((sum, product) => sum + product.total, 0) || 0;
@@ -335,7 +362,6 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
                 })
               )}
             </tbody>
-
           </table>
         )}
       </div>
@@ -365,7 +391,7 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
                         className="w-full p-2 border border-gray-300 rounded-md text-sm"
                         value={newProduct.productId}
                         onChange={(e) => {
-                          const product = products.find(p => p.id === e.target.value);
+                          const product = products.find((p) => p.id === e.target.value);
                           setNewProduct({
                             ...newProduct,
                             productId: e.target.value,
@@ -375,11 +401,13 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
                         }}
                       >
                         <option value="">Selecione</option>
-                        {products.filter(p => p.active).map(product => (
-                          <option key={product.id} value={product.id}>
-                            {product.name}
-                          </option>
-                        ))}
+                        {products
+                          .filter((p) => p.active)
+                          .map((product) => (
+                            <option key={product.id} value={product.id}>
+                              {product.name}
+                            </option>
+                          ))}
                       </select>
                     </div>
 
@@ -476,8 +504,8 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
                   <span id="modalInvoiceCarrier">
                     {selectedInvoice.carrier2
                       ? `${selectedInvoice.carrier2.name} - ${selectedInvoice.carrier2.value} ${getShippingTypeText(
-                        selectedInvoice.carrier2.type
-                      )}`
+                          selectedInvoice.carrier2.type
+                        )}`
                       : "não existe"}
                   </span>
                 </p>
@@ -531,21 +559,11 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
                           <td className="px-4 py-2 text-sm text-right">
                             <div className="flex justify-end items-center ">
                               <button
+                                onClick={() => handleDeleteProduct(product.id)}
                                 disabled={isSaving}
-                                onClick={() => sendUpdateProductStatus(product)}
-                                className="flex items-center gap-1 text-white px-2 bg-green-600 hover:bg-green-300 rounded-sm"
+                                className="flex items-center gap-1 text-white px-2 bg-red-600 hover:bg-red-700 rounded-sm"
                               >
-                                {isSaving && isSavingId === product.id ? (
-                                  <>
-                                    {" "}
-                                    <Loader2 className="animate-spin mr-2" size={18} />
-                                    Salvando...
-                                  </>
-                                ) : (
-                                  <>
-                                    <Check size={18} /> Receber
-                                  </>
-                                )}
+                                <XIcon size={18} /> Remover
                               </button>
                             </div>
                           </td>
@@ -628,17 +646,7 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
                   })}
                 </p>
               </div>
-              <div className="bg-gray-50 p-3 rounded border">
-                <p className="text-sm text-gray-600">Total com frete:</p>
-                <p id="modalInvoiceTax" className="text-lg font-semibold">
-                  R${" "}
-                  {(
-                    selectedInvoice.subAmount +
-                    selectedInvoice.amountTaxcarrier +
-                    selectedInvoice.amountTaxcarrier2
-                  ).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </p>
-              </div>
+
               <div className="bg-gray-50 p-3 rounded border">
                 <p className="text-sm text-gray-600">Frete SP x ES:</p>
                 <p id="modalInvoiceTax" className="text-lg font-semibold">
@@ -647,6 +655,12 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
                     minimumFractionDigits: 2,
                     maximumFractionDigits: 2,
                   })}
+                </p>
+              </div>
+              <div className="bg-white p-3 rounded border">
+                <p className="text-sm text-gray-600">Total de Itens:</p>
+                <p id="taxCost" className="text-lg font-semibold flex justify-start ml-10">
+                  {totalQuantidade}
                 </p>
               </div>
             </div>
@@ -662,9 +676,14 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
                 </p>
               </div>
               <div className="flex justify-between items-center mt-1" id="modalInvoicePaymentInfo">
-                <p className="text-xs text-green-600">Pago em:</p>
+                <p className="text-xs text-green-600">Total com frete:</p>
                 <p className="text-xs font-medium text-green-600">
-                  <span id="modalInvoicePaidDate"></span> (R$ <span id="modalInvoiceDollarRate"></span>)
+                  <span id="modalInvoicePaidDate"></span> $ <span id="modalInvoiceDollarRate"></span>
+                  {(
+                    selectedInvoice.subAmount +
+                    selectedInvoice.amountTaxcarrier +
+                    selectedInvoice.amountTaxcarrier2
+                  ).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </p>
               </div>
             </div>
