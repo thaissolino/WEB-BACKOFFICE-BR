@@ -67,7 +67,7 @@ export const CaixasTabBrl = () => {
     description: "",
   });
 
-  const { getBalances, balanceCarrier, balanceGeneral, balancePartner, balanceSupplier } = useBalanceStore();
+  const { getBalances, balancePartnerBRL } = useBalanceStore();
 
   const [currentPage, setCurrentPage] = useState(0);
   const itemsPerPage = 6; // ou o número que preferir
@@ -91,11 +91,15 @@ export const CaixasTabBrl = () => {
     try {
       // Fetch only carriers and suppliers in parallel
       const [partnerRes] = await Promise.all([api.get("/invoice/partner")]);
-
-      const partnerItems = partnerRes.data.map((item: any) => ({
+  
+      const partnerItems = partnerRes.data.brl.map((item: any) => ({
         ...item,
         typeInvoice: "parceiro",
       }));
+
+      console.log("partinerItems", partnerItems);
+
+      setCombinedItems(partnerItems);
 
       // Calculate total balance from all entities
       let total = 0;
@@ -418,17 +422,10 @@ export const CaixasTabBrl = () => {
             <Handshake className="text-teal-600 w-5 h-5" />
             <h3 className="font-medium truncate max-w-[180px]">TOTAL DE PARCEIROS</h3>
           </div>
-          <p className="text-2xl font-bold text-teal-600 truncate ml-10" title={formatCurrency(balancePartner || 0)}>
-            {/* {formatCurrency(balancePartner || 0).length > 12
-              ? `${formatCurrency(balancePartner || 0).substring(0, 12)}...`
-              : formatCurrency(balancePartner || 0)} */}
-            43
+
+          <p className="text-2xl font-bold text-teal-600 truncate ml-10" title={formatCurrency(balancePartnerBRL || 0)}>
+            {combinedItems.length}{" "}
           </p>
-          {formatCurrency(balancePartner || 0).length > 12 && (
-            <div className="absolute hidden group-hover:block bg-gray-800 text-white text-xs p-2 rounded z-10 bottom-full mb-2 whitespace-nowrap">
-              {formatCurrency(balancePartner || 0)}
-            </div>
-          )}
         </motion.div>
 
         <motion.div whileHover={{ scale: 1.02 }} className="bg-purple-50 p-4 rounded-lg shadow relative group">
@@ -436,14 +433,14 @@ export const CaixasTabBrl = () => {
             <CircleDollarSign className="text-purple-600 w-5 h-5" />
             <h3 className="font-medium truncate max-w-[180px]">BALANÇO GERAL</h3>
           </div>
-          <p className="text-2xl font-bold text-purple-600 truncate" title={formatCurrency(balanceGeneral || 0)}>
-            {formatCurrency(balanceGeneral || 0).length > 12
-              ? `${formatCurrency(balanceGeneral || 0).substring(0, 12)}...`
-              : formatCurrency(balanceGeneral || 0)}
+          <p className="text-2xl font-bold text-purple-600 truncate" title={formatCurrency(balancePartnerBRL || 0)}>
+            {formatCurrency(balancePartnerBRL || 0).length > 12
+              ? `${formatCurrency(balancePartnerBRL || 0).substring(0, 12)}...`
+              : formatCurrency(balancePartnerBRL || 0)}
           </p>
-          {formatCurrency(balanceGeneral || 0).length > 12 && (
+          {formatCurrency(balancePartnerBRL || 0).length > 12 && (
             <div className="absolute hidden group-hover:block bg-gray-800 text-white text-xs p-2 rounded z-10 bottom-full mb-2 whitespace-nowrap">
-              {formatCurrency(balanceGeneral || 0)}
+              {formatCurrency(balancePartnerBRL || 0)}
             </div>
           )}
         </motion.div>
