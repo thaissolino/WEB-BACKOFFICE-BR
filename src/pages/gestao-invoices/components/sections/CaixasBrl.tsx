@@ -26,7 +26,7 @@ interface Transaction {
 export interface Caixa {
   id: string;
   name: string;
-  type: "freteiro" | "fornecedor" | "parceiro";
+  type: "parceiro";
 
   description: string;
   createdAt: string;
@@ -46,7 +46,7 @@ interface TransactionHistory {
   direction: "IN" | "OUT";
 }
 
-export const CaixasTab = () => {
+export const CaixasTabBrl = () => {
   const [combinedItems, setCombinedItems] = useState<any[]>([]);
   const [caixaUser, setCaixaUser] = useState<Caixa>();
   // const [showModal, setShowModal] = useState(false);
@@ -82,44 +82,28 @@ export const CaixasTab = () => {
     setIsLoading(true);
     try {
       // Fetch only carriers and suppliers in parallel
-      const [carriersRes, suppliersRes, partnerRes] = await Promise.all([
-        api.get("/invoice/carriers"),
-        api.get("/invoice/supplier"),
+      const [partnerRes] = await Promise.all([
         api.get("/invoice/partner"),
       ]);
 
-      // Combine carriers and suppliers with type labels
-      const carrierItems = carriersRes.data.map((item: any) => ({
-        ...item,
-        typeInvoice: "freteiro",
-      }));
-
-      const supplierItems = suppliersRes.data.map((item: any) => ({
-        ...item,
-        typeInvoice: "fornecedor",
-      }));
-
+    
       const partnerItems = partnerRes.data.map((item: any) => ({
         ...item,
         typeInvoice: "parceiro",
       }));
 
-      // Combine all items
-      const combined = [...carrierItems, ...supplierItems, ...partnerItems];
-      setCombinedItems(combined);
-
-      console.log("combined", combined);
+     
 
       // Calculate total balance from all entities
       let total = 0;
-      combined.forEach((entity) => {
+      partnerItems.forEach((entity: any) => {
         if (entity.balance && entity.balance.balance) {
           total += entity.balance.balance;
         }
       });
       setTotalBalance(total);
 
-      console.log("All data fetched:", combined);
+      console.log("All data fetched:", partnerItems);
     } catch (error) {
       console.error("Erro ao buscar dados:", error);
       Swal.fire({
@@ -285,8 +269,6 @@ export const CaixasTab = () => {
       // Use the appropriate endpoint based on the item type
       let endpoint = `/invoice/box/transaction/${selectedUserId}`;
       if (
-        selectedItem.typeInvoice === "freteiro" ||
-        selectedItem.typeInvoice === "fornecedor" ||
         selectedItem.typeInvoice === "parceiro"
       ) {
         // Assuming the endpoint is the same for both types
@@ -386,13 +368,7 @@ export const CaixasTab = () => {
         date: formData.date,
         description: formData.description,
         entityType:
-          selectedEntity.typeInvoice === "freteiro"
-            ? "CARRIER"
-            : selectedEntity.typeInvoice === "parceiro"
-            ? "PARTNER"
-            : selectedEntity.typeInvoice === "fornecedor"
-            ? "SUPPLIER"
-            : "",
+        selectedEntity.typeInvoice === "parceiro",
         userId: caixaUser?.id,
       });
 
@@ -433,53 +409,20 @@ export const CaixasTab = () => {
     <div className="fade-in">
       {/* Seletor de usuário total acumulado de fornecedores, outros, fretes e total geral */}
       <h2 className="text-xl font-semibold mb-4 text-blue-700 border-b pb-2">
-        <i className="fas fa-chart-line mr-2"></i> CONTROLE CENTRAL DE CAIXAS
+        <i className="fas fa-chart-line mr-2"></i> CONTROLE CENTRAL DE CAIXAS INDIVIDUAIS BRL
       </h2>
       {/* Resumo */}
       <div className="mb-6 grid grid-cols-1 md:grid-cols-4 gap-4">
-        <motion.div whileHover={{ scale: 1.02 }} className="bg-yellow-50 p-4 rounded-lg shadow relative group">
-          <div className="flex items-center gap-2 mb-2">
-            <HandCoins className="text-yellow-600 w-5 h-5" />
-            <h3 className="font-medium truncate max-w-[180px]">TOTAL FORNECEDORES</h3>
-          </div>
-          <p className="text-2xl font-bold text-yellow-600 truncate" title={formatCurrency(balanceSupplier || 0)}>
-            {formatCurrency(balanceSupplier || 0).length > 12
-              ? `${formatCurrency(balanceSupplier || 0).substring(0, 12)}...`
-              : formatCurrency(balanceSupplier || 0)}
-          </p>
-          {formatCurrency(balanceSupplier || 0).length > 12 && (
-            <div className="absolute hidden group-hover:block bg-gray-800 text-white text-xs p-2 rounded z-10 bottom-full mb-2 whitespace-nowrap">
-              {formatCurrency(balanceSupplier || 0)}
-            </div>
-          )}
-        </motion.div>
-
-        <motion.div whileHover={{ scale: 1.02 }} className="bg-blue-50 p-4 rounded-lg shadow relative group">
-          <div className="flex items-center gap-2 mb-2">
-            <Truck className="text-blue-600 w-5 h-5" />
-            <h3 className="font-medium truncate max-w-[180px]">TOTAL FRETES</h3>
-          </div>
-          <p className="text-2xl font-bold text-blue-600 truncate" title={formatCurrency(balanceCarrier || 0)}>
-            {formatCurrency(balanceCarrier || 0).length > 12
-              ? `${formatCurrency(balanceCarrier || 0).substring(0, 12)}...`
-              : formatCurrency(balanceCarrier || 0)}
-          </p>
-          {formatCurrency(balanceCarrier || 0).length > 12 && (
-            <div className="absolute hidden group-hover:block bg-gray-800 text-white text-xs p-2 rounded z-10 bottom-full mb-2 whitespace-nowrap">
-              {formatCurrency(balanceCarrier || 0)}
-            </div>
-          )}
-        </motion.div>
-
         <motion.div whileHover={{ scale: 1.02 }} className="bg-teal-50 p-4 rounded-lg shadow relative group">
           <div className="flex items-center gap-2 mb-2">
             <Handshake className="text-teal-600 w-5 h-5" />
-            <h3 className="font-medium truncate max-w-[180px]">TOTAL PARCEIROS</h3>
+            <h3 className="font-medium truncate max-w-[180px]">TOTAL DE PARCEIROS</h3>
           </div>
-          <p className="text-2xl font-bold text-teal-600 truncate" title={formatCurrency(balancePartner || 0)}>
-            {formatCurrency(balancePartner || 0).length > 12
+          <p className="text-2xl font-bold text-teal-600 truncate ml-10" title={formatCurrency(balancePartner || 0)}>
+            {/* {formatCurrency(balancePartner || 0).length > 12
               ? `${formatCurrency(balancePartner || 0).substring(0, 12)}...`
-              : formatCurrency(balancePartner || 0)}
+              : formatCurrency(balancePartner || 0)} */}
+              43
           </p>
           {formatCurrency(balancePartner || 0).length > 12 && (
             <div className="absolute hidden group-hover:block bg-gray-800 text-white text-xs p-2 rounded z-10 bottom-full mb-2 whitespace-nowrap">
@@ -491,7 +434,7 @@ export const CaixasTab = () => {
         <motion.div whileHover={{ scale: 1.02 }} className="bg-purple-50 p-4 rounded-lg shadow relative group">
           <div className="flex items-center gap-2 mb-2">
             <CircleDollarSign className="text-purple-600 w-5 h-5" />
-            <h3 className="font-medium truncate max-w-[180px]">TOTAL GERAL</h3>
+            <h3 className="font-medium truncate max-w-[180px]">BALANÇO GERAL</h3>
           </div>
           <p className="text-2xl font-bold text-purple-600 truncate" title={formatCurrency(balanceGeneral || 0)}>
             {formatCurrency(balanceGeneral || 0).length > 12
@@ -741,4 +684,4 @@ export const CaixasTab = () => {
   );
 };
 
-export default CaixasTab;
+export default CaixasTabBrl;
