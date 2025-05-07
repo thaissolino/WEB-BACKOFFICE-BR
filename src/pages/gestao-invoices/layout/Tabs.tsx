@@ -16,6 +16,8 @@ const tabs: { id: TabType; icon: JSX.Element; label: string }[] = [
   { id: "media-dolar", icon: <DollarSign className="mr-2" size={16} />, label: "Média Dólar" },
   { id: "relatorios", icon: <ChartBar className="mr-2" size={16} />, label: "Relatórios" },
   { id: "caixas", icon: <Boxes className="mr-2" size={16} />, label: "Caixas" },
+  { id: "caixas-brl", icon: <Boxes className="mr-2" size={16} />, label: "Caixas BR" },
+  
 ];
 
 export function Tabs({ activeTab, setActiveTab }: TabsProps) {

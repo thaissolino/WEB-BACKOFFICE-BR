@@ -7,6 +7,7 @@ interface OtherPartnersTabProps {
   id: string;
   name: string;
   phone: string;
+  currency: string;
   active?: boolean;
 }
 
@@ -101,6 +102,7 @@ export function OtherPartnersTab() {
 
     const trimmedName = currentpartner.name.trim();
     const trimmedPhone = currentpartner.phone.trim();
+
     if (trimmedName === "" || trimmedPhone === "") {
       Swal.fire({
         icon: "error",
@@ -114,11 +116,30 @@ export function OtherPartnersTab() {
       return;
     }
 
+    // 🔒 Impede duplicidade de nome ao criar ou renomear
+    const nomeDuplicado = partners.some(
+      (p) => p.name.trim().toLowerCase() === trimmedName.toLowerCase() && p.id !== currentpartner.id // permite editar o próprio nome
+    );
+
+    if (nomeDuplicado) {
+      Swal.fire({
+        icon: "warning",
+        title: "Nome já existe",
+        text: "Já existe um parceiro com esse nome.",
+        confirmButtonText: "Ok",
+        buttonsStyling: false,
+        customClass: {
+          confirmButton: "bg-yellow-600 text-white hover:bg-yellow-700 px-4 py-2 rounded font-semibold",
+        },
+      });
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       if (currentpartner.id) {
         await api.patch(`/invoice/partner/${currentpartner.id}`, currentpartner);
-        Swal.fire({
+        await Swal.fire({
           icon: "success",
           title: "Sucesso!",
           text: "Parceiro atualizado com sucesso.",
@@ -136,7 +157,8 @@ export function OtherPartnersTab() {
             description: `parceiro - ${res.data.name}`,
             type: "partner",
           });
-        Swal.fire({
+
+        await Swal.fire({
           icon: "success",
           title: "Sucesso!",
           text: "Parceiro criado com sucesso.",
@@ -147,12 +169,13 @@ export function OtherPartnersTab() {
           },
         });
       }
+
       await fetchData();
       setShowModal(false);
       setCurrentpartner(null);
     } catch (error) {
       console.error("Erro ao salvar Parceiro:", error);
-      Swal.fire({
+      await Swal.fire({
         icon: "error",
         title: "Erro!",
         text: "Não foi possível salvar o Parceiro.",
@@ -179,6 +202,7 @@ export function OtherPartnersTab() {
               id: "",
               name: "",
               phone: "",
+              currency: "",
             });
             setShowModal(true);
           }}
@@ -203,6 +227,9 @@ export function OtherPartnersTab() {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Telefone
                 </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Local
+                </th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Ações
                 </th>
@@ -224,6 +251,9 @@ export function OtherPartnersTab() {
                           {partner.name}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{partner.phone}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {partner.currency || "brl x $"}
+                        </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                           <button
                             onClick={() => handleEdit(partner)}
@@ -267,12 +297,35 @@ export function OtherPartnersTab() {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Telefone</label>
                 <input
-                  type="text"
+                  type="tel"
                   value={currentpartner.phone}
-                  onChange={(e) => setCurrentpartner({ ...currentpartner, phone: e.target.value })}
+                  onChange={(e) => {
+                    const onlyDigits = e.target.value.replace(/\D/g, "");
+                    const formatted = onlyDigits
+                      .replace(/^(\d{2})(\d)/, "($1) $2")
+                      .replace(/(\d{5})(\d{1,4})$/, "$1-$2")
+                      .slice(0, 15); // limita a (99) 99999-9999
+
+                    setCurrentpartner({ ...currentpartner, phone: formatted });
+                  }}
                   className="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500"
                   disabled={isSubmitting}
+                  placeholder="(99) 99999-9999"
+                  maxLength={15}
                 />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Moeda</label>
+                <select
+                  value={currentpartner.currency || "BRL"}
+                  onChange={(e) => setCurrentpartner({ ...currentpartner, currency: e.target.value })}
+                  className="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500"
+                  disabled={isSubmitting}
+                >
+                  <option value="BRL">BRL - Real</option>
+                  <option value="USD">USD - Dólar</option>
+                </select>
               </div>
             </div>
             <div className="mt-6 flex justify-end space-x-3">

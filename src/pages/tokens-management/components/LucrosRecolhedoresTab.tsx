@@ -166,19 +166,32 @@ const LucrosRecolhedoresFusionTab: React.FC = () => {
                     const recolhedorNome = getRecolhedorNome(op.collectorId);
                     const fornecedorNome = getFornecedorNome(op.supplierId);
 
-              return (
+                    return (
                       <tr key={op.id}>
                         <td className="py-2 px-4 text-center border">{formatDate(op.date)}</td>
                         <td className="py-2 px-4 text-center border">{op.city || "Desconhecido"}</td>
                         <td className="py-2 px-4 text-center border">{recolhedorNome}</td>
                         <td className="py-2 px-4 text-center border">{fornecedorNome}</td>
                         <td className="py-2 px-4 border text-center">{formatCurrency(op.value || 0)}</td>
-                        <td className="py-2 px-4 border text-center text-green-500 border-lime-500 bg-yellow-100 text-lg">
-                          {/* {formatCurrency(op.profit || 0)} */}
+                        <td className="py-2 px-4 border text-center font-semibold text-green-600 bg-yellow-50 rounded">
+                        {/* <td className="py-2 px-4 border text-center text-green-500 border-lime-500 bg-yellow-100 text-lg">
+                          /// {formatCurrency(op.profit || 0)} ///
                           {formatCurrency(op.value - (op.value || 0) / (op.collectorTax || 0))}
+                        </td> */}
+                          {(op.value - op.value / (op.collectorTax || 0)).toLocaleString("pt-BR", {
+                            style: "currency",
+                            currency: "BRL",
+                          })}
                         </td>
-                        <td className="py-2 px-4 border text-center">
-                        {((op.value - op.value / (op.collectorTax || 1)) * (selectedRecolhedor.comission / 100)).toFixed(4)}
+                        <td className="py-2 px-4 border text-center font-semibold text-blue-600 bg-yellow-50 rounded">
+                          {(
+                            (op.value - op.value / (op.collectorTax || 1)) *
+                            (selectedRecolhedor.comission / 100)
+                          ).toLocaleString("pt-BR", {
+                           //style: "percent",
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })}
                         </td>
                       </tr>
                     );

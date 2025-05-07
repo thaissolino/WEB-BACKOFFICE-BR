@@ -231,7 +231,6 @@ const FornecedoresTab: React.FC = () => {
     setShowConfirmModal(false);
   };
 
-
   const deletarOperacao = async (id: number) => {
     try {
       await api.delete(`/operations/delete_operation/${id}`);
@@ -428,10 +427,15 @@ const FornecedoresTab: React.FC = () => {
                     <td className="py-2 px-4 border text-center">{f.name}</td>
 
                     <td
-                      className={`py-2 px-4 border text-center font-bold ${calculatedBalances[f.id] < 0 ? "text-red-600" : "text-green-600"
-                        }`}
+                      className={`py-2 px-4 border text-center font-bold ${
+                        calculatedBalances[f.id] === 0
+                          ? "text-gray-900"
+                          : calculatedBalances[f.id] < 0
+                          ? "text-red-600"
+                          : "text-green-600"
+                      }`}
                     >
-                      {formatCurrency(calculatedBalances[f.id] || 0)}
+                      {calculatedBalances[f.id] === 0 ? "0" : formatCurrency(calculatedBalances[f.id] || 0)}
                     </td>
                     <td className="py-2 px-4 border space-x-2 text-center">
                       <motion.button
@@ -487,8 +491,9 @@ const FornecedoresTab: React.FC = () => {
                 <span className="mr-4">
                   SALDO:{" "}
                   <span
-                    className={`font-bold ${calculatedBalances[fornecedorSelecionado.id] < 0 ? "text-red-600" : "text-green-600"
-                      }`}
+                    className={`font-bold ${
+                      calculatedBalances[fornecedorSelecionado.id] < 0 ? "text-red-600" : "text-green-600"
+                    }`}
                   >
                     {formatCurrency(calculatedBalances[fornecedorSelecionado.id] || 0)}
                   </span>
@@ -551,8 +556,9 @@ const FornecedoresTab: React.FC = () => {
                     whileHover={!isProcessingPayment ? { scale: 1.02 } : {}}
                     whileTap={!isProcessingPayment ? { scale: 0.98 } : {}}
                     onClick={registrarPagamento}
-                    className={`${isProcessingPayment ? "bg-blue-400" : "bg-blue-600 hover:bg-blue-700"
-                      } text-white px-4 py-2 rounded w-full flex items-center justify-center`}
+                    className={`${
+                      isProcessingPayment ? "bg-blue-400" : "bg-blue-600 hover:bg-blue-700"
+                    } text-white px-4 py-2 rounded w-full flex items-center justify-center`}
                     disabled={isProcessingPayment}
                   >
                     {isProcessingPayment ? (
@@ -591,34 +597,9 @@ const FornecedoresTab: React.FC = () => {
                           <motion.tr
                             key={t.id}
                             initial={{ opacity: 0, y: 10 }}
-                            animate={{
-                              opacity: 1,
-                              y: 0,
-                              backgroundColor:
-                                newPaymentId === t.id
-                                  ? ["#f0fdf4", "#dcfce7", "#f0fdf4"]
-                                  : t.id.toString().startsWith("op-")
-                                    ? "#ebf5ff"
-                                    : t.id.toString().startsWith("pay-")
-                                      ? "#f0fdf4"
-                                      : "#ffffff",
-                            }}
+                            animate={{ opacity: 1, y: 0 }}
                             exit={{ opacity: 0, y: -10 }}
-                            transition={{
-                              duration: 0.3,
-                              backgroundColor: {
-                                duration: 1.5,
-                                repeat: newPaymentId === t.id ? 2 : 0,
-                                repeatType: "reverse",
-                              },
-                            }}
-                            className={
-                              t.id.toString().startsWith("op-")
-                                ? "bg-blue-50"
-                                : t.id.toString().startsWith("pay-")
-                                  ? "bg-green-50"
-                                  : ""
-                            }
+                            className="odd:bg-blue-50 even:bg-green-50"
                           >
                             <td className="py-2 px-4 border text-sm text-gray-700">
                               <div className="flex items-center gap-2" title={new Date(t.date).toISOString()}>
@@ -628,8 +609,9 @@ const FornecedoresTab: React.FC = () => {
                             </td>
                             <td className="py-2 px-4 border text-sm text-gray-700">{t.descricao}</td>
                             <td
-                              className={`py-2 px-4 border text-right ${t.valor < 0 ? "text-red-600" : "text-green-600"
-                                }`}
+                              className={`py-2 px-4 border text-right ${
+                                t.valor < 0 ? "text-red-600" : "text-green-600"
+                              }`}
                             >
                               {formatCurrency(t.valor)}
                             </td>
@@ -637,7 +619,7 @@ const FornecedoresTab: React.FC = () => {
                               {t.id.toString().startsWith("pay-") && (
                                 <button
                                   onClick={() => deletarPagamento(Number(t.id.toString().replace("pay-", "")))}
-                                  className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded justify-self-end"
+                                  className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded"
                                 >
                                   <i className="fas fa-trash"></i>
                                 </button>
@@ -645,7 +627,7 @@ const FornecedoresTab: React.FC = () => {
                               {t.id.toString().startsWith("op-") && (
                                 <button
                                   onClick={() => deletarOperacao(Number(t.id.toString().replace("op-", "")))}
-                                  className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded justify-self-end"
+                                  className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded"
                                 >
                                   <i className="fas fa-trash"></i>
                                 </button>
