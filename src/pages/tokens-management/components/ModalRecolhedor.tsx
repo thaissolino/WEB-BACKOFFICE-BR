@@ -37,12 +37,26 @@ const ModalRecolhedor: React.FC<ModalRecolhedorProps> = ({
   const handleSave = () => {
     onSave(nome, taxa, Number(balance), Number(comission)); // Converte para Number ao salvar
   };
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        onClose();
+      }
+    };
+  
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, []);
 
   if (!isOpen) return null;
 
+  
+
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white p-6 rounded-lg w-full max-w-md shadow-lg">
+    <div onClick={()=> onClose()} className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div onClick={(e)=> e.stopPropagation()} className="bg-white p-6 rounded-lg w-full max-w-md shadow-lg">
         <h2 className="text-xl font-semibold mb-4 text-blue-700">
           {recolhedorEdit ? "Editar Recolhedor" : "Novo Recolhedor"}
         </h2>
