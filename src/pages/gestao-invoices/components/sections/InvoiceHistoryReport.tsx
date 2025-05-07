@@ -103,6 +103,7 @@ type InvoiceHistoryReportProps = {
   setInvoiceHistory: React.Dispatch<React.SetStateAction<InvoiceData[]>>;
 };
 
+
 export function InvoiceHistoryReport({
   invoiceHistory: invoices,
   setInvoiceHistory: setInvoices,
@@ -208,9 +209,23 @@ export function InvoiceHistoryReport({
 
   const taxInvoice = exchanges.find((item)=> item.invoiceId === selectedInvoice?.id)
 
+  
+useEffect(() => {
+  const handleKeyDown = (e: KeyboardEvent) => {
+    if (e.key === "Escape") {
+      closeModal();
+    }
+  };
+
+  document.addEventListener("keydown", handleKeyDown);
+  return () => {
+    document.removeEventListener("keydown", handleKeyDown);
+  };
+}, []);
+
   return (
     <div className="mt-8 bg-white p-6 pt-4 rounded-lg shadow">
-      <h2 className="text-xl  w-full justify-between items-center flex  flex-row font-semibold mb-4 text-blue-700 border-b pb-2">
+      <h2  className="text-xl  w-full justify-between items-center flex  flex-row font-semibold mb-4 text-blue-700 border-b pb-2">
         <div className="flex justify-center items-center">
           <History className="mr-2 inline" size={18} />
           Histórico de Invoices
@@ -314,8 +329,9 @@ export function InvoiceHistoryReport({
         <div
           id="modalViewInvoice"
           className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50 "
+          onClick={closeModal}
         >
-          <div className="bg-white p-6 rounded-lg w-full max-w-4xl max-h-[90vh] overflow-y-auto mx-4">
+          <div  onClick={(e) => e.stopPropagation()} className="bg-white p-6 rounded-lg w-full max-w-4xl max-h-[90vh] overflow-y-auto mx-4">
             <div className="flex justify-between items-start mb-4">
               <div>
                 <h3 className="text-lg font-medium">

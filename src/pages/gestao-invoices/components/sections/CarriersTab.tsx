@@ -165,7 +165,20 @@ export function CarriersTab() {
     } finally {
       setIsSubmitting(false);
     }
-  };
+   };
+
+   useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setShowModal(false);
+      }
+    };
+  
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, []);
 
   return (
     <div className="bg-white p-6 rounded-lg shadow">
@@ -256,8 +269,8 @@ export function CarriersTab() {
 
       {/* Modal de Freteiro */}
       {showModal && currentCarrier && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-lg w-full max-w-md">
+        <div onClick={()=> setShowModal(false)} className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div onClick={(e) => e.stopPropagation()} className="bg-white p-6 rounded-lg w-full max-w-md">
             <h3 className="text-lg font-medium mb-4">{currentCarrier.id ? "Editar Freteiro" : "Adicionar Freteiro"}</h3>
             <div className="space-y-4">
               <input type="hidden" value={currentCarrier.id} />
