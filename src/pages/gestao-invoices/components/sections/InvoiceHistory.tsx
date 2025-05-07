@@ -90,7 +90,6 @@ interface InvoiceHistoryProps {
 }
 
 export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
-
   const [invoices, setInvoices] = useState<InvoiceData[]>([]);
   const [suppliers, setSuppliers] = useState<{ id: string; name: string }[]>([]);
   const [loading, setLoading] = useState(true);
@@ -101,6 +100,8 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
   const [isSaving, setIsSaving] = useState(false);
   const [isSavingId, setIsSavingId] = useState("");
   const [showAddProductForm, setShowAddProductForm] = useState(false);
+  const [currentPage, setCurrentPage] = useState(0);
+  const itemsPerPage = 10;
   const [newProduct, setNewProduct] = useState({
     productId: "",
     quantity: 1,
@@ -110,6 +111,7 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
     // total será calculado no momento do envio
     // received e receivedQuantity têm valores padrão
   });
+
   useEffect(() => {
     fetchInvoicesAndSuppliers();
   }, [reloadTrigger]); // atualiza quando for alterado
@@ -213,15 +215,44 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
       setIsSaving(false);
     }
   };
-  const handleAddNewProduct = async () => {
-    if (!selectedInvoice || !newProduct.productId) return;
-  
+
+  const handleDeleteProduct = async (productId: string) => {
+    if (!selectedInvoice) return;
+
+    console.log("procuct", productId);
+
     try {
       setIsSaving(true);
-      
-      // Calcula o total baseado nos valores fornecidos
+
+      // Chama a API para deletar o produto
+      await api.delete(`/invoice/product/delete/${productId}`, {
+        data: {
+          invoiceProductId: productId,
+          invoiceId: selectedInvoice.id,
+        },
+      });
+
+      // Atualiza a invoice selecionada
+      const [invoiceResponse] = await Promise.all([api.get("/invoice/get")]);
+      const findInvoice = invoiceResponse.data.find((item: InvoiceData) => item.id === selectedInvoice.id);
+
+      setSelectedInvoice(findInvoice);
+      setInvoices(invoiceResponse.data);
+    } catch (error) {
+      console.error("Erro ao deletar produto:", error);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleAddNewProduct = async () => {
+    if (!selectedInvoice || !newProduct.productId) return;
+
+    try {
+      setIsSaving(true);
+
       const total = Number(newProduct.value) * newProduct.quantity;
-      
+
       await api.post("/invoice/product/add-invoice", {
         invoiceId: selectedInvoice.id,
         productId: newProduct.productId,
@@ -230,13 +261,11 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
         weight: Number(newProduct.weight),
         total: total, // Calculado automaticamente
         received: false, // Padrão para false quando adiciona novo produto
-        receivedQuantity: 0 // Padrão 0 quando adiciona novo produto
+        receivedQuantity: 0, // Padrão 0 quando adiciona novo produto
       });
-  
+
       // Atualiza a invoice selecionada
 
-
-      
       // Atualiza a lista completa de invoices
       const [invoiceResponse] = await Promise.all([api.get("/invoice/get")]); 
 
@@ -244,7 +273,7 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
 
       fetchInvoicesAndSuppliers()
       setSelectedInvoice(findInvoice);
-      
+
       // Reseta o formulário
       setNewProduct({
         productId: "",
@@ -253,7 +282,6 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
         weight: "",
       });
       setShowAddProductForm(false);
-      
     } catch (error) {
       console.error("Erro ao adicionar produto:", error);
       // Você pode adicionar tratamento de erro mais específico aqui
@@ -261,6 +289,10 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
       setIsSaving(false);
     }
   };
+
+  const invoicesToShow = invoices.filter((invoice) => !invoice.paid && !invoice.completed);
+  const totalQuantidade = selectedInvoice?.products.reduce((sum, product) => sum + product.quantity, 0);
+
   return (
     <div className="mt-8 bg-white p-6 pt-4 rounded-lg shadow">
       <h2 className="text-xl  w-full justify-between items-center flex  flex-row font-semibold mb-4 text-blue-700 border-b pb-2">
@@ -299,60 +331,80 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {!invoices || invoices.length === 0 ? (
+              {invoices.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-6 py-4 text-center text-gray-500">
                     Nenhuma invoice encontrada
                   </td>
                 </tr>
               ) : (
-                invoices.map((invoice) => {
+                invoices
+                  .filter((invoice) => !invoice.paid && !invoice.completed) // ✅ Filtro aplicado antes
+                  .slice(currentPage * itemsPerPage, (currentPage + 1) * itemsPerPage) // ✅ Paginação
+                  .map((invoice) => {
+                    const supplier = suppliers.find((s) => s.id === invoice.supplierId);
+                    const subtotal = invoice.products?.reduce((sum, product) => sum + product.total, 0) || 0;
+                    const total = subtotal;
 
-                  // console.log(invoice)
-
-                  if (invoice.paid || invoice.completed) return null;
-
-
-                  const supplier = suppliers.find((s) => s.id === invoice.supplierId);
-                  const subtotal = invoice.products?.reduce((sum, product) => sum + product.total, 0) || 0;
-                  const total = subtotal;
-
-                  return (
-                    <tr key={invoice.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        {invoice.number}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{supplier?.name || "-"}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {new Date(new Date(invoice.date).getTime() + 3 * 60 * 60 * 1000).toLocaleDateString("pt-BR")}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right">
-                        {formatCurrency(total)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span
-                          className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusClass(
-                            invoice
-                          )}`}
-                        >
-                          {getStatusText(invoice)}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <button
-                          onClick={() => openModal(invoice, true)}
-                          className="text-green-600 hover:text-green-900"
-                        >
-                          <Edit size={16} />
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })
+                    return (
+                      <tr key={invoice.id} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                          {invoice.number}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{supplier?.name || "-"}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {new Date(new Date(invoice.date).getTime() + 3 * 60 * 60 * 1000).toLocaleDateString("pt-BR")}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right">
+                          {formatCurrency(total)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span
+                            className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusClass(
+                              invoice
+                            )}`}
+                          >
+                            {getStatusText(invoice)}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                          <button
+                            onClick={() => openModal(invoice, true)}
+                            className="text-green-600 hover:text-green-900"
+                          >
+                            <Edit size={16} />
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })
               )}
             </tbody>
-
           </table>
+        )}
+        {/* Paginação */}
+        {invoices.length > itemsPerPage && (
+          <div className="flex justify-between items-center mt-4">
+            <button
+              onClick={() => setCurrentPage((prev) => Math.max(0, prev - 1))}
+              disabled={currentPage === 0}
+              className="px-3 py-1 bg-gray-200 text-sm rounded disabled:opacity-50"
+            >
+              Anterior
+            </button>
+            <span className="text-sm text-gray-600">
+              Página {currentPage + 1} de {Math.ceil(invoices.length / itemsPerPage)}
+            </span>
+            <button
+              onClick={() =>
+                setCurrentPage((prev) => Math.min(prev + 1, Math.ceil(invoices.length / itemsPerPage) - 1))
+              }
+              disabled={(currentPage + 1) * itemsPerPage >= invoices.length}
+              className="px-3 py-1 bg-gray-200 text-sm rounded disabled:opacity-50"
+            >
+              Próxima
+            </button>
+          </div>
         )}
       </div>
 
@@ -382,8 +434,8 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
                         className="w-full p-2 border border-gray-300 rounded-md text-sm"
                         value={newProduct.productId}
                         onChange={(e) => {
-                          const product = products.find(p => p.id === e.target.value);
-                          console.log(product)
+                          const product = products.find((p) => p.id === e.target.value);
+                          
                           setNewProduct({
                             ...newProduct,
                             productId: e.target.value,
@@ -393,11 +445,13 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
                         }}
                       >
                         <option value="">Selecione</option>
-                        {products.filter(p => p.active).map(product => (
-                          <option key={product.id} value={product.id}>
-                            {product.name}
-                          </option>
-                        ))}
+                        {products
+                          .filter((p) => p.active)
+                          .map((product) => (
+                            <option key={product.id} value={product.id}>
+                              {product.name}
+                            </option>
+                          ))}
                       </select>
                     </div>
 
@@ -509,8 +563,8 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
                   <span id="modalInvoiceCarrier">
                     {selectedInvoice.carrier2
                       ? `${selectedInvoice.carrier2.name} - ${selectedInvoice.carrier2.value} ${getShippingTypeText(
-                        selectedInvoice.carrier2.type
-                      )}`
+                          selectedInvoice.carrier2.type
+                        )}`
                       : "não existe"}
                   </span>
                 </p>
@@ -564,21 +618,11 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
                           <td className="px-4 py-2 text-sm text-right">
                             <div className="flex justify-end items-center ">
                               <button
+                                onClick={() => handleDeleteProduct(product.id)}
                                 disabled={isSaving}
-                                onClick={() => sendUpdateProductStatus(product)}
-                                className="flex items-center gap-1 text-white px-2 bg-green-600 hover:bg-green-300 rounded-sm"
+                                className="flex items-center gap-1 text-white px-2 bg-red-600 hover:bg-red-700 rounded-sm"
                               >
-                                {isSaving && isSavingId === product.id ? (
-                                  <>
-                                    {" "}
-                                    <Loader2 className="animate-spin mr-2" size={18} />
-                                    Salvando...
-                                  </>
-                                ) : (
-                                  <>
-                                    <Check size={18} /> Receber
-                                  </>
-                                )}
+                                <XIcon size={18} /> Remover
                               </button>
                             </div>
                           </td>
@@ -661,17 +705,7 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
                   })}
                 </p>
               </div>
-              <div className="bg-gray-50 p-3 rounded border">
-                <p className="text-sm text-gray-600">Total com frete:</p>
-                <p id="modalInvoiceTax" className="text-lg font-semibold">
-                  R${" "}
-                  {(
-                    selectedInvoice.subAmount +
-                    selectedInvoice.amountTaxcarrier +
-                    selectedInvoice.amountTaxcarrier2
-                  ).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </p>
-              </div>
+
               <div className="bg-gray-50 p-3 rounded border">
                 <p className="text-sm text-gray-600">Frete SP x ES:</p>
                 <p id="modalInvoiceTax" className="text-lg font-semibold">
@@ -680,6 +714,12 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
                     minimumFractionDigits: 2,
                     maximumFractionDigits: 2,
                   })}
+                </p>
+              </div>
+              <div className="bg-white p-3 rounded border">
+                <p className="text-sm text-gray-600">Total de Itens:</p>
+                <p id="taxCost" className="text-lg font-semibold flex justify-start ml-10">
+                  {totalQuantidade}
                 </p>
               </div>
             </div>
@@ -695,9 +735,14 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
                 </p>
               </div>
               <div className="flex justify-between items-center mt-1" id="modalInvoicePaymentInfo">
-                <p className="text-xs text-green-600">Pago em:</p>
+                <p className="text-xs text-green-600">Total com frete:</p>
                 <p className="text-xs font-medium text-green-600">
-                  <span id="modalInvoicePaidDate"></span> (R$ <span id="modalInvoiceDollarRate"></span>)
+                  <span id="modalInvoicePaidDate"></span> $ <span id="modalInvoiceDollarRate"></span>
+                  {(
+                    selectedInvoice.subAmount +
+                    selectedInvoice.amountTaxcarrier +
+                    selectedInvoice.amountTaxcarrier2
+                  ).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </p>
               </div>
             </div>

@@ -61,13 +61,21 @@ export const CaixasTab = () => {
   const [loadingFetch2, setLoadingFetch2] = useState(false);
   const [loadingFetch3, setLoadingFetch3] = useState(false);
   const [loadingClearId, setLoadingClearId] = useState<string | null>(null);
+
   const [formData, setFormData] = useState({
     date: "",
     value: "",
     description: "",
   });
 
-  const { getBalances, balanceCarrier, balanceGeneral, balancePartner, balanceSupplier } = useBalanceStore();
+  const [currentPage, setCurrentPage] = useState(0);
+  const itemsPerPage = 6; // ou o número que preferir
+   const { getBalances, balanceCarrier, balanceGeneralUSD, balancePartnerUSD, balanceSupplier } = useBalanceStore();
+
+  const paginatedTransactions = transactionHistoryList.slice(
+    currentPage * itemsPerPage,
+    (currentPage + 1) * itemsPerPage
+  );
 
   useEffect(() => {
     console.log("foi?");
@@ -99,7 +107,9 @@ export const CaixasTab = () => {
         typeInvoice: "fornecedor",
       }));
 
-      const partnerItems = partnerRes.data.map((item: any) => ({
+      console.log("partners", partnerRes);
+
+      const partnerItems = partnerRes.data.usd.map((item: any) => ({
         ...item,
         typeInvoice: "parceiro",
       }));
@@ -476,14 +486,14 @@ export const CaixasTab = () => {
             <Handshake className="text-teal-600 w-5 h-5" />
             <h3 className="font-medium truncate max-w-[180px]">TOTAL PARCEIROS</h3>
           </div>
-          <p className="text-2xl font-bold text-teal-600 truncate" title={formatCurrency(balancePartner || 0)}>
-            {formatCurrency(balancePartner || 0).length > 12
-              ? `${formatCurrency(balancePartner || 0).substring(0, 12)}...`
-              : formatCurrency(balancePartner || 0)}
+          <p className="text-2xl font-bold text-teal-600 truncate" title={formatCurrency(balancePartnerUSD || 0)}>
+            {formatCurrency(balancePartnerUSD || 0).length > 12
+              ? `${formatCurrency(balancePartnerUSD || 0).substring(0, 12)}...`
+              : formatCurrency(balancePartnerUSD || 0)}
           </p>
-          {formatCurrency(balancePartner || 0).length > 12 && (
+          {formatCurrency(balancePartnerUSD || 0).length > 12 && (
             <div className="absolute hidden group-hover:block bg-gray-800 text-white text-xs p-2 rounded z-10 bottom-full mb-2 whitespace-nowrap">
-              {formatCurrency(balancePartner || 0)}
+              {formatCurrency(balancePartnerUSD || 0)}
             </div>
           )}
         </motion.div>
@@ -493,14 +503,14 @@ export const CaixasTab = () => {
             <CircleDollarSign className="text-purple-600 w-5 h-5" />
             <h3 className="font-medium truncate max-w-[180px]">TOTAL GERAL</h3>
           </div>
-          <p className="text-2xl font-bold text-purple-600 truncate" title={formatCurrency(balanceGeneral || 0)}>
-            {formatCurrency(balanceGeneral || 0).length > 12
-              ? `${formatCurrency(balanceGeneral || 0).substring(0, 12)}...`
-              : formatCurrency(balanceGeneral || 0)}
+          <p className="text-2xl font-bold text-purple-600 truncate" title={formatCurrency(balanceGeneralUSD || 0)}>
+            {formatCurrency(balanceGeneralUSD || 0).length > 12
+              ? `${formatCurrency(balanceGeneralUSD || 0).substring(0, 12)}...`
+              : formatCurrency(balanceGeneralUSD || 0)}
           </p>
-          {formatCurrency(balanceGeneral || 0).length > 12 && (
+          {formatCurrency(balanceGeneralUSD || 0).length > 12 && (
             <div className="absolute hidden group-hover:block bg-gray-800 text-white text-xs p-2 rounded z-10 bottom-full mb-2 whitespace-nowrap">
-              {formatCurrency(balanceGeneral || 0)}
+              {formatCurrency(balanceGeneralUSD || 0)}
             </div>
           )}
         </motion.div>
@@ -681,41 +691,45 @@ export const CaixasTab = () => {
                           Carregando...
                         </td>
                       </tr>
-                    ) : transactionHistoryList.length ? (
-                      transactionHistoryList
-                        .slice()
-                        .reverse()
-                        .map((t: any) => (
-                          <tr key={t.id} className="odd:bg-blue-50 even:bg-green-50">
-                            <td className="py-2 px-4 border text-center">
-                              {new Date(t.date).toLocaleDateString("pt-BR")}
-                            </td>
-                            <td className="py-2 px-4 border">{t.description}</td>
-                            <td
-                              className={`py-2 px-4 border text-right ${
-                                t.direction === "OUT" ? "text-red-600" : "text-green-600"
-                              }`}
+                    ) : paginatedTransactions.length ? (
+                      paginatedTransactions.map((t: any) => (
+                        <motion.tr
+                          key={t.id}
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -10 }}
+                          transition={{ duration: 0.3 }}
+                          className="odd:bg-blue-50 even:bg-green-50"
+                        >
+                          <td className="py-2 px-4 border text-center">
+                            {new Date(t.date).toLocaleDateString("pt-BR")}
+                          </td>
+                          <td className="py-2 px-4 border">{t.description}</td>
+                          <td
+                            className={`py-2 px-4 border text-right ${
+                              t.direction === "OUT" ? "text-red-600" : "text-green-600"
+                            }`}
+                          >
+                            {t.direction === "OUT" ? "-" : "+"}
+                            {new Intl.NumberFormat("en-US", {
+                              style: "currency",
+                              currency: "USD",
+                              minimumFractionDigits: 2,
+                            }).format(t.value)}{" "}
+                          </td>
+                          <td className="py-2 px-4 border text-center">
+                            <motion.button
+                              whileHover={{ scale: 1.05 }}
+                              whileTap={{ scale: 0.95 }}
+                              onClick={() => limparHistorico(t.id)}
+                              disabled={loadingClearId === t.id}
+                              className="bg-red-500 hover:bg-red-700 text-white px-3 py-1 rounded"
                             >
-                              {t.direction === "OUT" ? "-" : "+"}
-                              {new Intl.NumberFormat("en-US", {
-                                style: "currency",
-                                currency: "USD",
-                                minimumFractionDigits: 2,
-                              }).format(t.value)}{" "}
-                            </td>
-                            <td className="py-2 px-4 border text-center">
-                              <motion.button
-                                whileHover={{ scale: 1.05 }}
-                                whileTap={{ scale: 0.95 }}
-                                onClick={() => limparHistorico(t.id)}
-                                disabled={loadingClearId === t.id}
-                                className="bg-red-500 hover:bg-red-700 text-white px-3 py-1 rounded"
-                              >
-                                {loadingClearId === t.id ? <Loader2 className="w-4 h-4 animate-spin" /> : "Excluir"}
-                              </motion.button>
-                            </td>
-                          </tr>
-                        ))
+                              {loadingClearId === t.id ? <Loader2 className="w-4 h-4 animate-spin" /> : "Excluir"}
+                            </motion.button>
+                          </td>
+                        </motion.tr>
+                      ))
                     ) : (
                       <tr>
                         <td colSpan={4} className="text-center py-4 text-gray-500">
@@ -725,6 +739,31 @@ export const CaixasTab = () => {
                     )}
                   </tbody>
                 </table>
+                {transactionHistoryList.length > itemsPerPage && (
+                  <div className="flex justify-between items-center mt-4">
+                    <button
+                      onClick={() => setCurrentPage((prev) => Math.max(0, prev - 1))}
+                      disabled={currentPage === 0}
+                      className="px-3 py-1 bg-gray-200 text-sm rounded disabled:opacity-50"
+                    >
+                      Anterior
+                    </button>
+                    <span className="text-sm text-gray-600">
+                      Página {currentPage + 1} de {Math.ceil(transactionHistoryList.length / itemsPerPage)}
+                    </span>
+                    <button
+                      onClick={() =>
+                        setCurrentPage((prev) =>
+                          Math.min(prev + 1, Math.ceil(transactionHistoryList.length / itemsPerPage) - 1)
+                        )
+                      }
+                      disabled={(currentPage + 1) * itemsPerPage >= transactionHistoryList.length}
+                      className="px-3 py-1 bg-gray-200 text-sm rounded disabled:opacity-50"
+                    >
+                      Próxima
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           </div>
