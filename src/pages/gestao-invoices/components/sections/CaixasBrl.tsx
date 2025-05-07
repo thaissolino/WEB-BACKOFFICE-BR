@@ -91,7 +91,7 @@ export const CaixasTabBrl = () => {
     try {
       // Fetch only carriers and suppliers in parallel
       const [partnerRes] = await Promise.all([api.get("/invoice/partner")]);
-  
+
       const partnerItems = partnerRes.data.brl.map((item: any) => ({
         ...item,
         typeInvoice: "parceiro",
@@ -228,7 +228,7 @@ export const CaixasTabBrl = () => {
       setLoadingFetch3(true);
 
       await api.delete(`/invoice/box/trasnsaction/user/${recolhedorId}`);
-
+      getBalances()
       await fetchEntityData(selectedEntity.id);
       fetchDatUser();
       Swal.fire({
@@ -315,95 +315,49 @@ export const CaixasTabBrl = () => {
   const submitPayment = async () => {
     try {
       if (!formData.date) {
-        Swal.fire({
-          icon: "error",
-          title: "Erro!",
-          text: "selecione um data",
-          buttonsStyling: false,
-          customClass: {
-            confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
-          },
-        });
+        Swal.fire({ icon: "error", title: "Erro!", text: "Selecione uma data" });
         return;
       }
       if (!isValidNumber(formData.value)) {
-        Swal.fire({
-          icon: "error",
-          title: "Erro!",
-          text: "selecione um valor válido",
-          buttonsStyling: false,
-          customClass: {
-            confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
-          },
-        });
+        Swal.fire({ icon: "error", title: "Erro!", text: "Valor inválido" });
         return;
       }
       if (!formData.description) {
-        Swal.fire({
-          icon: "error",
-          title: "Erro!",
-          text: "Informe uma descrição para o pagamento",
-          buttonsStyling: false,
-          customClass: {
-            confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
-          },
-        });
+        Swal.fire({ icon: "error", title: "Erro!", text: "Informe uma descrição" });
         return;
       }
       if (!selectedEntity) {
-        Swal.fire({
-          icon: "error",
-          title: "Erro!",
-          text: "Nenhum usuário selecionado",
-          buttonsStyling: false,
-          customClass: {
-            confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
-          },
-        });
+        Swal.fire({ icon: "error", title: "Erro!", text: "Nenhum usuário selecionado" });
         return;
       }
 
-      console.log("selectedEntity", selectedEntity);
-
       setLoadingFetch3(true);
+
+      // Mapeia o tipo de entidade para o valor esperado pela API
+      const entityTypeMap = {
+        fornecedor: "SUPPLIER",
+        freteiro: "CARRIER",
+        parceiro: "PARTNER",
+      };
+
       await api.post(`/invoice/box/transaction`, {
         value: Math.abs(Number(formData.value)),
         entityId: selectedEntity.id,
         direction: Number(formData.value) > 0 ? "IN" : "OUT",
         date: formData.date,
         description: formData.description,
-        entityType: selectedEntity.typeInvoice === "parceiro",
+        entityType: entityTypeMap[selectedEntity.typeInvoice as keyof typeof entityTypeMap] || "PARTNER", // Fallback seguro
         userId: caixaUser?.id,
       });
 
       await fetchEntityData(selectedEntity.id);
-
       getBalances();
-
       setFormData({ date: "", value: "", description: "" });
-      fetchDatUser();
-      Swal.fire({
-        icon: "success",
-        title: "Sucesso",
-        text: "Transação registrada com sucesso",
-        confirmButtonText: "Ok",
-        buttonsStyling: false,
-        customClass: {
-          confirmButton: "bg-green-600 text-white hover:bg-green-700 px-4 py-2 rounded font-semibold",
-        },
-      });
+
+      Swal.fire({ icon: "success", title: "Sucesso!", text: "Transação registrada" });
     } catch (error) {
-      console.error("Erro ao buscar caixas:", error);
-      Swal.fire({
-        icon: "error",
-        title: "Erro",
-        text: "Erro ao resgistrar pagamento",
-        confirmButtonText: "Ok",
-        buttonsStyling: false,
-        customClass: {
-          confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
-        },
-      });
+      console.error("Erro:", error);
+      Swal.fire({ icon: "error", title: "Erro!", text: "Falha ao registrar transação" });
     } finally {
       setLoadingFetch3(false);
     }
@@ -458,29 +412,36 @@ export const CaixasTabBrl = () => {
         ) : (
           <div className="flex items-center space-x-4">
             <GenericSearchSelect
-              items={combinedItems}
+              items={combinedItems || []}
               value={selectedEntity?.id || ""}
-              getLabel={(p) => (
-                <span className="flex items-center">
-                  {p.typeInvoice === "freteiro" && <i className="fas fa-truck mr-2 text-blue-600"></i>}
-                  {p.typeInvoice === "fornecedor" && <i className="fas fa-hand-holding-usd mr-2 text-green-600"></i>}
-                  {p.typeInvoice === "parceiro" && <i className="fas fa-handshake mr-2 text-red-600"></i>}
-                  {p.name} (
-                  {
-                    (
-                      {
-                        freteiro: "Transportadora",
-                        fornecedor: "Fornecedor",
-                        parceiro: "Parceiro",
-                      } as const
-                    )[p.typeInvoice as "freteiro" | "fornecedor" | "parceiro"]
-                  }
-                  )
-                </span>
-              )}
-              getId={(p) => p.id}
+              getSearchString={(p) => `${p.name} ${p.typeInvoice}`}
+              getLabel={(p) => {
+                if (!p) return <span>Item inválido</span>;
+
+                return (
+                  <span className="flex items-center">
+                    {p.typeInvoice === "freteiro" && <i className="fas fa-truck mr-2 text-blue-600"></i>}
+                    {p.typeInvoice === "fornecedor" && <i className="fas fa-hand-holding-usd mr-2 text-green-600"></i>}
+                    {p.typeInvoice === "parceiro" && <i className="fas fa-handshake mr-2 text-red-600"></i>}
+                    {p.name} (
+                    {
+                      (
+                        {
+                          freteiro: "Transportadora",
+                          fornecedor: "Fornecedor",
+                          parceiro: "Parceiro",
+                        } as const
+                      )[p.typeInvoice as "freteiro" | "fornecedor" | "parceiro"]
+                    }
+                    )
+                  </span>
+                );
+              }}
+              getId={(p) => p?.id ?? ''}
               onChange={(id) => {
-                const entity = combinedItems.find((item) => item.id === id);
+                if (!id) return;
+
+                const entity = combinedItems?.find((item) => item?.id === id);
                 if (entity) {
                   setSelectedEntity(entity);
                   fetchEntityData(id);
@@ -505,10 +466,10 @@ export const CaixasTabBrl = () => {
                 {selectedEntity.typeInvoice === "freteiro"
                   ? "TRANSPORTADORA"
                   : selectedEntity.typeInvoice === "fornecedor"
-                  ? "FORNECEDOR"
-                  : selectedEntity.typeInvoice === "parceiro"
-                  ? "PARCEIRO"
-                  : ""}{" "}
+                    ? "FORNECEDOR"
+                    : selectedEntity.typeInvoice === "parceiro"
+                      ? "PARCEIRO"
+                      : ""}{" "}
                 : {selectedEntity.name}
               </span>
             </h2>
@@ -568,7 +529,7 @@ export const CaixasTabBrl = () => {
                 <div>
                   <label className="block text-sm font-medium text-gray-700">VALOR</label>
                   <input
-                    type="text"
+                    type="number"
                     className="w-full border border-gray-300 rounded-md p-2"
                     value={formData.value}
                     onChange={(e) => setFormData({ ...formData, value: e.target.value })}
@@ -632,13 +593,12 @@ export const CaixasTabBrl = () => {
                           className="odd:bg-blue-50 even:bg-green-50"
                         >
                           <td className="py-2 px-4 border text-center">
-                            {new Date(t.date).toLocaleDateString("pt-BR")}
+                            {new Date(t.date).toLocaleDateString("pt-BR", { timeZone: "UTC" })}
                           </td>
                           <td className="py-2 px-4 border">{t.description}</td>
                           <td
-                            className={`py-2 px-4 border text-right ${
-                              t.direction === "OUT" ? "text-red-600" : "text-green-600"
-                            }`}
+                            className={`py-2 px-4 border text-right ${t.direction === "OUT" ? "text-red-600" : "text-green-600"
+                              }`}
                           >
                             {t.direction === "OUT" ? "-" : "+"}
                             {new Intl.NumberFormat("en-US", {
