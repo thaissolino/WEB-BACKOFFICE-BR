@@ -4,6 +4,8 @@ import SuccessModal from "./SuccessModal";
 import OperationDetailsModal from "./OperationDetailsModal";
 import { api } from "../../../services/api";
 import { NumericCellType } from "handsontable/cellTypes";
+import Swal from "sweetalert2";
+import { Loader2, Save } from "lucide-react";
 
 interface Operacao {
   id: number;
@@ -51,7 +53,7 @@ const OperacoesTab: React.FC = () => {
 
   const [selectedOperation, setSelectedOperation] = useState<Operacao | null>(null);
   const [showOperationModal, setShowOperationModal] = useState(false);
-
+  const [isSaving, setIsSaving] = useState(false);
   const [currentPage, setCurrentPage] = useState(0);
   const itemsPerPage = 6; // ou o número que preferir
 
@@ -181,6 +183,8 @@ const OperacoesTab: React.FC = () => {
     };
 
     const collector = recolhedorOperacao;
+
+    setIsSaving(true);
     try {
       await api.post<Operacao>("/operations/create_operation", novaOperacao);
 
@@ -198,12 +202,24 @@ const OperacoesTab: React.FC = () => {
       setTaxaRecolhedorOperacao(1.025);
       setTaxaFornecedorOperacao(1.05);
 
-      setSuccessMessage("Operação registrada com sucesso!");
+      Swal.fire({
+        icon: "success",
+        title: "Sucesso!",
+        text: "Operação registrada com sucesso!",
+        confirmButtonText: "Ok",
+        buttonsStyling: false,
+        customClass: {
+          confirmButton: "bg-blue-600 text-white hover:bg-blue-700 px-4 py-2 rounded font-semibold",
+        },
+      });
+      // setSuccessMessage("Operação registrada com sucesso!");
       setShowSuccessModal(true);
     } catch (error: any) {
       console.error("Erro ao registrar operação:", error);
       setSuccessMessage("Erro ao registrar a operação. Por favor, tente novamente.");
       setShowSuccessModal(true);
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -330,10 +346,27 @@ const OperacoesTab: React.FC = () => {
 
         <button
           onClick={registrarOperacao}
-          className="mt-6 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-md w-full"
+          className="w-full bg-blue-600 mt-4 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md flex items-center justify-center"
+          disabled={isSaving}
         >
-          <i className="fas fa-save mr-2"></i> REGISTRAR OPERAÇÃO
+          {isSaving ? (
+            <>
+              <Loader2 className="animate-spin mr-2" size={18} />
+              Resgistrando...
+            </>
+          ) : (
+            <>
+              <Save className="mr-2" size={18} />
+              {/* <i className="fas fa-save mr-2"></i> */}
+              REGISTRAR OPERAÇÃO
+            </>
+          )}
         </button>
+
+        {/* <button className="mt-6 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-md w-full">
+           onClick={registrarOperacao}        
+        <i className="fas fa-save mr-2"></i> REGISTRAR OPERAÇÃO
+        </button>*/}
       </div>
 
       <div className="bg-white p-6 rounded-lg shadow">
@@ -355,9 +388,10 @@ const OperacoesTab: React.FC = () => {
             <tbody>
               {operacoes
                 .filter((op) => op.comission == 0 || op.comission == null)
+                .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()) 
                 .slice(currentPage * itemsPerPage, (currentPage + 1) * itemsPerPage)
                 .map((op) => (
-                  <tr key={op.id}>
+                  <tr key={op.id} className="odd:bg-blue-50 even:bg-green-50">
                     <td className="py-2 px-4 border text-center align-middle">{formatDate(new Date(op.date))}</td>
                     <td className="py-2 px-4 border align-middle text-center">{op.city}</td>
                     <td className="py-2 px-4 border align-middle text-center">{getRecolhedorNome(op.collectorId)}</td>

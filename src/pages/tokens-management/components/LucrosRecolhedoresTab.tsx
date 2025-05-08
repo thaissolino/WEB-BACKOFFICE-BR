@@ -164,13 +164,15 @@ const LucrosRecolhedoresFusionTab: React.FC = () => {
                 <tbody>
                   {operacoesPaginadas
                     .filter((op) => !op.comission || op.comission <= 0)
+                    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
                     .map((op) => {
                       if (!op.date || isNaN(new Date(op.date).getTime())) return null;
                       const recolhedorNome = getRecolhedorNome(op.collectorId);
                       const fornecedorNome = getFornecedorNome(op.supplierId);
 
                       return (
-                        <tr key={op.id}>
+                        <tr key={op.id} className="odd:bg-blue-50 even:bg-green-50"
+>
                           <td className="py-2 px-4 text-center border">{formatDate(op.date)}</td>
                           <td className="py-2 px-4 text-center border">{op.city || "Desconhecido"}</td>
                           <td className="py-2 px-4 text-center border">{recolhedorNome}</td>
