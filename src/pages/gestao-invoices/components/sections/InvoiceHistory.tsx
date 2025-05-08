@@ -347,7 +347,7 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
                     const total = subtotal;
 
                     return (
-                      <tr key={invoice.id} className="hover:bg-gray-50">
+                      <tr key={invoice.id} className="odd:bg-blue-50 even:bg-green-50">
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                           {invoice.number}
                         </td>
