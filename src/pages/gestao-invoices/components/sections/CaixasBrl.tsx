@@ -228,7 +228,7 @@ export const CaixasTabBrl = () => {
       setLoadingFetch3(true);
 
       await api.delete(`/invoice/box/trasnsaction/user/${recolhedorId}`);
-      getBalances()
+      getBalances();
       await fetchEntityData(selectedEntity.id);
       fetchDatUser();
       Swal.fire({
@@ -253,6 +253,7 @@ export const CaixasTabBrl = () => {
       });
     } finally {
       setLoadingClearId(null);
+      setLoadingFetch3(false);
     }
   };
 
@@ -315,19 +316,59 @@ export const CaixasTabBrl = () => {
   const submitPayment = async () => {
     try {
       if (!formData.date) {
-        Swal.fire({ icon: "error", title: "Erro!", text: "Selecione uma data" });
+      //  Swal.fire({ icon: "error", title: "Erro!", text: "Selecione uma data" });
+        Swal.fire({
+          icon: "error",
+          title: "Erro!",
+          text: "Selecione uma data",
+          confirmButtonText: "Ok",
+          buttonsStyling: false,
+          customClass: {
+            confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
+          },
+        });
         return;
       }
       if (!isValidNumber(formData.value)) {
-        Swal.fire({ icon: "error", title: "Erro!", text: "Valor inválido" });
+      //  Swal.fire({ icon: "error", title: "Erro!", text: "Valor inválido" });
+        Swal.fire({
+          icon: "error",
+          title: "Erro!",
+          text: "Valor inválido",
+          confirmButtonText: "Ok",
+          buttonsStyling: false,
+          customClass: {
+            confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
+          },
+        });
         return;
       }
       if (!formData.description) {
-        Swal.fire({ icon: "error", title: "Erro!", text: "Informe uma descrição" });
+       // Swal.fire({ icon: "error", title: "Erro!", text: "Informe uma descrição" });
+        Swal.fire({
+          icon: "error",
+          title: "Erro!",
+          text: "Informe uma descrição",
+          confirmButtonText: "Ok",
+          buttonsStyling: false,
+          customClass: {
+            confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
+          },
+        });
         return;
       }
       if (!selectedEntity) {
-        Swal.fire({ icon: "error", title: "Erro!", text: "Nenhum usuário selecionado" });
+       // Swal.fire({ icon: "error", title: "Erro!", text: "Nenhum usuário selecionado" });
+        Swal.fire({
+          icon: "error",
+          title: "Erro!",
+          text: "Nenhum usuário selecionado",
+          confirmButtonText: "Ok",
+          buttonsStyling: false,
+          customClass: {
+            confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
+          },
+        });
         return;
       }
 
@@ -353,11 +394,30 @@ export const CaixasTabBrl = () => {
       await fetchEntityData(selectedEntity.id);
       getBalances();
       setFormData({ date: "", value: "", description: "" });
-
-      Swal.fire({ icon: "success", title: "Sucesso!", text: "Transação registrada" });
+      Swal.fire({
+        icon: "success",
+        title: "Sucesso!",
+        text: "Transação registrada com sucesso",
+        confirmButtonText: "Ok",
+        buttonsStyling: false,
+        customClass: {
+          confirmButton: "bg-green-600 text-white hover:bg-green-700 px-4 py-2 rounded font-semibold",
+        },
+      });
+      // Swal.fire({ icon: "success", title: "Sucesso!", text: "Transação registrada" });
     } catch (error) {
       console.error("Erro:", error);
-      Swal.fire({ icon: "error", title: "Erro!", text: "Falha ao registrar transação" });
+      //  Swal.fire({ icon: "error", title: "Erro!", text: "Falha ao registrar transação" });
+      Swal.fire({
+        icon: "error",
+        title: "Erro!",
+        text: "Falha ao registrar transação",
+        confirmButtonText: "Ok",
+        buttonsStyling: false,
+        customClass: {
+          confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
+        },
+      });
     } finally {
       setLoadingFetch3(false);
     }
@@ -380,6 +440,11 @@ export const CaixasTabBrl = () => {
           <p className="text-2xl font-bold text-teal-600 truncate ml-10" title={formatCurrency(balancePartnerBRL || 0)}>
             {combinedItems.length}{" "}
           </p>
+          {combinedItems.length > 1 && (
+            <div className="absolute hidden group-hover:block bg-gray-800 text-white text-xs p-2 rounded z-10 bottom-full mb-2 whitespace-nowrap">
+              {combinedItems.length || 0}
+            </div>
+          )}
         </motion.div>
 
         <motion.div whileHover={{ scale: 1.02 }} className="bg-purple-50 p-4 rounded-lg shadow relative group">
@@ -388,11 +453,12 @@ export const CaixasTabBrl = () => {
             <h3 className="font-medium truncate max-w-[180px]">BALANÇO GERAL</h3>
           </div>
           <p className="text-2xl font-bold text-purple-600 truncate" title={formatCurrency(balancePartnerBRL || 0)}>
-            {formatCurrency(balancePartnerBRL || 0).length > 12
+            {/* {formatCurrency(balancePartnerBRL || 0).length > 12
               ? `${formatCurrency(balancePartnerBRL || 0).substring(0, 12)}...`
-              : formatCurrency(balancePartnerBRL || 0)}
+              : formatCurrency(balancePartnerBRL || 0)} */}
+            {formatCurrency(balancePartnerBRL || 0)}
           </p>
-          {formatCurrency(balancePartnerBRL || 0).length > 12 && (
+          {formatCurrency(balancePartnerBRL || 0).length > 1 && (
             <div className="absolute hidden group-hover:block bg-gray-800 text-white text-xs p-2 rounded z-10 bottom-full mb-2 whitespace-nowrap">
               {formatCurrency(balancePartnerBRL || 0)}
             </div>
@@ -437,7 +503,7 @@ export const CaixasTabBrl = () => {
                   </span>
                 );
               }}
-              getId={(p) => p?.id ?? ''}
+              getId={(p) => p?.id ?? ""}
               onChange={(id) => {
                 if (!id) return;
 
@@ -466,10 +532,10 @@ export const CaixasTabBrl = () => {
                 {selectedEntity.typeInvoice === "freteiro"
                   ? "TRANSPORTADORA"
                   : selectedEntity.typeInvoice === "fornecedor"
-                    ? "FORNECEDOR"
-                    : selectedEntity.typeInvoice === "parceiro"
-                      ? "PARCEIRO"
-                      : ""}{" "}
+                  ? "FORNECEDOR"
+                  : selectedEntity.typeInvoice === "parceiro"
+                  ? "PARCEIRO"
+                  : ""}{" "}
                 : {selectedEntity.name}
               </span>
             </h2>
@@ -597,8 +663,9 @@ export const CaixasTabBrl = () => {
                           </td>
                           <td className="py-2 px-4 border">{t.description}</td>
                           <td
-                            className={`py-2 px-4 border text-right ${t.direction === "OUT" ? "text-red-600" : "text-green-600"
-                              }`}
+                            className={`py-2 px-4 border text-right ${
+                              t.direction === "OUT" ? "text-red-600" : "text-green-600"
+                            }`}
                           >
                             {t.direction === "OUT" ? "-" : "+"}
                             {new Intl.NumberFormat("en-US", {
