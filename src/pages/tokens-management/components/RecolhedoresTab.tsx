@@ -306,7 +306,7 @@ const RecolhedoresTab: React.FC = () => {
       const totalBalance = Object.values(updatedBalances).reduce((a, b) => a + b, 0);
       setSaldoAcumulado(totalBalance);
 
-      alert("Pagamento deletado com sucesso.");
+     // alert("Pagamento deletado com sucesso.");
     } catch (e: any) {
       alert(`Erro ao deletar pagamento: ${e.message}`);
     }
