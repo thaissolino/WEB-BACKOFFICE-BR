@@ -586,56 +586,6 @@ useEffect(() => {
               </div>
             </div>
 
-            <div className="mb-6">
-              <h4 className="font-medium mb-2 text-blue-700 border-b pb-2">Produtos Pendentes de Análise</h4>
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Produto
-                      </th>
-                      <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Qtd
-                      </th>
-                      <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Valor ($)
-                      </th>
-                      {/* <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Valor (R$)</th> */}
-                      <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Peso (kg)
-                      </th>
-                      <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Total (R$)
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {selectedInvoice.products
-                      .filter((item) => item.receivedQuantity > 0)
-                      .map((product, index) => (
-                        <tr key={index}>
-                          <td className="px-4 py-2 text-sm text-gray-700">
-                            {products.find((item) => item.id === product.productId)?.name}
-                          </td>
-                          <td className="px-4 py-2 text-sm text-right">
-                            {product.receivedQuantity} / {product.quantity}
-                          </td>
-                          <td className="px-4 py-2 text-sm text-right">{product.value.toFixed(2)}</td>
-                          <td className="px-4 py-2 text-sm text-right">{product.weight.toFixed(2)}</td>
-                          <td className="px-4 py-2 text-sm text-right">
-                            {product.total.toLocaleString("en-US", {
-                              minimumFractionDigits: 2,
-                              maximumFractionDigits: 2,
-                            })}
-                          </td>
-                        </tr>
-                      ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
               <div className="bg-gray-50 p-3 rounded border">
                 <p className="text-sm text-gray-600">Frete 1:</p>
