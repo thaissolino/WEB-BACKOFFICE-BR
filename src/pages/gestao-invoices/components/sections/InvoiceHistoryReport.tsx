@@ -535,7 +535,136 @@ useEffect(() => {
                 )}
               </div>
             </div>
+            <div className="mb-6">
+              <h4 className="font-medium mb-2 text-blue-700 border-b pb-2">Produtos em Análise</h4>
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Produto
+                      </th>
+                      <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Qtd
+                      </th>
+                      <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Valor ($)
+                      </th>
+                      <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Peso (kg)
+                      </th>
+                      <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Total ($)
+                      </th>
+                      <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Ações
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody id="modalInvoicePendingProducts" className="bg-white divide-y divide-gray-200">
+                    {selectedInvoice.products
+                      .filter((item) => !item.received)
+                      .map((product, index) => (
+                        <tr key={index}>
+                          <td className="px-4 py-2 text-sm text-gray-700">
+                            {products.find((item) => item.id === product.productId)?.name}
+                          </td>
+                          <td className="px-4 py-2 text-sm text-right">{product.quantity}</td>
+                          <td className="px-4 py-2 text-sm text-right">{product.value.toFixed(2)}</td>
+                          <td className="px-4 py-2 text-sm text-right">{product.weight.toFixed(2)}</td>
+                          <td className="px-4 py-2 text-sm text-right">
+                            {product.total.toLocaleString("en-US", {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            })}
+                          </td>
+                          <td className="px-4 py-2 text-sm text-right">
+                            <div className="flex justify-end items-center ">
+                              {/* <button disabled={isSaving} onClick={()=> sendUpdateProductStatus(product)} className="flex items-center gap-1 text-white px-2 bg-green-600 hover:bg-green-300 rounded-sm">
+                                            { isSaving && isSavingId === product.id ? 
+                                            (
+                                            <> <Loader2 className="animate-spin mr-2" size={18} />
+                                              Salvando...
+                                            </>
+                                            )
+                                            :
+                                            (
+                                              <>
+                                              <Check size={18} /> Receber 
+                                              </>
+                                          )}
+                                          </button> */}
+                              <button
+                                onClick={() => setSelectedProductToReceive(product)}
+                                className="flex items-center gap-1 text-white px-2 bg-green-600 hover:bg-green-500 rounded-sm"
+                              >
+                                <Check size={18} /> Receber
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
+                {selectedProductToReceive && (
+                  <ModalReceiveProduct
+                    product={selectedProductToReceive}
+                    onClose={() => setSelectedProductToReceive(null)}
+                    onConfirm={async (receivedQuantity: number) => {
+                      try {
+                        setIsSavingId(selectedProductToReceive.id);
+                        setIsSaving(true);
 
+                        const totalReceived = selectedProductToReceive.receivedQuantity + receivedQuantity;
+                        const isFullyReceived = totalReceived >= selectedProductToReceive.quantity;
+
+                        await api.patch("/invoice/update/product", {
+                          idProductInvoice: selectedProductToReceive.id,
+                          bodyupdate: {
+                            received: isFullyReceived,
+                            receivedQuantity: totalReceived,
+                          },
+                        });
+
+                        const { data: updatedInvoices } = await api.get("/invoice/get");
+                        setInvoices(updatedInvoices);
+
+                        const updated = updatedInvoices.find(
+                          (i: InvoiceData) => i.id === selectedProductToReceive.invoiceId
+                        );
+
+                        if (updated) {
+                          const allReceived = updated.products.every(
+                            (p: any) => p.received || p.receivedQuantity >= p.quantity
+                          );
+
+                          if (allReceived && !updated.completed) {
+                            await api.patch("/invoice/update", {
+                              id: updated.id,
+                              bodyupdate: {
+                                completed: true,
+                                completedDate: new Date().toISOString(),
+                              },
+                            });
+
+                            const { data: refreshedInvoices } = await api.get("/invoice/get");
+                            setInvoices(refreshedInvoices);
+                            setSelectedInvoice(refreshedInvoices.find((i: any) => i.id === updated.id) || null);
+                          } else {
+                            setSelectedInvoice(updated);
+                          }
+                        }
+                      } catch (err) {
+                        console.error("Erro ao atualizar produto", err);
+                      } finally {
+                        setIsSaving(false);
+                        setSelectedProductToReceive(null);
+                      }
+                    }}
+                  />
+                )}
+              </div>
+            </div>
             <div className="mb-6">
               <h4 className="font-medium mb-2 text-blue-700 border-b pb-2">Produtos Recebidos</h4>
               <div className="overflow-x-auto">
