@@ -27,6 +27,7 @@ export interface Operacao {
   supplierId: number;
   collectorTax: number;
   supplierTax: number;
+  comission: number;
 }
 
 export interface Caixa {
@@ -50,8 +51,8 @@ const LucrosRecolhedoresFusionTab: React.FC = () => {
   const itensPorPagina = 10;
 
   const operacoesFiltradas = selectedRecolhedor
-    ? operacoes.filter((op) => op.collectorId === selectedRecolhedor.id)
-    : operacoes;
+    ? operacoes.filter((op) => op.collectorId === selectedRecolhedor.id && (!op.comission || op.comission <= 0))
+    : operacoes.filter((op) => !op.comission || op.comission <= 0);
 
   const operacoesPaginadas = operacoesFiltradas.slice(paginaAtual * itensPorPagina, (paginaAtual + 1) * itensPorPagina);
 
@@ -161,41 +162,43 @@ const LucrosRecolhedoresFusionTab: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {operacoesPaginadas.map((op) => {
-                    if (!op.date || isNaN(new Date(op.date).getTime())) return null;
-                    const recolhedorNome = getRecolhedorNome(op.collectorId);
-                    const fornecedorNome = getFornecedorNome(op.supplierId);
+                  {operacoesPaginadas
+                    .filter((op) => !op.comission || op.comission <= 0)
+                    .map((op) => {
+                      if (!op.date || isNaN(new Date(op.date).getTime())) return null;
+                      const recolhedorNome = getRecolhedorNome(op.collectorId);
+                      const fornecedorNome = getFornecedorNome(op.supplierId);
 
-                    return (
-                      <tr key={op.id}>
-                        <td className="py-2 px-4 text-center border">{formatDate(op.date)}</td>
-                        <td className="py-2 px-4 text-center border">{op.city || "Desconhecido"}</td>
-                        <td className="py-2 px-4 text-center border">{recolhedorNome}</td>
-                        <td className="py-2 px-4 text-center border">{fornecedorNome}</td>
-                        <td className="py-2 px-4 border text-center">{formatCurrency(op.value || 0)}</td>
-                        <td className="py-2 px-4 border text-center font-semibold text-green-600 bg-yellow-50 rounded">
-                        {/* <td className="py-2 px-4 border text-center text-green-500 border-lime-500 bg-yellow-100 text-lg">
+                      return (
+                        <tr key={op.id}>
+                          <td className="py-2 px-4 text-center border">{formatDate(op.date)}</td>
+                          <td className="py-2 px-4 text-center border">{op.city || "Desconhecido"}</td>
+                          <td className="py-2 px-4 text-center border">{recolhedorNome}</td>
+                          <td className="py-2 px-4 text-center border">{fornecedorNome}</td>
+                          <td className="py-2 px-4 border text-center">{formatCurrency(op.value || 0)}</td>
+                          <td className="py-2 px-4 border text-center font-semibold text-green-600 bg-yellow-50 rounded">
+                            {/* <td className="py-2 px-4 border text-center text-green-500 border-lime-500 bg-yellow-100 text-lg">
                           /// {formatCurrency(op.profit || 0)} ///
                           {formatCurrency(op.value - (op.value || 0) / (op.collectorTax || 0))}
                         </td> */}
-                          {(op.value - op.value / (op.collectorTax || 0)).toLocaleString("pt-BR", {
-                            style: "currency",
-                            currency: "BRL",
-                          })}
-                        </td>
-                        <td className="py-2 px-4 border text-center font-semibold text-blue-600 bg-yellow-50 rounded">
-                          {(
-                            (op.value - op.value / (op.collectorTax || 1)) *
-                            (selectedRecolhedor.comission / 100)
-                          ).toLocaleString("pt-BR", {
-                           //style: "percent",
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 2,
-                          })}
-                        </td>
-                      </tr>
-                    );
-                  })}
+                            {(op.value - op.value / (op.collectorTax || 0)).toLocaleString("pt-BR", {
+                              style: "currency",
+                              currency: "BRL",
+                            })}
+                          </td>
+                          <td className="py-2 px-4 border text-center font-semibold text-blue-600 bg-yellow-50 rounded">
+                            {(
+                              (op.value - op.value / (op.collectorTax || 1)) *
+                              (selectedRecolhedor.comission / 100)
+                            ).toLocaleString("pt-BR", {
+                              //style: "percent",
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            })}
+                          </td>
+                        </tr>
+                      );
+                    })}
                 </tbody>
               </table>
               <div className="mt-4 flex justify-between items-center">

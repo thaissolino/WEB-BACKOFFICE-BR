@@ -41,6 +41,7 @@ export interface Operacao {
   collectorTax: number;
   supplierTax: number;
   profit: number;
+  comission: number;
 }
 
 const FornecedoresTab: React.FC = () => {
@@ -275,7 +276,7 @@ const FornecedoresTab: React.FC = () => {
       const totalBalance = Object.values(updatedBalances).reduce((a, b) => a + b, 0);
       setSaldoAcumulado(totalBalance);
 
-     // alert("Pagamento deletado com sucesso.");
+      // alert("Pagamento deletado com sucesso.");
     } catch (e: any) {
       alert(`Erro ao deletar pagamento: ${e.message}`);
     }
@@ -283,7 +284,7 @@ const FornecedoresTab: React.FC = () => {
   const todasTransacoes = [
     ...(fornecedorSelecionado?.transacoes || []),
     ...operacoes
-      .filter((op) => op.supplierId === fornecedorSelecionado?.id)
+      .filter((op) => op.supplierId === fornecedorSelecionado?.id && op.comission !== 0 && op.comission === null)
       .map((op) => ({
         id: `op-${op.id}`,
         date: op.date || new Date().toISOString(),
