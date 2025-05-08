@@ -5,6 +5,7 @@ import { Invoice } from "../types/invoice"; // Se necessário, ajuste o caminho 
 import { Product } from "./ProductsTab";
 import { ModalReceiveProduct } from "../modals/ModalReceiveProduct";
 import { an } from "framer-motion/dist/types.d-B50aGbjN";
+import { ModalAnaliseProduct } from "../modals/ModalAnaliseProduct";
 
 export type exchange = {
   id: string;
@@ -45,6 +46,7 @@ export type InvoiceData = {
     weight: number;
     total: number;
     received: boolean;
+    analising: boolean;
     receivedQuantity: number;
     product: {
       id: string;
@@ -103,7 +105,6 @@ type InvoiceHistoryReportProps = {
   setInvoiceHistory: React.Dispatch<React.SetStateAction<InvoiceData[]>>;
 };
 
-
 export function InvoiceHistoryReport({
   invoiceHistory: invoices,
   setInvoiceHistory: setInvoices,
@@ -119,6 +120,7 @@ export function InvoiceHistoryReport({
   const [isSavingId, setIsSavingId] = useState("");
   const [exchanges, setExchangeResponse] = useState<exchange[]>([]);
   const [selectedProductToReceive, setSelectedProductToReceive] = useState<ProductData | null>(null);
+  const [selectedProductToAnalyze, setSelectedProductToAnalyze] = useState<ProductData | null>(null);
   const [currentPage, setCurrentPage] = useState(0);
   const itemsPerPage = 10;
 
@@ -211,23 +213,22 @@ export function InvoiceHistoryReport({
 
   const taxInvoice = exchanges.find((item) => item.invoiceId === selectedInvoice?.id);
 
-  
-useEffect(() => {
-  const handleKeyDown = (e: KeyboardEvent) => {
-    if (e.key === "Escape") {
-      closeModal();
-    }
-  };
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        closeModal();
+      }
+    };
 
-  document.addEventListener("keydown", handleKeyDown);
-  return () => {
-    document.removeEventListener("keydown", handleKeyDown);
-  };
-}, []);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, []);
 
   return (
     <div className="mt-8 bg-white p-6 pt-4 rounded-lg shadow">
-      <h2  className="text-xl  w-full justify-between items-center flex  flex-row font-semibold mb-4 text-blue-700 border-b pb-2">
+      <h2 className="text-xl  w-full justify-between items-center flex  flex-row font-semibold mb-4 text-blue-700 border-b pb-2">
         <div className="flex justify-center items-center">
           <History className="mr-2 inline" size={18} />
           Histórico de Invoices
@@ -356,7 +357,10 @@ useEffect(() => {
           className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50 "
           onClick={closeModal}
         >
-          <div  onClick={(e) => e.stopPropagation()} className="bg-white p-6 rounded-lg w-full max-w-4xl max-h-[90vh] overflow-y-auto mx-4">
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white p-6 rounded-lg w-full max-w-4xl max-h-[90vh] overflow-y-auto mx-4"
+          >
             <div className="flex justify-between items-start mb-4">
               <div>
                 <h3 className="text-lg font-medium">
@@ -434,6 +438,137 @@ useEffect(() => {
                   <tbody id="modalInvoicePendingProducts" className="bg-white divide-y divide-gray-200">
                     {selectedInvoice.products
                       .filter((item) => !item.received)
+                      .map((product, index) => (
+                        <tr key={index}>
+                          <td className="px-4 py-2 text-sm text-gray-700">
+                            {products.find((item) => item.id === product.productId)?.name}
+                          </td>
+                          <td className="px-4 py-2 text-sm text-right">{product.quantity}</td>
+                          <td className="px-4 py-2 text-sm text-right">{product.value.toFixed(2)}</td>
+                          <td className="px-4 py-2 text-sm text-right">{product.weight.toFixed(2)}</td>
+                          <td className="px-4 py-2 text-sm text-right">
+                            {product.total.toLocaleString("en-US", {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            })}
+                          </td>
+                          <td className="px-4 py-2 text-sm text-right">
+                            <div className="flex justify-end items-center ">
+                              {/* <button disabled={isSaving} onClick={()=> sendUpdateProductStatus(product)} className="flex items-center gap-1 text-white px-2 bg-green-600 hover:bg-green-300 rounded-sm">
+                                            { isSaving && isSavingId === product.id ? 
+                                            (
+                                            <> <Loader2 className="animate-spin mr-2" size={18} />
+                                              Salvando...
+                                            </>
+                                            )
+                                            :
+                                            (
+                                              <>
+                                              <Check size={18} /> Receber 
+                                              </>
+                                          )}
+                                          </button> */}
+                              <button
+                                onClick={() => setSelectedProductToAnalyze(product)}
+                                className="flex items-center gap-1 text-white px-2 bg-yellow-600 hover:bg-yellow-500 rounded-sm"
+                              >
+                                <Check size={18} /> Analisar
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
+                {selectedProductToReceive && (
+                  <ModalReceiveProduct
+                    product={selectedProductToReceive}
+                    onClose={() => setSelectedProductToReceive(null)}
+                    onConfirm={async (receivedQuantity: number) => {
+                      try {
+                        setIsSavingId(selectedProductToReceive.id);
+                        setIsSaving(true);
+
+                        const totalReceived = selectedProductToReceive.receivedQuantity + receivedQuantity;
+                        const isFullyReceived = totalReceived >= selectedProductToReceive.quantity;
+
+                        await api.patch("/invoice/update/product", {
+                          idProductInvoice: selectedProductToReceive.id,
+                          bodyupdate: {
+                            received: isFullyReceived,
+                            receivedQuantity: totalReceived,
+                          },
+                        });
+
+                        const { data: updatedInvoices } = await api.get("/invoice/get");
+                        setInvoices(updatedInvoices);
+
+                        const updated = updatedInvoices.find(
+                          (i: InvoiceData) => i.id === selectedProductToReceive.invoiceId
+                        );
+
+                        if (updated) {
+                          const allReceived = updated.products.every(
+                            (p: any) => p.received || p.receivedQuantity >= p.quantity
+                          );
+
+                          if (allReceived && !updated.completed) {
+                            await api.patch("/invoice/update", {
+                              id: updated.id,
+                              bodyupdate: {
+                                completed: true,
+                                completedDate: new Date().toISOString(),
+                              },
+                            });
+
+                            const { data: refreshedInvoices } = await api.get("/invoice/get");
+                            setInvoices(refreshedInvoices);
+                            setSelectedInvoice(refreshedInvoices.find((i: any) => i.id === updated.id) || null);
+                          } else {
+                            setSelectedInvoice(updated);
+                          }
+                        }
+                      } catch (err) {
+                        console.error("Erro ao atualizar produto", err);
+                      } finally {
+                        setIsSaving(false);
+                        setSelectedProductToReceive(null);
+                      }
+                    }}
+                  />
+                )}
+              </div>
+            </div>
+
+            <div className="mb-6">
+              <h4 className="font-medium mb-2 text-blue-700 border-b pb-2">Produtos Pendentes de Análise</h4>
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Produto
+                      </th>
+                      <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Qtd
+                      </th>
+                      <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Valor ($)
+                      </th>
+                      <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Peso (kg)
+                      </th>
+                      <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Total ($)
+                      </th>
+                      <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Ações
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody id="modalInvoicePendingProducts" className="bg-white divide-y divide-gray-200">
+                    {selectedInvoice.products
+                      .filter((item) => item.analising && !item.received)
                       .map((product, index) => (
                         <tr key={index}>
                           <td className="px-4 py-2 text-sm text-gray-700">
@@ -732,6 +867,42 @@ useEffect(() => {
                 </p>
               </div>
             </div>
+
+            {selectedProductToAnalyze && (
+              <ModalAnaliseProduct
+                product={selectedProductToAnalyze}
+                onClose={() => setSelectedProductToAnalyze(null)}
+                onConfirm={async (analiseQuantity: number) => {
+                  try {
+                    setIsSavingId(selectedProductToAnalyze.id);
+                    setIsSaving(true);
+
+                    await api.patch("/invoice/update/product", {
+                      idProductInvoice: selectedProductToAnalyze.id,
+                      bodyupdate: {
+                        analising: true,
+                        quantity: analiseQuantity,
+                      },
+                    });
+
+                    const { data: updatedInvoices } = await api.get("/invoice/get");
+
+                    // ESSA É A LINHA QUE FAZ FUNCIONAR — ela força atualizar o modal com os dados novos
+                    const novaInvoice = updatedInvoices.find(
+                      (i: InvoiceData) => i.id === selectedProductToAnalyze.invoiceId
+                    );
+
+                    setInvoices(updatedInvoices);
+                    setSelectedInvoice(novaInvoice); // <- ESSA LINHA É CRUCIAL
+                  } catch (err) {
+                    console.error("Erro ao enviar para análise", err);
+                  } finally {
+                    setIsSaving(false);
+                    setSelectedProductToAnalyze(null);
+                  }
+                }}
+              />
+            )}
 
             <div className="mt-6 flex justify-end">
               {/* <button id="printInvoiceBtn" className="bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded-md mr-2">
