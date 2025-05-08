@@ -1,7 +1,7 @@
-import { FilePlus, Save } from 'lucide-react';
-import { useState, useEffect } from 'react';
-import { api } from '../../../../services/api';
-import { Invoice } from '../types/invoice';
+import { FilePlus, Save } from "lucide-react";
+import { useState, useEffect } from "react";
+import { api } from "../../../../services/api";
+import { Invoice } from "../types/invoice";
 
 interface NewInvoiceFormProps {
   currentInvoice: Invoice;
@@ -13,22 +13,21 @@ export function NewInvoiceForm({ currentInvoice, setCurrentInvoice }: NewInvoice
   const [carriers, setCarriers] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
   const [taxaSpEs, setTaxaSpEs] = useState<string>(
-    currentInvoice.taxaSpEs === 0 ? '' : currentInvoice.taxaSpEs.toString().replace('.', ',')
+    currentInvoice.taxaSpEs === 0 ? "" : currentInvoice.taxaSpEs.toString().replace(".", ",")
   );
-  
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const suppliersResponse = await api.get('/invoice/supplier');
-        const carriersResponse = await api.get('/invoice/carriers');
-        const productsResponse = await api.get('/invoice/product');
+        const suppliersResponse = await api.get("/invoice/supplier");
+        const carriersResponse = await api.get("/invoice/carriers");
+        const productsResponse = await api.get("/invoice/product");
 
         setSuppliers(suppliersResponse.data);
         setCarriers(carriersResponse.data);
         setProducts(productsResponse.data);
       } catch (error) {
-        console.error('Erro ao buscar dados:', error);
+        console.error("Erro ao buscar dados:", error);
       }
     };
     fetchData();
@@ -36,12 +35,12 @@ export function NewInvoiceForm({ currentInvoice, setCurrentInvoice }: NewInvoice
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    if (name === 'taxaSpEs') {
+    if (name === "taxaSpEs") {
       if (/^[0-9]*[.,]?[0-9]{0,2}$/.test(value)) {
         setTaxaSpEs(value);
-        setCurrentInvoice({ 
-          ...currentInvoice, 
-          taxaSpEs: value.replace(',', '.')  // ← string, ponto decimal
+        setCurrentInvoice({
+          ...currentInvoice,
+          taxaSpEs: value.replace(",", "."), // ← string, ponto decimal
         });
       }
     } else {
@@ -105,11 +104,13 @@ export function NewInvoiceForm({ currentInvoice, setCurrentInvoice }: NewInvoice
           className="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500"
         >
           <option value="">Selecione um freteiro</option>
-          {carriers.map((carrier) => (
-            <option key={carrier.id} value={carrier.id}>
-              {carrier.name} ({carrier.type === 'percentage' ? '%' : carrier.type === 'perKg' ? '$/kg' : '$/un'})
-            </option>
-          ))}
+          {carriers
+            .filter((carrier) => carrier.id !== currentInvoice.carrier2Id)
+            .map((carrier) => (
+              <option key={carrier.id} value={carrier.id}>
+                {carrier.name} ({carrier.type === "percentage" ? "%" : carrier.type === "perKg" ? "$/kg" : "$/un"})
+              </option>
+            ))}
         </select>
       </div>
 
@@ -122,18 +123,18 @@ export function NewInvoiceForm({ currentInvoice, setCurrentInvoice }: NewInvoice
           className="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500"
         >
           <option value="">Selecione um freteiro</option>
-          {carriers.map((carrier) => (
-            <option key={carrier.id} value={carrier.id}>
-              {carrier.name} ({carrier.type === 'percentage' ? '%' : carrier.type === 'perKg' ? '$/kg' : '$/un'})
-            </option>
-          ))}
+          {carriers
+            .filter((carrier) => carrier.id !== currentInvoice.carrierId)
+            .map((carrier) => (
+              <option key={carrier.id} value={carrier.id}>
+                {carrier.name} ({carrier.type === "percentage" ? "%" : carrier.type === "perKg" ? "$/kg" : "$/un"})
+              </option>
+            ))}
         </select>
       </div>
 
       <div className="mb-6">
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Frete SP x ES (R$ por item)
-        </label>
+        <label className="block text-sm font-medium text-gray-700 mb-1">Frete SP x ES (R$ por item)</label>
         <input
           type="text"
           inputMode="decimal"

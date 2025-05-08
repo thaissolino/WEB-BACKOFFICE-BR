@@ -212,8 +212,8 @@ const OperacoesTab: React.FC = () => {
           confirmButton: "bg-blue-600 text-white hover:bg-blue-700 px-4 py-2 rounded font-semibold",
         },
       });
-      // setSuccessMessage("Operação registrada com sucesso!");
-      setShowSuccessModal(true);
+       setSuccessMessage("Operação registrada com sucesso!");
+     // setShowSuccessModal(true);
     } catch (error: any) {
       console.error("Erro ao registrar operação:", error);
       setSuccessMessage("Erro ao registrar a operação. Por favor, tente novamente.");
