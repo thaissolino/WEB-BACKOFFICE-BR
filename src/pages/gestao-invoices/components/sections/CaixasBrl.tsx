@@ -540,7 +540,7 @@ export const CaixasTabBrl = () => {
               </span>
             </h2>
             <div className="text-sm text-right">
-              Entradas:{" "}
+              {/* Entradas:{" "}
               <span className="mr-4 font-bold text-green-600">
                 {loadingFetch2 ? (
                   <Loader2 className="inline w-4 h-4 animate-spin" />
@@ -550,8 +550,8 @@ export const CaixasTabBrl = () => {
                     maximumFractionDigits: 2,
                   })}`
                 )}
-              </span>
-              Saídas:{" "}
+              </span> */}
+              {/* Saídas:{" "}
               <span className="mr-4 font-bold text-red-600">
                 {loadingFetch2 ? (
                   <Loader2 className="inline w-4 h-4 animate-spin" />
@@ -561,7 +561,7 @@ export const CaixasTabBrl = () => {
                     maximumFractionDigits: 2,
                   })}`
                 )}
-              </span>
+              </span> */}
               Saldo:{" "}
               <span className={`font-bold ${(getTotalBalance() || 0) < 0 ? "text-red-600" : "text-green-600"}`}>
                 {loadingFetch2 ? (
