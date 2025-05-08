@@ -112,10 +112,10 @@ export function InvoiceHistoryReport({
   // const [invoices, setInvoices] = useState<InvoiceData[]>([]);
   const [suppliers, setSuppliers] = useState<{ id: string; name: string }[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedInvoice, setSelectedInvoice] = useState<InvoiceData | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [products, setProducts] = useState<Product[]>([]);
+  const [selectedInvoice, setSelectedInvoice] = useState<InvoiceData | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isSavingId, setIsSavingId] = useState("");
   const [exchanges, setExchangeResponse] = useState<exchange[]>([]);
@@ -877,7 +877,7 @@ export function InvoiceHistoryReport({
                     setIsSavingId(selectedProductToAnalyze.id);
                     setIsSaving(true);
 
-                    await api.patch("/invoice/update/product", {
+                    const response = await api.patch("/invoice/update/product", {
                       idProductInvoice: selectedProductToAnalyze.id,
                       bodyupdate: {
                         analising: true,
