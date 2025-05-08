@@ -621,7 +621,7 @@ useEffect(() => {
                         await api.patch("/invoice/update/product", {
                           idProductInvoice: selectedProductToReceive.id,
                           bodyupdate: {
-                            received: isFullyReceived,
+                            : isFullyReceived,
                             receivedQuantity: totalReceived,
                           },
                         });
