@@ -70,7 +70,7 @@ export const CaixasTab = () => {
 
   const [currentPage, setCurrentPage] = useState(0);
   const itemsPerPage = 6; // ou o número que preferir
-   const { getBalances, balanceCarrier, balanceGeneralUSD, balancePartnerUSD, balanceSupplier } = useBalanceStore();
+  const { getBalances, balanceCarrier, balanceGeneralUSD, balancePartnerUSD, balanceSupplier } = useBalanceStore();
 
   const paginatedTransactions = transactionHistoryList.slice(
     currentPage * itemsPerPage,
@@ -272,6 +272,7 @@ export const CaixasTab = () => {
       });
     } finally {
       setLoadingClearId(null);
+      setLoadingFetch3(false);
     }
   };
 
@@ -453,9 +454,10 @@ export const CaixasTab = () => {
             <h3 className="font-medium truncate max-w-[180px]">TOTAL FORNECEDORES</h3>
           </div>
           <p className="text-2xl font-bold text-yellow-600 truncate" title={formatCurrency(balanceSupplier || 0)}>
-            {formatCurrency(balanceSupplier || 0).length > 12
+            {/* {formatCurrency(balanceSupplier || 0).length > 12
               ? `${formatCurrency(balanceSupplier || 0).substring(0, 12)}...`
-              : formatCurrency(balanceSupplier || 0)}
+              : formatCurrency(balanceSupplier || 0)} */}
+            {formatCurrency(balanceSupplier || 0)}
           </p>
           {formatCurrency(balanceSupplier || 0).length > 12 && (
             <div className="absolute hidden group-hover:block bg-gray-800 text-white text-xs p-2 rounded z-10 bottom-full mb-2 whitespace-nowrap">
@@ -470,11 +472,12 @@ export const CaixasTab = () => {
             <h3 className="font-medium truncate max-w-[180px]">TOTAL FRETES</h3>
           </div>
           <p className="text-2xl font-bold text-blue-600 truncate" title={formatCurrency(balanceCarrier || 0)}>
-            {formatCurrency(balanceCarrier || 0).length > 12
+            {/* {formatCurrency(balanceCarrier || 0).length > 12
               ? `${formatCurrency(balanceCarrier || 0).substring(0, 12)}...`
-              : formatCurrency(balanceCarrier || 0)}
+              : formatCurrency(balanceCarrier || 0)} */}
+            {formatCurrency(balanceCarrier || 0)}
           </p>
-          {formatCurrency(balanceCarrier || 0).length > 12 && (
+          {formatCurrency(balanceCarrier || 0).length > 5 && (
             <div className="absolute hidden group-hover:block bg-gray-800 text-white text-xs p-2 rounded z-10 bottom-full mb-2 whitespace-nowrap">
               {formatCurrency(balanceCarrier || 0)}
             </div>
@@ -487,15 +490,19 @@ export const CaixasTab = () => {
             <h3 className="font-medium truncate max-w-[180px]">TOTAL PARCEIROS</h3>
           </div>
           <p className="text-2xl font-bold text-teal-600 truncate" title={formatCurrency(balancePartnerUSD || 0)}>
-            {formatCurrency(balancePartnerUSD || 0).length > 12
+            {/* {formatCurrency(balancePartnerUSD || 0).length > 12
               ? `${formatCurrency(balancePartnerUSD || 0).substring(0, 12)}...`
-              : formatCurrency(balancePartnerUSD || 0)}
+              : formatCurrency(balancePartnerUSD || 0)} */}
+            {formatCurrency(balancePartnerUSD || 0)}
           </p>
-          {formatCurrency(balancePartnerUSD || 0).length > 12 && (
+          {/* {formatCurrency(balancePartnerUSD || 0).length > 12 && (
             <div className="absolute hidden group-hover:block bg-gray-800 text-white text-xs p-2 rounded z-10 bottom-full mb-2 whitespace-nowrap">
               {formatCurrency(balancePartnerUSD || 0)}
             </div>
-          )}
+          )} */}
+           <div className="absolute hidden group-hover:block bg-gray-800 text-white text-xs p-2 rounded z-10 bottom-full mb-2 whitespace-nowrap">
+              {formatCurrency(balancePartnerUSD || 0)}
+            </div>
         </motion.div>
 
         <motion.div whileHover={{ scale: 1.02 }} className="bg-purple-50 p-4 rounded-lg shadow relative group">
@@ -504,9 +511,10 @@ export const CaixasTab = () => {
             <h3 className="font-medium truncate max-w-[180px]">TOTAL GERAL</h3>
           </div>
           <p className="text-2xl font-bold text-purple-600 truncate" title={formatCurrency(balanceGeneralUSD || 0)}>
-            {formatCurrency(balanceGeneralUSD || 0).length > 12
+            {/* {formatCurrency(balanceGeneralUSD || 0).length > 12
               ? `${formatCurrency(balanceGeneralUSD || 0).substring(0, 12)}...`
-              : formatCurrency(balanceGeneralUSD || 0)}
+              : formatCurrency(balanceGeneralUSD || 0)} */}
+            {formatCurrency(balanceGeneralUSD || 0)}
           </p>
           {formatCurrency(balanceGeneralUSD || 0).length > 12 && (
             <div className="absolute hidden group-hover:block bg-gray-800 text-white text-xs p-2 rounded z-10 bottom-full mb-2 whitespace-nowrap">
@@ -703,7 +711,7 @@ export const CaixasTab = () => {
                           className="odd:bg-blue-50 even:bg-green-50"
                         >
                           <td className="py-2 px-4 border text-center">
-                            {new Date(t.date).toLocaleDateString("pt-BR", {timeZone: "UTC"})}
+                            {new Date(t.date).toLocaleDateString("pt-BR", { timeZone: "UTC" })}
                           </td>
                           <td className="py-2 px-4 border">{t.description}</td>
                           <td
