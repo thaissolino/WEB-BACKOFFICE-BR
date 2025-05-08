@@ -171,8 +171,7 @@ const LucrosRecolhedoresFusionTab: React.FC = () => {
                       const fornecedorNome = getFornecedorNome(op.supplierId);
 
                       return (
-                        <tr key={op.id} className="odd:bg-blue-50 even:bg-green-50"
->
+                        <tr key={op.id} className="odd:bg-blue-50 even:bg-green-50">
                           <td className="py-2 px-4 text-center border">{formatDate(op.date)}</td>
                           <td className="py-2 px-4 text-center border">{op.city || "Desconhecido"}</td>
                           <td className="py-2 px-4 text-center border">{recolhedorNome}</td>
