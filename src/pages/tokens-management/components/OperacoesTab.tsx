@@ -158,7 +158,11 @@ const OperacoesTab: React.FC = () => {
     const getRecolhedorComission = (id: number) => recolhedores.find((r) => r.id === id)?.comission || 0;
     const comissionPercentage = getRecolhedorComission(recolhedorOperacao); // % de comissão
 
-    const lucro = valorOperacao - valorOperacao / (taxaRecolhedorOperacao || 1); // Cálculo do lucro
+    const valorRecolhedor = valorOperacao / taxaRecolhedorOperacao;
+    const valorFornecedor = valorOperacao / taxaFornecedorOperacao;
+    const lucro = valorRecolhedor - valorFornecedor;
+
+    // const lucro = valorOperacao - valorOperacao / (taxaRecolhedorOperacao || 1); // Cálculo do lucro
     const comissionValue = lucro * (comissionPercentage / 100); // Valor da comissão (sem arredondamento)
     const novaOperacao = {
       date: formattedDate,
@@ -212,8 +216,8 @@ const OperacoesTab: React.FC = () => {
           confirmButton: "bg-blue-600 text-white hover:bg-blue-700 px-4 py-2 rounded font-semibold",
         },
       });
-       setSuccessMessage("Operação registrada com sucesso!");
-     // setShowSuccessModal(true);
+      setSuccessMessage("Operação registrada com sucesso!");
+      // setShowSuccessModal(true);
     } catch (error: any) {
       console.error("Erro ao registrar operação:", error);
       setSuccessMessage("Erro ao registrar a operação. Por favor, tente novamente.");
@@ -388,7 +392,7 @@ const OperacoesTab: React.FC = () => {
             <tbody>
               {operacoes
                 .filter((op) => op.comission == 0 || op.comission == null)
-                .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()) 
+                .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
                 .slice(currentPage * itemsPerPage, (currentPage + 1) * itemsPerPage)
                 .map((op) => (
                   <tr key={op.id} className="odd:bg-blue-50 even:bg-green-50">
