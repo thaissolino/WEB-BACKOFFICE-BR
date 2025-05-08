@@ -52,6 +52,9 @@ const OperacoesTab: React.FC = () => {
   const [selectedOperation, setSelectedOperation] = useState<Operacao | null>(null);
   const [showOperationModal, setShowOperationModal] = useState(false);
 
+  const [currentPage, setCurrentPage] = useState(0);
+  const itemsPerPage = 6; // ou o número que preferir
+
   useEffect(() => {
     const rec = recolhedores.find((r) => r.id === recolhedorOperacao);
     if (rec) {
@@ -153,7 +156,7 @@ const OperacoesTab: React.FC = () => {
     const getRecolhedorComission = (id: number) => recolhedores.find((r) => r.id === id)?.comission || 0;
     const comissionPercentage = getRecolhedorComission(recolhedorOperacao); // % de comissão
 
-    const lucro = valorOperacao - (valorOperacao / (taxaRecolhedorOperacao || 1)); // Cálculo do lucro
+    const lucro = valorOperacao - valorOperacao / (taxaRecolhedorOperacao || 1); // Cálculo do lucro
     const comissionValue = lucro * (comissionPercentage / 100); // Valor da comissão (sem arredondamento)
     const novaOperacao = {
       date: formattedDate,
@@ -206,7 +209,6 @@ const OperacoesTab: React.FC = () => {
 
   const getRecolhedorNome = (id: number) => recolhedores.find((r) => r.id === id)?.name || "DESCONHECIDO";
   const getFornecedorNome = (id: number) => fornecedores.find((f) => f.id === id)?.name || "DESCONHECIDO";
-
 
   const abrirDetalhesOperacao = (operacao: Operacao) => {
     setSelectedOperation(operacao);
@@ -352,12 +354,11 @@ const OperacoesTab: React.FC = () => {
             </thead>
             <tbody>
               {operacoes
-                .filter(op => op.comission == 0 || op.comission == null) // Filtra apenas comissões válidas
+                .filter((op) => op.comission == 0 || op.comission == null)
+                .slice(currentPage * itemsPerPage, (currentPage + 1) * itemsPerPage)
                 .map((op) => (
                   <tr key={op.id}>
-                    <td className="py-2 px-4 border text-center align-middle">
-                      {formatDate(new Date(op.date))}
-                    </td>
+                    <td className="py-2 px-4 border text-center align-middle">{formatDate(new Date(op.date))}</td>
                     <td className="py-2 px-4 border align-middle text-center">{op.city}</td>
                     <td className="py-2 px-4 border align-middle text-center">{getRecolhedorNome(op.collectorId)}</td>
                     <td className="py-2 px-4 border align-middle text-center">{getFornecedorNome(op.supplierId)}</td>
@@ -368,10 +369,43 @@ const OperacoesTab: React.FC = () => {
                       </button>
                     </td>
                   </tr>
-                ))
-              }
+                ))}
             </tbody>
           </table>
+          {operacoes.filter((op) => op.comission == 0 || op.comission == null).length > itemsPerPage && (
+            <div className="flex justify-between items-center mt-4">
+              <button
+                onClick={() => setCurrentPage((prev) => Math.max(0, prev - 1))}
+                disabled={currentPage === 0}
+                className="px-3 py-1 bg-gray-200 text-sm rounded disabled:opacity-50"
+              >
+                Anterior
+              </button>
+              <span className="text-sm text-gray-600">
+                Página {currentPage + 1} de{" "}
+                {Math.ceil(operacoes.filter((op) => op.comission == 0 || op.comission == null).length / itemsPerPage)}
+              </span>
+              <button
+                onClick={() =>
+                  setCurrentPage((prev) =>
+                    Math.min(
+                      prev + 1,
+                      Math.ceil(
+                        operacoes.filter((op) => op.comission == 0 || op.comission == null).length / itemsPerPage
+                      ) - 1
+                    )
+                  )
+                }
+                disabled={
+                  (currentPage + 1) * itemsPerPage >=
+                  operacoes.filter((op) => op.comission == 0 || op.comission == null).length
+                }
+                className="px-3 py-1 bg-gray-200 text-sm rounded disabled:opacity-50"
+              >
+                Próxima
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
