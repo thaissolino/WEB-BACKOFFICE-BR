@@ -424,13 +424,13 @@ export function InvoiceHistoryReport({
                         Qtd
                       </th>
                       <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Valor ($)
+                        {selectedInvoice.paid ? "Valor (R$)":"Valor ($)"}
                       </th>
                       <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Peso (kg)
                       </th>
                       <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Total ($)
+                        {selectedInvoice.paid ? "Total (R$)":"Total ($)"}
                       </th>
                       <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Ações
@@ -446,10 +446,25 @@ export function InvoiceHistoryReport({
                             {products.find((item) => item.id === product.productId)?.name}
                           </td>
                           <td className="px-4 py-2 text-sm text-right">{product.quantity}</td>
-                          <td className="px-4 py-2 text-sm text-right">{product.value.toFixed(2)}</td>
+                          <td className="px-4 py-2 text-sm text-right">
+                            {/* {product.value.toFixed(2)} */}
+
+                            {selectedInvoice.paid ? 
+                            (product.value * (taxInvoice?.rate ?? 1)).toLocaleString("pt-BR", {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            }):(product.value).toLocaleString("en-US", {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            })}
+                          </td>
                           <td className="px-4 py-2 text-sm text-right">{product.weight.toFixed(2)}</td>
                           <td className="px-4 py-2 text-sm text-right">
-                            {product.total.toLocaleString("en-US", {
+                            {selectedInvoice.paid ? 
+                            (product.total * (taxInvoice?.rate ?? 1)).toLocaleString("pt-BR", {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            }):(product.total).toLocaleString("en-US", {
                               minimumFractionDigits: 2,
                               maximumFractionDigits: 2,
                             })}
@@ -555,13 +570,13 @@ export function InvoiceHistoryReport({
                         Qtd
                       </th>
                       <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Valor ($)
+                      {selectedInvoice.paid ? "Valor (R$)":"Valor ($)"}
                       </th>
                       <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Peso (kg)
                       </th>
                       <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Total ($)
+                      {selectedInvoice.paid ? "Total (R$)":"Total ($)"}
                       </th>
                       <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Ações
@@ -577,10 +592,23 @@ export function InvoiceHistoryReport({
                             {products.find((item) => item.id === product.productId)?.name}
                           </td>
                           <td className="px-4 py-2 text-sm text-right">{product.quantityAnalizer} / {product.quantity}</td>
-                          <td className="px-4 py-2 text-sm text-right">{product.value.toFixed(2)}</td>
+                          <td className="px-4 py-2 text-sm text-right">
+                          {selectedInvoice.paid ? 
+                            ((product.value) * (taxInvoice?.rate ?? 1)).toLocaleString("pt-BR", {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            }):(product.value).toLocaleString("en-US", {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            })}
+                          </td>
                           <td className="px-4 py-2 text-sm text-right">{product.weight.toFixed(2)}</td>
                           <td className="px-4 py-2 text-sm text-right">
-                            {product.total.toLocaleString("en-US", {
+                          {selectedInvoice.paid ? 
+                            ((product.value * product.quantityAnalizer) * (taxInvoice?.rate ?? 1)).toLocaleString("pt-BR", {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            }):(product.quantityAnalizer).toLocaleString("en-US", {
                               minimumFractionDigits: 2,
                               maximumFractionDigits: 2,
                             })}
@@ -629,7 +657,7 @@ export function InvoiceHistoryReport({
                           idProductInvoice: selectedProductToReceive.id,
                           bodyupdate: {
                             received: isFullyReceived,
-                            quantityAnalizer: totalReceived - receivedQuantity,
+                            quantityAnalizer: selectedProductToReceive.quantityAnalizer - receivedQuantity,
                             receivedQuantity: totalReceived,
                           },
                         });
@@ -687,14 +715,14 @@ export function InvoiceHistoryReport({
                         Qtd
                       </th>
                       <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Valor ($)
+                      {selectedInvoice.paid ? "Valor (R$)":"Valor ($)"}
                       </th>
                       {/* <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Valor (R$)</th> */}
                       <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Peso (kg)
                       </th>
                       <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Total (R$)
+                      {selectedInvoice.paid ? "Total (R$)":"Total ($)"}
                       </th>
                     </tr>
                   </thead>
@@ -709,10 +737,23 @@ export function InvoiceHistoryReport({
                           <td className="px-4 py-2 text-sm text-right">
                             {product.receivedQuantity} / {product.quantity}
                           </td>
-                          <td className="px-4 py-2 text-sm text-right">{product.value.toFixed(2)}</td>
+                          <td className="px-4 py-2 text-sm text-right">
+                          {selectedInvoice.paid ? 
+                            ((product.value) * (taxInvoice?.rate ?? 1)).toLocaleString("pt-BR", {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            }):(product.value).toLocaleString("en-US", {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            })}
+                          </td>
                           <td className="px-4 py-2 text-sm text-right">{product.weight.toFixed(2)}</td>
                           <td className="px-4 py-2 text-sm text-right">
-                            {product.total.toLocaleString("en-US", {
+                          {selectedInvoice.paid ? 
+                            ((product.value * product.receivedQuantity) * (taxInvoice?.rate ?? 1)).toLocaleString("pt-BR", {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            }):(product.quantityAnalizer).toLocaleString("en-US", {
                               minimumFractionDigits: 2,
                               maximumFractionDigits: 2,
                             })}
@@ -861,11 +902,12 @@ export function InvoiceHistoryReport({
                 </p>
               </div>
               <div className="flex justify-between items-center mt-1" id="modalInvoicePaymentInfo">
-                <p className="text-xs text-green-600">Pago em:</p>
+                <p className="text-xs text-green-600">{selectedInvoice.paidDate
+                    &&  `Pago em: ${""} ${new Date(selectedInvoice.paidDate).toLocaleDateString("pt-BR")}`}</p>
                 <p className="text-xs font-medium text-green-600">
                   {selectedInvoice.paidDate
-                    ? `${new Date(selectedInvoice.paidDate).toLocaleDateString("pt-BR")}` +
-                      (taxInvoice?.rate ? ` (R$ ${taxInvoice?.rate.toFixed(4)})` : "")
+                    ? 
+                      (taxInvoice?.rate ? `Câmbio -  (R$ ${taxInvoice?.rate.toFixed(4)})` : "")
                     : "data não foi incluida"}
                 </p>
               </div>
@@ -884,7 +926,7 @@ export function InvoiceHistoryReport({
                       idProductInvoice: selectedProductToAnalyze.id,
                       bodyupdate: {
                         analising: true,
-                        quantityAnalizer,
+                        quantityAnalizer: selectedProductToAnalyze.quantityAnalizer + quantityAnalizer,
                       },
                     });
 
