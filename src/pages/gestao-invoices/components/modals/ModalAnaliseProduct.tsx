@@ -1,16 +1,44 @@
 // components/modals/ModalAnaliseProduct.tsx
-import { X } from "lucide-react";
+import { X, Loader2 } from "lucide-react";
 import React, { useState } from "react";
 import { createPortal } from "react-dom";
 
 type Props = {
-  product: any;
+  product: {
+    quantity: number;
+    receivedQuantity: number;
+    quantityAnalizer?: number;
+    product: { name: string };
+  };
   onClose: () => void;
-  onConfirm: (analiseQuantity: number) => void;
+  onConfirm: (analiseQuantity: number) => Promise<void>;
 };
 
 export function ModalAnaliseProduct({ product, onClose, onConfirm }: Props) {
-  const [quantity, setQuantity] = useState(product.quantity || 0);
+  const [quantity, setQuantity] = useState<number | "">("");
+  const [isLoading, setIsLoading] = useState(false);
+
+  const maxAvailable =
+    product.quantity - (product.receivedQuantity || 0) - (product.quantityAnalizer || 0);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    if (/^\d*$/.test(value)) {
+      const num = Number(value);
+      if (num <= maxAvailable) {
+        setQuantity(value === "" ? "" : num);
+      }
+    }
+  };
+
+  const isDisabled =
+    quantity === "" || isNaN(Number(quantity)) || Number(quantity) < 1 || Number(quantity) > maxAvailable;
+
+  const handleConfirm = async () => {
+    setIsLoading(true);
+    await onConfirm(Number(quantity));
+    setIsLoading(false);
+  };
 
   return createPortal(
     <div className="fixed inset-0 bg-black/40 flex justify-center items-center z-50">
@@ -25,19 +53,17 @@ export function ModalAnaliseProduct({ product, onClose, onConfirm }: Props) {
         <p className="mb-2 text-sm text-gray-700">
           Produto: <strong>{product.product.name}</strong>
         </p>
+        <p className="text-sm text-gray-600 mb-4">
+          Quantidade restante: <strong>{maxAvailable}</strong>
+        </p>
 
         <input
           type="number"
           min={1}
-          max={product.quantity}
+          max={maxAvailable}
           value={quantity}
           placeholder="Qtd a analisar"
-          onChange={(e) => {
-            const val = Number(e.target.value);
-            if (val <= product.quantity && val >= 1) {
-              setQuantity(val);
-            }
-          }}
+          onChange={handleChange}
           className="w-full mb-4 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 text-sm text-gray-800 placeholder-gray-400"
         />
 
@@ -49,14 +75,20 @@ export function ModalAnaliseProduct({ product, onClose, onConfirm }: Props) {
             Cancelar
           </button>
           <button
-            onClick={() => onConfirm(quantity)}
-            className="px-4 py-2 rounded-md text-sm bg-yellow-500 text-white hover:bg-yellow-600 transition-colors"
+            onClick={handleConfirm}
+            disabled={isDisabled || isLoading}
+            className={`px-4 py-2 rounded-md text-sm flex items-center justify-center ${
+              isDisabled || isLoading
+                ? "bg-yellow-200 text-white cursor-not-allowed"
+                : "bg-yellow-500 hover:bg-yellow-600 text-white"
+            }`}
           >
+            {isLoading && <Loader2 className="animate-spin mr-2" size={18} />}
             Confirmar
           </button>
         </div>
       </div>
     </div>,
-    document.body
+    document.getElementById("modal-root") as HTMLElement
   );
 }

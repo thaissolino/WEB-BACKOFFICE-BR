@@ -228,6 +228,8 @@ export function InvoiceHistoryReport({
     };
   }, []);
 
+  const isOnlyViewMode = !selectedInvoice?.paid || selectedInvoice.completed;
+
   return (
     <div className="mt-8 bg-white p-6 pt-4 rounded-lg shadow">
       <h2 className="text-xl  w-full justify-between items-center flex  flex-row font-semibold mb-4 text-blue-700 border-b pb-2">
@@ -302,7 +304,7 @@ export function InvoiceHistoryReport({
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                         <div className="flex justify-end items-center">
-                          {invoice.completed && invoice.paid ? (
+                          {invoice.completed || !invoice.paid ? (
                             <button
                               onClick={() => openModal(invoice, false)}
                               className="text-blue-600 hover:text-blue-900"
@@ -424,13 +426,13 @@ export function InvoiceHistoryReport({
                         Qtd
                       </th>
                       <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        {selectedInvoice.paid ? "Valor (R$)":"Valor ($)"}
+                        {selectedInvoice.paid ? "Valor (R$)" : "Valor ($)"}
                       </th>
                       <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Peso (kg)
                       </th>
                       <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        {selectedInvoice.paid ? "Total (R$)":"Total ($)"}
+                        {selectedInvoice.paid ? "Total (R$)" : "Total ($)"}
                       </th>
                       <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Ações
@@ -449,25 +451,27 @@ export function InvoiceHistoryReport({
                           <td className="px-4 py-2 text-sm text-right">
                             {/* {product.value.toFixed(2)} */}
 
-                            {selectedInvoice.paid ? 
-                            (product.value * (taxInvoice?.rate ?? 1)).toLocaleString("pt-BR", {
-                              minimumFractionDigits: 2,
-                              maximumFractionDigits: 2,
-                            }):(product.value).toLocaleString("en-US", {
-                              minimumFractionDigits: 2,
-                              maximumFractionDigits: 2,
-                            })}
+                            {selectedInvoice.paid
+                              ? (product.value * (taxInvoice?.rate ?? 1)).toLocaleString("pt-BR", {
+                                  minimumFractionDigits: 2,
+                                  maximumFractionDigits: 2,
+                                })
+                              : product.value.toLocaleString("en-US", {
+                                  minimumFractionDigits: 2,
+                                  maximumFractionDigits: 2,
+                                })}
                           </td>
                           <td className="px-4 py-2 text-sm text-right">{product.weight.toFixed(2)}</td>
                           <td className="px-4 py-2 text-sm text-right">
-                            {selectedInvoice.paid ? 
-                            (product.total * (taxInvoice?.rate ?? 1)).toLocaleString("pt-BR", {
-                              minimumFractionDigits: 2,
-                              maximumFractionDigits: 2,
-                            }):(product.total).toLocaleString("en-US", {
-                              minimumFractionDigits: 2,
-                              maximumFractionDigits: 2,
-                            })}
+                            {selectedInvoice.paid
+                              ? (product.total * (taxInvoice?.rate ?? 1)).toLocaleString("pt-BR", {
+                                  minimumFractionDigits: 2,
+                                  maximumFractionDigits: 2,
+                                })
+                              : product.total.toLocaleString("en-US", {
+                                  minimumFractionDigits: 2,
+                                  maximumFractionDigits: 2,
+                                })}
                           </td>
                           <td className="px-4 py-2 text-sm text-right">
                             <div className="flex justify-end items-center ">
@@ -485,12 +489,14 @@ export function InvoiceHistoryReport({
                                               </>
                                           )}
                                           </button> */}
-                              <button
-                                onClick={() => setSelectedProductToAnalyze(product)}
-                                className="flex items-center gap-1 text-white px-2 bg-yellow-600 hover:bg-yellow-500 rounded-sm"
-                              >
-                                <Check size={18} /> Analisar
-                              </button>
+                              {!isOnlyViewMode && (
+                                <button
+                                  onClick={() => setSelectedProductToAnalyze(product)}
+                                  className="flex items-center gap-1 text-white px-2 bg-yellow-600 hover:bg-yellow-500 rounded-sm"
+                                >
+                                  <Check size={18} /> Analisar
+                                </button>
+                              )}
                             </div>
                           </td>
                         </tr>
@@ -570,13 +576,13 @@ export function InvoiceHistoryReport({
                         Qtd
                       </th>
                       <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      {selectedInvoice.paid ? "Valor (R$)":"Valor ($)"}
+                        {selectedInvoice.paid ? "Valor (R$)" : "Valor ($)"}
                       </th>
                       <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Peso (kg)
                       </th>
                       <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      {selectedInvoice.paid ? "Total (R$)":"Total ($)"}
+                        {selectedInvoice.paid ? "Total (R$)" : "Total ($)"}
                       </th>
                       <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Ações
@@ -591,27 +597,34 @@ export function InvoiceHistoryReport({
                           <td className="px-4 py-2 text-sm text-gray-700">
                             {products.find((item) => item.id === product.productId)?.name}
                           </td>
-                          <td className="px-4 py-2 text-sm text-right">{product.quantityAnalizer} / {product.quantity}</td>
                           <td className="px-4 py-2 text-sm text-right">
-                          {selectedInvoice.paid ? 
-                            ((product.value) * (taxInvoice?.rate ?? 1)).toLocaleString("pt-BR", {
-                              minimumFractionDigits: 2,
-                              maximumFractionDigits: 2,
-                            }):(product.value).toLocaleString("en-US", {
-                              minimumFractionDigits: 2,
-                              maximumFractionDigits: 2,
-                            })}
+                            {product.quantityAnalizer} / {product.quantity}
+                          </td>
+                          <td className="px-4 py-2 text-sm text-right">
+                            {selectedInvoice.paid
+                              ? (product.value * (taxInvoice?.rate ?? 1)).toLocaleString("pt-BR", {
+                                  minimumFractionDigits: 2,
+                                  maximumFractionDigits: 2,
+                                })
+                              : product.value.toLocaleString("en-US", {
+                                  minimumFractionDigits: 2,
+                                  maximumFractionDigits: 2,
+                                })}
                           </td>
                           <td className="px-4 py-2 text-sm text-right">{product.weight.toFixed(2)}</td>
                           <td className="px-4 py-2 text-sm text-right">
-                          {selectedInvoice.paid ? 
-                            ((product.value * product.quantityAnalizer) * (taxInvoice?.rate ?? 1)).toLocaleString("pt-BR", {
-                              minimumFractionDigits: 2,
-                              maximumFractionDigits: 2,
-                            }):(product.quantityAnalizer).toLocaleString("en-US", {
-                              minimumFractionDigits: 2,
-                              maximumFractionDigits: 2,
-                            })}
+                            {selectedInvoice.paid
+                              ? (product.value * product.quantityAnalizer * (taxInvoice?.rate ?? 1)).toLocaleString(
+                                  "pt-BR",
+                                  {
+                                    minimumFractionDigits: 2,
+                                    maximumFractionDigits: 2,
+                                  }
+                                )
+                              : product.quantityAnalizer.toLocaleString("en-US", {
+                                  minimumFractionDigits: 2,
+                                  maximumFractionDigits: 2,
+                                })}
                           </td>
                           <td className="px-4 py-2 text-sm text-right">
                             <div className="flex justify-end items-center ">
@@ -629,12 +642,14 @@ export function InvoiceHistoryReport({
                                               </>
                                           )}
                                           </button> */}
-                              <button
-                                onClick={() => setSelectedProductToReceive(product)}
-                                className="flex items-center gap-1 text-white px-2 bg-green-600 hover:bg-green-500 rounded-sm"
-                              >
-                                <Check size={18} /> Receber
-                              </button>
+                              {!isOnlyViewMode && (
+                                <button
+                                  onClick={() => setSelectedProductToReceive(product)}
+                                  className="flex items-center gap-1 text-white px-2 bg-green-600 hover:bg-green-500 rounded-sm"
+                                >
+                                  <Check size={18} /> Receber
+                                </button>
+                              )}
                             </div>
                           </td>
                         </tr>
@@ -715,14 +730,14 @@ export function InvoiceHistoryReport({
                         Qtd
                       </th>
                       <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      {selectedInvoice.paid ? "Valor (R$)":"Valor ($)"}
+                        {selectedInvoice.paid ? "Valor (R$)" : "Valor ($)"}
                       </th>
                       {/* <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Valor (R$)</th> */}
                       <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Peso (kg)
                       </th>
                       <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      {selectedInvoice.paid ? "Total (R$)":"Total ($)"}
+                        {selectedInvoice.paid ? "Total (R$)" : "Total ($)"}
                       </th>
                     </tr>
                   </thead>
@@ -738,25 +753,30 @@ export function InvoiceHistoryReport({
                             {product.receivedQuantity} / {product.quantity}
                           </td>
                           <td className="px-4 py-2 text-sm text-right">
-                          {selectedInvoice.paid ? 
-                            ((product.value) * (taxInvoice?.rate ?? 1)).toLocaleString("pt-BR", {
-                              minimumFractionDigits: 2,
-                              maximumFractionDigits: 2,
-                            }):(product.value).toLocaleString("en-US", {
-                              minimumFractionDigits: 2,
-                              maximumFractionDigits: 2,
-                            })}
+                            {selectedInvoice.paid
+                              ? (product.value * (taxInvoice?.rate ?? 1)).toLocaleString("pt-BR", {
+                                  minimumFractionDigits: 2,
+                                  maximumFractionDigits: 2,
+                                })
+                              : product.value.toLocaleString("en-US", {
+                                  minimumFractionDigits: 2,
+                                  maximumFractionDigits: 2,
+                                })}
                           </td>
                           <td className="px-4 py-2 text-sm text-right">{product.weight.toFixed(2)}</td>
                           <td className="px-4 py-2 text-sm text-right">
-                          {selectedInvoice.paid ? 
-                            ((product.value * product.receivedQuantity) * (taxInvoice?.rate ?? 1)).toLocaleString("pt-BR", {
-                              minimumFractionDigits: 2,
-                              maximumFractionDigits: 2,
-                            }):(product.quantityAnalizer).toLocaleString("en-US", {
-                              minimumFractionDigits: 2,
-                              maximumFractionDigits: 2,
-                            })}
+                            {selectedInvoice.paid
+                              ? (product.value * product.receivedQuantity * (taxInvoice?.rate ?? 1)).toLocaleString(
+                                  "pt-BR",
+                                  {
+                                    minimumFractionDigits: 2,
+                                    maximumFractionDigits: 2,
+                                  }
+                                )
+                              : product.quantityAnalizer.toLocaleString("en-US", {
+                                  minimumFractionDigits: 2,
+                                  maximumFractionDigits: 2,
+                                })}
                           </td>
                         </tr>
                       ))}
@@ -902,12 +922,15 @@ export function InvoiceHistoryReport({
                 </p>
               </div>
               <div className="flex justify-between items-center mt-1" id="modalInvoicePaymentInfo">
-                <p className="text-xs text-green-600">{selectedInvoice.paidDate
-                    &&  `Pago em: ${""} ${new Date(selectedInvoice.paidDate).toLocaleDateString("pt-BR")}`}</p>
+                <p className="text-xs text-green-600">
+                  {selectedInvoice.paidDate &&
+                    `Pago em: ${""} ${new Date(selectedInvoice.paidDate).toLocaleDateString("pt-BR")}`}
+                </p>
                 <p className="text-xs font-medium text-green-600">
                   {selectedInvoice.paidDate
-                    ? 
-                      (taxInvoice?.rate ? `Câmbio -  (R$ ${taxInvoice?.rate.toFixed(4)})` : "")
+                    ? taxInvoice?.rate
+                      ? `Câmbio -  (R$ ${taxInvoice?.rate.toFixed(4)})`
+                      : ""
                     : "data não foi incluida"}
                 </p>
               </div>
