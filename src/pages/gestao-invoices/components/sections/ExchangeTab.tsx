@@ -47,13 +47,13 @@ export function ExchangeTab() {
   const [addBalance, setAddBalance] = useState<{
     date: string;
     type: string;
-    usd: number;
-    rate: number;
+    usd: number | string;
+    rate: string | number;
     description: string;
   }>({
     date: new Date().toISOString().split("T")[0],
-    rate: 0,
-    usd: 0,
+    usd: 0 === 0 ? "" : (0.0).toString().replace(".", ","), // sempre resultará em "", mas mostra a estrutura
+    rate: 0 === 0 ? "" : (0.0).toString().replace(".", ","), // sempre resultará em "", mas mostra a estrutura
     type: "BUY",
     description: "Compra de dólares",
   });
@@ -115,7 +115,7 @@ export function ExchangeTab() {
       });
       return;
     }
-  
+
     if (!addBalance.rate) {
       Swal.fire({
         icon: "warning",
@@ -129,7 +129,7 @@ export function ExchangeTab() {
       });
       return;
     }
-  
+
     if (!addBalance.usd) {
       Swal.fire({
         icon: "warning",
@@ -143,7 +143,7 @@ export function ExchangeTab() {
       });
       return;
     }
-  
+
     try {
       setIsSaving(true);
       const response = await api.post("/invoice/exchange-records", {
@@ -165,12 +165,12 @@ export function ExchangeTab() {
       });
       setAddBalance({
         date: new Date().toISOString().split("T")[0],
-        rate: 0,
-        usd: 0,
+        rate: "",
+        usd: "",
         type: "BUY",
         description: "Compra de dólares",
       });
-  
+
       await fetchData();
     } catch (error) {
       console.log("error");
@@ -188,7 +188,7 @@ export function ExchangeTab() {
       setIsSaving(false);
     }
   };
-  
+
   const registrarPagamento = async () => {
     if (!dataPayment.date) {
       Swal.fire({
@@ -203,7 +203,7 @@ export function ExchangeTab() {
       });
       return;
     }
-  
+
     if (!dataPayment.invoiceId) {
       Swal.fire({
         icon: "warning",
@@ -217,7 +217,7 @@ export function ExchangeTab() {
       });
       return;
     }
-  
+
     if (!balance) {
       Swal.fire({
         icon: "warning",
@@ -231,7 +231,7 @@ export function ExchangeTab() {
       });
       return;
     }
-  
+
     if (dataPayment.usd > balance.balance) {
       Swal.fire({
         icon: "warning",
@@ -245,14 +245,14 @@ export function ExchangeTab() {
       });
       return;
     }
-  
+
     try {
       setIsSaving2(true);
       const response = await api.post("/invoice/exchange-records", {
         ...dataPayment,
         date: new Date(dataPayment.date),
         usd: Number(dataPayment.usd),
-        rate: balance?.averageRate
+        rate: balance?.averageRate,
       });
       Swal.fire({
         icon: "success",
@@ -269,7 +269,7 @@ export function ExchangeTab() {
         date: new Date().toISOString().split("T")[0],
         usd: 0,
       });
-  
+
       await fetchData();
     } catch (error) {
       console.log("error");
@@ -287,7 +287,7 @@ export function ExchangeTab() {
       setIsSaving2(false);
     }
   };
-  
+
   return (
     <div className="bg-white p-6 rounded-lg shadow">
       <h2 className="text-xl font-semibold mb-6 text-blue-700 border-b pb-2">
@@ -313,10 +313,10 @@ export function ExchangeTab() {
             <div>
               <label className="block text-sm font-medium text-gray-700">Quantidade (USD)</label>
               <input
-                type="number"
+                type="text"
                 step="0.01"
                 name="usd"
-                value={addBalance.usd}
+                value={String(addBalance.usd)}
                 onChange={handleInputBalance}
                 className="mt-1 block w-full border border-gray-300 rounded-md p-2"
               />
@@ -324,10 +324,10 @@ export function ExchangeTab() {
             <div>
               <label className="block text-sm font-medium text-gray-700">Taxa de Câmbio (BRL)</label>
               <input
-                type="number"
+                type="text"
                 step="0.0001"
                 name="rate"
-                value={addBalance.rate}
+                value={String(addBalance.rate)}
                 onChange={handleInputBalance}
                 className="mt-1 block w-full border border-gray-300 rounded-md p-2"
               />
