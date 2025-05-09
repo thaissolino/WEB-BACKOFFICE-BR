@@ -52,24 +52,24 @@ export const ModalReceiveProduct: React.FC<ModalReceiveProductProps> = ({ produc
   };
 
   return ReactDOM.createPortal(
-    <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
-      <div className="bg-white p-6 rounded-lg w-full max-w-md shadow-lg">
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+      <div className="bg-white p-6 rounded-2xl w-full max-w-md shadow-xl border border-gray-200">
         <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-semibold">Receber Produto</h3>
-          <button onClick={onClose}>
-            <X size={20} />
+          <h3 className="text-lg font-bold text-gray-800">Receber Produto</h3>
+          <button onClick={onClose} className="text-gray-500 hover:text-red-500 transition-colors">
+            <X size={22} />
           </button>
         </div>
-        <p className="mb-2 text-sm text-gray-700">
-          Produto: <strong>{product.product.name}</strong>
-        </p>
-        <p className="mb-4 text-sm text-gray-600">
-          Quantidade Total: <strong>{product.quantity}</strong>
-        </p>
+
+        <div className="text-sm text-gray-700 mb-1">
+          Produto: <span className="font-semibold">{product.product.name}</span>
+        </div>
+        <div className="text-sm text-gray-600 mb-4">
+          Quantidade total: <span className="font-medium">{product.quantity}</span>
+        </div>
 
         <input
           type="number"
-          className="..."
           min={0}
           max={product.quantity - product.receivedQuantity}
           value={receivedQuantity}
@@ -80,17 +80,21 @@ export const ModalReceiveProduct: React.FC<ModalReceiveProductProps> = ({ produc
               setReceivedQuantity(val);
             }
           }}
+          className="w-full mb-4 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm text-gray-800 placeholder-gray-400"
         />
 
-        <div className="flex justify-end space-x-2">
-          <button onClick={onClose} className="px-4 py-2 rounded bg-gray-200 hover:bg-gray-300 text-gray-800">
+        <div className="flex justify-end gap-2 mt-2">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 rounded-md text-sm text-gray-700 bg-gray-100 hover:bg-gray-200 transition-colors"
+          >
             Cancelar
           </button>
           <button
             onClick={() => {
               if (typeof receivedQuantity === "number") onConfirm(receivedQuantity);
             }}
-            className="..."
+            className="px-4 py-2 rounded-md text-sm bg-emerald-600 text-white hover:bg-emerald-700 transition-colors"
           >
             Confirmar
           </button>
