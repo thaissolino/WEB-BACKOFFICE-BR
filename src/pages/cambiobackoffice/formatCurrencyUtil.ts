@@ -1,4 +1,4 @@
-export function formatCurrency(value: number, decimals = 2, currency = 'BRL') {
+export function formatCurrency(value: number, decimals = 2, currency = 'USD') {
   if (isNaN(value)) return '0.00';
   
   if (currency === 'USD') {
