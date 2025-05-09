@@ -1,9 +1,9 @@
-import { useEffect, useState } from 'react';
-import { ChartBar, Eye } from 'lucide-react';
-import { formatCurrency } from '../../../cambiobackoffice/formatCurrencyUtil';
-import { InvoiceData, InvoiceHistory } from './InvoiceHistory';
-import { api } from '../../../../services/api';
-import { InvoiceHistoryReport } from './InvoiceHistoryReport';
+import { useEffect, useState } from "react";
+import { ChartBar, Eye } from "lucide-react";
+import { formatCurrency } from "../../../cambiobackoffice/formatCurrencyUtil";
+import { InvoiceData, InvoiceHistory } from "./InvoiceHistory";
+import { api } from "../../../../services/api";
+import { InvoiceHistoryReport } from "./InvoiceHistoryReport";
 
 export function ReportsTab() {
   const [invoices, setInvoices] = useState<InvoiceData[]>([]);
@@ -14,32 +14,31 @@ export function ReportsTab() {
 
   const [suppliers, setSuppliers] = useState<{ id: string; name: string }[]>([]);
 
-    const fetchData = async () => {
-        try {
-          setLoading(true);
-          const [invoiceResponse, suppliersget] = await Promise.all([
-            api.get('/invoice/get'),
-            api.get('/invoice/supplier'),
-          ]);
-          setSuppliers(suppliersget.data)
-          setInvoices(invoiceResponse.data);
-        } catch (error) {
-          console.error('Erro ao buscar dados:', error);
-        } finally {
-          setLoading(false);
-        }
-      };
-      useEffect(() => {
-        fetchData();
-      }, []);
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      const [invoiceResponse, suppliersget] = await Promise.all([
+        api.get("/invoice/get"),
+        api.get("/invoice/supplier"),
+      ]);
+      setSuppliers(suppliersget.data);
+      setInvoices(invoiceResponse.data);
+    } catch (error) {
+      console.error("Erro ao buscar dados:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+  useEffect(() => {
+    fetchData();
+  }, []);
 
   const [filters, setFilters] = useState({
-    startDate: '',
-    endDate: '',
-    status: 'all',
-    supplier: 'all',
+    startDate: "",
+    endDate: "",
+    status: "all",
+    supplier: "all",
   });
-
 
   const filteredInvoices = invoices.filter((invoice) => {
     // Filtrar por data
@@ -50,19 +49,19 @@ export function ReportsTab() {
       return false;
     }
     // Filtrar por fornecedor
-    if (filters.supplier !== 'all' && invoice.supplierId !== filters.supplier) {
+    if (filters.supplier !== "all" && invoice.supplierId !== filters.supplier) {
       return false;
     }
 
     // Filtrar por status
-    if (filters.status !== 'all') {
-      if (filters.status === 'pending') {
-        return (!invoice.completed && !invoice.paid);
+    if (filters.status !== "all") {
+      if (filters.status === "pending") {
+        return !invoice.completed && !invoice.paid;
       }
-      if (filters.status === 'paid') {
-        return invoice.paid && !invoice.completed;;
+      if (filters.status === "paid") {
+        return invoice.paid && !invoice.completed;
       }
-      if (filters.status === 'completed' ){
+      if (filters.status === "completed") {
         return invoice.completed && invoice.paid;
       }
     }
@@ -144,22 +143,34 @@ export function ReportsTab() {
 
       {/* Dashboard de Status */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-        <button onClick={() => setFilters({ ...filters, status: "pending"})} className="bg-white p-6 rounded-lg border text-center">
+        <button
+          onClick={() => setFilters({ ...filters, status: "pending" })}
+          className="bg-white p-6 rounded-lg border text-center"
+        >
           <h3 className="text-lg font-medium mb-2 text-blue-700">Pendentes</h3>
           <p className="text-3xl font-bold text-yellow-600">{pendingCount}</p>
           <p className="text-sm text-gray-600">Invoices aguardando pagamento</p>
         </button>
-        <button  onClick={() => setFilters({ ...filters, status: "paid"})} className="bg-white p-6 rounded-lg border text-center">
+        <button
+          onClick={() => setFilters({ ...filters, status: "paid" })}
+          className="bg-white p-6 rounded-lg border text-center"
+        >
           <h3 className="text-lg font-medium mb-2 text-blue-700">Pagas</h3>
           <p className="text-3xl font-bold text-green-600">{paidCount}</p>
           <p className="text-sm text-gray-600">Invoices pagas</p>
         </button>
-        <button  onClick={() => setFilters({ ...filters, status: "completed"})} className="bg-white p-6 rounded-lg border text-center">
+        <button
+          onClick={() => setFilters({ ...filters, status: "completed" })}
+          className="bg-white p-6 rounded-lg border text-center"
+        >
           <h3 className="text-lg font-medium mb-2 text-blue-700">Concluídas</h3>
           <p className="text-3xl font-bold text-blue-600">{completedCount}</p>
           <p className="text-sm text-gray-600">Invoices finalizadas</p>
         </button>
-        <button  onClick={() => setFilters({ ...filters, status: "all"})} className="bg-white p-6 rounded-lg border text-center">
+        <button
+          onClick={() => setFilters({ ...filters, status: "all" })}
+          className="bg-white p-6 rounded-lg border text-center"
+        >
           <h3 className="text-lg font-medium mb-2 text-indigo-700">Total</h3>
           <p className="text-3xl font-bold text-indigo-600">{totalInvoices}</p>
           <p className="text-sm text-gray-600">Total de Invoices</p>
@@ -167,7 +178,13 @@ export function ReportsTab() {
       </div>
 
       {/* Tabela de Relatórios */}
-      <InvoiceHistoryReport invoiceHistory={filteredInvoices} setInvoiceHistory={setInvoices} />
+      {/* <InvoiceHistoryReport invoiceHistory={filteredInvoices} setInvoiceHistory={setInvoices} /> */}
+      <InvoiceHistoryReport
+        invoiceHistory={filteredInvoices as unknown as import("./InvoiceHistoryReport").InvoiceData[]}
+        setInvoiceHistory={
+          setInvoices as unknown as React.Dispatch<React.SetStateAction<import("./InvoiceHistoryReport").InvoiceData[]>>
+        }
+      />
     </div>
   );
 }

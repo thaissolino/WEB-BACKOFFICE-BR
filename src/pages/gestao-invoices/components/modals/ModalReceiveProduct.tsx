@@ -1,7 +1,7 @@
-// ModalReceiveProduct.tsx
-import React from "react";
+// components/modals/ModalReceiveProduct.tsx
+import React, { useState } from "react";
 import ReactDOM from "react-dom";
-import { X } from "lucide-react";
+import { X, Loader2 } from "lucide-react";
 
 export type ProductData = {
   id: string;
@@ -13,6 +13,7 @@ export type ProductData = {
   total: number;
   received: boolean;
   receivedQuantity: number;
+  quantityAnalizer: number;
   product: {
     id: string;
     name: string;
@@ -27,28 +28,39 @@ export type ProductData = {
 interface ModalReceiveProductProps {
   product: ProductData;
   onClose: () => void;
-  onConfirm: (receivedQuantity: number) => void;
+  onConfirm: (receivedQuantity: number) => Promise<void>;
 }
-export const ModalReceiveProduct: React.FC<ModalReceiveProductProps> = ({ product, onClose, onConfirm }) => {
-  const [receivedQuantity, setReceivedQuantity] = React.useState<number | "">("");
+
+export const ModalReceiveProduct: React.FC<ModalReceiveProductProps> = ({
+  product,
+  onClose,
+  onConfirm,
+}) => {
+  const [receivedQuantity, setReceivedQuantity] = useState<number | "">("");
+  const [isLoading, setIsLoading] = useState(false);
+
+  const maxAvailable = product.quantityAnalizer;
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
-
-    // Permite apenas números e vazio
     if (/^\d*$/.test(value)) {
       const num = Number(value);
-      if (num <= product.quantity) {
-        setReceivedQuantity(value as unknown as number);
+      if (num <= maxAvailable) {
+        setReceivedQuantity(value === "" ? "" : num);
       }
     }
   };
 
-  const handleConfirm = () => {
-    const num = Number(receivedQuantity);
-    if (!isNaN(num)) {
-      onConfirm(num);
-    }
+  const isDisabled =
+    receivedQuantity === "" ||
+    isNaN(Number(receivedQuantity)) ||
+    Number(receivedQuantity) < 1 ||
+    Number(receivedQuantity) > maxAvailable;
+
+  const handleConfirm = async () => {
+    setIsLoading(true);
+    await onConfirm(Number(receivedQuantity));
+    setIsLoading(false);
   };
 
   return ReactDOM.createPortal(
@@ -65,22 +77,17 @@ export const ModalReceiveProduct: React.FC<ModalReceiveProductProps> = ({ produc
           Produto: <span className="font-semibold">{product.product.name}</span>
         </div>
         <div className="text-sm text-gray-600 mb-4">
-          Quantidade total: <span className="font-medium">{product.quantity}</span>
+          Quantidade a confirmar: <span className="font-medium">{maxAvailable}</span>
         </div>
 
         <input
           type="number"
-          min={0}
-          max={product.quantity - product.receivedQuantity}
+          min={1}
+          max={maxAvailable}
           value={receivedQuantity}
           placeholder="Qtd a receber"
-          onChange={(e) => {
-            const val = Number(e.target.value);
-            if (val <= product.quantity - product.receivedQuantity) {
-              setReceivedQuantity(val);
-            }
-          }}
-          className="w-full mb-4 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm text-gray-800 placeholder-gray-400"
+          onChange={handleChange}
+          className="w-full mb-4 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm text-gray-800 placeholder-gray-400"
         />
 
         <div className="flex justify-end gap-2 mt-2">
@@ -91,11 +98,15 @@ export const ModalReceiveProduct: React.FC<ModalReceiveProductProps> = ({ produc
             Cancelar
           </button>
           <button
-            onClick={() => {
-              if (typeof receivedQuantity === "number") onConfirm(receivedQuantity);
-            }}
-            className="px-4 py-2 rounded-md text-sm bg-emerald-600 text-white hover:bg-emerald-700 transition-colors"
+            onClick={handleConfirm}
+            disabled={isDisabled || isLoading}
+            className={`px-4 py-2 rounded-md text-sm flex items-center justify-center ${
+              isDisabled || isLoading
+                ? "bg-emerald-300 text-white cursor-not-allowed"
+                : "bg-emerald-600 hover:bg-emerald-700 text-white"
+            }`}
           >
+            {isLoading && <Loader2 className="animate-spin mr-2" size={18} />}
             Confirmar
           </button>
         </div>
