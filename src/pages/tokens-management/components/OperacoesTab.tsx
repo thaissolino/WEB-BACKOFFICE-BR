@@ -162,8 +162,12 @@ const OperacoesTab: React.FC = () => {
     const valorFornecedor = valorOperacao / taxaFornecedorOperacao;
     const lucro = valorRecolhedor - valorFornecedor;
 
+    // ✅ Correção da lógica do comissionValue:
+    const debitoRecolhedor = valorOperacao / taxaRecolhedorOperacao;
+    const comissionValue = Number(((valorOperacao - debitoRecolhedor) * (comissionPercentage / 100)).toFixed(2));
+
     // const lucro = valorOperacao - valorOperacao / (taxaRecolhedorOperacao || 1); // Cálculo do lucro
-    const comissionValue = lucro * (comissionPercentage / 100); // Valor da comissão (sem arredondamento)
+    //  const comissionValue = lucro * (comissionPercentage / 100); // Valor da comissão (sem arredondamento)
     const novaOperacao = {
       date: formattedDate,
       city: localOperacao.toUpperCase(),
