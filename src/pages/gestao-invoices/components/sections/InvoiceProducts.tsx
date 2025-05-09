@@ -241,7 +241,13 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
 
     setIsSaving(true);
     try {
-      const response = await api.post("/invoice/create", currentInvoice);
+      const response = await api.post("/invoice/create", {
+        ...currentInvoice,
+        taxaSpEs:
+          currentInvoice.taxaSpEs == null || currentInvoice.taxaSpEs === ""
+            ? "0"
+            : currentInvoice.taxaSpEs.toString().trim(),
+      });
       Swal.fire({
         icon: "success",
         title: "Sucesso!",
