@@ -48,6 +48,7 @@ export type InvoiceData = {
     received: boolean;
     analising: boolean;
     receivedQuantity: number;
+    quantityAnalizer: number;
     product: {
       id: string;
       name: string;
@@ -90,6 +91,7 @@ type ProductData = {
   total: number;
   received: boolean;
   receivedQuantity: number;
+  quantityAnalizer: number;
   product: {
     id: string;
     name: string;
@@ -574,7 +576,7 @@ export function InvoiceHistoryReport({
                           <td className="px-4 py-2 text-sm text-gray-700">
                             {products.find((item) => item.id === product.productId)?.name}
                           </td>
-                          <td className="px-4 py-2 text-sm text-right">{product.quantity}</td>
+                          <td className="px-4 py-2 text-sm text-right">{product.quantityAnalizer} / {product.quantity}</td>
                           <td className="px-4 py-2 text-sm text-right">{product.value.toFixed(2)}</td>
                           <td className="px-4 py-2 text-sm text-right">{product.weight.toFixed(2)}</td>
                           <td className="px-4 py-2 text-sm text-right">
@@ -627,6 +629,7 @@ export function InvoiceHistoryReport({
                           idProductInvoice: selectedProductToReceive.id,
                           bodyupdate: {
                             received: isFullyReceived,
+                            quantityAnalizer: totalReceived - receivedQuantity,
                             receivedQuantity: totalReceived,
                           },
                         });
@@ -872,7 +875,7 @@ export function InvoiceHistoryReport({
               <ModalAnaliseProduct
                 product={selectedProductToAnalyze}
                 onClose={() => setSelectedProductToAnalyze(null)}
-                onConfirm={async (analiseQuantity: number) => {
+                onConfirm={async (quantityAnalizer: number) => {
                   try {
                     setIsSavingId(selectedProductToAnalyze.id);
                     setIsSaving(true);
@@ -881,7 +884,7 @@ export function InvoiceHistoryReport({
                       idProductInvoice: selectedProductToAnalyze.id,
                       bodyupdate: {
                         analising: true,
-                        quantity: analiseQuantity,
+                        quantityAnalizer,
                       },
                     });
 
