@@ -317,6 +317,7 @@ export function InvoiceHistoryReport({
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{supplier?.name || "-"}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <i className="fas fa-clock text-green-500 mr-2"></i>
                         {(() => {
                           const date = new Date(invoice.date);
                           const horas = date.getHours();
