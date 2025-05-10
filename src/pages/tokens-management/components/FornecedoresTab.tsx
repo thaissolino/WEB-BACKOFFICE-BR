@@ -429,14 +429,16 @@ const FornecedoresTab: React.FC = () => {
 
                     <td
                       className={`py-2 px-4 border text-center font-bold ${
-                        calculatedBalances[f.id] === 0
-                          ? "text-gray-900"
+                        Math.abs(calculatedBalances[f.id]) < 0.009
+                          ? "text-gray-800"
                           : calculatedBalances[f.id] < 0
                           ? "text-red-600"
                           : "text-green-600"
                       }`}
                     >
-                      {calculatedBalances[f.id] === 0 ? "0" : formatCurrency(calculatedBalances[f.id] || 0)}
+                      {Math.abs(calculatedBalances[f.id]) < 0.009
+                        ? formatCurrency(0)
+                        : formatCurrency(calculatedBalances[f.id])}
                     </td>
                     <td className="py-2 px-4 border space-x-2 text-center">
                       <motion.button

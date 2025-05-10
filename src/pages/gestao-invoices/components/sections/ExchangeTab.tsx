@@ -37,6 +37,8 @@ export function ExchangeTab() {
   const [loading, setLoading] = useState(true);
 
   const [historyPaymentBuy, setHistoryPaymentBuy] = useState<FinancialTransaction[] | undefined>(undefined);
+  const [currentPage, setCurrentPage] = useState(0);
+  const itemsPerPage = 10;
 
   const [dataPayment, setDataUpdated] = useState({
     invoiceId: "",
@@ -250,7 +252,7 @@ export function ExchangeTab() {
       setIsSaving2(true);
       const response = await api.post("/invoice/exchange-records", {
         ...dataPayment,
-        date: new Date(dataPayment.date),
+        date: new Date(`${dataPayment.date}T${new Date().toTimeString().split(" ")[0]}`),
         usd: Number(dataPayment.usd),
         rate: balance?.averageRate,
       });
@@ -501,6 +503,30 @@ export function ExchangeTab() {
               )}
             </tbody>
           </table>
+          {/* Paginação */}
+        {invoices.length > itemsPerPage && (
+          <div className="flex justify-between items-center mt-4">
+            <button
+              onClick={() => setCurrentPage((prev) => Math.max(0, prev - 1))}
+              disabled={currentPage === 0}
+              className="px-3 py-1 bg-gray-200 text-sm rounded disabled:opacity-50"
+            >
+              Anterior
+            </button>
+            <span className="text-sm text-gray-600">
+              Página {currentPage + 1} de {Math.ceil(invoices.length / itemsPerPage)}
+            </span>
+            <button
+              onClick={() =>
+                setCurrentPage((prev) => Math.min(prev + 1, Math.ceil(invoices.length / itemsPerPage) - 1))
+              }
+              disabled={(currentPage + 1) * itemsPerPage >= invoices.length}
+              className="px-3 py-1 bg-gray-200 text-sm rounded disabled:opacity-50"
+            >
+              Próxima
+            </button>
+          </div>
+        )}
         </div>
       </div>
     </div>

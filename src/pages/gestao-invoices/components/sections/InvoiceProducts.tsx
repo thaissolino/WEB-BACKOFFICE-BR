@@ -241,8 +241,13 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
 
     setIsSaving(true);
     try {
+      const now = new Date();
+      const time = now.toTimeString().split(' ')[0]; // "HH:MM:SS"
+      const dateWithTime = new Date(`${currentInvoice.date}T${time}`);
+
       const response = await api.post("/invoice/create", {
         ...currentInvoice,
+        date: dateWithTime,
         taxaSpEs:
           currentInvoice.taxaSpEs == null || currentInvoice.taxaSpEs === ""
             ? "0"
@@ -499,12 +504,11 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
                 <p className="text-sm text-gray-600">Subtotal:</p>
                 <p id="subtotal" className="text-lg font-semibold">$ {subTotal.toLocaleString('en-US', {  currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits:2 }) || "0.00"}</p>
               </div> */}
-              <div className="bg-white p-3 rounded border">
-                <div className=" flex flex-direction-row">
-                  <p className="text-sm text-gray-600 mr-2">Frete 1: </p>
-                  <p className="text-sm text-black font-bold">{carrierOneName}</p>
-                </div>
-                <p id="shippingCost" className="text-lg font-semibold">
+              {/* FRETE 1 */}
+              <div className="bg-gray-50 p-4 rounded-2xl border shadow-sm text-center">
+                <p className="text-sm text-gray-600">Frete 1:</p>
+                <p className="text-sm text-gray-800 font-semibold">{carrierOneName}</p>
+                <p id="shippingCost" className="text-lg font-bold mt-1">
                   ${" "}
                   {amountTaxCarrieFrete1.toLocaleString("en-US", {
                     currency: "USD",
@@ -513,12 +517,12 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
                   }) || "0.00"}
                 </p>
               </div>
-              <div className="bg-white p-3 rounded border">
-                <div className=" flex flex-direction-row">
-                  <p className="text-sm text-gray-600 mr-2">Frete 2: </p>
-                  <p className="text-sm text-black font-bold">{carrierTwoName}</p>
-                </div>
-                <p id="shippingCost" className="text-lg font-semibold">
+
+              {/* FRETE 2 */}
+              <div className="bg-gray-50 p-4 rounded-2xl border shadow-sm text-center">
+                <p className="text-sm text-gray-600">Frete 2:</p>
+                <p className="text-sm text-gray-800 font-semibold">{carrierTwoName}</p>
+                <p id="shippingCost" className="text-lg font-bold mt-1">
                   ${" "}
                   {amountTaxCarrieFrete2.toLocaleString("en-US", {
                     currency: "USD",
@@ -528,9 +532,10 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
                 </p>
               </div>
 
-              <div className="bg-white p-3 rounded border">
+              {/* FRETE SP x ES */}
+              <div className="bg-gray-50 p-4 rounded-2xl border shadow-sm text-center">
                 <p className="text-sm text-gray-600">Frete SP x ES:</p>
-                <p id="taxCost" className="text-lg font-semibold">
+                <p id="taxCost" className="text-lg font-bold mt-1">
                   R${" "}
                   {taxSpEs.toLocaleString("pt-BR", {
                     currency: "BRL",
@@ -540,15 +545,18 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
                 </p>
               </div>
 
-              <div className="bg-white p-3 rounded border">
-                <p className="text-sm text-gray-600">Total de Itens:</p>
-                <p id="taxCost" className="text-lg font-semibold flex justify-start ml-10">
-                  {totalQuantidade}
+              {/* TOTAL DE ITENS */}
+              <div className="bg-gray-50 p-4 rounded-2xl border shadow-sm text-center">
+                <p className="text-sm text-gray-600">Total de Itens (Qtd):</p>
+                <p id="taxCost" className="text-lg font-bold mt-1">
+                  Qtd {totalQuantidade}
                 </p>
               </div>
             </div>
-            <div className="bg-blue-50 p-3 rounded border  mb-5">
-              <div className="flex justify-between items-center">
+
+            {/* TOTAL DA INVOICE */}
+            <div className="bg-blue-50 p-4 rounded-2xl border shadow-sm mb-3">
+              <div className="flex flex-col md:flex-row justify-between items-center">
                 <p className="text-sm font-medium text-blue-800">Total da Invoice:</p>
                 <p id="invoiceTotal" className="text-xl font-bold text-blue-800">
                   ${" "}
@@ -560,8 +568,10 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
                 </p>
               </div>
             </div>
-            <div className="bg-green-50 p-3 rounded border">
-              <div className="flex justify-between items-center">
+
+            {/* TOTAL COM FRETE */}
+            <div className="bg-green-50 p-4 rounded-2xl border shadow-sm">
+              <div className="flex flex-col md:flex-row justify-between items-center">
                 <p className="text-sm font-medium text-green-800">Total com frete:</p>
                 <p id="invoiceTotal" className="text-xl font-bold text-green-800">
                   ${" "}

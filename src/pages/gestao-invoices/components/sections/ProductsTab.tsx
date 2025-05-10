@@ -159,7 +159,7 @@ export function ProductsTab() {
         setShowModal(false);
       }
     };
-  
+
     document.addEventListener("keydown", handleKeyDown);
     return () => {
       document.removeEventListener("keydown", handleKeyDown);
@@ -274,7 +274,10 @@ export function ProductsTab() {
       )}
 
       {showModal && currentProduct && (
-        <div onClick={()=> setShowModal(false)} className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div
+          onClick={() => setShowModal(false)}
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+        >
           <div onClick={(e) => e.stopPropagation()} className="bg-white p-6 rounded-lg w-full max-w-md">
             <h3 className="text-lg font-medium mb-4">{currentProduct.id ? "Editar Produto" : "Novo Produto"}</h3>
             <div className="space-y-4">
@@ -301,27 +304,39 @@ export function ProductsTab() {
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Preço ($)</label>
                   <input
-                    type="number"
-                    step="0.01"
-                    value={currentProduct.priceweightAverage}
-                    onChange={(e) =>
-                      setCurrentProduct({ ...currentProduct, priceweightAverage: parseFloat(e.target.value) || 0 })
-                    }
+                    type="text"
+                    placeholder="0.00"
+                    inputMode="decimal"
+                    value={currentProduct.priceweightAverage === 0 ? "" : String(currentProduct.priceweightAverage)}
+                    onChange={(e) => {
+                      const value = e.target.value.replace(",", "."); // permite , ou .
+                      if (/^\d*\.?\d{0,2}$/.test(value) || value === "") {
+                        setCurrentProduct({
+                          ...currentProduct,
+                          priceweightAverage: value === "" ? 0 : parseFloat(value),
+                        });
+                      }
+                    }}
                     className="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500"
-                    disabled={isSubmitting}
                   />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Peso (kg)</label>
                   <input
-                    type="number"
-                    step="0.01"
-                    value={currentProduct.weightAverage}
-                    onChange={(e) =>
-                      setCurrentProduct({ ...currentProduct, weightAverage: parseFloat(e.target.value) || 0 })
-                    }
+                    type="text"
+                    placeholder="0.00"
+                    inputMode="decimal"
+                    value={currentProduct.weightAverage === 0 ? "" : String(currentProduct.weightAverage)}
+                    onChange={(e) => {
+                      const value = e.target.value.replace(",", ".");
+                      if (/^\d*\.?\d{0,2}$/.test(value) || value === "") {
+                        setCurrentProduct({
+                          ...currentProduct,
+                          weightAverage: value === "" ? 0 : parseFloat(value),
+                        });
+                      }
+                    }}
                     className="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500"
-                    disabled={isSubmitting}
                   />
                 </div>
               </div>
