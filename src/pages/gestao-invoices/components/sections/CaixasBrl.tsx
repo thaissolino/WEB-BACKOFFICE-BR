@@ -316,7 +316,7 @@ export const CaixasTabBrl = () => {
   const submitPayment = async () => {
     try {
       if (!formData.date) {
-      //  Swal.fire({ icon: "error", title: "Erro!", text: "Selecione uma data" });
+        //  Swal.fire({ icon: "error", title: "Erro!", text: "Selecione uma data" });
         Swal.fire({
           icon: "error",
           title: "Erro!",
@@ -330,7 +330,7 @@ export const CaixasTabBrl = () => {
         return;
       }
       if (!isValidNumber(formData.value)) {
-      //  Swal.fire({ icon: "error", title: "Erro!", text: "Valor inválido" });
+        //  Swal.fire({ icon: "error", title: "Erro!", text: "Valor inválido" });
         Swal.fire({
           icon: "error",
           title: "Erro!",
@@ -344,7 +344,7 @@ export const CaixasTabBrl = () => {
         return;
       }
       if (!formData.description) {
-       // Swal.fire({ icon: "error", title: "Erro!", text: "Informe uma descrição" });
+        // Swal.fire({ icon: "error", title: "Erro!", text: "Informe uma descrição" });
         Swal.fire({
           icon: "error",
           title: "Erro!",
@@ -358,7 +358,7 @@ export const CaixasTabBrl = () => {
         return;
       }
       if (!selectedEntity) {
-       // Swal.fire({ icon: "error", title: "Erro!", text: "Nenhum usuário selecionado" });
+        // Swal.fire({ icon: "error", title: "Erro!", text: "Nenhum usuário selecionado" });
         Swal.fire({
           icon: "error",
           title: "Erro!",
@@ -371,6 +371,10 @@ export const CaixasTabBrl = () => {
         });
         return;
       }
+
+      const now = new Date();
+      const currentTime = now.toTimeString().split(" ")[0]; // HH:MM:SS
+      const fullDate = new Date(`${formData.date}T${currentTime}`);
 
       setLoadingFetch3(true);
 
@@ -385,7 +389,7 @@ export const CaixasTabBrl = () => {
         value: Math.abs(Number(formData.value)),
         entityId: selectedEntity.id,
         direction: Number(formData.value) > 0 ? "IN" : "OUT",
-        date: formData.date,
+        date: fullDate.toISOString(),
         description: formData.description,
         entityType: entityTypeMap[selectedEntity.typeInvoice as keyof typeof entityTypeMap] || "PARTNER", // Fallback seguro
         userId: caixaUser?.id,
@@ -659,7 +663,14 @@ export const CaixasTabBrl = () => {
                           className="odd:bg-blue-50 even:bg-green-50"
                         >
                           <td className="py-2 px-4 border text-center">
-                            {new Date(t.date).toLocaleDateString("pt-BR", { timeZone: "UTC" })}
+                            {new Date(t.date).toLocaleString("pt-BR", {
+                            //  timeZone: "UTC",
+                              day: "2-digit",
+                              month: "2-digit",
+                              year: "numeric",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
                           </td>
                           <td className="py-2 px-4 border">{t.description}</td>
                           <td

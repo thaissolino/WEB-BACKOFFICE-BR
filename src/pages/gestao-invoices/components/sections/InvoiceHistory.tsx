@@ -124,7 +124,7 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
         api.get("/invoice/product"),
       ]);
 
-      console.log(invoiceResponse)
+      console.log(invoiceResponse);
       setProducts(productsResponse.data);
       setInvoices(invoiceResponse.data);
       setSuppliers(supplierResponse.data);
@@ -145,13 +145,12 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
         closeModal();
       }
     };
-  
+
     document.addEventListener("keydown", handleKeyDown);
     return () => {
       document.removeEventListener("keydown", handleKeyDown);
     };
   }, []);
-  
 
   const getStatusText = (invoice: InvoiceData) => {
     if (invoice.completed && invoice.paid) return "Paga";
@@ -267,11 +266,11 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
       // Atualiza a invoice selecionada
 
       // Atualiza a lista completa de invoices
-      const [invoiceResponse] = await Promise.all([api.get("/invoice/get")]); 
+      const [invoiceResponse] = await Promise.all([api.get("/invoice/get")]);
 
       const findInvoice = invoiceResponse.data.find((item: InvoiceData) => item.id === selectedInvoice.id);
 
-      fetchInvoicesAndSuppliers()
+      fetchInvoicesAndSuppliers();
       setSelectedInvoice(findInvoice);
 
       // Reseta o formulário
@@ -353,7 +352,18 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{supplier?.name || "-"}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {new Date(new Date(invoice.date).getTime() + 3 * 60 * 60 * 1000).toLocaleDateString("pt-BR")}
+                          {(() => {
+                            const date = new Date(invoice.date);
+                            const horas = date.getHours();
+                            const minutos = date.getMinutes();
+                            const segundos = date.getSeconds();
+                            const dataFormatada = date.toLocaleDateString("pt-BR");
+                            const horaFormatada = `${String(horas).padStart(2, "0")}:${String(minutos).padStart(
+                              2,
+                              "0"
+                            )}:${String(segundos).padStart(2, "0")}`;
+                            return horas + minutos + segundos > 0 ? `${dataFormatada} ${horaFormatada}` : dataFormatada;
+                          })()}{" "}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right">
                           {formatCurrency(total)}
@@ -415,7 +425,10 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
           className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50 "
           onClick={closeModal}
         >
-          <div  onClick={(e) => e.stopPropagation()} className="bg-white p-6 rounded-lg w-full max-w-4xl max-h-[90vh] overflow-y-auto mx-4">
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white p-6 rounded-lg w-full max-w-4xl max-h-[90vh] overflow-y-auto mx-4"
+          >
             {/* Seção para adicionar novo produto */}
             <div className="mb-6">
               {!showAddProductForm ? (
@@ -434,13 +447,16 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
                         className="w-full p-2 border border-gray-300 rounded-md text-sm"
                         value={newProduct.productId}
                         onChange={(e) => {
-                          const product = products.find((p) => p.id === e.target.value);
-                          
+                          const selectedId = e.target.value;
+                          const product = products.find((p) => p.id === selectedId);
+
+                          const price = product?.priceweightAverage ?? 0;
+
                           setNewProduct({
                             ...newProduct,
-                            productId: e.target.value,
-                            value: product ? String(product.priceweightAverage) : "",
-                            weight: product ? String(product.priceweightAverage) : "",
+                            productId: selectedId,
+                            value: price > 0 ? String(price) : "",
+                            weight: price > 0 ? String(price) : "",
                           });
                         }}
                       >
@@ -458,7 +474,7 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Qtd</label>
                       <input
-                        type="number"
+                        type="text"
                         min="1"
                         className="w-full p-2 border border-gray-300 rounded-md text-sm"
                         value={newProduct.quantity}
@@ -473,25 +489,24 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
                         placeholder="digite o valor"
                         inputMode="decimal"
                         className="w-full p-2 border border-gray-300 rounded-md text-sm"
-                        value={newProduct.value }
+                        value={newProduct.value || ""}
                         onChange={(e) => {
                           const inputValue = e.target.value;
 
                           // Permite número com ponto ou vírgula, até duas casas decimais
                           if (/^\d*[.,]?\d{0,2}$/.test(inputValue) || inputValue === "") {
-                            setNewProduct({ ...newProduct, value: inputValue.replace(',', '.') });
+                            setNewProduct({ ...newProduct, value: inputValue.replace(",", ".") });
                           }
                         }}
                       />
-
                     </div>
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Peso (kg)</label>
                       <input
-                         type="text"
-                         placeholder="digite o valor"
-                         inputMode="decimal"
+                        type="text"
+                        placeholder="digite o valor"
+                        inputMode="decimal"
                         className="w-full p-2 border border-gray-300 rounded-md text-sm"
                         value={newProduct.weight}
                         onChange={(e) => {
@@ -499,7 +514,7 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
 
                           // Permite número com ponto ou vírgula, até duas casas decimais
                           if (/^\d*[.,]?\d{0,2}$/.test(inputValue) || inputValue === "") {
-                            setNewProduct({ ...newProduct, weight: inputValue.replace(',', '.') });
+                            setNewProduct({ ...newProduct, weight: inputValue.replace(",", ".") });
                           }
                         }}
                       />
@@ -620,9 +635,18 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
                               <button
                                 onClick={() => handleDeleteProduct(product.id)}
                                 disabled={isSaving}
-                                className="flex items-center gap-1 text-white px-2 bg-red-600 hover:bg-red-700 rounded-sm"
+                                className={`flex items-center justify-center gap-2 text-sm font-medium px-3 py-1 rounded-md shadow-sm transition 
+    ${isSaving ? "bg-gray-400 cursor-not-allowed opacity-60 text-white" : "bg-red-600 hover:bg-red-500 text-white"}`}
                               >
-                                <XIcon size={18} /> Remover
+                                {isSaving ? (
+                                  <>
+                                    <Loader2 className="animate-spin" size={16} /> Removendo...
+                                  </>
+                                ) : (
+                                  <>
+                                    <XIcon size={16} /> Remover
+                                  </>
+                                )}
                               </button>
                             </div>
                           </td>
@@ -634,8 +658,8 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-              <div className="bg-gray-50 p-3 rounded border">
-                <p className="text-sm text-gray-600">Frete 1:</p>
+              <div className="bg-gray-50 p-4 rounded-2xl border shadow-sm text-center">
+                <p className="text-sm text-gray-600">Frete 1</p>
                 <p id="modalInvoiceSubtotal" className="text-lg font-semibold">
                   ${" "}
                   {selectedInvoice.amountTaxcarrier.toLocaleString("en-US", {
@@ -644,8 +668,9 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
                   })}
                 </p>
               </div>
-              <div className="bg-gray-50 p-3 rounded border">
-                <p className="text-sm text-gray-600">Frete 2:</p>
+
+              <div className="bg-gray-50 p-4 rounded-2xl border shadow-sm text-center">
+                <p className="text-sm text-gray-600">Frete 2</p>
                 <p id="modalInvoiceShipping" className="text-lg font-semibold">
                   ${" "}
                   {selectedInvoice.amountTaxcarrier2.toLocaleString("en-US", {
@@ -655,8 +680,8 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
                 </p>
               </div>
 
-              <div className="bg-gray-50 p-3 rounded border">
-                <p className="text-sm text-gray-600">Frete SP x ES:</p>
+              <div className="bg-gray-50 p-4 rounded-2xl border shadow-sm text-center">
+                <p className="text-sm text-gray-600">Frete SP x ES</p>
                 <p id="modalInvoiceTax" className="text-lg font-semibold">
                   R${" "}
                   {selectedInvoice.amountTaxSpEs.toLocaleString("pt-BR", {
@@ -665,14 +690,43 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
                   })}
                 </p>
               </div>
-              <div className="bg-white p-3 rounded border">
-                <p className="text-sm text-gray-600">Total de Itens:</p>
-                <p id="taxCost" className="text-lg font-semibold flex justify-start ml-10">
-                  {totalQuantidade}
+
+              <div className="bg-gray-50 p-4 rounded-2xl border shadow-sm text-center">
+                <p className="text-sm text-gray-600">Total de Itens (Qtd)</p>
+                <p id="taxCost" className="text-lg font-semibold">
+                  Qtd {totalQuantidade}
                 </p>
               </div>
             </div>
-            <div className="bg-blue-50 p-4 rounded border">
+
+            <div className="bg-blue-50 p-4 rounded-2xl border shadow-sm mt-2">
+              <div className="flex flex-col md:flex-row justify-between items-center">
+                <p className="text-sm font-medium text-blue-800">Total da Invoice:</p>
+                <p id="modalInvoiceTotal" className="text-xl font-bold text-blue-800">
+                  ${" "}
+                  {selectedInvoice.subAmount.toLocaleString("en-US", {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}
+                </p>
+              </div>
+              <div className="flex flex-col md:flex-row justify-between items-center mt-1" id="modalInvoicePaymentInfo">
+                <p className="text-xs text-green-600">Total com frete:</p>
+                <p className="text-xs font-medium text-green-600">
+                  ${" "}
+                  {(
+                    selectedInvoice.subAmount +
+                    selectedInvoice.amountTaxcarrier +
+                    selectedInvoice.amountTaxcarrier2
+                  ).toLocaleString("pt-BR", {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}
+                </p>
+              </div>
+            </div>
+
+            {/* <div className="bg-blue-50 p-4 rounded border">
               <div className="flex justify-between items-center">
                 <p className="text-sm font-medium text-blue-800">Total da Invoice:</p>
                 <p id="modalInvoiceTotal" className="text-xl font-bold text-blue-800">
@@ -694,7 +748,7 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
                   ).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </p>
               </div>
-            </div>
+            </div> */}
 
             <div className="mt-6 flex justify-end">
               {/* <button id="printInvoiceBtn" className="bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded-md mr-2">
