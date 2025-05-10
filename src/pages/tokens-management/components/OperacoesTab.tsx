@@ -400,7 +400,10 @@ const OperacoesTab: React.FC = () => {
                 .slice(currentPage * itemsPerPage, (currentPage + 1) * itemsPerPage)
                 .map((op) => (
                   <tr key={op.id} className="odd:bg-blue-50 even:bg-green-50">
-                    <td className="py-2 px-4 border text-center align-middle">{formatDate(new Date(op.date))}</td>
+                    <td className="py-2 px-4 border text-center align-middle">
+                      <i className="fas fa-clock text-green-500 mr-2"></i>
+                      {formatDate(new Date(op.date))}
+                    </td>
                     <td className="py-2 px-4 border align-middle text-center">{op.city}</td>
                     <td className="py-2 px-4 border align-middle text-center">{getRecolhedorNome(op.collectorId)}</td>
                     <td className="py-2 px-4 border align-middle text-center">{getFornecedorNome(op.supplierId)}</td>

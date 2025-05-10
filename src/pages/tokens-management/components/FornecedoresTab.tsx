@@ -606,7 +606,7 @@ const FornecedoresTab: React.FC = () => {
                           >
                             <td className="py-2 px-4 border text-sm text-gray-700">
                               <div className="flex items-center gap-2" title={new Date(t.date).toISOString()}>
-                                <i className="fas fa-clock text-gray-500"></i>
+                                <i className="fas fa-clock text-green-500 mr-2"></i>
                                 {formatDate(t.date)}
                               </div>
                             </td>

@@ -714,8 +714,10 @@ export const CaixasTab = () => {
                           className="odd:bg-blue-50 even:bg-green-50"
                         >
                           <td className="py-2 px-4 border text-center">
+                            <i className="fas fa-clock text-green-500 mr-2"></i>
+
                             {new Date(t.date).toLocaleString("pt-BR", {
-                           //   timeZone: "UTC",
+                              //   timeZone: "UTC",
                               day: "2-digit",
                               month: "2-digit",
                               year: "numeric",
