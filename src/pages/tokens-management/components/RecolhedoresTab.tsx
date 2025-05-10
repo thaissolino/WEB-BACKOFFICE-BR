@@ -306,7 +306,7 @@ const RecolhedoresTab: React.FC = () => {
       const totalBalance = Object.values(updatedBalances).reduce((a, b) => a + b, 0);
       setSaldoAcumulado(totalBalance);
 
-     // alert("Pagamento deletado com sucesso.");
+      // alert("Pagamento deletado com sucesso.");
     } catch (e: any) {
       alert(`Erro ao deletar pagamento: ${e.message}`);
     }
@@ -462,13 +462,18 @@ const RecolhedoresTab: React.FC = () => {
                     className="hover:bg-gray-50"
                   >
                     <td className="py-2 px-4 border text-center">{r.name}</td>
-
                     <td
                       className={`py-2 px-4 border text-center font-bold ${
-                        calculatedBalances[r.id] < 0 ? "text-red-600" : "text-green-600"
+                        Math.abs(calculatedBalances[r.id]) < 0.009
+                          ? "text-gray-800"
+                          : calculatedBalances[r.id] < 0
+                          ? "text-red-600"
+                          : "text-green-600"
                       }`}
                     >
-                      {formatCurrency(calculatedBalances[r.id] || 0)}
+                      {Math.abs(calculatedBalances[r.id]) < 0.009
+                        ? formatCurrency(0)
+                        : formatCurrency(calculatedBalances[r.id])}
                     </td>
                     <td className="py-2 px-4 border space-x-2 text-center">
                       <motion.button

@@ -165,15 +165,15 @@ export function CarriersTab() {
     } finally {
       setIsSubmitting(false);
     }
-   };
+  };
 
-   useEffect(() => {
+  useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         setShowModal(false);
       }
     };
-  
+
     document.addEventListener("keydown", handleKeyDown);
     return () => {
       document.removeEventListener("keydown", handleKeyDown);
@@ -269,7 +269,10 @@ export function CarriersTab() {
 
       {/* Modal de Freteiro */}
       {showModal && currentCarrier && (
-        <div onClick={()=> setShowModal(false)} className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div
+          onClick={() => setShowModal(false)}
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+        >
           <div onClick={(e) => e.stopPropagation()} className="bg-white p-6 rounded-lg w-full max-w-md">
             <h3 className="text-lg font-medium mb-4">{currentCarrier.id ? "Editar Freteiro" : "Adicionar Freteiro"}</h3>
             <div className="space-y-4">
@@ -306,10 +309,19 @@ export function CarriersTab() {
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Valor</label>
                   <input
-                    type="number"
-                    step="0.01"
-                    value={currentCarrier.value}
-                    onChange={(e) => setCurrentCarrier({ ...currentCarrier, value: parseFloat(e.target.value) || 0 })}
+                    type="text"
+                    inputMode="decimal"
+                    placeholder="0.00"
+                    value={currentCarrier.value === 0 ? "" : String(currentCarrier.value)}
+                    onChange={(e) => {
+                      const value = e.target.value.replace(",", ".");
+                      if (/^\d*\.?\d{0,2}$/.test(value) || value === "") {
+                        setCurrentCarrier({
+                          ...currentCarrier,
+                          value: value === "" ? 0 : parseFloat(value),
+                        });
+                      }
+                    }}
                     className="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500"
                     disabled={isSubmitting}
                   />

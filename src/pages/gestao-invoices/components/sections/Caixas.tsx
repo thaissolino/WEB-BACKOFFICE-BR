@@ -388,13 +388,16 @@ export const CaixasTab = () => {
       }
 
       console.log("selectedEntity", selectedEntity);
+      const now = new Date();
+      const currentTime = now.toTimeString().split(" ")[0]; // HH:MM:SS
+      const fullDate = new Date(`${formData.date}T${currentTime}`);
 
       setLoadingFetch3(true);
       await api.post(`/invoice/box/transaction`, {
         value: Math.abs(Number(formData.value)),
         entityId: selectedEntity.id,
         direction: Number(formData.value) > 0 ? "IN" : "OUT",
-        date: formData.date,
+        date: fullDate.toISOString(),
         description: formData.description,
         entityType:
           selectedEntity.typeInvoice === "freteiro"
@@ -500,9 +503,9 @@ export const CaixasTab = () => {
               {formatCurrency(balancePartnerUSD || 0)}
             </div>
           )} */}
-           <div className="absolute hidden group-hover:block bg-gray-800 text-white text-xs p-2 rounded z-10 bottom-full mb-2 whitespace-nowrap">
-              {formatCurrency(balancePartnerUSD || 0)}
-            </div>
+          <div className="absolute hidden group-hover:block bg-gray-800 text-white text-xs p-2 rounded z-10 bottom-full mb-2 whitespace-nowrap">
+            {formatCurrency(balancePartnerUSD || 0)}
+          </div>
         </motion.div>
 
         <motion.div whileHover={{ scale: 1.02 }} className="bg-purple-50 p-4 rounded-lg shadow relative group">
@@ -711,7 +714,14 @@ export const CaixasTab = () => {
                           className="odd:bg-blue-50 even:bg-green-50"
                         >
                           <td className="py-2 px-4 border text-center">
-                            {new Date(t.date).toLocaleDateString("pt-BR", { timeZone: "UTC" })}
+                            {new Date(t.date).toLocaleString("pt-BR", {
+                           //   timeZone: "UTC",
+                              day: "2-digit",
+                              month: "2-digit",
+                              year: "numeric",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
                           </td>
                           <td className="py-2 px-4 border">{t.description}</td>
                           <td

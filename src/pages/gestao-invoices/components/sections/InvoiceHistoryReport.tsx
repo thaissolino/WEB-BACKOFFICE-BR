@@ -317,7 +317,18 @@ export function InvoiceHistoryReport({
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{supplier?.name || "-"}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {new Date(new Date(invoice.date).getTime() + 3 * 60 * 60 * 1000).toLocaleDateString("pt-BR")}
+                        {(() => {
+                          const date = new Date(invoice.date);
+                          const horas = date.getHours();
+                          const minutos = date.getMinutes();
+                          const segundos = date.getSeconds();
+                          const dataFormatada = date.toLocaleDateString("pt-BR");
+                          const horaFormatada = `${String(horas).padStart(2, "0")}:${String(minutos).padStart(
+                            2,
+                            "0"
+                          )}:${String(segundos).padStart(2, "0")}`;
+                          return horas + minutos + segundos > 0 ? `${dataFormatada} ${horaFormatada}` : dataFormatada;
+                        })()}{" "}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right">
                         {formatCurrency(total)}
@@ -607,7 +618,9 @@ export function InvoiceHistoryReport({
                         </tr>
                       ))}
                     <tr className="bg-green-100 font-semibold">
-                      <td className="px-4 py-2 text-sm text-right text-gray-800">Subtotal</td>
+                      <td className="flex flex-start items-center px-4 py-2 text-sm text-right text-gray-800">
+                        Subtotal
+                      </td>
                       <td className="px-4 py-2 text-sm text-right text-gray-800">
                         {selectedInvoice.products
                           .filter((item) => item.analising && !item.received)
@@ -756,7 +769,9 @@ export function InvoiceHistoryReport({
                         </tr>
                       ))}
                     <tr className="bg-blue-100 font-semibold">
-                      <td className="px-4 py-2 text-sm text-right text-gray-800">Subtotal</td>
+                      <td className="flex flex-start items-center px-4 py-2 text-sm text-right text-gray-800">
+                        Subtotal
+                      </td>
                       <td className="px-4 py-2 text-sm text-right text-gray-800">
                         {selectedInvoice.products
                           .filter((item) => item.receivedQuantity > 0)
@@ -844,17 +859,23 @@ export function InvoiceHistoryReport({
               </div>
 
               <div className="bg-white p-4 rounded-2xl shadow-md border border-gray-200 transition hover:shadow-lg">
-                <p className="text-sm text-gray-600">Total com frete:</p>
+                <p className="text-sm text-gray-600">Frete SP x ES:</p>
+                <p id="modalInvoiceTax" className="text-lg font-semibold">
+                  R${" "}
+                  {selectedInvoice.amountTaxSpEs.toLocaleString("pt-BR", {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}
+                </p>
+              </div>
+
+              <div className="bg-white p-4 rounded-2xl shadow-md border border-gray-200 transition hover:shadow-lg">
+                <p className="text-sm text-gray-600">Total sem taxas:</p>
                 <p id="modalInvoiceTax" className="text-lg font-semibold">
                   {taxInvoice?.rate ? (
                     <>
                       R${" "}
-                      {(
-                        (selectedInvoice.subAmount +
-                          selectedInvoice.amountTaxcarrier +
-                          selectedInvoice.amountTaxcarrier2) *
-                        taxInvoice.rate
-                      ).toLocaleString("pt-BR", {
+                      {(selectedInvoice.subAmount * taxInvoice.rate).toLocaleString("pt-BR", {
                         minimumFractionDigits: 2,
                         maximumFractionDigits: 2,
                       })}
@@ -872,17 +893,6 @@ export function InvoiceHistoryReport({
                       })}
                     </>
                   )}
-                </p>
-              </div>
-
-              <div className="bg-white p-4 rounded-2xl shadow-md border border-gray-200 transition hover:shadow-lg">
-                <p className="text-sm text-gray-600">Frete SP x ES:</p>
-                <p id="modalInvoiceTax" className="text-lg font-semibold">
-                  R${" "}
-                  {selectedInvoice.amountTaxSpEs.toLocaleString("pt-BR", {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2,
-                  })}
                 </p>
               </div>
             </div>
