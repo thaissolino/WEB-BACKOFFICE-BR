@@ -630,7 +630,8 @@ const FornecedoresTab: React.FC = () => {
                               {t.id.toString().startsWith("op-") && (
                                 <button
                                   onClick={() => deletarOperacao(Number(t.id.toString().replace("op-", "")))}
-                                  className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded"
+                                  disabled={true}
+                                  className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded justify-self-end cursor-not-allowed"
                                 >
                                   <i className="fas fa-trash"></i>
                                 </button>

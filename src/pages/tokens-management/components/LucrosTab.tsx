@@ -180,7 +180,7 @@ const LucrosTab: React.FC = () => {
                 <th className="py-2 px-4 border">FORNECEDOR</th>
                 <th className="py-2 px-4 border">VALOR OPERAÇÃO</th>
                 <th className="py-2 px-4 border">LUCRO</th>
-                <th className="py-2 px-4 border">AÇÕES</th>
+                {/* <th className="py-2 px-4 border">AÇÕES</th> */}
               </tr>
             </thead>
             <tbody>
@@ -203,14 +203,14 @@ const LucrosTab: React.FC = () => {
                       <td className="py-2 px-4 text-center border">{fornecedorNome}</td>
                       <td className="py-2 px-4 border text-center">{formatCurrency(op.value || 0)}</td>
                       <td className="py-2 px-4 border text-center">{formatCurrency(op.profit || 0)}</td>
-                      <td className="py-2 px-4 border text-center">
+                      {/* <td className="py-2 px-4 border text-center">
                         <button
                           onClick={() => deletarOperacao(op.id)}
                           className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded justify-self-end"
                         >
                           <i className="fas fa-trash"></i>
                         </button>
-                      </td>
+                      </td> */}
                     </tr>
                   );
                 })}
