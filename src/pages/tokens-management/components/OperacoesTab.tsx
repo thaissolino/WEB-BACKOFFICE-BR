@@ -102,45 +102,7 @@ const OperacoesTab: React.FC = () => {
 
   const { valorFornecedor, valorRecolhedor, lucro } = calcularResumo();
 
-  // const registrarOperacao = async () => {
-  //   if (!dataOperacao || !localOperacao || !valorOperacao || !recolhedorOperacao || !fornecedorOperacao) {
-  //     setSuccessMessage("Por favor, preencha todos os campos corretamente!");
-  //     setShowSuccessModal(true);
-  //     return;
-  //   }
-  //   const formattedDate = new Date(dataOperacao).toISOString();
-  //   const novaOperacao = {
-  //     date: formattedDate,
-  //     city: localOperacao.toUpperCase(),
-  //     value: valorOperacao,
-  //     collectorId: recolhedorOperacao,
-  //     supplierId: fornecedorOperacao,
-  //     collectorTax: taxaRecolhedorOperacao,
-  //     supplierTax: taxaFornecedorOperacao,
-  //     profit: lucro, // O lucro já foi calculado
-  //   };
 
-  //   try {
-  //     await api.post<Operacao>("/operations/create_operation", novaOperacao);
-  //     // Após criar a operação, refetch os dados para atualizar saldos e a lista de operações
-  //     await fetchData();
-
-  //     // Resetar campos
-  //     setLocalOperacao("");
-  //     setValorOperacao(0);
-  //     setRecolhedorOperacao("");
-  //     setFornecedorOperacao("");
-  //     setTaxaRecolhedorOperacao(1.025);
-  //     setTaxaFornecedorOperacao(1.05);
-
-  //     setSuccessMessage("Operação registrada com sucesso!");
-  //     setShowSuccessModal(true);
-  //   } catch (error) {
-  //     console.error("Erro ao registrar operação:", error);
-  //     setSuccessMessage("Erro ao registrar a operação. Por favor, tente novamente.");
-  //     setShowSuccessModal(true);
-  //   }
-  // };
 
   const registrarOperacao = async () => {
     if (!dataOperacao || !localOperacao || !valorOperacao || !recolhedorOperacao || !fornecedorOperacao) {
@@ -187,17 +149,17 @@ const OperacoesTab: React.FC = () => {
       collectorTax: taxaRecolhedorOperacao,
       comission: comissionValue,
       supplierTax: taxaFornecedorOperacao,
-      profit: comissionValue, // O lucro já foi calculado
+      profit: comissionValue,
     };
 
     const collector = recolhedorOperacao;
 
     setIsSaving(true);
     try {
-      await api.post<Operacao>("/operations/create_operation", novaOperacao);
+      const responseNewOperation = await api.post<Operacao>("/operations/create_operation", novaOperacao);
 
       if (comissionValue > 0) {
-        await api.post<Operacao>("/operations/create_operation", comissaoOperacao);
+        await api.post<Operacao>("/operations/create_operation", {...comissaoOperacao, idOperation: responseNewOperation.data.id});
       }
       // Recarrega dados para atualizar a interface
       await fetchData();
@@ -238,6 +200,21 @@ const OperacoesTab: React.FC = () => {
     setSelectedOperation(operacao);
     setShowOperationModal(true);
   };
+
+    const deletarOperacao = async (id: number) => {
+      try {
+        await api.delete(`/operations/delete_operation/${id}`);
+  
+        // Atualiza as operações
+        const updatedOperacoes = operacoes.filter((op) => op.id !== id);
+        setOperacoes(updatedOperacoes);
+
+        alert("Operação deletada com sucesso.");
+      } catch (e: any) {
+        alert(`Erro ao deletar operação: ${e.message}`);
+      }
+    };
+  
 
   return (
     <div className="fade-in">
@@ -411,6 +388,9 @@ const OperacoesTab: React.FC = () => {
                     <td className="py-2 px-4 border text-center align-middle">
                       <button onClick={() => abrirDetalhesOperacao(op)} className="text-blue-600 hover:text-blue-800">
                         <i className="fas fa-eye"></i>
+                      </button>
+                      <button onClick={() => deletarOperacao(op.id)} className="text-red-600 ml-4 hover:text-red-800">
+                        <i className="fas fa-trash"></i>
                       </button>
                     </td>
                   </tr>
