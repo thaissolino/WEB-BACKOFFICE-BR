@@ -42,6 +42,7 @@ export interface Operacao {
   supplierTax: number;
   profit: number;
   comission: number;
+  idOperation: number;
 }
 
 const FornecedoresTab: React.FC = () => {
@@ -309,9 +310,10 @@ const FornecedoresTab: React.FC = () => {
     // Operações para este fornecedor (créditos)
     const supplierOperations = ops
       .filter((o) => o.supplierId === f.id)
+      .filter((o => o.idOperation == null))
       .map((o) => ({
         date: o.date,
-        value: -o.value / (o.supplierTax || f.tax || 1), // Valor positivo para crédito
+        value: -(o.value / (o.supplierTax || f.tax || 1)) , // Valor positivo para crédito
         type: "operation",
       }));
 
@@ -335,7 +337,11 @@ const FornecedoresTab: React.FC = () => {
       balance += transaction.value;
     }
 
-    return balance;
+        const arredondado = balance < 0
+  ? Math.floor(balance * 100) / 100  // arredonda para mais distante de zero
+  : Math.ceil(balance * 100) / 100;  // arredonda para mais distante de zero também no positivo
+
+return arredondado;
   }
   useEffect(() => {
     let totalBalance = 0;

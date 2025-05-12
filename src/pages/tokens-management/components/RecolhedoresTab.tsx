@@ -351,7 +351,7 @@ const RecolhedoresTab: React.FC = () => {
       .filter((o) => o.collectorId === r.id)
       .map((o) => ({
         date: o.date,
-        value: -(o.value / (o.collectorTax || r.tax || 1)),
+        value: !o.idOperation? -(o.value / (o.collectorTax || r.tax || 1)): -(o.value),
         type: "operation",
       }));
 
@@ -374,7 +374,11 @@ const RecolhedoresTab: React.FC = () => {
       balance += transaction.value;
     }
 
-    return balance;
+    const arredondado = balance < 0
+  ? Math.floor(balance * 100) / 100  // arredonda para mais distante de zero
+  : Math.ceil(balance * 100) / 100;  // arredonda para mais distante de zero também no positivo
+
+return arredondado;
   }
   useEffect(() => {
     let totalBalance = 0;
