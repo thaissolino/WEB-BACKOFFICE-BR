@@ -337,7 +337,7 @@ const FornecedoresTab: React.FC = () => {
       balance += transaction.value;
     }
 
-        const arredondado = balance < 0
+      const arredondado = balance < 0
   ? Math.floor(balance * 100) / 100  // arredonda para mais distante de zero
   : Math.ceil(balance * 100) / 100;  // arredonda para mais distante de zero também no positivo
 
