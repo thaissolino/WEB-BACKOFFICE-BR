@@ -43,6 +43,7 @@ export interface Operacao {
   collectorTax: number;
   supplierTax: number;
   profit: number;
+  idOperation: number;
 }
 
 const RecolhedoresTab: React.FC = () => {
@@ -267,7 +268,10 @@ const RecolhedoresTab: React.FC = () => {
       await api.delete(`/operations/delete_operation/${id}`);
 
       // Atualiza as operações
-      const updatedOperacoes = operacoes.filter((op) => op.id !== id);
+      const updatedOperacoes = operacoes.filter(
+        (op) => op.id !== id
+      ).filter((op) => op.idOperation !== id);
+
       setOperacoes(updatedOperacoes);
 
       // Recalcula todos os saldos
@@ -325,7 +329,7 @@ const RecolhedoresTab: React.FC = () => {
             : -(op.value || 0) / (op.collectorTax || selectedRecolhedor!?.tax || 1),
         descricao:
           op.comission > 0 || op.comission !== null
-            ? `Comissão #${op.id} · ${op.city?.toLowerCase() || ""}`
+            ? `Comissão #${op.idOperation} · ${op.city?.toLowerCase() || ""}`
             : `Operação #${op.id} · ${op.city?.toLowerCase() || ""}`,
         tipo: "debito",
       })),
@@ -678,7 +682,8 @@ const RecolhedoresTab: React.FC = () => {
                               {t.id.toString().startsWith("op-") && (
                                 <button
                                   onClick={() => deletarOperacao(Number(t.id.toString().replace("op-", "")))}
-                                  className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded justify-self-end"
+                                  disabled={true}
+                                  className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded justify-self-end cursor-not-allowed"
                                 >
                                   <i className="fas fa-trash"></i>
                                 </button>
