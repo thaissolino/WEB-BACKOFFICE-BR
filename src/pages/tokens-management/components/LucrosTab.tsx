@@ -95,24 +95,24 @@ const LucrosTab: React.FC = () => {
     fetchOperacoes();
   }, [paginaAtual, itensPorPagina]);
 
-  const lucroMesAtual = operacoes
-    .filter((op) => {
-      const data = new Date(op.date);
-      return !isNaN(data.getTime()) && data.getMonth() === new Date().getMonth();
-    })
+  const operacoesValidas = operacoes.filter(
+    (op) =>
+      (op.comission === undefined || op.comission === null || op.comission === 0) && !isNaN(new Date(op.date).getTime())
+  );
+
+  const lucroMesAtual = operacoesValidas
+    .filter((op) => new Date(op.date).getMonth() === new Date().getMonth())
     .reduce((acc, op) => acc + (op.profit || 0), 0);
 
-  const lucroMesAnterior = operacoes
+  const lucroMesAnterior = operacoesValidas
     .filter((op) => {
       const data = new Date(op.date);
       const mesAtual = new Date().getMonth();
-      return !isNaN(data.getTime()) && data.getMonth() === (mesAtual === 0 ? 11 : mesAtual - 1);
+      return data.getMonth() === (mesAtual === 0 ? 11 : mesAtual - 1);
     })
     .reduce((acc, op) => acc + (op.profit || 0), 0);
 
-  const totalAcumulado = operacoes
-    .filter((op) => !isNaN(new Date(op.date).getTime()))
-    .reduce((acc, op) => acc + (op.profit || 0), 0);
+  const totalAcumulado = operacoesValidas.reduce((acc, op) => acc + (op.profit || 0), 0);
 
   const getRecolhedorNome = (id: number) => recolhedores.find((r) => r?.id === id)?.name || "Desconhecido";
   const getFornecedorNome = (id: number) => fornecedores.find((f) => f?.id === id)?.name || "Desconhecido";
@@ -184,8 +184,7 @@ const LucrosTab: React.FC = () => {
               </tr>
             </thead>
             <tbody>
-              {operacoes
-                .filter((op) => op.comission === undefined || op.comission === null || op.comission === 0)
+              {operacoesValidas
                 .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
                 .map((op) => {
                   if (!op.date || isNaN(new Date(op.date).getTime())) return null;

@@ -268,9 +268,7 @@ const RecolhedoresTab: React.FC = () => {
       await api.delete(`/operations/delete_operation/${id}`);
 
       // Atualiza as operações
-      const updatedOperacoes = operacoes.filter(
-        (op) => op.id !== id
-      ).filter((op) => op.idOperation !== id);
+      const updatedOperacoes = operacoes.filter((op) => op.id !== id).filter((op) => op.idOperation !== id);
 
       setOperacoes(updatedOperacoes);
 
@@ -351,7 +349,7 @@ const RecolhedoresTab: React.FC = () => {
       .filter((o) => o.collectorId === r.id)
       .map((o) => ({
         date: o.date,
-        value: !o.idOperation? -(o.value / (o.collectorTax || r.tax || 1)): -(o.value),
+        value: !o.idOperation ? -(o.value / (o.collectorTax || r.tax || 1)) : -o.value,
         type: "operation",
       }));
 
@@ -381,7 +379,7 @@ const arredondado =
     ? Math.floor(balance * 100) / 100
     : Math.ceil(balance * 100) / 100;
 
-return arredondado;
+    return arredondado;
   }
   useEffect(() => {
     let totalBalance = 0;

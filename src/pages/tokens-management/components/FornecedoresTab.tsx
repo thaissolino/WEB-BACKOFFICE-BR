@@ -310,10 +310,10 @@ const FornecedoresTab: React.FC = () => {
     // Operações para este fornecedor (créditos)
     const supplierOperations = ops
       .filter((o) => o.supplierId === f.id)
-      .filter((o => o.idOperation == null))
+      .filter((o) => o.idOperation == null)
       .map((o) => ({
         date: o.date,
-        value: -(o.value / (o.supplierTax || f.tax || 1)) , // Valor positivo para crédito
+        value: -(o.value / (o.supplierTax || f.tax || 1)), // Valor positivo para crédito
         type: "operation",
       }));
 
@@ -343,7 +343,7 @@ const arredondado =
     ? Math.floor(balance * 100) / 100
     : Math.ceil(balance * 100) / 100;
 
-return arredondado;
+    return arredondado;
   }
   useEffect(() => {
     let totalBalance = 0;
