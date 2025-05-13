@@ -51,7 +51,7 @@ const RecolhedoresTab: React.FC = () => {
   const [showModal, setShowModal] = useState(false);
   const [recolhedorEdit, setRecolhedorEdit] = useState<Recolhedor | undefined>(undefined);
   const [selectedRecolhedor, setSelectedRecolhedor] = useState<Recolhedor | null>(null);
-  const [valorPagamento, setValorPagamento] = useState<number | null>(null);
+  const [valorPagamento, setValorPagamento] = useState<string>('');
   const [descricaoPagamento, setDescricaoPagamento] = useState("");
   const [dataPagamento, setDataPagamento] = useState<string>(new Date().toISOString().split("T")[0]);
   const [loading, setLoading] = useState(true);
@@ -188,7 +188,7 @@ const RecolhedoresTab: React.FC = () => {
   };
   const fecharCaixa = () => {
     setSelectedRecolhedor(null);
-    setValorPagamento(0);
+    setValorPagamento('');
     setDescricaoPagamento("");
   };
 
@@ -229,10 +229,10 @@ const RecolhedoresTab: React.FC = () => {
       }));
 
       // Atualizar o saldo acumulado
-      setSaldoAcumulado(Object.values(calculatedBalances).reduce((a, b) => a + b, 0) + valorPagamento);
+      setSaldoAcumulado(Object.values(calculatedBalances).reduce((a, b) => a + b, 0) + Number(valorPagamento));
 
       // Resetar o formulário
-      setValorPagamento(0);
+      setValorPagamento('');
       setDescricaoPagamento("");
       setDataPagamento(new Date().toISOString().split("T")[0]);
 
@@ -374,9 +374,12 @@ const RecolhedoresTab: React.FC = () => {
       balance += transaction.value;
     }
 
-    const arredondado = balance < 0
-  ? Math.floor(balance * 100) / 100  // arredonda para mais distante de zero
-  : Math.ceil(balance * 100) / 100;  // arredonda para mais distante de zero também no positivo
+const arredondado =
+  Math.abs(balance) < 0.01
+    ? 0
+    : balance < 0
+    ? Math.floor(balance * 100) / 100
+    : Math.ceil(balance * 100) / 100;
 
 return arredondado;
   }
@@ -579,12 +582,18 @@ return arredondado;
                   <div>
                     <label className="block text-sm font-medium text-gray-700">VALOR (USD)</label>
                     <input
-                      type="number"
-                      step="0.01"
+                      type="text"
                       inputMode="decimal"
+                      step="0.0000001"
                       className="mt-1 block w-full border border-gray-300 rounded-md p-2 appearance-none [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                      value={valorPagamento || ""}
-                      onChange={(e) => setValorPagamento(Number(e.target.value.replace(",", ".")))}
+                      value={valorPagamento}
+                      onChange={(e) => {
+                        const { value } = e.target;
+                        if (/^[0-9]*[.,]?[0-9]*$/.test(value)) {
+                            setValorPagamento(value.replace(".", ","), // ← string, ponto decimal
+                            );
+                          }
+                      }}
                       disabled={isProcessingPayment}
                     />
                   </div>
