@@ -50,7 +50,8 @@ const FornecedoresTab: React.FC = () => {
   const [showModal, setShowModal] = useState(false);
   const [fornecedorEdit, setFornecedorEdit] = useState<Fornecedor | undefined>(undefined);
   const [fornecedorSelecionado, setFornecedorSelecionado] = useState<Fornecedor | null>(null);
-  const [valorPagamento, setValorPagamento] = useState<string>("");
+  const [valorPagamento, setValorPagamento] = useState<number | null>(null);
+  // const [valorPagamento, setValorPagamento] = useState<string>("");
   const [descricaoPagamento, setDescricaoPagamento] = useState("");
   const [dataPagamento, setDataPagamento] = useState<string>(new Date().toISOString().split("T")[0]);
   const [loading, setLoading] = useState(true);
@@ -63,6 +64,7 @@ const FornecedoresTab: React.FC = () => {
   const [newPaymentId, setNewPaymentId] = useState<string | null>(null);
   const [saldoAcumulado, setSaldoAcumulado] = useState(0);
   const [calculatedBalances, setCalculatedBalances] = useState<Record<number, number>>({});
+  const [valorRaw, setValorRaw] = useState<string>(""); // controla entrada digitada
   const [paginaAtual, setPaginaAtual] = useState(0);
   const itensPorPagina = 6;
 
@@ -159,7 +161,7 @@ const FornecedoresTab: React.FC = () => {
 
   const fecharCaixa = () => {
     setFornecedorSelecionado(null);
-    setValorPagamento("");
+    setValorPagamento(null);
     setDescricaoPagamento("");
   };
 
@@ -200,7 +202,7 @@ const FornecedoresTab: React.FC = () => {
       setSaldoAcumulado(Object.values(updatedBalances).reduce((a, b) => a + b, 0));
 
       // Reset form
-      setValorPagamento("");
+      setValorPagamento(null);
       setDescricaoPagamento("");
       setDataPagamento(new Date().toISOString().split("T")[0]);
 
@@ -336,12 +338,8 @@ const FornecedoresTab: React.FC = () => {
     for (const transaction of allTransactions) {
       balance += transaction.value;
     }
-const arredondado =
-  Math.abs(balance) < 0.01
-    ? 0
-    : balance < 0
-    ? Math.floor(balance * 100) / 100
-    : Math.ceil(balance * 100) / 100;
+    const arredondado =
+      Math.abs(balance) < 0.01 ? 0 : balance < 0 ? Math.floor(balance * 100) / 100 : Math.ceil(balance * 100) / 100;
 
     return arredondado;
   }
@@ -545,17 +543,28 @@ const arredondado =
                     <label className="block text-sm font-medium text-gray-700">VALOR (USD)</label>
                     <input
                       type="text"
-                      step="0.01"
-                      inputMode="decimal"
-                      className="mt-1 block w-full border border-gray-300 rounded-md p-2 appearance-none [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                        value={valorPagamento}
-  onChange={(e) => {
-    const { value } = e.target;
-    if (/^[0-9]*[.,]?[0-9]*$/.test(value)) {
-        setValorPagamento(value.replace(".", ","), // ← string, ponto decimal
-        );
-      }
-  }}
+                      inputMode="numeric"
+                      className="mt-1 block w-full border border-gray-300 rounded-md p-2 text-left font-mono"
+                      value={(parseInt(valorRaw || "0") / 100).toLocaleString("en-US", {
+                        style: "currency",
+                        currency: "USD",
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}
+                      onChange={(e) => {
+                        const digitsOnly = e.target.value.replace(/\D/g, ""); // remove tudo exceto números
+                        setValorRaw(digitsOnly);
+                        setValorPagamento(digitsOnly ? parseInt(digitsOnly) / 100 : null);
+                      }}
+                      onBlur={(e) => {
+                        const digitsOnly = valorRaw.replace(/\D/g, "");
+                        const value = parseInt(digitsOnly || "0") / 100;
+                        e.target.value = value.toLocaleString("en-US", {
+                          style: "currency",
+                          currency: "USD",
+                          minimumFractionDigits: 2,
+                        });
+                      }}
                       disabled={isProcessingPayment}
                     />
                   </div>
