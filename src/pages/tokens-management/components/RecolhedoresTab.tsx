@@ -65,7 +65,7 @@ const RecolhedoresTab: React.FC = () => {
   const [newPaymentId, setNewPaymentId] = useState<string | null>(null);
   const [saldoAcumulado, setSaldoAcumulado] = useState(0);
   const [calculatedBalances, setCalculatedBalances] = useState<Record<number, number>>({});
-  const [valorRaw, setValorRaw] = useState<string>(""); // controla entrada digitada
+  const [valorRaw, setValorRaw] = useState(""); // Controla o valor digitado
   const [paginaAtual, setPaginaAtual] = useState(0);
   const itensPorPagina = 6;
 
@@ -579,29 +579,58 @@ const RecolhedoresTab: React.FC = () => {
                     <label className="block text-sm font-medium text-gray-700">VALOR (USD)</label>
                     <input
                       type="text"
-                      inputMode="numeric"
                       className="mt-1 block w-full border border-gray-300 rounded-md p-2 text-left font-mono"
-                      value={(parseInt(valorRaw || "0") / 100).toLocaleString("en-US", {
-                        style: "currency",
-                        currency: "USD",
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      })}
+                      value={valorRaw}
                       onChange={(e) => {
-                        const digitsOnly = e.target.value.replace(/\D/g, ""); // remove tudo exceto números
-                        setValorRaw(digitsOnly);
-                        setValorPagamento(digitsOnly ? parseInt(digitsOnly) / 100 : null);
+                        // Permite números, ponto decimal e sinal negativo
+                        const cleanedValue = e.target.value.replace(/[^0-9.-]/g, "");
+
+                        // Garante que há apenas um sinal negativo no início
+                        let newValue = cleanedValue;
+                        if ((cleanedValue.match(/-/g) || []).length > 1) {
+                          newValue = cleanedValue.replace(/-/g, "");
+                        }
+
+                        // Garante que há apenas um ponto decimal
+                        if ((cleanedValue.match(/\./g) || []).length > 1) {
+                          const parts = cleanedValue.split(".");
+                          newValue = parts[0] + "." + parts.slice(1).join("");
+                        }
+
+                        setValorRaw(newValue);
+
+                        // Converte para número para o estado do pagamento
+                        const numericValue = parseFloat(newValue) || 0;
+                        setValorPagamento(isNaN(numericValue) ? null : numericValue);
                       }}
                       onBlur={(e) => {
-                        const digitsOnly = valorRaw.replace(/\D/g, "");
-                        const value = parseInt(digitsOnly || "0") / 100;
-                        e.target.value = value.toLocaleString("en-US", {
-                          style: "currency",
-                          currency: "USD",
-                          minimumFractionDigits: 2,
-                        });
+                        // Formata apenas se houver valor
+                        if (valorRaw) {
+                          const numericValue = parseFloat(valorRaw);
+                          if (!isNaN(numericValue)) {
+                            // Formata mantendo o sinal negativo se existir
+                            const formattedValue = numericValue.toLocaleString("en-US", {
+                              style: "currency",
+                              currency: "USD",
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            });
+                            setValorRaw(formattedValue);
+                            setValorPagamento(numericValue);
+                          }
+                        }
+                      }}
+                      onFocus={(e) => {
+                        // Remove formatação quando o input recebe foco
+                        if (valorRaw) {
+                          const numericValue = parseFloat(valorRaw.replace(/[^0-9.-]/g, ""));
+                          if (!isNaN(numericValue)) {
+                            setValorRaw(numericValue.toString());
+                          }
+                        }
                       }}
                       disabled={isProcessingPayment}
+                      placeholder="$0.00"
                     />
                   </div>
                   <div>
