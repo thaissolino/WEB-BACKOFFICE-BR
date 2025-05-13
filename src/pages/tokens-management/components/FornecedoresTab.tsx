@@ -42,6 +42,7 @@ export interface Operacao {
   supplierTax: number;
   profit: number;
   comission: number;
+  idOperation: number;
 }
 
 const FornecedoresTab: React.FC = () => {
@@ -309,9 +310,10 @@ const FornecedoresTab: React.FC = () => {
     // Operações para este fornecedor (créditos)
     const supplierOperations = ops
       .filter((o) => o.supplierId === f.id)
+      .filter((o) => o.idOperation == null)
       .map((o) => ({
         date: o.date,
-        value: -o.value / (o.supplierTax || f.tax || 1), // Valor positivo para crédito
+        value: -(o.value / (o.supplierTax || f.tax || 1)), // Valor positivo para crédito
         type: "operation",
       }));
 
@@ -335,7 +337,12 @@ const FornecedoresTab: React.FC = () => {
       balance += transaction.value;
     }
 
-    return balance;
+    const arredondado =
+      balance < 0
+        ? Math.floor(balance * 100) / 100 // arredonda para mais distante de zero
+        : Math.ceil(balance * 100) / 100; // arredonda para mais distante de zero também no positivo
+
+    return arredondado;
   }
   useEffect(() => {
     let totalBalance = 0;
@@ -540,8 +547,12 @@ const FornecedoresTab: React.FC = () => {
                       step="0.01"
                       inputMode="decimal"
                       className="mt-1 block w-full border border-gray-300 rounded-md p-2 appearance-none [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                      value={valorPagamento || ""}
-                      onChange={(e) => setValorPagamento(Number(e.target.value.replace(",", ".")))}
+                      value={valorPagamento ?? ""} // Usando operador nullish coalescing
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        // Converte para número ou mantém null se vazio
+                        setValorPagamento(value === "" ? null : Number(value));
+                      }}
                       disabled={isProcessingPayment}
                     />
                   </div>
