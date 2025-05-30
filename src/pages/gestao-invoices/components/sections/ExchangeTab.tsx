@@ -39,6 +39,8 @@ export function ExchangeTab() {
   const [historyPaymentBuy, setHistoryPaymentBuy] = useState<FinancialTransaction[] | undefined>(undefined);
   const [currentPage, setCurrentPage] = useState(0);
   const itemsPerPage = 10;
+  const [valorRaw, setValorRaw] = useState("");
+  const [valorRaw2, setValorRaw2] = useState("");
 
   const [dataPayment, setDataUpdated] = useState({
     invoiceId: "",
@@ -54,8 +56,8 @@ export function ExchangeTab() {
     description: string;
   }>({
     date: new Date().toISOString().split("T")[0],
-    usd: 0 === 0 ? "" : (0.0).toString().replace(".", ","), // sempre resultará em "", mas mostra a estrutura
-    rate: 0 === 0 ? "" : (0.0).toString().replace(".", ","), // sempre resultará em "", mas mostra a estrutura
+    usd: "", // sempre resultará em "", mas mostra a estrutura
+    rate: "", // sempre resultará em "", mas mostra a estrutura
     type: "BUY",
     description: "Compra de dólares",
   });
@@ -294,7 +296,7 @@ export function ExchangeTab() {
     <div className="bg-white p-6 rounded-lg shadow">
       <h2 className="text-xl font-semibold mb-6 text-blue-700 border-b pb-2">
         <DollarSign className="mr-2 inline" size={18} />
-        Média Dólar
+        Média Dólar 
       </h2>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
@@ -318,8 +320,57 @@ export function ExchangeTab() {
                 type="text"
                 step="0.01"
                 name="usd"
-                value={String(addBalance.usd)}
-                onChange={handleInputBalance}
+                value={valorRaw2}
+                placeholder="$0.00"
+                onChange={(e) => {
+                // Permite números, ponto decimal e sinal negativo
+                const cleanedValue = e.target.value.replace(/[^0-9.-]/g, "");
+
+                // Garante que há apenas um sinal negativo no início
+                let newValue = cleanedValue;
+                if ((cleanedValue.match(/-/g) || []).length > 1) {
+                  newValue = cleanedValue.replace(/-/g, "");
+                }
+
+                // Garante que há apenas um ponto decimal
+                if ((cleanedValue.match(/\./g) || []).length > 1) {
+                  const parts = cleanedValue.split(".");
+                  newValue = parts[0] + "." + parts.slice(1).join("");
+                }
+
+                setValorRaw2(newValue);
+
+                // Converte para número para o estado do pagamento
+                const numericValue = parseFloat(newValue) || 0;
+                setAddBalance({...addBalance, rate: newValue});
+              }}
+
+              onBlur={(e) => {
+                // Formata apenas se houver valor
+                if (valorRaw2) {
+                  const numericValue = parseFloat(valorRaw2);
+                  if (!isNaN(numericValue)) {
+                    // Formata mantendo o sinal negativo se existir
+                    const formattedValue = numericValue.toLocaleString("en-US", {
+                      style: "currency",
+                      currency: "USD",
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    });
+                    setValorRaw2(formattedValue);
+                    setAddBalance({...addBalance, rate: numericValue.toString()});
+                  }
+                }
+              }}
+              onFocus={(e) => {
+                // Remove formatação quando o input recebe foco
+                if (valorRaw2) {
+                  const numericValue = parseFloat(valorRaw2.replace(/[^0-9.-]/g, ""));
+                  if (!isNaN(numericValue)) {
+                    setValorRaw2(numericValue.toString());
+                  }
+                }
+              }}
                 className="mt-1 block w-full border border-gray-300 rounded-md p-2"
               />
             </div>
@@ -329,8 +380,58 @@ export function ExchangeTab() {
                 type="text"
                 step="0.0001"
                 name="rate"
-                value={String(addBalance.rate)}
-                onChange={handleInputBalance}
+                value={valorRaw}
+                placeholder="$0.0000"
+                onChange={(e) => {
+                // Permite números, ponto decimal e sinal negativo
+                const cleanedValue = e.target.value.replace(/[^0-9.-]/g, "");
+
+                // Garante que há apenas um sinal negativo no início
+                let newValue = cleanedValue;
+                if ((cleanedValue.match(/-/g) || []).length > 1) {
+                  newValue = cleanedValue.replace(/-/g, "");
+                }
+
+                // Garante que há apenas um ponto decimal
+                if ((cleanedValue.match(/\./g) || []).length > 1) {
+                  const parts = cleanedValue.split(".");
+                  newValue = parts[0] + "." + parts.slice(1).join("");
+                }
+
+                setValorRaw(newValue);
+
+                // Converte para número para o estado do pagamento
+                const numericValue = parseFloat(newValue) || 0;
+                setAddBalance({...addBalance, rate: newValue});
+              }}
+
+              onBlur={(e) => {
+                // Formata apenas se houver valor
+                if (valorRaw) {
+                  const numericValue = parseFloat(valorRaw);
+                  if (!isNaN(numericValue)) {
+                    // Formata mantendo o sinal negativo se existir
+                    const formattedValue = numericValue.toLocaleString("en-US", {
+                      style: "currency",
+                      currency: "USD",
+                      minimumFractionDigits: 1,
+                      maximumFractionDigits: 4,
+                    });
+                    setValorRaw(formattedValue);
+                    setAddBalance({...addBalance, rate: numericValue.toString()});
+                  }
+                }
+              }}
+              onFocus={(e) => {
+                // Remove formatação quando o input recebe foco
+                if (valorRaw) {
+                  const numericValue = parseFloat(valorRaw.replace(/[^0-9.-]/g, ""));
+                  if (!isNaN(numericValue)) {
+                    setValorRaw(numericValue.toString());
+                  }
+                }
+              }}
+                // onChange={handleInputBalance}
                 className="mt-1 block w-full border border-gray-300 rounded-md p-2"
               />
             </div>

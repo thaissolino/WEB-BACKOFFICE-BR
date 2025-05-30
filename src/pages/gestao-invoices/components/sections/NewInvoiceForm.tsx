@@ -12,6 +12,7 @@ export function NewInvoiceForm({ currentInvoice, setCurrentInvoice }: NewInvoice
   const [suppliers, setSuppliers] = useState<any[]>([]);
   const [carriers, setCarriers] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
+  const [valorRaw, setValorRaw] = useState(""); 
   const [taxaSpEs, setTaxaSpEs] = useState<string>(
     currentInvoice.taxaSpEs === 0 ? "" : currentInvoice.taxaSpEs.toString().replace(".", ",")
   );
@@ -138,11 +139,62 @@ export function NewInvoiceForm({ currentInvoice, setCurrentInvoice }: NewInvoice
         <input
           type="text"
           inputMode="decimal"
-          step="0.01"
           name="taxaSpEs"
-          value={String(taxaSpEs)}
-          onChange={handleInputChange}
-          placeholder="Valor em R$ por item"
+          placeholder="$0.00"
+          value={valorRaw}
+          onChange={(e) => {
+                // Permite números, ponto decimal e sinal negativo
+                const cleanedValue = e.target.value.replace(/[^0-9,-]/g, "");
+
+                // Garante que há apenas um sinal negativo no início
+                let newValue = cleanedValue;
+                if ((cleanedValue.match(/-/g) || []).length > 1) {
+                  newValue = cleanedValue.replace(/-/g, "");
+                }
+                // Garante que há apenas um ponto decimal
+                if ((cleanedValue.match(/,/g) || []).length > 1) {
+                  const parts = cleanedValue.split(",");
+                  newValue = parts[0] + "," + parts.slice(1).join("");
+                }
+                setValorRaw(newValue);
+                setCurrentInvoice({
+                  ...currentInvoice,
+                  taxaSpEs: newValue.replace(",","."), // ← string, ponto decimal
+                });
+              }}
+
+              onBlur={(e) => {
+                // Formata apenas se houver valor
+                if (valorRaw) {
+                  const numericValue = parseFloat(valorRaw.replace(",","."));
+                  if (!isNaN(numericValue)) {
+                    // Formata mantendo o sinal negativo se existir
+                    const formattedValue = numericValue.toLocaleString("pt-BR", {
+                      style: "currency",
+                      currency: "BRL",
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    });
+                    setValorRaw(formattedValue);
+                  console.log(currentInvoice)
+                  setCurrentInvoice({
+                  ...currentInvoice,
+                  taxaSpEs: String(numericValue).replace(",","."), // ← string, ponto decimal
+                });
+                  }
+                }
+              }}
+              onFocus={(e) => {
+                // Remove formatação quando o input recebe foco
+                if (valorRaw) {
+                  const toNumber = valorRaw.replace(",",".")
+                  const numericValue = parseFloat(toNumber.replace(/[^0-9.-]/g, ""));
+                  if (!isNaN(numericValue)) {
+                    setValorRaw(numericValue.toString().replace(".",","));
+                  }
+                }
+              }}
+
           className="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500 appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
         />
       </div>
