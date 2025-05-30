@@ -43,10 +43,12 @@ const OperacoesTab: React.FC = () => {
   const [dataOperacao, setDataOperacao] = useState<string>(new Date().toISOString().slice(0, 16));
   const [localOperacao, setLocalOperacao] = useState("");
   const [valorOperacao, setValorOperacao] = useState<number | null>(null);
+  // const [valorOperacao2, setValorOperacao2] = useState(""); // Controla o valor digitado
   const [recolhedorOperacao, setRecolhedorOperacao] = useState<number | "">("");
   const [fornecedorOperacao, setFornecedorOperacao] = useState<number | "">("");
   const [taxaRecolhedorOperacao, setTaxaRecolhedorOperacao] = useState<number>(1.025);
   const [taxaFornecedorOperacao, setTaxaFornecedorOperacao] = useState<number>(1.05);
+  const [valorRaw, setValorRaw] = useState(""); 
 
   const [successMessage, setSuccessMessage] = useState("");
   const [showSuccessModal, setShowSuccessModal] = useState(false);
@@ -250,11 +252,61 @@ const OperacoesTab: React.FC = () => {
           <div>
             <label className="block text-sm font-medium text-gray-700">VALOR (USD)</label>
             <input
-              type="number"
+              type="text"
               inputMode="decimal"
+              placeholder="$0.00"
               className="mt-1 block w-full border border-gray-300 rounded-md p-2 appearance-none [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-              value={valorOperacao || ""}
-              onChange={(e) => setValorOperacao(Number(e.target.value.replace(",", ".")))}
+              value={valorRaw}
+              onChange={(e) => {
+                // Permite números, ponto decimal e sinal negativo
+                const cleanedValue = e.target.value.replace(/[^0-9.-]/g, "");
+
+                // Garante que há apenas um sinal negativo no início
+                let newValue = cleanedValue;
+                if ((cleanedValue.match(/-/g) || []).length > 1) {
+                  newValue = cleanedValue.replace(/-/g, "");
+                }
+
+                // Garante que há apenas um ponto decimal
+                if ((cleanedValue.match(/\./g) || []).length > 1) {
+                  const parts = cleanedValue.split(".");
+                  newValue = parts[0] + "." + parts.slice(1).join("");
+                }
+
+                setValorRaw(newValue);
+
+                // Converte para número para o estado do pagamento
+                const numericValue = parseFloat(newValue) || 0;
+                setValorOperacao(isNaN(numericValue) ? null : numericValue);
+              }}
+
+              onBlur={(e) => {
+                // Formata apenas se houver valor
+                if (valorRaw) {
+                  const numericValue = parseFloat(valorRaw);
+                  if (!isNaN(numericValue)) {
+                    // Formata mantendo o sinal negativo se existir
+                    const formattedValue = numericValue.toLocaleString("en-US", {
+                      style: "currency",
+                      currency: "USD",
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    });
+                    setValorRaw(formattedValue);
+                    setValorOperacao(numericValue);
+                  }
+                }
+              }}
+              onFocus={(e) => {
+                // Remove formatação quando o input recebe foco
+                if (valorRaw) {
+                  const numericValue = parseFloat(valorRaw.replace(/[^0-9.-]/g, ""));
+                  if (!isNaN(numericValue)) {
+                    setValorRaw(numericValue.toString());
+                  }
+                }
+              }}
+
             />
           </div>
         </div>

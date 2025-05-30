@@ -38,6 +38,7 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
   const [showProductForm, setShowProductForm] = useState(false);
   const [products, setProducts] = useState<any[]>([]);
   const [carriers, setCarriers] = useState<Carrier[]>([]);
+  const [valorRaw, setValorRaw] = useState(""); 
   const [productForm, setProductForm] = useState({
     productId: "",
     quantity: "",
@@ -387,12 +388,60 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Valor Unitário ($)</label>
               <input
-                type="number"
+                type="text"
                 step="0.01"
-                value={priceData}
+                value={valorRaw}
                 onChange={(e) => {
-                  setProductForm({ ...productForm, value: e.target.value });
+                  // Permite números, ponto decimal e sinal negativo
+                  const cleanedValue = e.target.value.replace(/[^0-9.-]/g, "");
+
+                  // Garante que há apenas um sinal negativo no início
+                  let newValue = cleanedValue;
+                  if ((cleanedValue.match(/-/g) || []).length > 1) {
+                    newValue = cleanedValue.replace(/-/g, "");
+                  }
+
+                  // Garante que há apenas um ponto decimal
+                  if ((cleanedValue.match(/\./g) || []).length > 1) {
+                    const parts = cleanedValue.split(".");
+                    newValue = parts[0] + "." + parts.slice(1).join("");
+                  }
+
+                  setValorRaw(newValue);
+
+                  // Converte para número para o estado do pagamento
+                  const numericValue = parseFloat(newValue) || 0;
+                  setProductForm({ ...productForm, value: isNaN(numericValue) ? "" : numericValue.toString() });
                 }}
+
+                onBlur={(e) => {
+                // Formata apenas se houver valor
+                if (valorRaw) {
+                  const numericValue = parseFloat(valorRaw);
+                  if (!isNaN(numericValue)) {
+                    // Formata mantendo o sinal negativo se existir
+                    const formattedValue = numericValue.toLocaleString("en-US", {
+                      style: "currency",
+                      currency: "USD",
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    });
+                    setValorRaw(formattedValue);
+                    setProductForm({ ...productForm, value: numericValue.toString() });
+                    // setValorOperacao(numericValue);
+                  }
+                }
+              }}
+              onFocus={(e) => {
+                // Remove formatação quando o input recebe foco
+                if (valorRaw) {
+                  const numericValue = parseFloat(valorRaw.replace(/[^0-9.-]/g, ""));
+                  if (!isNaN(numericValue)) {
+                    setValorRaw(numericValue.toString());
+                  }
+                }
+              }}
+
                 className="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500 appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                 placeholder="$"
               />
