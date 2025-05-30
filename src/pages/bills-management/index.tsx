@@ -91,7 +91,7 @@ const BillsManagement: React.FC<TopbarProps> = ({ setIsSidebar, isSidebar }) => 
   };
 
   return (
-    <div className="bg-gray-50 min-h-screen">
+    <div className="bg-white min-h-screen">
       <div className="container mx-auto px-4 py-8">
         {isMobile ? (
           <Box
@@ -111,9 +111,9 @@ const BillsManagement: React.FC<TopbarProps> = ({ setIsSidebar, isSidebar }) => 
             </Box>
           </Box>
         ) : null}
-        <h1 className="text-2xl font-bold text-center mb-6 text-gray-800">Registro de Boletos</h1>
+        <h1 className="text-2xl  font-bold text-center mb-6 text-gray-800">Registro de Boletos</h1>
         <BoletoForm addBoleto={addBoleto} />
-        <h2 className="text-xl font-semibold mt-8 mb-4 text-gray-800 border-b pb-2">Boletos Registrados</h2>
+        <h2 className="bg-white text-xl font-semibold mt-8 mb-4 text-gray-800 border-b pb-2">Boletos Registrados</h2>
         <BoletoTable boletos={boletos} openModal={openModal} />
         {boletoEditando && <ModalBoleto boleto={boletoEditando} closeModal={closeModal} saveChanges={saveChanges} />}
       </div>

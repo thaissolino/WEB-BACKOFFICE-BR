@@ -111,6 +111,7 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
     // total será calculado no momento do envio
     // received e receivedQuantity têm valores padrão
   });
+  const [valorRaw, setValorRaw] = useState(""); 
 
   useEffect(() => {
     fetchInvoicesAndSuppliers();
@@ -488,17 +489,67 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
                       <input
                         type="text"
                         placeholder="digite o valor"
-                        inputMode="decimal"
+                        // inputMode="decimal"
                         className="w-full p-2 border border-gray-300 rounded-md text-sm"
-                        value={newProduct.value || ""}
+                        value={valorRaw}
                         onChange={(e) => {
-                          const inputValue = e.target.value;
+                          // Permite números, ponto decimal e sinal negativo
+                          const cleanedValue = e.target.value.replace(/[^0-9.-]/g, "");
 
-                          // Permite número com ponto ou vírgula, até duas casas decimais
-                          if (/^\d*[.,]?\d{0,2}$/.test(inputValue) || inputValue === "") {
-                            setNewProduct({ ...newProduct, value: inputValue.replace(",", ".") });
+                          // Garante que há apenas um sinal negativo no início
+                          let newValue = cleanedValue;
+                          if ((cleanedValue.match(/-/g) || []).length > 1) {
+                            newValue = cleanedValue.replace(/-/g, "");
                           }
+
+                          // Garante que há apenas um ponto decimal
+                          if ((cleanedValue.match(/\./g) || []).length > 1) {
+                            const parts = cleanedValue.split(".");
+                            newValue = parts[0] + "." + parts.slice(1).join("");
+                          }
+
+                          setValorRaw(newValue);
+
+                          // Converte para número para o estado do pagamento
+                          // const numericValue = parseFloat(newValue) || 0;
+                          // setValorOperacao(isNaN(numericValue) ? null : numericValue);
+                          setNewProduct({ ...newProduct, value: newValue });
                         }}
+                        // onChange={(e) => {
+                        //   const inputValue = e.target.value;
+
+                        //   // Permite número com ponto ou vírgula, até duas casas decimais
+                        //   if (/^\d*[.,]?\d{0,2}$/.test(inputValue) || inputValue === "") {
+                        //     setNewProduct({ ...newProduct, value: inputValue.replace(",", ".") });
+                        //   }
+                        // }}
+
+                          onBlur={(e) => {
+                            // Formata apenas se houver valor
+                            if (valorRaw) {
+                              const numericValue = parseFloat(valorRaw);
+                              if (!isNaN(numericValue)) {
+                                // Formata mantendo o sinal negativo se existir
+                                const formattedValue = numericValue.toLocaleString("en-US", {
+                                  style: "currency",
+                                  currency: "USD",
+                                  minimumFractionDigits: 2,
+                                  maximumFractionDigits: 2,
+                                });
+                                setValorRaw(formattedValue);
+                                setNewProduct({ ...newProduct, value: numericValue.toString() });
+                              }
+                            }
+                          }}
+                          onFocus={(e) => {
+                            // Remove formatação quando o input recebe foco
+                            if (valorRaw) {
+                              const numericValue = parseFloat(valorRaw.replace(/[^0-9.-]/g, ""));
+                              if (!isNaN(numericValue)) {
+                                setValorRaw(numericValue.toString());
+                              }
+                            }
+                          }}
                       />
                     </div>
 
