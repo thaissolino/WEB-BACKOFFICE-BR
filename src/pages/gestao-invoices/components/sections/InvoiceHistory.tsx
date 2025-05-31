@@ -453,6 +453,12 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
                           const product = products.find((p) => p.id === selectedId);
 
                           const price = product?.priceweightAverage ?? 0;
+                          setValorRaw(product?.priceweightAverage?.toLocaleString("en-US", {
+                                  style: "currency",
+                                  currency: "USD",
+                                  minimumFractionDigits: 2,
+                                  maximumFractionDigits: 2,
+                                }) ?? "")
 
                           setNewProduct({
                             ...newProduct,
