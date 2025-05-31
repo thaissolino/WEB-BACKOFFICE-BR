@@ -620,7 +620,7 @@ export const CaixasTabBrl = () => {
 
                       setValorRaw(newValue);
 
-                      setFormData({ ...formData, date: newValue })
+                      setFormData({ ...formData, value: newValue })
                     }}
 
                     onBlur={(e) => {
@@ -635,7 +635,7 @@ export const CaixasTabBrl = () => {
                             maximumFractionDigits: 2,
                           });
                           setValorRaw(formattedValue);
-                          setFormData({ ...formData, date:numericValue.toString()});
+                          setFormData({ ...formData, value:numericValue.toString()});
                         }
                       }
                     }}

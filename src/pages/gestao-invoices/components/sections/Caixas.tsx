@@ -393,6 +393,8 @@ export const CaixasTab = () => {
       const currentTime = now.toTimeString().split(" ")[0]; // HH:MM:SS
       const fullDate = new Date(`${formData.date}T${currentTime}`);
 
+      console.log(Math.abs(Number(formData.value)));
+
       setLoadingFetch3(true);
       await api.post(`/invoice/box/transaction`, {
         value: Math.abs(Number(formData.value)),
@@ -672,7 +674,7 @@ export const CaixasTab = () => {
 
                       setValorRaw(newValue);
 
-                      setFormData({ ...formData, date: newValue })
+                      setFormData({ ...formData, value: newValue })
                     }}
 
                     onBlur={(e) => {
@@ -687,7 +689,7 @@ export const CaixasTab = () => {
                             maximumFractionDigits: 2,
                           });
                           setValorRaw(formattedValue);
-                          setFormData({ ...formData, date:numericValue.toString()});
+                          setFormData({ ...formData, value:numericValue.toString()});
                         }
                       }
                     }}
