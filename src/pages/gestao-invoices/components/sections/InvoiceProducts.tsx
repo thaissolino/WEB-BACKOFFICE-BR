@@ -369,7 +369,9 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
               <ProductSearchSelect
                 products={products}
                 value={productForm.productId}
-                onChange={(e: any) => setProductForm({ ...productForm, productId: e })}
+                onChange={(e: any) => {
+                 
+                setProductForm({ ...productForm, productId: e })}}
               ></ProductSearchSelect>
             </div>
             <div>

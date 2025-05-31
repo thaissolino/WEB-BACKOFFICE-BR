@@ -49,6 +49,14 @@ export function NewInvoiceForm({ currentInvoice, setCurrentInvoice }: NewInvoice
     }
   };
 
+  useEffect(()=>{
+
+    if(!currentInvoice.taxaSpEs){
+      setValorRaw("")
+    }
+
+  },[currentInvoice.taxaSpEs])
+
   return (
     <div className="lg:col-span-1 bg-white p-6 rounded-lg shadow-md">
       <h2 className="text-xl font-semibold mb-4 text-blue-700 border-b pb-2">
@@ -140,7 +148,7 @@ export function NewInvoiceForm({ currentInvoice, setCurrentInvoice }: NewInvoice
           type="text"
           inputMode="decimal"
           name="taxaSpEs"
-          placeholder="$0.00"
+          placeholder="Valor em R$ por item"
           value={valorRaw}
           onChange={(e) => {
                 // Permite números, ponto decimal e sinal negativo
