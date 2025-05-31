@@ -167,6 +167,8 @@ export function ExchangeTab() {
           confirmButton: "bg-blue-600 text-white hover:bg-blue-700 px-4 py-2 rounded font-semibold",
         },
       });
+      setValorRaw("")
+      setValorRaw2("")
       setAddBalance({
         date: new Date().toISOString().split("T")[0],
         rate: "",
@@ -342,7 +344,7 @@ export function ExchangeTab() {
 
                 // Converte para número para o estado do pagamento
                 const numericValue = parseFloat(newValue) || 0;
-                setAddBalance({...addBalance, rate: newValue});
+                setAddBalance({...addBalance, usd: newValue});
               }}
 
               onBlur={(e) => {
@@ -358,7 +360,7 @@ export function ExchangeTab() {
                       maximumFractionDigits: 2,
                     });
                     setValorRaw2(formattedValue);
-                    setAddBalance({...addBalance, rate: numericValue.toString()});
+                    setAddBalance({...addBalance, usd: numericValue.toString()});
                   }
                 }
               }}
@@ -414,7 +416,7 @@ export function ExchangeTab() {
                     const formattedValue = numericValue.toLocaleString("en-US", {
                       style: "currency",
                       currency: "USD",
-                      minimumFractionDigits: 1,
+                      minimumFractionDigits: 2,
                       maximumFractionDigits: 4,
                     });
                     setValorRaw(formattedValue);
