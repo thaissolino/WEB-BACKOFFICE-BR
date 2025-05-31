@@ -4,6 +4,9 @@ import { api } from "../../../services/api";
 import { motion } from "framer-motion";
 import { GenericSearchSelect } from "../../gestao-invoices/components/sections/SearchSelect";
 import ModalCaixa from "../../gestao-invoices/components/modals/ModalCaixa";
+import { LocalizationProvider, DatePicker } from "@mui/x-date-pickers";
+import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
+import dayjs, { Dayjs } from "dayjs";
 
 interface Fornecedor {
   id: number;
@@ -110,9 +113,62 @@ const LucrosRecolhedoresFusionTab: React.FC = () => {
   return (
     <div className="fade-in">
       <div className="bg-white p-6 rounded-lg shadow">
-        <h2 className="text-xl font-semibold mb-4 text-green-700 border-b pb-2">
-          <i className="fas fa-chart-line mr-2"></i> HISTÓRICO DE LUCROS
-        </h2>
+        <div className="w-full flex flex-row items-center justify-between max-w-[100%]">
+          <div className="w-full flex justify-between items-start border-b pb-2 mb-4">
+            {/* ─── LADO ESQUERDO: LABEL + TÍTULO ───────────────────────────────────────────────────────── */}
+            <div className="flex flex-col whitespace-nowrap">
+              <h2 className="text-xl font-semibold mt-4 text-green-700">
+                <i className="fas fa-chart-line mr-2"></i> HISTÓRICO DE LUCROS
+              </h2>{" "}
+            </div>
+
+            {/* ─── LADO DIREITO: FILTROS DE DATA + BOTÕES ─────────────────────────────────────────────── */}
+            {/* ─── LADO DIREITO: FILTROS DE DATA + BOTÕES ─────────────────────────────────────────────── */}
+            {selectedRecolhedor && (
+              <div className="flex items-end gap-2">
+                {/* Input “Data Inicial” */}
+                <div className="flex flex-col">
+                  <label className="text-xs font-medium text-gray-700 mb-1">Data Inicial</label>
+                  <input
+                    type="date"
+                    value="2025-05-31"
+                    readOnly
+                    className="w-24 h-6 border border-gray-300 rounded-md text-sm text-center leading-6 py-0 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  />
+                </div>
+
+                {/* Separador “até” */}
+                <span className="text-sm font-medium">até</span>
+
+                {/* Input “Data Final” */}
+                <div className="flex flex-col">
+                  <label className="text-xs font-medium text-gray-700 mb-1">Data Final</label>
+                  <input
+                    type="date"
+                    value="2025-05-31"
+                    readOnly
+                    className="w-24 h-6 border border-gray-300 rounded-md text-sm text-center leading-6 py-0 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  />
+                </div>
+
+                {/* Botão “Filtrar” */}
+                <button className="bg-white text-blue-600 border border-blue-600 hover:bg-blue-600 hover:text-white rounded-md text-sm font-medium h-6 px-4 mr-2 flex items-center justify-center transition-colors">
+                  {" "}
+                  Filtrar
+                </button>
+
+                {/* Botão “Exportar extrato PDF” desabilitado */}
+                <button
+               disabled
+                 className="w-40 h-6 rounded-md bg-gray-200 text-gray-500 text-sm font-medium flex items-center justify-center cursor-not-allowed"
+               >
+                 Exportar extrato PDF
+               </button>
+              </div>
+            )}
+          </div>
+        </div>
+
         {selectedRecolhedor && (
           <>
             <div className="mb-6 grid grid-cols-1 md:grid-cols-3 gap-4">
