@@ -190,7 +190,7 @@ const LucrosTab: React.FC = () => {
               <span className="text-xs font-medium text-gray-700 mb-1">
                 {filterStartDate || filterEndDate 
                   ? `(Filtrado: ${filterStartDate || 'início'} a ${filterEndDate || 'fim'})` 
-                  : '(TODOS OS REGISTROS)'}
+                  : '(ÚLTIMOS 6)'}
               </span>
               <h2 className="text-xl font-semibold mt-4 text-green-700">
                 <i className="fas fa-chart-line mr-2"></i> HISTÓRICO DE LUCROS

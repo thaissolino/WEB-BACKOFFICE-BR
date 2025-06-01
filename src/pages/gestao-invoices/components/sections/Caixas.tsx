@@ -755,7 +755,7 @@ export const CaixasTab = () => {
         <span className="text-xs font-medium text-gray-700 mb-1">
           {filterStartDate || filterEndDate 
             ? `(Filtrado: ${filterStartDate || 'início'} a ${filterEndDate || 'fim'})` 
-            : '(TODOS OS REGISTROS)'}
+            : '(ÚLTIMOS 6)'}
         </span>
         <h3 className="font-medium">HISTÓRICO DE TRANSAÇÕES</h3>
       </div>
