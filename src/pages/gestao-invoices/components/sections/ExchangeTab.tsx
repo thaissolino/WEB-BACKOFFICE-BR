@@ -48,6 +48,8 @@ export function ExchangeTab() {
     usd: 0,
   });
 
+  const [valueRaw3, setValorRaw3] = useState("");
+
   const [addBalance, setAddBalance] = useState<{
     date: string;
     type: string;
@@ -270,6 +272,7 @@ export function ExchangeTab() {
           confirmButton: "bg-blue-600 text-white hover:bg-blue-700 px-4 py-2 rounded font-semibold",
         },
       });
+      setValorRaw3("")
       setDataUpdated({
         invoiceId: "",
         date: new Date().toISOString().split("T")[0],
@@ -486,6 +489,16 @@ export function ExchangeTab() {
                 if (!invoiceId)
                   return setDataUpdated({ invoiceId: "", date: new Date().toISOString().split("T")[0], usd: 0 });
                 const valueInvoice = invoices.find((item) => item.id === invoiceId);
+                setValorRaw3(
+                  valueInvoice && valueInvoice.subAmount !== undefined
+                    ? valueInvoice.subAmount.toLocaleString("en-US", {
+                        style: "currency",
+                        currency: "USD",
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })
+                    : ""
+                )
                 setDataUpdated((prev) => ({
                   ...prev,
                   invoiceId: invoiceId,
@@ -525,10 +538,10 @@ export function ExchangeTab() {
           <div>
             <label className="h-22 block text-sm font-medium text-gray-700 mb-1">Valor Pago ($)</label>
             <input
-              type="number"
+              type="text"
               step="0.01"
               // @ts-ignore
-              value={dataPayment.usd}
+              value={valueRaw3}
               readOnly
               className="w-full border border-gray-300 rounded-md p-2 bg-gray-100 focus:ring-blue-500 focus:border-blue-500"
             />

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { formatCurrency, formatDate } from "./format";
 import { api } from "../../../services/api";
 import { motion } from "framer-motion";
+import Swal from "sweetalert2";
 
 interface Operacao {
   id: number;
@@ -156,9 +157,27 @@ const LucrosTab: React.FC = () => {
     try {
       await api.delete(`/operations/delete_operation/${id}`);
       setOperacoes((prev) => prev.filter((op) => op.id !== id));
-      alert("Operação deletada com sucesso.");
+      Swal.fire({
+        icon: "success",
+        title: "Sucesso!",
+        text: "Operação registrada com sucesso!",
+        confirmButtonText: "Ok",
+        buttonsStyling: false,
+        customClass: {
+          confirmButton: "bg-blue-600 text-white hover:bg-blue-700 px-4 py-2 rounded font-semibold",
+        },
+      });
     } catch (e: any) {
-      alert(`Erro ao deletar operação: ${e.message}`);
+      Swal.fire({
+        icon: "error",
+        title: "Error!",
+        text: "Erroao deletar operação!",
+        confirmButtonText: "Ok",
+        buttonsStyling: false,
+        customClass: {
+          confirmButton: "bg-blue-600 text-white hover:bg-blue-700 px-4 py-2 rounded font-semibold",
+        },
+      });
     }
   };
 

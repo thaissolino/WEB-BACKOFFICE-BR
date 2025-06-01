@@ -67,7 +67,7 @@ const ModalRecolhedor: React.FC<ModalRecolhedorProps> = ({
               type="text"
               className="mt-1 block w-full border border-gray-300 rounded-md p-2"
               value={nome}
-              onChange={(e) => setNome(e.target.value)}
+              onChange={(e) => setNome(e.target.value.toUpperCase())}
               placeholder="Nome do Recolhedor"
             />
           </div>
