@@ -68,6 +68,8 @@ const RecolhedoresTab: React.FC = () => {
   const [valorRaw, setValorRaw] = useState(""); // Controla o valor digitado
   const [paginaAtual, setPaginaAtual] = useState(0);
   const itensPorPagina = 6;
+  const [filterStartDate, setFilterStartDate] = useState<string>("");
+  const [filterEndDate, setFilterEndDate] = useState<string>("");
 
   const fetchRecolhedores = async () => {
     setLoading(true);
@@ -343,8 +345,21 @@ const RecolhedoresTab: React.FC = () => {
         tipo: "pagamento",
       })),
   ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  const filtrarTransacoesPorData = (transacoes: any[]) => {
+    if (!filterStartDate && !filterEndDate) return transacoes;
 
-  const transacoesPaginadas = todasTransacoes.slice(paginaAtual * itensPorPagina, (paginaAtual + 1) * itensPorPagina);
+    const start = new Date(filterStartDate);
+    const end = new Date(filterEndDate);
+    end.setDate(end.getDate() + 1); // Inclui o dia final
+
+    return transacoes.filter(transacao => {
+      const dataTransacao = new Date(transacao.date);
+      return dataTransacao >= start && dataTransacao < end;
+    });
+  };
+  const transacoesFiltradas = filtrarTransacoesPorData(todasTransacoes);
+
+  const transacoesPaginadas = transacoesFiltradas.slice(paginaAtual * itensPorPagina, (paginaAtual + 1) * itensPorPagina);
 
   function computeBalance(r: Recolhedor, ops: Operacao[], payments: Payment[]) {
     const collectorOperations = ops
@@ -470,13 +485,12 @@ const RecolhedoresTab: React.FC = () => {
                   >
                     <td className="py-2 px-4 border text-center">{r.name}</td>
                     <td
-                      className={`py-2 px-4 border text-center font-bold ${
-                        Math.abs(calculatedBalances[r.id]) < 0.009
-                          ? "text-gray-800"
-                          : calculatedBalances[r.id] < 0
+                      className={`py-2 px-4 border text-center font-bold ${Math.abs(calculatedBalances[r.id]) < 0.009
+                        ? "text-gray-800"
+                        : calculatedBalances[r.id] < 0
                           ? "text-red-600"
                           : "text-green-600"
-                      }`}
+                        }`}
                     >
                       {Math.abs(calculatedBalances[r.id]) < 0.009
                         ? formatCurrency(0)
@@ -536,9 +550,8 @@ const RecolhedoresTab: React.FC = () => {
                 <span className="mr-4">
                   SALDO:{" "}
                   <span
-                    className={`font-bold ${
-                      calculatedBalances[selectedRecolhedor.id] < 0 ? "text-red-600" : "text-green-600"
-                    }`}
+                    className={`font-bold ${calculatedBalances[selectedRecolhedor.id] < 0 ? "text-red-600" : "text-green-600"
+                      }`}
                   >
                     {formatCurrency(calculatedBalances[selectedRecolhedor.id] || 0)}
                   </span>
@@ -647,9 +660,8 @@ const RecolhedoresTab: React.FC = () => {
                     whileHover={!isProcessingPayment ? { scale: 1.02 } : {}}
                     whileTap={!isProcessingPayment ? { scale: 0.98 } : {}}
                     onClick={registrarPagamento}
-                    className={`${
-                      isProcessingPayment ? "bg-blue-400" : "bg-blue-600 hover:bg-blue-700"
-                    } text-white px-4 py-2 rounded w-full flex items-center justify-center`}
+                    className={`${isProcessingPayment ? "bg-blue-400" : "bg-blue-600 hover:bg-blue-700"
+                      } text-white px-4 py-2 rounded w-full flex items-center justify-center`}
                     disabled={isProcessingPayment}
                   >
                     {isProcessingPayment ? (
@@ -677,50 +689,60 @@ const RecolhedoresTab: React.FC = () => {
                     {/* ─── LADO ESQUERDO: LABEL + TÍTULO ───────────────────────────────────────────────────────── */}
                     <div className="flex flex-col whitespace-nowrap">
                       {/* Label “(ÚLTIMOS 6)” em texto menor */}
-                      <span className="text-xs font-medium text-gray-700 mb-1">(ÚLTIMOS 6)</span>
+                      <span className="text-xs font-medium text-gray-700 mb-1">
+                        {filterStartDate || filterEndDate
+                          ? `(Filtrado: ${filterStartDate || 'início'} a ${filterEndDate || 'fim'})`
+                          : '(ÚLTIMOS 6)'}
+                      </span>
                       {/* Título principal */}
                       <h3 className="font-medium">HISTÓRICO DE TRANSAÇÕES</h3>
                     </div>
 
                     {/* ─── LADO DIREITO: FILTROS DE DATA + BOTÕES ─────────────────────────────────────────────── */}
                     <div className="flex items-end gap-2">
-                      {/* Input “Data Inicial” */}
+                      {/* Input Data Inicial */}
                       <div className="flex flex-col">
                         <label className="text-xs font-medium text-gray-700 mb-1">Data Inicial</label>
                         <input
                           type="date"
-                          value="2025-05-31"
-                          readOnly
+                          value={filterStartDate}
+                          onChange={(e) => setFilterStartDate(e.target.value)}
                           className="w-24 h-6 border border-gray-300 rounded-md text-sm text-center leading-6 py-0 focus:outline-none focus:ring-2 focus:ring-blue-400"
                         />
                       </div>
 
-                      {/* Separador “até” */}
                       <span className="text-sm font-medium">até</span>
 
-                      {/* Input “Data Final” */}
+                      {/* Input Data Final */}
                       <div className="flex flex-col">
                         <label className="text-xs font-medium text-gray-700 mb-1">Data Final</label>
                         <input
                           type="date"
-                          value="2025-05-31"
-                          readOnly
+                          value={filterEndDate}
+                          onChange={(e) => setFilterEndDate(e.target.value)}
                           className="w-24 h-6 border border-gray-300 rounded-md text-sm text-center leading-6 py-0 focus:outline-none focus:ring-2 focus:ring-blue-400"
                         />
                       </div>
 
-                      {/* Botão “Filtrar” */}
-                      <button className="bg-white text-blue-600 border border-blue-600 hover:bg-blue-600 hover:text-white rounded-md text-sm font-medium h-6 px-4 mr-2 flex items-center justify-center transition-colors">
+                      {/* Botão Filtrar */}
+                      <button
+                        onClick={() => setPaginaAtual(0)}
+                        className="bg-white text-blue-600 border border-blue-600 hover:bg-blue-600 hover:text-white rounded-md text-sm font-medium h-6 px-4 mr-2 flex items-center justify-center transition-colors"
+                      >
                         Filtrar
                       </button>
 
-                      {/* Botão “Exportar extrato PDF” desabilitado */}
-                      {/* <button
-                        disabled
-                        className="w-40 h-6 rounded-md bg-gray-200 text-gray-500 text-sm font-medium flex items-center justify-center cursor-not-allowed"
+                      {/* Botão Limpar */}
+                      <button
+                        onClick={() => {
+                          setFilterStartDate("");
+                          setFilterEndDate("");
+                          setPaginaAtual(0);
+                        }}
+                        className="bg-gray-200 text-gray-700 hover:bg-gray-300 rounded-md text-sm font-medium h-6 px-4 flex items-center justify-center transition-colors"
                       >
-                        Exportar extrato PDF
-                      </button> */}
+                        Limpar
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -767,9 +789,8 @@ const RecolhedoresTab: React.FC = () => {
                             </td>
                             <td className="py-2 px-4 border text-sm text-gray-700">{t.descricao}</td>
                             <td
-                              className={`py-2 px-4 border text-right ${
-                                t.valor < 0 ? "text-red-600" : "text-green-600"
-                              }`}
+                              className={`py-2 px-4 border text-right ${t.valor < 0 ? "text-red-600" : "text-green-600"
+                                }`}
                             >
                               {formatCurrency(t.valor)}
                             </td>
@@ -794,6 +815,15 @@ const RecolhedoresTab: React.FC = () => {
                             </td>
                           </motion.tr>
                         ))}
+                        {transacoesPaginadas.length === 0 && (
+                          <tr>
+                            <td colSpan={4} className="text-center py-4 text-gray-500">
+                              {filterStartDate || filterEndDate
+                                ? "Nenhuma transação encontrada no período"
+                                : "Nenhuma transação registrada"}
+                            </td>
+                          </tr>
+                        )}
                       </AnimatePresence>
                     </tbody>
                   </table>
@@ -805,16 +835,19 @@ const RecolhedoresTab: React.FC = () => {
                     >
                       Anterior
                     </button>
+
                     <span className="text-sm text-gray-600">
-                      Página {paginaAtual + 1} de {Math.ceil(todasTransacoes.length / itensPorPagina)}
+                      Página {paginaAtual + 1} de {Math.ceil(transacoesFiltradas.length / itensPorPagina)} •
+                      Mostrando {transacoesFiltradas.length} de {todasTransacoes.length} transações
                     </span>
+
                     <button
                       onClick={() =>
                         setPaginaAtual((prev) =>
-                          Math.min(prev + 1, Math.ceil(todasTransacoes.length / itensPorPagina) - 1)
+                          Math.min(prev + 1, Math.ceil(transacoesFiltradas.length / itensPorPagina) - 1)
                         )
                       }
-                      disabled={(paginaAtual + 1) * itensPorPagina >= todasTransacoes.length}
+                      disabled={(paginaAtual + 1) * itensPorPagina >= transacoesFiltradas.length}
                       className="px-3 py-1 bg-gray-200 text-sm rounded disabled:opacity-50"
                     >
                       Próxima
