@@ -192,6 +192,7 @@ const OperacoesTab: React.FC = () => {
       setShowSuccessModal(true);
     } finally {
       setIsSaving(false);
+      setValorRaw("")
     }
   };
 
@@ -211,9 +212,29 @@ const OperacoesTab: React.FC = () => {
         const updatedOperacoes = operacoes.filter((op) => op.id !== id);
         setOperacoes(updatedOperacoes);
 
-        alert("Operação deletada com sucesso.");
+    
+        Swal.fire({
+        icon: "success",
+        title: "Sucesso!",
+        text: "Operação registrada com sucesso!",
+        confirmButtonText: "Ok",
+        buttonsStyling: false,
+        customClass: {
+          confirmButton: "bg-blue-600 text-white hover:bg-blue-700 px-4 py-2 rounded font-semibold",
+        },
+      });
       } catch (e: any) {
-        alert(`Erro ao deletar operação: ${e.message}`);
+        // alert(`Erro ao deletar operação: ${e.message}`);
+       Swal.fire({
+                icon: "error",
+                title: "Error!",
+                text: "Erroao deletar operação!",
+                confirmButtonText: "Ok",
+                buttonsStyling: false,
+                customClass: {
+                  confirmButton: "bg-blue-600 text-white hover:bg-blue-700 px-4 py-2 rounded font-semibold",
+                },
+        });
       }
     };
   
@@ -229,12 +250,12 @@ const OperacoesTab: React.FC = () => {
         </h2>
 
         {/* Campos de entrada para nova operação */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className=" grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700">DATA</label>
             <input
               type="date"
-              className="mt-1 block w-full border border-gray-300 rounded-md p-2"
+              className="mt-1  block w-full border border-gray-300 rounded-md p-2"
               value={dataOperacao}
               onChange={(e) => setDataOperacao(e.target.value)}
             />
@@ -245,7 +266,7 @@ const OperacoesTab: React.FC = () => {
               type="text"
               className="mt-1 block w-full border border-gray-300 rounded-md p-2"
               value={localOperacao}
-              onChange={(e) => setLocalOperacao(e.target.value)}
+              onChange={(e) => setLocalOperacao(e.target.value.toUpperCase())}
               placeholder="EX: GOIÂNIA"
             />
           </div>

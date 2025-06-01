@@ -22,7 +22,7 @@ const ModalFornecedor: React.FC<ModalFornecedorProps> = ({
   const [balance, setBalance] = useState(0);
   useEffect(() => {
     if (fornecedorEdit) {
-      setNome(fornecedorEdit.name);
+      setNome(fornecedorEdit.name.toUpperCase());
       setTaxa(fornecedorEdit.tax);
     } else {
       setNome("");
@@ -59,7 +59,7 @@ const ModalFornecedor: React.FC<ModalFornecedorProps> = ({
               type="text"
               className="mt-1 block w-full border border-gray-300 rounded-md p-2"
               value={nome}
-              onChange={(e) => setNome(e.target.value)}
+              onChange={(e) => setNome(e.target.value.toUpperCase())}
               placeholder="Nome do Fornecedor"
             />
           </div>
@@ -70,7 +70,7 @@ const ModalFornecedor: React.FC<ModalFornecedorProps> = ({
               step="0.01"
               className="mt-1 block w-full border border-gray-300 rounded-md p-2"
               value={taxa}
-              onChange={(e) => setTaxa(Number(e.target.value))}
+              onChange={(e) => setTaxa(Number(e.target.value.toUpperCase()))}
             />
           </div>
           {/* <div>

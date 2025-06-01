@@ -5,6 +5,7 @@ import { IoArrowBack, IoCamera } from "react-icons/io5";
 import axios from "axios";
 import { showAlertError } from "./components/alertError";
 import { isAxiosError } from "./components/alertError/isAxiosError";
+import Swal from "sweetalert2";
 
 interface BilletCamProps {
   handleClose: () => void;
@@ -155,7 +156,17 @@ const ScannBillsBackoffice = ({ handleClose }: BilletCamProps) => {
       // Envia para a API
       await sendBilletToAPI(billetInfo);
 
-      alert("Boleto registrado com sucesso!");
+      // alert("Boleto registrado com sucesso!");
+            Swal.fire({
+              icon: "success",
+              title: "Sucesso!",
+              text: "Boleto registrado com sucesso!",
+              confirmButtonText: "Ok",
+              buttonsStyling: false,
+              customClass: {
+                confirmButton: "bg-blue-600 text-white hover:bg-blue-700 px-4 py-2 rounded font-semibold",
+              },
+            });
       // handleClose();
 
       // // Salva no localStorage
