@@ -72,8 +72,23 @@ export const CaixasTabBrl = () => {
   const [valorRaw, setValorRaw] = useState("");
   const [currentPage, setCurrentPage] = useState(0);
   const itemsPerPage = 6; // ou o número que preferir
+  const [filterStartDate, setFilterStartDate] = useState<string>("");
+  const [filterEndDate, setFilterEndDate] = useState<string>("");
 
-  const paginatedTransactions = transactionHistoryList.slice(
+  const filterTransactionsByDate = () => {
+  if (!filterStartDate || !filterEndDate) return transactionHistoryList;
+  
+  const start = new Date(filterStartDate);
+  const end = new Date(filterEndDate);
+  end.setDate(end.getDate() + 1); // Inclui o dia final
+
+  return transactionHistoryList.filter(transaction => {
+    const transactionDate = new Date(transaction.date);
+    return transactionDate >= start && transactionDate < end;
+  });
+};
+const filteredTransactions = filterTransactionsByDate();
+  const paginatedTransactions = filteredTransactions.slice(
     currentPage * itemsPerPage,
     (currentPage + 1) * itemsPerPage
   );
@@ -536,10 +551,10 @@ export const CaixasTabBrl = () => {
                 {selectedEntity.typeInvoice === "freteiro"
                   ? "TRANSPORTADORA"
                   : selectedEntity.typeInvoice === "fornecedor"
-                  ? "FORNECEDOR"
-                  : selectedEntity.typeInvoice === "parceiro"
-                  ? "PARCEIRO"
-                  : ""}{" "}
+                    ? "FORNECEDOR"
+                    : selectedEntity.typeInvoice === "parceiro"
+                      ? "PARCEIRO"
+                      : ""}{" "}
                 : {selectedEntity.name}
               </span>
             </h2>
@@ -635,7 +650,7 @@ export const CaixasTabBrl = () => {
                             maximumFractionDigits: 2,
                           });
                           setValorRaw(formattedValue);
-                          setFormData({ ...formData, value:numericValue.toString()});
+                          setFormData({ ...formData, value: numericValue.toString() });
                         }
                       }
                     }}
@@ -679,60 +694,61 @@ export const CaixasTabBrl = () => {
             </div>
 
             <div>
-                <div className="mb-2 border-b pb-2 w-full flex flex-row items-center justify-between max-w-[100%]">
-                  <div className="w-full flex justify-between items-start border-b pb-2 mb-4">
-                    {/* ─── LADO ESQUERDO: LABEL + TÍTULO ───────────────────────────────────────────────────────── */}
-                    <div className="flex flex-col whitespace-nowrap">
-                      {/* Label “(ÚLTIMOS 6)” em texto menor */}
-                      <span className="text-xs font-medium text-gray-700 mb-1">(ÚLTIMOS 6)</span>
-                      {/* Título principal */}
-                      <h3 className="font-medium">HISTÓRICO DE TRANSAÇÕES</h3>
+              <div className="mb-2 border-b pb-2 w-full flex flex-row items-center justify-between max-w-[100%]">
+                <div className="w-full flex justify-between items-start border-b pb-2 mb-4">
+                  <div className="flex flex-col whitespace-nowrap">
+                    <span className="text-xs font-medium text-gray-700 mb-1">
+                      {filterStartDate || filterEndDate
+                        ? `(Filtrado: ${filterStartDate || 'início'} a ${filterEndDate || 'fim'})`
+                        : '(ÚLTIMOS 6)'}
+                    </span>
+                    <h3 className="font-medium">HISTÓRICO DE TRANSAÇÕES</h3>
+                  </div>
+
+                  <div className="flex items-end gap-2">
+                    <div className="flex flex-col">
+                      <label className="text-xs font-medium text-gray-700 mb-1">Data Inicial</label>
+                      <input
+                        type="date"
+                        value={filterStartDate}
+                        onChange={(e) => setFilterStartDate(e.target.value)}
+                        className="w-24 h-6 border border-gray-300 rounded-md text-sm text-center leading-6 py-0 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                      />
                     </div>
 
-                    {/* ─── LADO DIREITO: FILTROS DE DATA + BOTÕES ─────────────────────────────────────────────── */}
-                    <div className="flex items-end gap-2">
-                      {/* Input “Data Inicial” */}
-                      <div className="flex flex-col">
-                        <label className="text-xs font-medium text-gray-700 mb-1">Data Inicial</label>
-                        <input
-                          type="date"
-                          value="2025-05-31"
-                          readOnly
-                          className="w-24 h-6 border border-gray-300 rounded-md text-sm text-center leading-6 py-0 focus:outline-none focus:ring-2 focus:ring-blue-400"
-                        />
-                      </div>
+                    <span className="text-sm font-medium">até</span>
 
-                      {/* Separador “até” */}
-                      <span className="text-sm font-medium">até</span>
-
-                      {/* Input “Data Final” */}
-                      <div className="flex flex-col">
-                        <label className="text-xs font-medium text-gray-700 mb-1">Data Final</label>
-                        <input
-                          type="date"
-                          value="2025-05-31"
-                          readOnly
-                          className="w-24 h-6 border border-gray-300 rounded-md text-sm text-center leading-6 py-0 focus:outline-none focus:ring-2 focus:ring-blue-400"
-                        />
-                      </div>
-
-                      {/* Botão “Filtrar” */}
-                      <button className="bg-white text-blue-600 border border-blue-600 hover:bg-blue-600 hover:text-white rounded-md text-sm font-medium h-6 px-4 mr-2 flex items-center justify-center transition-colors">
-                        Filtrar
-                      </button>
-
-                      {/* Botão “Exportar extrato PDF” desabilitado */}
-                      {/* <button
-                        disabled
-                        className="w-40 h-6 rounded-md bg-gray-200 text-gray-500 text-sm font-medium flex items-center justify-center cursor-not-allowed"
-                      >
-                        Exportar extrato PDF
-                      </button> */}
+                    <div className="flex flex-col">
+                      <label className="text-xs font-medium text-gray-700 mb-1">Data Final</label>
+                      <input
+                        type="date"
+                        value={filterEndDate}
+                        onChange={(e) => setFilterEndDate(e.target.value)}
+                        className="w-24 h-6 border border-gray-300 rounded-md text-sm text-center leading-6 py-0 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                      />
                     </div>
+
+                    <button
+                      onClick={() => setCurrentPage(0)}
+                      className="bg-white text-blue-600 border border-blue-600 hover:bg-blue-600 hover:text-white rounded-md text-sm font-medium h-6 px-4 mr-2 flex items-center justify-center transition-colors"
+                    >
+                      Filtrar
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setFilterStartDate("");
+                        setFilterEndDate("");
+                        setCurrentPage(0);
+                      }}
+                      className="bg-gray-200 text-gray-700 hover:bg-gray-300 rounded-md text-sm font-medium h-6 px-4 flex items-center justify-center transition-colors"
+                    >
+                      Limpar
+                    </button>
                   </div>
                 </div>
+              </div>
 
-              {/* <h3 className="font-medium mb-2 border-b pb-2">HISTÓRICO DE TRANSAÇÕES</h3> */}
               <div className="overflow-x-auto max-h-96">
                 <table className="min-w-full bg-white">
                   <thead>
@@ -752,7 +768,7 @@ export const CaixasTabBrl = () => {
                         </td>
                       </tr>
                     ) : paginatedTransactions.length ? (
-                      paginatedTransactions.map((t: any) => (
+                      paginatedTransactions.map((t: TransactionHistory) => (
                         <motion.tr
                           key={t.id}
                           initial={{ opacity: 0, y: 10 }}
@@ -764,7 +780,7 @@ export const CaixasTabBrl = () => {
                           <td className="py-2 px-4 border text-center">
                             <i className="fas fa-clock text-green-500 mr-2"></i>
                             {new Date(t.date).toLocaleString("pt-BR", {
-                              //  timeZone: "UTC",
+                              //    timeZone: "UTC",
                               day: "2-digit",
                               month: "2-digit",
                               year: "numeric",
@@ -774,9 +790,8 @@ export const CaixasTabBrl = () => {
                           </td>
                           <td className="py-2 px-4 border">{t.description}</td>
                           <td
-                            className={`py-2 px-4 border text-right ${
-                              t.direction === "OUT" ? "text-red-600" : "text-green-600"
-                            }`}
+                            className={`py-2 px-4 border text-right ${t.direction === "OUT" ? "text-red-600" : "text-green-600"
+                              }`}
                           >
                             {t.direction === "OUT" ? "-" : "+"}
                             {new Intl.NumberFormat("en-US", {
@@ -801,31 +816,33 @@ export const CaixasTabBrl = () => {
                     ) : (
                       <tr>
                         <td colSpan={4} className="text-center py-4 text-gray-500">
-                          Nenhuma transação registrada
+                          {filterStartDate || filterEndDate
+                            ? "Nenhuma transação encontrada no período"
+                            : "Nenhuma transação registrada"}
                         </td>
                       </tr>
                     )}
                   </tbody>
                 </table>
-                {transactionHistoryList.length > itemsPerPage && (
+
+                {filteredTransactions.length > itemsPerPage && (
                   <div className="flex justify-between items-center mt-4">
                     <button
-                      onClick={() => setCurrentPage((prev) => Math.max(0, prev - 1))}
+                      onClick={() => setCurrentPage(prev => Math.max(0, prev - 1))}
                       disabled={currentPage === 0}
                       className="px-3 py-1 bg-gray-200 text-sm rounded disabled:opacity-50"
                     >
                       Anterior
                     </button>
                     <span className="text-sm text-gray-600">
-                      Página {currentPage + 1} de {Math.ceil(transactionHistoryList.length / itemsPerPage)}
+                      Página {currentPage + 1} de {Math.ceil(filteredTransactions.length / itemsPerPage)} •
+                      Mostrando {filteredTransactions.length} de {transactionHistoryList.length} transações
                     </span>
                     <button
-                      onClick={() =>
-                        setCurrentPage((prev) =>
-                          Math.min(prev + 1, Math.ceil(transactionHistoryList.length / itemsPerPage) - 1)
-                        )
-                      }
-                      disabled={(currentPage + 1) * itemsPerPage >= transactionHistoryList.length}
+                      onClick={() => setCurrentPage(prev =>
+                        Math.min(prev + 1, Math.ceil(filteredTransactions.length / itemsPerPage) - 1)
+                      )}
+                      disabled={(currentPage + 1) * itemsPerPage >= filteredTransactions.length}
                       className="px-3 py-1 bg-gray-200 text-sm rounded disabled:opacity-50"
                     >
                       Próxima
