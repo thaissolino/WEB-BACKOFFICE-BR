@@ -419,7 +419,7 @@ export function ExchangeTab() {
                     const formattedValue = numericValue.toLocaleString("en-US", {
                       style: "currency",
                       currency: "USD",
-                      minimumFractionDigits: 1,
+                      minimumFractionDigits: 2,
                       maximumFractionDigits: 4,
                     });
                     setValorRaw(formattedValue);

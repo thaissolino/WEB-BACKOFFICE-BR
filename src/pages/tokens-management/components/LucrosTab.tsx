@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { formatCurrency, formatDate } from "./format";
-import { api } from "../../../services/api"; // Importe sua instância do Axios pré-configurada
+import { api } from "../../../services/api";
 import { motion } from "framer-motion";
 import Swal from "sweetalert2";
 
@@ -36,6 +36,11 @@ const LucrosTab: React.FC = () => {
   const [itensPorPagina] = useState(10);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  // Estados para filtro de data
+  const [filterStartDate, setFilterStartDate] = useState<string>("");
+  const [filterEndDate, setFilterEndDate] = useState<string>("");
+  const [filteredOperations, setFilteredOperations] = useState<Operacao[]>([]);
 
   useEffect(() => {
     const fetchOperacoes = async () => {
@@ -50,10 +55,11 @@ const LucrosTab: React.FC = () => {
         });
 
         setOperacoes(response.data);
+        setFilteredOperations(response.data); // Inicializa com todas as operações
+        
         const totalCount = response.headers["x-total-count"];
         setTotalPaginas(totalCount ? Math.ceil(parseInt(totalCount, 10) / itensPorPagina) : 1);
 
-        // Fetch collectors and suppliers concurrently
         const collectorIds = Array.from(new Set<number>(response.data.map((op: any) => op.collectorId)));
         const supplierIds = Array.from(new Set<number>(response.data.map((op: any) => op.supplierId)));
 
@@ -64,7 +70,7 @@ const LucrosTab: React.FC = () => {
               return res.data;
             } catch (error) {
               console.error(`Erro ao buscar recolhedor com ID ${id}:`, error);
-              return null; // Ou algum objeto padrão para indicar falha
+              return null;
             }
           })
         );
@@ -76,14 +82,13 @@ const LucrosTab: React.FC = () => {
               return res.data;
             } catch (error) {
               console.error(`Erro ao buscar fornecedor com ID ${id}:`, error);
-              return null; // Ou algum objeto padrão para indicar falha
+              return null;
             }
           })
         );
 
         const [collectorsData, suppliersData] = await Promise.all([fetchCollectors, fetchSuppliers]);
 
-        // Filter out any null results in case of failed requests
         setRecolhedores(collectorsData.filter((r): r is Recolhedor => r !== null));
         setFornecedores(suppliersData.filter((f): f is Fornecedor => f !== null));
       } catch (e: any) {
@@ -96,9 +101,39 @@ const LucrosTab: React.FC = () => {
     fetchOperacoes();
   }, [paginaAtual, itensPorPagina]);
 
-  const operacoesValidas = operacoes.filter(
+  // Função para filtrar operações por data
+  const applyDateFilter = () => {
+    if (!filterStartDate && !filterEndDate) {
+      setFilteredOperations(operacoes);
+      return;
+    }
+    
+    const startDate = filterStartDate ? new Date(filterStartDate) : null;
+    const endDate = filterEndDate ? new Date(filterEndDate) : null;
+    
+    if (endDate) {
+      endDate.setDate(endDate.getDate() + 1); // Inclui o dia final
+    }
+
+    const filtered = operacoes.filter(op => {
+      const opDate = new Date(op.date);
+      const isAfterStart = !startDate || opDate >= startDate;
+      const isBeforeEnd = !endDate || opDate < endDate;
+      return isAfterStart && isBeforeEnd;
+    });
+
+    setFilteredOperations(filtered);
+  };
+
+  // Aplica o filtro sempre que as datas mudam
+  useEffect(() => {
+    applyDateFilter();
+  }, [filterStartDate, filterEndDate, operacoes]);
+
+  const operacoesValidas = filteredOperations.filter(
     (op) =>
-      (op.comission === undefined || op.comission === null || op.comission === 0) && !isNaN(new Date(op.date).getTime())
+      (op.comission === undefined || op.comission === null || op.comission === 0) && 
+      !isNaN(new Date(op.date).getTime())
   );
 
   const lucroMesAtual = operacoesValidas
@@ -168,11 +203,62 @@ const LucrosTab: React.FC = () => {
   return (
     <div className="fade-in">
       <div className="bg-white p-6 rounded-lg shadow">
-        <h2 className="text-xl font-semibold mb-4 text-green-700 border-b pb-2">
-          <i className="fas fa-chart-line mr-2"></i> HISTÓRICO DE LUCROS
-        </h2>
+        <div className="w-full flex flex-row items-center justify-between max-w-[100%]">
+          <div className="w-full flex justify-between items-start border-b pb-2 mb-4">
+            <div className="flex flex-col whitespace-nowrap">
+              <span className="text-xs font-medium text-gray-700 mb-1">
+                {filterStartDate || filterEndDate 
+                  ? `(Filtrado: ${filterStartDate || 'início'} a ${filterEndDate || 'fim'})` 
+                  : '(ÚLTIMOS 6)'}
+              </span>
+              <h2 className="text-xl font-semibold mt-4 text-green-700">
+                <i className="fas fa-chart-line mr-2"></i> HISTÓRICO DE LUCROS
+              </h2>
+            </div>
 
-        {/* Resumo */}
+            <div className="flex items-end gap-2">
+              <div className="flex flex-col">
+                <label className="text-xs font-medium text-gray-700 mb-1">Data Inicial</label>
+                <input
+                  type="date"
+                  value={filterStartDate}
+                  onChange={(e) => setFilterStartDate(e.target.value)}
+                  className="w-24 h-6 border border-gray-300 rounded-md text-sm text-center leading-6 py-0 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                />
+              </div>
+
+              <span className="text-sm font-medium">até</span>
+
+              <div className="flex flex-col">
+                <label className="text-xs font-medium text-gray-700 mb-1">Data Final</label>
+                <input
+                  type="date"
+                  value={filterEndDate}
+                  onChange={(e) => setFilterEndDate(e.target.value)}
+                  className="w-24 h-6 border border-gray-300 rounded-md text-sm text-center leading-6 py-0 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                />
+              </div>
+
+              <button
+                onClick={applyDateFilter}
+                className="bg-white text-blue-600 border border-blue-600 hover:bg-blue-600 hover:text-white rounded-md text-sm font-medium h-6 px-4 mr-2 flex items-center justify-center transition-colors"
+              >
+                Filtrar
+              </button>
+              
+              <button
+                onClick={() => {
+                  setFilterStartDate("");
+                  setFilterEndDate("");
+                }}
+                className="bg-gray-200 text-gray-700 hover:bg-gray-300 rounded-md text-sm font-medium h-6 px-4 flex items-center justify-center transition-colors"
+              >
+                Limpar
+              </button>
+            </div>
+          </div>
+        </div>
+
         <div className="mb-6 grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="bg-blue-50 p-4 rounded-lg">
             <h3 className="font-medium mb-2">LUCRO ESTE MÊS</h3>
@@ -184,11 +270,10 @@ const LucrosTab: React.FC = () => {
           </div>
           <div className="bg-purple-50 p-4 rounded-lg">
             <h3 className="font-medium mb-2">TOTAL ACUMULADO</h3>
-            <p className="text-2xl font-bold text-purple-600">{formatCurrency(lucroMesAnterior + lucroMesAtual)}</p>
+            <p className="text-2xl font-bold text-purple-600">{formatCurrency(totalAcumulado)}</p>
           </div>
         </div>
 
-        {/* Tabela */}
         <div className="overflow-x-auto">
           <table className="min-w-full bg-white">
             <thead>
@@ -199,44 +284,44 @@ const LucrosTab: React.FC = () => {
                 <th className="py-2 px-4 border">FORNECEDOR</th>
                 <th className="py-2 px-4 border">VALOR OPERAÇÃO</th>
                 <th className="py-2 px-4 border">LUCRO</th>
-                {/* <th className="py-2 px-4 border">AÇÕES</th> */}
               </tr>
             </thead>
             <tbody>
-              {operacoesValidas
-                .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-                .map((op) => {
-                  if (!op.date || isNaN(new Date(op.date).getTime())) return null;
-                  const recolhedorNome = getRecolhedorNome(op.collectorId);
-                  const fornecedorNome = getFornecedorNome(op.supplierId);
+              {operacoesValidas.length > 0 ? (
+                operacoesValidas
+                  .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                  .map((op) => {
+                    if (!op.date || isNaN(new Date(op.date).getTime())) return null;
+                    const recolhedorNome = getRecolhedorNome(op.collectorId);
+                    const fornecedorNome = getFornecedorNome(op.supplierId);
 
-                  return (
-                    <tr key={op.id} className="odd:bg-blue-50 even:bg-green-50">
-                      <td className="py-2 px-4 text-center border">
-                        <i className="fas fa-clock text-green-500 mr-2"></i>
-                        {formatDate(op.date)}
-                      </td>
-                      <td className="py-2 px-4 text-center border">{op.city || "Desconhecido"}</td>
-                      <td className="py-2 px-4 text-center border">{recolhedorNome}</td>
-                      <td className="py-2 px-4 text-center border">{fornecedorNome}</td>
-                      <td className="py-2 px-4 border text-center">{formatCurrency(op.value || 0)}</td>
-                      <td className="py-2 px-4 border text-center">{formatCurrency(op.profit || 0)}</td>
-                      {/* <td className="py-2 px-4 border text-center">
-                        <button
-                          onClick={() => deletarOperacao(op.id)}
-                          className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded justify-self-end"
-                        >
-                          <i className="fas fa-trash"></i>
-                        </button>
-                      </td> */}
-                    </tr>
-                  );
-                })}
+                    return (
+                      <tr key={op.id} className="odd:bg-blue-50 even:bg-green-50">
+                        <td className="py-2 px-4 text-center border">
+                          <i className="fas fa-clock text-green-500 mr-2"></i>
+                          {formatDate(op.date)}
+                        </td>
+                        <td className="py-2 px-4 text-center border">{op.city || "Desconhecido"}</td>
+                        <td className="py-2 px-4 text-center border">{recolhedorNome}</td>
+                        <td className="py-2 px-4 text-center border">{fornecedorNome}</td>
+                        <td className="py-2 px-4 border text-center">{formatCurrency(op.value || 0)}</td>
+                        <td className="py-2 px-4 border text-center">{formatCurrency(op.profit || 0)}</td>
+                      </tr>
+                    );
+                  })
+              ) : (
+                <tr>
+                  <td colSpan={6} className="text-center py-4 text-gray-500">
+                    {filterStartDate || filterEndDate
+                      ? "Nenhuma operação encontrada no período"
+                      : "Nenhuma operação registrada"}
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
 
-        {/* Paginação */}
         <div className="mt-4 flex justify-between items-center">
           <div className="text-sm text-gray-600">
             Página {paginaAtual} de {totalPaginas}

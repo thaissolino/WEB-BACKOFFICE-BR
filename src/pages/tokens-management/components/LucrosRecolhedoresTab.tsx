@@ -3,7 +3,6 @@ import { formatCurrency, formatDate } from "./format";
 import { api } from "../../../services/api";
 import { motion } from "framer-motion";
 import { GenericSearchSelect } from "../../gestao-invoices/components/sections/SearchSelect";
-import ModalCaixa from "../../gestao-invoices/components/modals/ModalCaixa";
 
 interface Fornecedor {
   id: number;
@@ -30,17 +29,6 @@ export interface Operacao {
   comission: number;
 }
 
-export interface Caixa {
-  id: string;
-  name: string;
-  description: string;
-  createdAt: string;
-  updatedAt: string;
-  input: number;
-  output: number;
-  balance: number;
-}
-
 const LucrosRecolhedoresFusionTab: React.FC = () => {
   const [operacoes, setOperacoes] = useState<Operacao[]>([]);
   const [recolhedores, setRecolhedores] = useState<Recolhedor[]>([]);
@@ -49,27 +37,69 @@ const LucrosRecolhedoresFusionTab: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [paginaAtual, setPaginaAtual] = useState(0);
   const itensPorPagina = 10;
+  
+  // Estados para filtro de data
+  const [filterStartDate, setFilterStartDate] = useState<string>("");
+  const [filterEndDate, setFilterEndDate] = useState<string>("");
 
-  const operacoesFiltradas = selectedRecolhedor
-    ? operacoes.filter((op) => op.collectorId === selectedRecolhedor.id && (!op.comission || op.comission <= 0))
-    : operacoes.filter((op) => !op.comission || op.comission <= 0);
+  // Função para filtrar operações por data
+  const filtrarPorData = (operacoes: Operacao[]) => {
+    if (!filterStartDate && !filterEndDate) return operacoes;
+    
+    const startDate = new Date(filterStartDate);
+    const endDate = new Date(filterEndDate);
+    endDate.setDate(endDate.getDate() + 1); // Inclui o dia final
+    
+    return operacoes.filter(op => {
+      const opDate = new Date(op.date);
+      return opDate >= startDate && opDate < endDate;
+    });
+  };
 
-  const operacoesPaginadas = operacoesFiltradas.slice(paginaAtual * itensPorPagina, (paginaAtual + 1) * itensPorPagina);
+  // Operações filtradas por recolhedor e data
+  const operacoesFiltradas = filtrarPorData(
+    selectedRecolhedor
+      ? operacoes.filter(op => 
+          op.collectorId === selectedRecolhedor.id && 
+          (!op.comission || op.comission <= 0)
+      ): operacoes.filter(op => !op.comission || op.comission <= 0)
+  );
 
-  const getRecolhedorNome = (id: number) => recolhedores.find((r) => r.id === id)?.name || "Desconhecido";
-  const getFornecedorNome = (id: number) => fornecedores.find((f) => f.id === id)?.name || "Desconhecido";
+  const operacoesPaginadas = operacoesFiltradas.slice(
+    paginaAtual * itensPorPagina, 
+    (paginaAtual + 1) * itensPorPagina
+  );
 
-  const lucroMesAtual = operacoesFiltradas
-    .filter((op) => new Date(op.date).getMonth() === new Date().getMonth())
-    .reduce((acc, op) => acc + (op.value - (op.value || 0) / (op.collectorTax || 0) || 0), 0);
+  // Funções auxiliares
+  const getRecolhedorNome = (id: number) => 
+    recolhedores.find(r => r.id === id)?.name || "Desconhecido";
+  
+  const getFornecedorNome = (id: number) => 
+    fornecedores.find(f => f.id === id)?.name || "Desconhecido";
 
-  const lucroMesAnterior = operacoesFiltradas
-    .filter((op) => {
+  // Cálculo de lucros considerando o filtro de data
+  const calcularLucro = (operacoes: Operacao[]) => 
+    operacoes.reduce((acc, op) => 
+      acc + (op.value - (op.value || 0) / (op.collectorTax || 0) || 0), 0);
+
+  const lucroMesAtual = calcularLucro(
+    operacoesFiltradas.filter(op => 
+      new Date(op.date).getMonth() === new Date().getMonth() &&
+      new Date(op.date).getFullYear() === new Date().getFullYear()
+    )
+  );
+
+  const lucroMesAnterior = calcularLucro(
+    operacoesFiltradas.filter(op => {
       const d = new Date(op.date);
       const mesAtual = new Date().getMonth();
-      return d.getMonth() === (mesAtual === 0 ? 11 : mesAtual - 1);
+      const anoAtual = new Date().getFullYear();
+      const mesAnterior = mesAtual === 0 ? 11 : mesAtual - 1;
+      const anoAnterior = mesAtual === 0 ? anoAtual - 1 : anoAtual;
+      
+      return d.getMonth() === mesAnterior && d.getFullYear() === anoAnterior;
     })
-    .reduce((acc, op) => acc + (op.value - (op.value || 0) / (op.collectorTax || 0) || 0), 0);
+  );
 
   useEffect(() => {
     fetchAllData();
@@ -77,12 +107,12 @@ const LucrosRecolhedoresFusionTab: React.FC = () => {
 
   const fetchAllData = async () => {
     try {
-      const [opRes, cxRes, rcRes, fnRes] = await Promise.all([
+      const [opRes, rcRes, fnRes] = await Promise.all([
         api.get("/operations/list_operations"),
-        api.get("/invoice/box"),
         api.get("/collectors/list_collectors"),
         api.get("/suppliers/list_suppliers"),
       ]);
+      
       setOperacoes(opRes.data);
       setRecolhedores(rcRes.data);
       setFornecedores(fnRes.data);
@@ -110,9 +140,72 @@ const LucrosRecolhedoresFusionTab: React.FC = () => {
   return (
     <div className="fade-in">
       <div className="bg-white p-6 rounded-lg shadow">
-        <h2 className="text-xl font-semibold mb-4 text-green-700 border-b pb-2">
-          <i className="fas fa-chart-line mr-2"></i> HISTÓRICO DE LUCROS
-        </h2>
+        <div className="w-full flex flex-row items-center justify-between max-w-[100%]">
+          <div className="w-full flex justify-between items-start border-b pb-2 mb-4">
+            {/* Cabeçalho com indicador de filtro */}
+            <div className="flex flex-col whitespace-nowrap">
+              <span className="text-xs font-medium text-gray-700 mb-1">
+                {filterStartDate || filterEndDate 
+                  ? `(Filtrado: ${filterStartDate || 'início'} a ${filterEndDate || 'fim'})` 
+                  : '(ÚLTIMOS 6)'}
+              </span>
+              <h2 className="text-xl font-semibold mt-4 text-green-700">
+                <i className="fas fa-chart-line mr-2"></i> HISTÓRICO DE LUCROS
+              </h2>
+            </div>
+
+            {/* Filtros de data */}
+            {selectedRecolhedor && (
+              <div className="flex items-end gap-2">
+                <div className="flex flex-col">
+                  <label className="text-xs font-medium text-gray-700 mb-1">Data Inicial</label>
+                  <input
+                    type="date"
+                    value={filterStartDate}
+                    onChange={(e) => setFilterStartDate(e.target.value)}
+                    className="w-24 h-6 border border-gray-300 rounded-md text-sm text-center leading-6 py-0 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  />
+                </div>
+
+                <span className="text-sm font-medium">até</span>
+
+                <div className="flex flex-col">
+                  <label className="text-xs font-medium text-gray-700 mb-1">Data Final</label>
+                  <input
+                    type="date"
+                    value={filterEndDate}
+                    onChange={(e) => setFilterEndDate(e.target.value)}
+                    className="w-24 h-6 border border-gray-300 rounded-md text-sm text-center leading-6 py-0 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  />
+                </div>
+
+                <button
+                  onClick={() => setPaginaAtual(0)}
+                  className="bg-white text-blue-600 border border-blue-600 hover:bg-blue-600 hover:text-white rounded-md text-sm font-medium h-6 px-4 mr-2 flex items-center justify-center transition-colors"
+                >
+                  Filtrar
+                </button>
+                <button
+               disabled
+                 className="w-40 h-6 rounded-md bg-gray-200 text-gray-500 text-sm font-medium flex items-center justify-center cursor-not-allowed"
+               >
+                 Exportar extrato PDF
+               </button>
+                <button
+                  onClick={() => {
+                    setFilterStartDate("");
+                    setFilterEndDate("");
+                    setPaginaAtual(0);
+                  }}
+                  className="bg-gray-200 text-gray-700 hover:bg-gray-300 rounded-md text-sm font-medium h-6 px-4 flex items-center justify-center transition-colors"
+                >
+                  Limpar
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+
         {selectedRecolhedor && (
           <>
             <div className="mb-6 grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -131,21 +224,27 @@ const LucrosRecolhedoresFusionTab: React.FC = () => {
             </div>
           </>
         )}
+        
         <div className="bg-white p-6 rounded-lg shadow mb-6">
           <div className="flex items-center space-x-4">
             <GenericSearchSelect
               items={recolhedores}
               value={selectedRecolhedor?.id.toString() || ""}
               getLabel={(r) => r.name}
-              getId={(r) => r.id.toString()} // Também converte aqui
+              getId={(r) => r.id.toString()}
               onChange={(id) => {
                 const rec = recolhedores.find((r) => r.id.toString() === id);
                 setSelectedRecolhedor(rec || null);
+                // Resetar filtros ao mudar recolhedor
+                setFilterStartDate("");
+                setFilterEndDate("");
+                setPaginaAtual(0);
               }}
               label="Selecione um recolhedor"
             />
           </div>
         </div>
+        
         <div className="overflow-x-auto">
           {selectedRecolhedor && (
             <>
@@ -162,65 +261,67 @@ const LucrosRecolhedoresFusionTab: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {operacoesPaginadas
-                    .filter((op) => !op.comission || op.comission <= 0)
-                    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-                    .map((op) => {
-                      if (!op.date || isNaN(new Date(op.date).getTime())) return null;
-                      const recolhedorNome = getRecolhedorNome(op.collectorId);
-                      const fornecedorNome = getFornecedorNome(op.supplierId);
+                  {operacoesPaginadas.length > 0 ? (
+                    operacoesPaginadas
+                      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                      .map((op) => {
+                        if (!op.date || isNaN(new Date(op.date).getTime())) return null;
+                        
+                        const recolhedorNome = getRecolhedorNome(op.collectorId);
+                        const fornecedorNome = getFornecedorNome(op.supplierId);
+                        const lucro = op.value - op.value / (op.collectorTax || 0);
+                        const comissao = lucro * (selectedRecolhedor.comission / 100);
 
-                      return (
-                        <tr key={op.id} className="odd:bg-blue-50 even:bg-green-50">
-                          <td className="py-2 px-4 text-center border">
-                            <i className="fas fa-clock text-green-500 mr-2"></i>
-                            {formatDate(op.date)}
-                          </td>
-                          <td className="py-2 px-4 text-center border">{op.city || "Desconhecido"}</td>
-                          <td className="py-2 px-4 text-center border">{recolhedorNome}</td>
-                          <td className="py-2 px-4 text-center border">{fornecedorNome}</td>
-                          <td className="py-2 px-4 border text-center">{formatCurrency(op.value || 0)}</td>
-                          <td className="py-2 px-4 border text-center font-semibold text-green-600 bg-yellow-50 rounded">
-                            {/* <td className="py-2 px-4 border text-center text-green-500 border-lime-500 bg-yellow-100 text-lg">
-                          /// {formatCurrency(op.profit || 0)} ///
-                          {formatCurrency(op.value - (op.value || 0) / (op.collectorTax || 0))}
-                        </td> */}
-                            {(op.value - op.value / (op.collectorTax || 0)).toLocaleString("pt-BR", {
-                              style: "currency",
-                              currency: "BRL",
-                            })}
-                          </td>
-                          <td className="py-2 px-4 border text-center font-semibold text-blue-600 bg-yellow-50 rounded">
-                            {(
-                              (op.value - op.value / (op.collectorTax || 1)) *
-                              (selectedRecolhedor.comission / 100)
-                            ).toLocaleString("pt-BR", {
-                              //style: "percent",
-                              minimumFractionDigits: 2,
-                              maximumFractionDigits: 2,
-                            })}
-                          </td>
-                        </tr>
-                      );
-                    })}
+                        return (
+                          <tr key={op.id} className="odd:bg-blue-50 even:bg-green-50">
+                            <td className="py-2 px-4 text-center border">
+                              <i className="fas fa-clock text-green-500 mr-2"></i>
+                              {formatDate(op.date)}
+                            </td>
+                            <td className="py-2 px-4 text-center border">{op.city || "Desconhecido"}</td>
+                            <td className="py-2 px-4 text-center border">{recolhedorNome}</td>
+                            <td className="py-2 px-4 text-center border">{fornecedorNome}</td>
+                            <td className="py-2 px-4 border text-center">{formatCurrency(op.value || 0)}</td>
+                            <td className="py-2 px-4 border text-center font-semibold text-green-600 bg-yellow-50 rounded">
+                              {formatCurrency(lucro)}
+                            </td>
+                            <td className="py-2 px-4 border text-center font-semibold text-blue-600 bg-yellow-50 rounded">
+                              {formatCurrency(comissao)}
+                            </td>
+                          </tr>
+                        );
+                      })
+                  ) : (
+                    <tr>
+                      <td colSpan={7} className="text-center py-4 text-gray-500">
+                        {filterStartDate || filterEndDate
+                          ? "Nenhuma operação encontrada no período"
+                          : "Nenhuma operação registrada"}
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
+              
               <div className="mt-4 flex justify-between items-center">
                 <div className="text-sm text-gray-600">
-                  Página {paginaAtual + 1} de {Math.ceil(operacoesFiltradas.length / itensPorPagina)}
+                  Página {paginaAtual + 1} de {Math.ceil(operacoesFiltradas.length / itensPorPagina)} • 
+                  Mostrando {operacoesPaginadas.length} de {operacoesFiltradas.length} registros
                 </div>
+                
                 <div className="flex space-x-2">
                   <button
                     disabled={paginaAtual === 0}
-                    onClick={() => setPaginaAtual((prev) => Math.max(0, prev - 1))}
+                    onClick={() => setPaginaAtual(prev => Math.max(0, prev - 1))}
                     className="px-3 py-1 border rounded disabled:opacity-50"
                   >
                     Anterior
                   </button>
+                  
                   <button
                     disabled={(paginaAtual + 1) * itensPorPagina >= operacoesFiltradas.length}
                     onClick={() =>
-                      setPaginaAtual((prev) =>
+                      setPaginaAtual(prev =>
                         Math.min(prev + 1, Math.ceil(operacoesFiltradas.length / itensPorPagina) - 1)
                       )
                     }
