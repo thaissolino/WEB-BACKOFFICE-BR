@@ -62,7 +62,7 @@ export const CaixasTabBrl = () => {
   const [loadingFetch3, setLoadingFetch3] = useState(false);
   const [loadingClearId, setLoadingClearId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
-    date: "",
+    date: new Date().toISOString().split("T")[0],
     value: "",
     description: "",
   });
