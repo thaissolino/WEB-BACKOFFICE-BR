@@ -5,6 +5,7 @@ import ModalRecolhedor from "./ModalRecolhedor";
 import { formatCurrency, formatDate } from "./format";
 import ConfirmModal from "./ConfirmModal";
 import { api } from "../../../services/api";
+import Swal from "sweetalert2";
 
 interface Transacao {
   id: number;
@@ -238,7 +239,17 @@ const RecolhedoresTab: React.FC = () => {
       setDescricaoPagamento("");
       setDataPagamento(new Date().toISOString().split("T")[0]);
 
-      alert("Pagamento registrado com sucesso!");
+      // alert("Pagamento registrado com sucesso!");
+      Swal.fire({
+        icon: "success",
+        title: "Sucesso!",
+        text: "Operação registrada com sucesso!",
+        confirmButtonText: "Ok",
+        buttonsStyling: false,
+        customClass: {
+          confirmButton: "bg-blue-600 text-white hover:bg-blue-700 px-4 py-2 rounded font-semibold",
+        },
+      });
     } catch (e: any) {
       console.log("error", e);
       alert(`Erro ao registrar pagamento: ${e.message}`);
@@ -285,7 +296,16 @@ const RecolhedoresTab: React.FC = () => {
       const totalBalance = Object.values(updatedBalances).reduce((a, b) => a + b, 0);
       setSaldoAcumulado(totalBalance);
 
-      alert("Operação deletada com sucesso.");
+      Swal.fire({
+        icon: "success",
+        title: "Sucesso!",
+        text: "Operação deletada com sucesso!",
+        confirmButtonText: "Ok",
+        buttonsStyling: false,
+        customClass: {
+          confirmButton: "bg-blue-600 text-white hover:bg-blue-700 px-4 py-2 rounded font-semibold",
+        },
+      });
     } catch (e: any) {
       alert(`Erro ao deletar operação: ${e.message}`);
     }
