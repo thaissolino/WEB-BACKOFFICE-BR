@@ -70,6 +70,8 @@ const RecolhedoresTab: React.FC = () => {
   const itensPorPagina = 6;
   const [filterStartDate, setFilterStartDate] = useState<string>("");
   const [filterEndDate, setFilterEndDate] = useState<string>("");
+  const [activeFilterStartDate, setActiveFilterStartDate] = useState<string>("");
+  const [activeFilterEndDate, setActiveFilterEndDate] = useState<string>("");
 
   const fetchRecolhedores = async () => {
     setLoading(true);
@@ -346,10 +348,10 @@ const RecolhedoresTab: React.FC = () => {
       })),
   ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   const filtrarTransacoesPorData = (transacoes: any[]) => {
-    if (!filterStartDate && !filterEndDate) return transacoes;
+    if (!activeFilterStartDate && !activeFilterEndDate) return transacoes;
 
-    const start = new Date(filterStartDate);
-    const end = new Date(filterEndDate);
+    const start = new Date(activeFilterStartDate);
+    const end = new Date(activeFilterEndDate);
     end.setDate(end.getDate() + 1); // Inclui o dia final
 
     return transacoes.filter(transacao => {
@@ -690,8 +692,8 @@ const RecolhedoresTab: React.FC = () => {
                     <div className="flex flex-col whitespace-nowrap">
                       {/* Label “(ÚLTIMOS 6)” em texto menor */}
                       <span className="text-xs font-medium text-gray-700 mb-1">
-                        {filterStartDate || filterEndDate
-                          ? `(Filtrado: ${filterStartDate || 'início'} a ${filterEndDate || 'fim'})`
+                        {activeFilterStartDate || activeFilterEndDate
+                          ? `(Filtrado: ${activeFilterStartDate || 'início'} a ${activeFilterEndDate || 'fim'})`
                           : '(ÚLTIMOS 6)'}
                       </span>
                       {/* Título principal */}
@@ -726,7 +728,11 @@ const RecolhedoresTab: React.FC = () => {
 
                       {/* Botão Filtrar */}
                       <button
-                        onClick={() => setPaginaAtual(0)}
+                        onClick={() => {
+                          setActiveFilterStartDate(filterStartDate);
+                          setActiveFilterEndDate(filterEndDate);
+                          setPaginaAtual(0);
+                        }}
                         className="bg-white text-blue-600 border border-blue-600 hover:bg-blue-600 hover:text-white rounded-md text-sm font-medium h-6 px-4 mr-2 flex items-center justify-center transition-colors"
                       >
                         Filtrar
@@ -737,6 +743,8 @@ const RecolhedoresTab: React.FC = () => {
                         onClick={() => {
                           setFilterStartDate("");
                           setFilterEndDate("");
+                          setActiveFilterStartDate("");
+                          setActiveFilterEndDate("");
                           setPaginaAtual(0);
                         }}
                         className="bg-gray-200 text-gray-700 hover:bg-gray-300 rounded-md text-sm font-medium h-6 px-4 flex items-center justify-center transition-colors"

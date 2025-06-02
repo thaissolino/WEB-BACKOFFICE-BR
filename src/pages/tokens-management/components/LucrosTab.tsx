@@ -40,6 +40,7 @@ const LucrosTab: React.FC = () => {
   const [filterStartDate, setFilterStartDate] = useState<string>("");
   const [filterEndDate, setFilterEndDate] = useState<string>("");
   const [filteredOperations, setFilteredOperations] = useState<Operacao[]>([]);
+  const [filterApplied, setFilterApplied] = useState(false);
 
   useEffect(() => {
     const fetchOperacoes = async () => {
@@ -54,7 +55,9 @@ const LucrosTab: React.FC = () => {
         });
 
         setOperacoes(response.data);
-        setFilteredOperations(response.data); // Inicializa com todas as operações
+        
+        // Inicialmente não aplicamos filtro
+        setFilteredOperations(response.data);
         
         const totalCount = response.headers["x-total-count"];
         setTotalPaginas(totalCount ? Math.ceil(parseInt(totalCount, 10) / itensPorPagina) : 1);
@@ -100,10 +103,11 @@ const LucrosTab: React.FC = () => {
     fetchOperacoes();
   }, [paginaAtual, itensPorPagina]);
 
-  // Função para filtrar operações por data
+  // Função para aplicar o filtro quando o botão for clicado
   const applyDateFilter = () => {
     if (!filterStartDate && !filterEndDate) {
       setFilteredOperations(operacoes);
+      setFilterApplied(false);
       return;
     }
     
@@ -122,12 +126,16 @@ const LucrosTab: React.FC = () => {
     });
 
     setFilteredOperations(filtered);
+    setFilterApplied(true);
   };
 
-  // Aplica o filtro sempre que as datas mudam
-  useEffect(() => {
-    applyDateFilter();
-  }, [filterStartDate, filterEndDate, operacoes]);
+  // Função para limpar o filtro
+  const clearFilter = () => {
+    setFilterStartDate("");
+    setFilterEndDate("");
+    setFilteredOperations(operacoes);
+    setFilterApplied(false);
+  };
 
   const operacoesValidas = filteredOperations.filter(
     (op) =>
@@ -156,6 +164,7 @@ const LucrosTab: React.FC = () => {
     try {
       await api.delete(`/operations/delete_operation/${id}`);
       setOperacoes((prev) => prev.filter((op) => op.id !== id));
+      setFilteredOperations((prev) => prev.filter((op) => op.id !== id));
       alert("Operação deletada com sucesso.");
     } catch (e: any) {
       alert(`Erro ao deletar operação: ${e.message}`);
@@ -188,7 +197,7 @@ const LucrosTab: React.FC = () => {
           <div className="w-full flex justify-between items-start border-b pb-2 mb-4">
             <div className="flex flex-col whitespace-nowrap">
               <span className="text-xs font-medium text-gray-700 mb-1">
-                {filterStartDate || filterEndDate 
+                {filterApplied 
                   ? `(Filtrado: ${filterStartDate || 'início'} a ${filterEndDate || 'fim'})` 
                   : '(ÚLTIMOS 6)'}
               </span>
@@ -228,10 +237,7 @@ const LucrosTab: React.FC = () => {
               </button>
               
               <button
-                onClick={() => {
-                  setFilterStartDate("");
-                  setFilterEndDate("");
-                }}
+                onClick={clearFilter}
                 className="bg-gray-200 text-gray-700 hover:bg-gray-300 rounded-md text-sm font-medium h-6 px-4 flex items-center justify-center transition-colors"
               >
                 Limpar
@@ -293,7 +299,7 @@ const LucrosTab: React.FC = () => {
               ) : (
                 <tr>
                   <td colSpan={6} className="text-center py-4 text-gray-500">
-                    {filterStartDate || filterEndDate
+                    {filterApplied
                       ? "Nenhuma operação encontrada no período"
                       : "Nenhuma operação registrada"}
                   </td>
