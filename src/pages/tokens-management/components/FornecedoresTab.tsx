@@ -1,4 +1,3 @@
-
 import type React from "react";
 import { useEffect, useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -215,13 +214,12 @@ const FornecedoresTab: React.FC = () => {
           confirmButton: "bg-blue-600 text-white hover:bg-blue-700 px-4 py-2 rounded font-semibold",
         },
       });
-      
     } catch (e: any) {
       console.log("error", e);
       alert(`Erro ao registrar pagamento: ${e.message}`);
     } finally {
       setIsProcessingPayment(false);
-      setValorRaw("")
+      setValorRaw("");
     }
   };
 
@@ -321,11 +319,10 @@ const FornecedoresTab: React.FC = () => {
     });
   };
 
-  const transacoesFiltradas = useMemo(() => filtrarTransacoesPorData(todasTransacoes), [
-    filterStartDate,
-    filterEndDate,
-    todasTransacoes,
-  ]);
+  const transacoesFiltradas = useMemo(
+    () => filtrarTransacoesPorData(todasTransacoes),
+    [filterStartDate, filterEndDate, todasTransacoes]
+  );
 
   const transacoesPaginadas = transacoesFiltradas.slice(
     paginaAtual * itensPorPagina,
@@ -518,7 +515,7 @@ const FornecedoresTab: React.FC = () => {
                 <i className="fas fa-truck mr-2"></i> CAIXA DE {fornecedorSelecionado.name}
               </h2>
               <div>
-                <span className="mr-4">
+                <span className="mr-3">
                   SALDO:{" "}
                   <span
                     className={`font-bold ${
@@ -532,10 +529,16 @@ const FornecedoresTab: React.FC = () => {
                   whileHover={{ scale: 1.1 }}
                   whileTap={{ scale: 0.9 }}
                   onClick={fecharCaixa}
-                  className="text-gray-500 hover:text-gray-700"
+                  className="ml-3 text-gray-500 hover:text-gray-700"
                 >
                   <i className="fas fa-times"></i>
                 </motion.button>
+                <button
+                  disabled
+                  className="w-40 h-6 rounded-md bg-gray-200 text-gray-500 text-sm font-medium flex items-center justify-center cursor-not-allowed"
+                >
+                  Exportar extrato PDF
+                </button>
               </div>
             </div>
 
@@ -645,8 +648,8 @@ const FornecedoresTab: React.FC = () => {
               </motion.div>
 
               <motion.div initial={{ x: 20, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ delay: 0.2 }}>
-                <div className="mb-2 border-b pb-2 w-full flex flex-row items-center justify-between max-w-[100%]">
-                  <div className="w-full flex justify-between items-start border-b pb-2 mb-4">
+                <div className="mb-2 border-b w-full flex flex-row items-center justify-between max-w-[100%]">
+                  <div className="w-full flex justify-between items-start  mb-4">
                     <div className="flex flex-col whitespace-nowrap">
                       <span className="text-xs font-medium text-gray-700 mb-1">
                         {filterStartDate || filterEndDate
@@ -734,7 +737,9 @@ const FornecedoresTab: React.FC = () => {
                             </td>
                             <td className="py-2 px-4 border text-sm text-gray-700">{t.descricao}</td>
                             <td
-                              className={`py-2 px-4 border text-right ${t.valor < 0 ? "text-red-600" : "text-green-600"}`}
+                              className={`py-2 px-4 border text-right ${
+                                t.valor < 0 ? "text-red-600" : "text-green-600"
+                              }`}
                             >
                               {formatCurrency(t.valor)}
                             </td>
