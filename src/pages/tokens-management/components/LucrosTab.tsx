@@ -36,12 +36,14 @@ const LucrosTab: React.FC = () => {
   const [itensPorPagina] = useState(10);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  
+
   // Estados para filtro de data
   const [filterStartDate, setFilterStartDate] = useState<string>("");
   const [filterEndDate, setFilterEndDate] = useState<string>("");
   const [filteredOperations, setFilteredOperations] = useState<Operacao[]>([]);
   const [filterApplied, setFilterApplied] = useState(false);
+  const [lucroPeriodoFiltro, setLucroPeriodoFiltro] = useState(0);
+  const [comissaoPeriodoFiltro, setComissaoPeriodoFiltro] = useState(0);
 
   useEffect(() => {
     const fetchOperacoes = async () => {
@@ -56,10 +58,10 @@ const LucrosTab: React.FC = () => {
         });
 
         setOperacoes(response.data);
-        
+
         // Inicialmente não aplicamos filtro
         setFilteredOperations(response.data);
-        
+
         const totalCount = response.headers["x-total-count"];
         setTotalPaginas(totalCount ? Math.ceil(parseInt(totalCount, 10) / itensPorPagina) : 1);
 
@@ -111,15 +113,15 @@ const LucrosTab: React.FC = () => {
       setFilterApplied(false);
       return;
     }
-    
+
     const startDate = filterStartDate ? new Date(filterStartDate) : null;
     const endDate = filterEndDate ? new Date(filterEndDate) : null;
-    
+
     if (endDate) {
       endDate.setDate(endDate.getDate() + 1); // Inclui o dia final
     }
 
-    const filtered = operacoes.filter(op => {
+    const filtered = operacoes.filter((op) => {
       const opDate = new Date(op.date);
       const isAfterStart = !startDate || opDate >= startDate;
       const isBeforeEnd = !endDate || opDate < endDate;
@@ -128,6 +130,11 @@ const LucrosTab: React.FC = () => {
 
     setFilteredOperations(filtered);
     setFilterApplied(true);
+    const lucroTotal = filtered.reduce((acc, op) => acc + (op.profit || 0), 0);
+    const comissaoTotal = filtered.reduce((acc, op) => acc + (op.comission || 0), 0);
+
+    setLucroPeriodoFiltro(lucroTotal);
+    setComissaoPeriodoFiltro(comissaoTotal);
   };
 
   // Função para limpar o filtro
@@ -140,8 +147,7 @@ const LucrosTab: React.FC = () => {
 
   const operacoesValidas = filteredOperations.filter(
     (op) =>
-      (op.comission === undefined || op.comission === null || op.comission === 0) && 
-      !isNaN(new Date(op.date).getTime())
+      (op.comission === undefined || op.comission === null || op.comission === 0) && !isNaN(new Date(op.date).getTime())
   );
 
   const lucroMesAtual = operacoesValidas
@@ -215,14 +221,15 @@ const LucrosTab: React.FC = () => {
         <div className="w-full flex flex-row items-center justify-between max-w-[100%]">
           <div className="w-full flex justify-between items-start border-b pb-2 mb-4">
             <div className="flex flex-col whitespace-nowrap">
-              <span className="text-xs font-medium text-gray-700 mb-1">
-                {filterApplied 
-                  ? `(Filtrado: ${filterStartDate || 'início'} a ${filterEndDate || 'fim'})` 
-                  : '(ÚLTIMOS 6)'}
-              </span>
+              
               <h2 className="text-xl font-semibold mt-4 text-green-700">
                 <i className="fas fa-chart-line mr-2"></i> HISTÓRICO DE LUCROS
               </h2>
+              <span className="text-xs font-medium text-gray-700 mb-1">
+                {filterApplied
+                  ? `(Filtrado: ${filterStartDate || "início"} a ${filterEndDate || "fim"})`
+                  : ""}
+              </span>
             </div>
 
             <div className="flex items-end gap-2">
@@ -254,7 +261,12 @@ const LucrosTab: React.FC = () => {
               >
                 Filtrar
               </button>
-              
+              <button
+                disabled
+                className="w-40 h-6 rounded-md bg-gray-200 text-gray-500 text-sm font-medium flex items-center justify-center cursor-not-allowed"
+              >
+                Exportar extrato PDF
+              </button>
               <button
                 onClick={clearFilter}
                 className="bg-gray-200 text-gray-700 hover:bg-gray-300 rounded-md text-sm font-medium h-6 px-4 flex items-center justify-center transition-colors"
@@ -265,20 +277,33 @@ const LucrosTab: React.FC = () => {
           </div>
         </div>
 
-        <div className="mb-6 grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-blue-50 p-4 rounded-lg">
-            <h3 className="font-medium mb-2">LUCRO ESTE MÊS</h3>
-            <p className="text-2xl font-bold text-blue-600">{formatCurrency(lucroMesAtual)}</p>
+        {filterApplied ? (
+          <div className="mb-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="bg-blue-50 p-4 rounded-lg">
+              <h3 className="font-medium mb-2">LUCRO</h3>
+              <p className="text-2xl font-bold text-blue-600">{formatCurrency(lucroPeriodoFiltro)}</p>
+            </div>
+            <div className="bg-green-50 p-4 rounded-lg">
+              <h3 className="font-medium mb-2">COMISSÃO RECEBIDA</h3>
+              <p className="text-2xl font-bold text-green-600">{formatCurrency(comissaoPeriodoFiltro)}</p>
+            </div>
           </div>
-          <div className="bg-green-50 p-4 rounded-lg">
-            <h3 className="font-medium mb-2">LUCRO MÊS ANTERIOR</h3>
-            <p className="text-2xl font-bold text-green-600">{formatCurrency(lucroMesAnterior)}</p>
+        ) : (
+          <div className="mb-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="bg-blue-50 p-4 rounded-lg">
+              <h3 className="font-medium mb-2">LUCRO ESTE MÊS</h3>
+              <p className="text-2xl font-bold text-blue-600">{formatCurrency(lucroMesAtual)}</p>
+            </div>
+            <div className="bg-green-50 p-4 rounded-lg">
+              <h3 className="font-medium mb-2">LUCRO MÊS ANTERIOR</h3>
+              <p className="text-2xl font-bold text-green-600">{formatCurrency(lucroMesAnterior)}</p>
+            </div>
+            <div className="bg-purple-50 p-4 rounded-lg">
+              <h3 className="font-medium mb-2">TOTAL ACUMULADO</h3>
+              <p className="text-2xl font-bold text-purple-600">{formatCurrency(totalAcumulado)}</p>
+            </div>
           </div>
-          <div className="bg-purple-50 p-4 rounded-lg">
-            <h3 className="font-medium mb-2">TOTAL ACUMULADO</h3>
-            <p className="text-2xl font-bold text-purple-600">{formatCurrency(totalAcumulado)}</p>
-          </div>
-        </div>
+        )}
 
         <div className="overflow-x-auto">
           <table className="min-w-full bg-white">
@@ -318,9 +343,7 @@ const LucrosTab: React.FC = () => {
               ) : (
                 <tr>
                   <td colSpan={6} className="text-center py-4 text-gray-500">
-                    {filterApplied
-                      ? "Nenhuma operação encontrada no período"
-                      : "Nenhuma operação registrada"}
+                    {filterApplied ? "Nenhuma operação encontrada no período" : "Nenhuma operação registrada"}
                   </td>
                 </tr>
               )}
