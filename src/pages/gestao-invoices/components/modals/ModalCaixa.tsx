@@ -218,7 +218,7 @@ const ModalCaixa: React.FC<ModalCaixaProps> = ({ isOpen, onClose, onSave, fetchD
           <label className="block text-sm font-medium text-gray-700 mb-1">Descrição da Caixa</label>
           <textarea
             value={descricao}
-            onChange={(e) => setDescricao(e.target.value)}
+            onChange={(e) => setDescricao(e.target.value.toUpperCase())}
             className="w-full border border-gray-300 rounded p-2"
             placeholder="Digite uma descrição..."
             rows={3}
