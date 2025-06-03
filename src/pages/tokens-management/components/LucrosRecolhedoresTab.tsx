@@ -37,7 +37,7 @@ const LucrosRecolhedoresFusionTab: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [paginaAtual, setPaginaAtual] = useState(0);
   const itensPorPagina = 10;
-  
+
   // Estados para filtro de data
   const [filterStartDate, setFilterStartDate] = useState<string>("");
   const [filterEndDate, setFilterEndDate] = useState<string>("");
@@ -59,7 +59,7 @@ const LucrosRecolhedoresFusionTab: React.FC = () => {
     const endDate = new Date(filterEndDate);
     endDate.setDate(endDate.getDate() + 1); // Inclui o dia final
 
-    const filtered = operacoes.filter(op => {
+    const filtered = operacoes.filter((op) => {
       const opDate = new Date(op.date);
       return opDate >= startDate && opDate < endDate;
     });
@@ -85,44 +85,41 @@ const LucrosRecolhedoresFusionTab: React.FC = () => {
 
   // Operações a serem exibidas (filtradas por recolhedor e por data, se aplicado)
   const operacoesPorRecolhedor = selectedRecolhedor
-    ? operacoesFiltradas.filter(op => 
-        op.collectorId === selectedRecolhedor.id && 
-        (!op.comission || op.comission <= 0))
-        
-      : operacoesFiltradas.filter(op => !op.comission || op.comission <= 0);
+    ? operacoesFiltradas.filter(
+        (op) => op.collectorId === selectedRecolhedor.id && (!op.comission || op.comission <= 0)
+      )
+    : operacoesFiltradas.filter((op) => !op.comission || op.comission <= 0);
 
   const operacoesPaginadas = operacoesPorRecolhedor.slice(
-    paginaAtual * itensPorPagina, 
+    paginaAtual * itensPorPagina,
     (paginaAtual + 1) * itensPorPagina
   );
 
   // Funções auxiliares
-  const getRecolhedorNome = (id: number) => 
-    recolhedores.find(r => r.id === id)?.name || "Desconhecido";
-  
-  const getFornecedorNome = (id: number) => 
-    fornecedores.find(f => f.id === id)?.name || "Desconhecido";
+  const getRecolhedorNome = (id: number) => recolhedores.find((r) => r.id === id)?.name || "Desconhecido";
+
+  const getFornecedorNome = (id: number) => fornecedores.find((f) => f.id === id)?.name || "Desconhecido";
 
   // Cálculo de lucros considerando o filtro de data
-  const calcularLucro = (operacoes: Operacao[]) => 
-    operacoes.reduce((acc, op) => 
-      acc + (op.value - (op.value || 0) / (op.collectorTax || 0) || 0), 0);
+  const calcularLucro = (operacoes: Operacao[]) =>
+    operacoes.reduce((acc, op) => acc + (op.value - (op.value || 0) / (op.collectorTax || 0) || 0), 0);
 
   const lucroMesAtual = calcularLucro(
-    operacoesPorRecolhedor.filter(op => 
-      new Date(op.date).getMonth() === new Date().getMonth() &&
-      new Date(op.date).getFullYear() === new Date().getFullYear()
+    operacoesPorRecolhedor.filter(
+      (op) =>
+        new Date(op.date).getMonth() === new Date().getMonth() &&
+        new Date(op.date).getFullYear() === new Date().getFullYear()
     )
   );
 
   const lucroMesAnterior = calcularLucro(
-    operacoesPorRecolhedor.filter(op => {
+    operacoesPorRecolhedor.filter((op) => {
       const d = new Date(op.date);
       const mesAtual = new Date().getMonth();
       const anoAtual = new Date().getFullYear();
       const mesAnterior = mesAtual === 0 ? 11 : mesAtual - 1;
       const anoAnterior = mesAtual === 0 ? anoAtual - 1 : anoAtual;
-      
+
       return d.getMonth() === mesAnterior && d.getFullYear() === anoAnterior;
     })
   );
@@ -138,7 +135,7 @@ const LucrosRecolhedoresFusionTab: React.FC = () => {
         api.get("/collectors/list_collectors"),
         api.get("/suppliers/list_suppliers"),
       ]);
-      
+
       setOperacoes(opRes.data);
       setRecolhedores(rcRes.data);
       setFornecedores(fnRes.data);
@@ -170,14 +167,12 @@ const LucrosRecolhedoresFusionTab: React.FC = () => {
           <div className="w-full flex justify-between items-start border-b pb-2 mb-4">
             {/* Cabeçalho com indicador de filtro */}
             <div className="flex flex-col whitespace-nowrap">
-              <span className="text-xs font-medium text-gray-700 mb-1">
-                {filterApplied 
-                  ? `(Filtrado: ${filterStartDate || 'início'} a ${filterEndDate || 'fim'})` 
-                  : '(ÚLTIMOS 6)'}
-              </span>
               <h2 className="text-xl font-semibold mt-4 text-green-700">
                 <i className="fas fa-chart-line mr-2"></i> HISTÓRICO DE LUCROS
               </h2>
+              <span className="text-xs font-medium text-gray-700 mb-1">
+                {filterApplied ? `(Filtrado: ${filterStartDate || "início"} a ${filterEndDate || "fim"})` : ""}
+              </span>
             </div>
 
             {/* Filtros de data */}
@@ -211,12 +206,7 @@ const LucrosRecolhedoresFusionTab: React.FC = () => {
                 >
                   Filtrar
                 </button>
-                <button
-                  disabled
-                  className="w-40 h-6 rounded-md bg-gray-200 text-gray-500 text-sm font-medium flex items-center justify-center cursor-not-allowed"
-                >
-                  Exportar extrato PDF
-                </button>
+
                 <button
                   onClick={clearFilter}
                   className="bg-gray-200 text-gray-700 hover:bg-gray-300 rounded-md text-sm font-medium h-6 px-4 flex items-center justify-center transition-colors"
@@ -246,7 +236,7 @@ const LucrosRecolhedoresFusionTab: React.FC = () => {
             </div>
           </>
         )}
-        
+
         <div className="bg-white p-6 rounded-lg shadow mb-6">
           <div className="flex items-center space-x-4">
             <GenericSearchSelect
@@ -264,7 +254,7 @@ const LucrosRecolhedoresFusionTab: React.FC = () => {
             />
           </div>
         </div>
-        
+
         <div className="overflow-x-auto">
           {selectedRecolhedor && (
             <>
@@ -286,7 +276,7 @@ const LucrosRecolhedoresFusionTab: React.FC = () => {
                       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
                       .map((op) => {
                         if (!op.date || isNaN(new Date(op.date).getTime())) return null;
-                        
+
                         const recolhedorNome = getRecolhedorNome(op.collectorId);
                         const fornecedorNome = getFornecedorNome(op.supplierId);
                         const lucro = op.value - op.value / (op.collectorTax || 0);
@@ -314,34 +304,32 @@ const LucrosRecolhedoresFusionTab: React.FC = () => {
                   ) : (
                     <tr>
                       <td colSpan={7} className="text-center py-4 text-gray-500">
-                        {filterApplied
-                          ? "Nenhuma operação encontrada no período"
-                          : "Nenhuma operação registrada"}
+                        {filterApplied ? "Nenhuma operação encontrada no período" : "Nenhuma operação registrada"}
                       </td>
                     </tr>
                   )}
                 </tbody>
               </table>
-              
+
               <div className="mt-4 flex justify-between items-center">
                 <div className="text-sm text-gray-600">
-                  Página {paginaAtual + 1} de {Math.ceil(operacoesPorRecolhedor.length / itensPorPagina)} • 
-                  Mostrando {operacoesPaginadas.length} de {operacoesPorRecolhedor.length} registros
+                  Página {paginaAtual + 1} de {Math.ceil(operacoesPorRecolhedor.length / itensPorPagina)} • Mostrando{" "}
+                  {operacoesPaginadas.length} de {operacoesPorRecolhedor.length} registros
                 </div>
-                
+
                 <div className="flex space-x-2">
                   <button
                     disabled={paginaAtual === 0}
-                    onClick={() => setPaginaAtual(prev => Math.max(0, prev - 1))}
+                    onClick={() => setPaginaAtual((prev) => Math.max(0, prev - 1))}
                     className="px-3 py-1 border rounded disabled:opacity-50"
                   >
                     Anterior
                   </button>
-                  
+
                   <button
                     disabled={(paginaAtual + 1) * itensPorPagina >= operacoesPorRecolhedor.length}
                     onClick={() =>
-                      setPaginaAtual(prev =>
+                      setPaginaAtual((prev) =>
                         Math.min(prev + 1, Math.ceil(operacoesPorRecolhedor.length / itensPorPagina) - 1)
                       )
                     }

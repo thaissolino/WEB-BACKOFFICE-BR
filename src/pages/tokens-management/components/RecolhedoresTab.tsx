@@ -258,7 +258,7 @@ const RecolhedoresTab: React.FC = () => {
       console.log("error", e);
       alert(`Erro ao registrar pagamento: ${e.message}`);
     } finally {
-      setValorRaw("")
+      setValorRaw("");
       setIsProcessingPayment(false);
     }
   };
@@ -375,14 +375,17 @@ const RecolhedoresTab: React.FC = () => {
     const end = new Date(activeFilterEndDate);
     end.setDate(end.getDate() + 1); // Inclui o dia final
 
-    return transacoes.filter(transacao => {
+    return transacoes.filter((transacao) => {
       const dataTransacao = new Date(transacao.date);
       return dataTransacao >= start && dataTransacao < end;
     });
   };
   const transacoesFiltradas = filtrarTransacoesPorData(todasTransacoes);
 
-  const transacoesPaginadas = transacoesFiltradas.slice(paginaAtual * itensPorPagina, (paginaAtual + 1) * itensPorPagina);
+  const transacoesPaginadas = transacoesFiltradas.slice(
+    paginaAtual * itensPorPagina,
+    (paginaAtual + 1) * itensPorPagina
+  );
 
   function computeBalance(r: Recolhedor, ops: Operacao[], payments: Payment[]) {
     const collectorOperations = ops
@@ -508,12 +511,13 @@ const RecolhedoresTab: React.FC = () => {
                   >
                     <td className="py-2 px-4 border text-center">{r.name}</td>
                     <td
-                      className={`py-2 px-4 border text-center font-bold ${Math.abs(calculatedBalances[r.id]) < 0.009
-                        ? "text-gray-800"
-                        : calculatedBalances[r.id] < 0
+                      className={`py-2 px-4 border text-center font-bold ${
+                        Math.abs(calculatedBalances[r.id]) < 0.009
+                          ? "text-gray-800"
+                          : calculatedBalances[r.id] < 0
                           ? "text-red-600"
                           : "text-green-600"
-                        }`}
+                      }`}
                     >
                       {Math.abs(calculatedBalances[r.id]) < 0.009
                         ? formatCurrency(0)
@@ -570,23 +574,31 @@ const RecolhedoresTab: React.FC = () => {
                 <i className="fas fa-user mr-2"></i> CAIXA DE {selectedRecolhedor.name}
               </h2>
               <div>
-                <span className="mr-4">
+                <span className="mr-3">
                   SALDO:{" "}
                   <span
-                    className={`font-bold ${calculatedBalances[selectedRecolhedor.id] < 0 ? "text-red-600" : "text-green-600"
-                      }`}
+                    className={`font-bold ${
+                      calculatedBalances[selectedRecolhedor.id] < 0 ? "text-red-600" : "text-green-600"
+                    }`}
                   >
                     {formatCurrency(calculatedBalances[selectedRecolhedor.id] || 0)}
                   </span>
                 </span>
+
                 <motion.button
                   whileHover={{ scale: 1.1 }}
                   whileTap={{ scale: 0.9 }}
                   onClick={fecharCaixa}
-                  className="text-gray-500 hover:text-gray-700"
+                  className="ml-3 text-gray-500 hover:text-gray-700"
                 >
                   <i className="fas fa-times"></i>
                 </motion.button>
+                <button
+                  disabled
+                  className="w-40 h-6 rounded-md bg-gray-200 text-gray-500 text-sm font-medium flex items-center justify-center cursor-not-allowed"
+                >
+                  Exportar extrato PDF
+                </button>
               </div>
             </div>
 
@@ -683,8 +695,9 @@ const RecolhedoresTab: React.FC = () => {
                     whileHover={!isProcessingPayment ? { scale: 1.02 } : {}}
                     whileTap={!isProcessingPayment ? { scale: 0.98 } : {}}
                     onClick={registrarPagamento}
-                    className={`${isProcessingPayment ? "bg-blue-400" : "bg-blue-600 hover:bg-blue-700"
-                      } text-white px-4 py-2 rounded w-full flex items-center justify-center`}
+                    className={`${
+                      isProcessingPayment ? "bg-blue-400" : "bg-blue-600 hover:bg-blue-700"
+                    } text-white px-4 py-2 rounded w-full flex items-center justify-center`}
                     disabled={isProcessingPayment}
                   >
                     {isProcessingPayment ? (
@@ -707,15 +720,15 @@ const RecolhedoresTab: React.FC = () => {
 
               {/* Histórico */}
               <motion.div initial={{ x: 20, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ delay: 0.2 }}>
-                <div className="mb-2 border-b pb-2 w-full flex flex-row items-center justify-between max-w-[100%]">
-                  <div className="w-full flex justify-between items-start border-b pb-2 mb-4">
+                <div className="mb-2 border-b w-full flex flex-row items-center justify-between max-w-[100%]">
+                  <div className="w-full flex justify-between items-start mb-4">
                     {/* ─── LADO ESQUERDO: LABEL + TÍTULO ───────────────────────────────────────────────────────── */}
                     <div className="flex flex-col whitespace-nowrap">
                       {/* Label “(ÚLTIMOS 6)” em texto menor */}
                       <span className="text-xs font-medium text-gray-700 mb-1">
                         {activeFilterStartDate || activeFilterEndDate
-                          ? `(Filtrado: ${activeFilterStartDate || 'início'} a ${activeFilterEndDate || 'fim'})`
-                          : '(ÚLTIMOS 6)'}
+                          ? `(Filtrado: ${activeFilterStartDate || "início"} a ${activeFilterEndDate || "fim"})`
+                          : "(ÚLTIMOS 6)"}
                       </span>
                       {/* Título principal */}
                       <h3 className="font-medium">HISTÓRICO DE TRANSAÇÕES</h3>
@@ -758,7 +771,6 @@ const RecolhedoresTab: React.FC = () => {
                       >
                         Filtrar
                       </button>
-
                       {/* Botão Limpar */}
                       <button
                         onClick={() => {
@@ -818,8 +830,9 @@ const RecolhedoresTab: React.FC = () => {
                             </td>
                             <td className="py-2 px-4 border text-sm text-gray-700">{t.descricao}</td>
                             <td
-                              className={`py-2 px-4 border text-right ${t.valor < 0 ? "text-red-600" : "text-green-600"
-                                }`}
+                              className={`py-2 px-4 border text-right ${
+                                t.valor < 0 ? "text-red-600" : "text-green-600"
+                              }`}
                             >
                               {formatCurrency(t.valor)}
                             </td>
@@ -866,8 +879,8 @@ const RecolhedoresTab: React.FC = () => {
                     </button>
 
                     <span className="text-sm text-gray-600">
-                      Página {paginaAtual + 1} de {Math.ceil(transacoesFiltradas.length / itensPorPagina)} •
-                      Mostrando {transacoesFiltradas.length} de {todasTransacoes.length} transações
+                      Página {paginaAtual + 1} de {Math.ceil(transacoesFiltradas.length / itensPorPagina)} • Mostrando{" "}
+                      {transacoesFiltradas.length} de {todasTransacoes.length} transações
                     </span>
 
                     <button
