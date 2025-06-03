@@ -65,7 +65,7 @@ export const CaixasTab = () => {
   const [valorRaw, setValorRaw] = useState("")
 
   const [formData, setFormData] = useState({
-    date: "",
+    date: new Date().toISOString().split("T")[0],
     value: "",
     description: "",
   })

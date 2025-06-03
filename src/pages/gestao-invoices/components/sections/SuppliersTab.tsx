@@ -285,7 +285,7 @@ export function SuppliersTab() {
                 <input
                   type="text"
                   value={currentSupplier.name}
-                  onChange={(e) => setCurrentSupplier({ ...currentSupplier, name: e.target.value })}
+                  onChange={(e) => setCurrentSupplier({ ...currentSupplier, name: e.target.value.toUpperCase() })}
                   className="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500"
                   disabled={isSubmitting}
                 />

@@ -6,6 +6,7 @@ import ModalFornecedor from "./ModalFornecedor";
 import { formatCurrency, formatDate } from "./format";
 import ConfirmModal from "./ConfirmModal";
 import { api } from "../../../services/api";
+import Swal from "sweetalert2";
 
 interface Transacao {
   id: number;
@@ -203,7 +204,18 @@ const FornecedoresTab: React.FC = () => {
       setDataPagamento(new Date().toISOString().split("T")[0]);
 
       setNewPaymentId(`pay-${newPayment.id}`);
-      alert("Pagamento registrado com sucesso!");
+      // alert("Pagamento registrado com sucesso!");
+      Swal.fire({
+        icon: "success",
+        title: "Sucesso!",
+        text: "Operação registrada com sucesso!",
+        confirmButtonText: "Ok",
+        buttonsStyling: false,
+        customClass: {
+          confirmButton: "bg-blue-600 text-white hover:bg-blue-700 px-4 py-2 rounded font-semibold",
+        },
+      });
+      
     } catch (e: any) {
       console.log("error", e);
       alert(`Erro ao registrar pagamento: ${e.message}`);

@@ -36,6 +36,11 @@ export function NewInvoiceForm({ currentInvoice, setCurrentInvoice }: NewInvoice
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
+    if(name === "number"){
+      console.log(value.toUpperCase())
+      setCurrentInvoice({...currentInvoice, [name]: value.toUpperCase()})
+      return
+    }
     if (name === "taxaSpEs") {
       if (/^[0-9]*[.,]?[0-9]{0,2}$/.test(value)) {
         setTaxaSpEs(value);
