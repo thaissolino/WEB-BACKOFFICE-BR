@@ -414,7 +414,7 @@ export const CaixasTabBrl = () => {
 
       await fetchEntityData(selectedEntity.id);
       getBalances();
-      setFormData({ date: "", value: "", description: "" });
+      setFormData({ date: new Date().toISOString().split("T")[0], value: "", description: "" });
       Swal.fire({
         icon: "success",
         title: "Sucesso!",
@@ -441,6 +441,7 @@ export const CaixasTabBrl = () => {
       });
     } finally {
       setLoadingFetch3(false);
+      setValorRaw("")
     }
   };
 
@@ -675,7 +676,7 @@ export const CaixasTabBrl = () => {
                     type="text"
                     className="mt-1 block w-full border border-gray-300 rounded-md p-2"
                     value={formData.description}
-                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    onChange={(e) => setFormData({ ...formData, description: e.target.value.toUpperCase() })}
                   />
                 </div>
                 <button
