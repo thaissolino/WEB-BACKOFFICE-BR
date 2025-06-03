@@ -3,10 +3,10 @@ import ModalCaixa from "../modals/ModalCaixa";
 import { api } from "../../../../services/api";
 import Swal from "sweetalert2";
 import { GenericSearchSelect } from "./SearchSelect";
-import { Loader2 } from "lucide-react";
+import { Loader2 } from 'lucide-react';
 import { motion } from "framer-motion";
 import { formatCurrency } from "../modals/format";
-import { Truck, HandCoins, Handshake, CircleDollarSign } from "lucide-react";
+import { Truck, HandCoins, Handshake, CircleDollarSign } from 'lucide-react';
 import { useBalanceStore } from "../../../../store/useBalanceStore";
 import { BalanceSharp } from "@mui/icons-material";
 
@@ -74,20 +74,22 @@ export const CaixasTabBrl = () => {
   const itemsPerPage = 6; // ou o número que preferir
   const [filterStartDate, setFilterStartDate] = useState<string>("");
   const [filterEndDate, setFilterEndDate] = useState<string>("");
+  const [activeFilterStartDate, setActiveFilterStartDate] = useState<string>("");
+  const [activeFilterEndDate, setActiveFilterEndDate] = useState<string>("");
 
   const filterTransactionsByDate = () => {
-  if (!filterStartDate || !filterEndDate) return transactionHistoryList;
-  
-  const start = new Date(filterStartDate);
-  const end = new Date(filterEndDate);
-  end.setDate(end.getDate() + 1); // Inclui o dia final
+    if (!activeFilterStartDate || !activeFilterEndDate) return transactionHistoryList;
 
-  return transactionHistoryList.filter(transaction => {
-    const transactionDate = new Date(transaction.date);
-    return transactionDate >= start && transactionDate < end;
-  });
-};
-const filteredTransactions = filterTransactionsByDate();
+    const start = new Date(activeFilterStartDate);
+    const end = new Date(activeFilterEndDate);
+    end.setDate(end.getDate() + 1); // Inclui o dia final
+
+    return transactionHistoryList.filter(transaction => {
+      const transactionDate = new Date(transaction.date);
+      return transactionDate >= start && transactionDate < end;
+    });
+  };
+  const filteredTransactions = filterTransactionsByDate();
   const paginatedTransactions = filteredTransactions.slice(
     currentPage * itemsPerPage,
     (currentPage + 1) * itemsPerPage
@@ -698,8 +700,8 @@ const filteredTransactions = filterTransactionsByDate();
                 <div className="w-full flex justify-between items-start border-b pb-2 mb-4">
                   <div className="flex flex-col whitespace-nowrap">
                     <span className="text-xs font-medium text-gray-700 mb-1">
-                      {filterStartDate || filterEndDate
-                        ? `(Filtrado: ${filterStartDate || 'início'} a ${filterEndDate || 'fim'})`
+                      {activeFilterStartDate || activeFilterEndDate
+                        ? `(Filtrado: ${activeFilterStartDate || 'início'} a ${activeFilterEndDate || 'fim'})`
                         : '(ÚLTIMOS 6)'}
                     </span>
                     <h3 className="font-medium">HISTÓRICO DE TRANSAÇÕES</h3>
@@ -729,7 +731,11 @@ const filteredTransactions = filterTransactionsByDate();
                     </div>
 
                     <button
-                      onClick={() => setCurrentPage(0)}
+                      onClick={() => {
+                        setActiveFilterStartDate(filterStartDate);
+                        setActiveFilterEndDate(filterEndDate);
+                        setCurrentPage(0);
+                      }}
                       className="bg-white text-blue-600 border border-blue-600 hover:bg-blue-600 hover:text-white rounded-md text-sm font-medium h-6 px-4 mr-2 flex items-center justify-center transition-colors"
                     >
                       Filtrar
@@ -739,6 +745,8 @@ const filteredTransactions = filterTransactionsByDate();
                       onClick={() => {
                         setFilterStartDate("");
                         setFilterEndDate("");
+                        setActiveFilterStartDate("");
+                        setActiveFilterEndDate("");
                         setCurrentPage(0);
                       }}
                       className="bg-gray-200 text-gray-700 hover:bg-gray-300 rounded-md text-sm font-medium h-6 px-4 flex items-center justify-center transition-colors"

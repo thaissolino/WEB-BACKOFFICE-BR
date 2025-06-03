@@ -41,31 +41,57 @@ const LucrosRecolhedoresFusionTab: React.FC = () => {
   // Estados para filtro de data
   const [filterStartDate, setFilterStartDate] = useState<string>("");
   const [filterEndDate, setFilterEndDate] = useState<string>("");
+  // Estado para controlar se o filtro foi aplicado
+  const [filterApplied, setFilterApplied] = useState(false);
+  // Estado para as operações filtradas
+  const [operacoesFiltradas, setOperacoesFiltradas] = useState<Operacao[]>([]);
 
-  // Função para filtrar operações por data
-  const filtrarPorData = (operacoes: Operacao[]) => {
-    if (!filterStartDate && !filterEndDate) return operacoes;
-    
+  // Função para aplicar o filtro quando o botão for clicado
+  const applyDateFilter = () => {
+    if (!filterStartDate && !filterEndDate) {
+      // Se não há datas, mostra todas as operações
+      setOperacoesFiltradas(operacoes);
+      setFilterApplied(false);
+      return;
+    }
+
     const startDate = new Date(filterStartDate);
     const endDate = new Date(filterEndDate);
     endDate.setDate(endDate.getDate() + 1); // Inclui o dia final
-    
-    return operacoes.filter(op => {
+
+    const filtered = operacoes.filter(op => {
       const opDate = new Date(op.date);
       return opDate >= startDate && opDate < endDate;
     });
+
+    setOperacoesFiltradas(filtered);
+    setFilterApplied(true);
+    setPaginaAtual(0); // Resetar para a primeira página
   };
 
-  // Operações filtradas por recolhedor e data
-  const operacoesFiltradas = filtrarPorData(
-    selectedRecolhedor
-      ? operacoes.filter(op => 
-          op.collectorId === selectedRecolhedor.id && 
-          (!op.comission || op.comission <= 0)
-      ): operacoes.filter(op => !op.comission || op.comission <= 0)
-  );
+  // Função para limpar o filtro
+  const clearFilter = () => {
+    setFilterStartDate("");
+    setFilterEndDate("");
+    setOperacoesFiltradas(operacoes);
+    setFilterApplied(false);
+    setPaginaAtual(0);
+  };
 
-  const operacoesPaginadas = operacoesFiltradas.slice(
+  // Inicializar as operações filtradas com todas as operações
+  useEffect(() => {
+    setOperacoesFiltradas(operacoes);
+  }, [operacoes]);
+
+  // Operações a serem exibidas (filtradas por recolhedor e por data, se aplicado)
+  const operacoesPorRecolhedor = selectedRecolhedor
+    ? operacoesFiltradas.filter(op => 
+        op.collectorId === selectedRecolhedor.id && 
+        (!op.comission || op.comission <= 0))
+        
+      : operacoesFiltradas.filter(op => !op.comission || op.comission <= 0);
+
+  const operacoesPaginadas = operacoesPorRecolhedor.slice(
     paginaAtual * itensPorPagina, 
     (paginaAtual + 1) * itensPorPagina
   );
@@ -83,14 +109,14 @@ const LucrosRecolhedoresFusionTab: React.FC = () => {
       acc + (op.value - (op.value || 0) / (op.collectorTax || 0) || 0), 0);
 
   const lucroMesAtual = calcularLucro(
-    operacoesFiltradas.filter(op => 
+    operacoesPorRecolhedor.filter(op => 
       new Date(op.date).getMonth() === new Date().getMonth() &&
       new Date(op.date).getFullYear() === new Date().getFullYear()
     )
   );
 
   const lucroMesAnterior = calcularLucro(
-    operacoesFiltradas.filter(op => {
+    operacoesPorRecolhedor.filter(op => {
       const d = new Date(op.date);
       const mesAtual = new Date().getMonth();
       const anoAtual = new Date().getFullYear();
@@ -145,7 +171,7 @@ const LucrosRecolhedoresFusionTab: React.FC = () => {
             {/* Cabeçalho com indicador de filtro */}
             <div className="flex flex-col whitespace-nowrap">
               <span className="text-xs font-medium text-gray-700 mb-1">
-                {filterStartDate || filterEndDate 
+                {filterApplied 
                   ? `(Filtrado: ${filterStartDate || 'início'} a ${filterEndDate || 'fim'})` 
                   : '(ÚLTIMOS 6)'}
               </span>
@@ -180,23 +206,19 @@ const LucrosRecolhedoresFusionTab: React.FC = () => {
                 </div>
 
                 <button
-                  onClick={() => setPaginaAtual(0)}
+                  onClick={applyDateFilter}
                   className="bg-white text-blue-600 border border-blue-600 hover:bg-blue-600 hover:text-white rounded-md text-sm font-medium h-6 px-4 mr-2 flex items-center justify-center transition-colors"
                 >
                   Filtrar
                 </button>
                 <button
-               disabled
-                 className="w-40 h-6 rounded-md bg-gray-200 text-gray-500 text-sm font-medium flex items-center justify-center cursor-not-allowed"
-               >
-                 Exportar extrato PDF
-               </button>
+                  disabled
+                  className="w-40 h-6 rounded-md bg-gray-200 text-gray-500 text-sm font-medium flex items-center justify-center cursor-not-allowed"
+                >
+                  Exportar extrato PDF
+                </button>
                 <button
-                  onClick={() => {
-                    setFilterStartDate("");
-                    setFilterEndDate("");
-                    setPaginaAtual(0);
-                  }}
+                  onClick={clearFilter}
                   className="bg-gray-200 text-gray-700 hover:bg-gray-300 rounded-md text-sm font-medium h-6 px-4 flex items-center justify-center transition-colors"
                 >
                   Limpar
@@ -236,9 +258,7 @@ const LucrosRecolhedoresFusionTab: React.FC = () => {
                 const rec = recolhedores.find((r) => r.id.toString() === id);
                 setSelectedRecolhedor(rec || null);
                 // Resetar filtros ao mudar recolhedor
-                setFilterStartDate("");
-                setFilterEndDate("");
-                setPaginaAtual(0);
+                clearFilter(); // Isso também reseta o filtro de data e a paginação
               }}
               label="Selecione um recolhedor"
             />
@@ -294,7 +314,7 @@ const LucrosRecolhedoresFusionTab: React.FC = () => {
                   ) : (
                     <tr>
                       <td colSpan={7} className="text-center py-4 text-gray-500">
-                        {filterStartDate || filterEndDate
+                        {filterApplied
                           ? "Nenhuma operação encontrada no período"
                           : "Nenhuma operação registrada"}
                       </td>
@@ -305,8 +325,8 @@ const LucrosRecolhedoresFusionTab: React.FC = () => {
               
               <div className="mt-4 flex justify-between items-center">
                 <div className="text-sm text-gray-600">
-                  Página {paginaAtual + 1} de {Math.ceil(operacoesFiltradas.length / itensPorPagina)} • 
-                  Mostrando {operacoesPaginadas.length} de {operacoesFiltradas.length} registros
+                  Página {paginaAtual + 1} de {Math.ceil(operacoesPorRecolhedor.length / itensPorPagina)} • 
+                  Mostrando {operacoesPaginadas.length} de {operacoesPorRecolhedor.length} registros
                 </div>
                 
                 <div className="flex space-x-2">
@@ -319,10 +339,10 @@ const LucrosRecolhedoresFusionTab: React.FC = () => {
                   </button>
                   
                   <button
-                    disabled={(paginaAtual + 1) * itensPorPagina >= operacoesFiltradas.length}
+                    disabled={(paginaAtual + 1) * itensPorPagina >= operacoesPorRecolhedor.length}
                     onClick={() =>
                       setPaginaAtual(prev =>
-                        Math.min(prev + 1, Math.ceil(operacoesFiltradas.length / itensPorPagina) - 1)
+                        Math.min(prev + 1, Math.ceil(operacoesPorRecolhedor.length / itensPorPagina) - 1)
                       )
                     }
                     className="px-3 py-1 border rounded disabled:opacity-50"
