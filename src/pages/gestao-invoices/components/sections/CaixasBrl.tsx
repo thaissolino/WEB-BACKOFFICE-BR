@@ -414,7 +414,7 @@ export const CaixasTabBrl = () => {
 
       await fetchEntityData(selectedEntity.id);
       getBalances();
-      setFormData({ date: "", value: "", description: "" });
+      setFormData({ date: new Date().toISOString().split("T")[0], value: "", description: "" });
       Swal.fire({
         icon: "success",
         title: "Sucesso!",
@@ -441,6 +441,7 @@ export const CaixasTabBrl = () => {
       });
     } finally {
       setLoadingFetch3(false);
+      setValorRaw("")
     }
   };
 

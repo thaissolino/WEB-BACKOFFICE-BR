@@ -432,7 +432,7 @@ export const CaixasTab = () => {
 
       getBalances()
 
-      setFormData({ date: "", value: "", description: "" })
+      setFormData({ date: new Date().toISOString().split("T")[0], value: "", description: "" })
       fetchDatUser()
       Swal.fire({
         icon: "success",
@@ -458,6 +458,7 @@ export const CaixasTab = () => {
       })
     } finally {
       setLoadingFetch3(false)
+      setValorRaw("")
     }
   }
 

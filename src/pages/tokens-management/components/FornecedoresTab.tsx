@@ -221,6 +221,7 @@ const FornecedoresTab: React.FC = () => {
       alert(`Erro ao registrar pagamento: ${e.message}`);
     } finally {
       setIsProcessingPayment(false);
+      setValorRaw("")
     }
   };
 

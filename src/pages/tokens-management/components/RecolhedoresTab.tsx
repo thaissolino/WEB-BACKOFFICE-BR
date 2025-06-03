@@ -258,6 +258,7 @@ const RecolhedoresTab: React.FC = () => {
       console.log("error", e);
       alert(`Erro ao registrar pagamento: ${e.message}`);
     } finally {
+      setValorRaw("")
       setIsProcessingPayment(false);
     }
   };
