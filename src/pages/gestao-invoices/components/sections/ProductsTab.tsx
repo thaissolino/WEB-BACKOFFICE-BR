@@ -345,7 +345,7 @@ export function ProductsTab() {
                 <textarea
                   rows={3}
                   value={currentProduct.description}
-                  onChange={(e) => setCurrentProduct({ ...currentProduct, description: e.target.value })}
+                  onChange={(e) => setCurrentProduct({ ...currentProduct, description: e.target.value.toUpperCase() })}
                   className="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500"
                   disabled={isSubmitting}
                 ></textarea>

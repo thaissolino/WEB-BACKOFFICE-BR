@@ -674,7 +674,7 @@ const RecolhedoresTab: React.FC = () => {
                       type="text"
                       className="mt-1 block w-full border border-gray-300 rounded-md p-2"
                       value={descricaoPagamento}
-                      onChange={(e) => setDescricaoPagamento(e.target.value)}
+                      onChange={(e) => setDescricaoPagamento(e.target.value.toUpperCase())}
                       disabled={isProcessingPayment}
                     />
                   </div>
