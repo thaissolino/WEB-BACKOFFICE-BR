@@ -123,7 +123,7 @@ export const CambioForm = ({ onRegistrarCompra, onAlocarDolar }: CambioFormProps
               <input
                 type="text"
                 value={alocacaoDescricao}
-                onChange={(e) => setAlocacaoDescricao(e.target.value)}
+                onChange={(e) => setAlocacaoDescricao(e.target.value.toUpperCase())}
                 className="mt-1 block w-full border border-gray-300 rounded-md p-2"
                 placeholder="Nota fiscal, produto, etc."
               />
