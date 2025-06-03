@@ -1,152 +1,153 @@
-import { useEffect, useState } from "react";
-import ModalCaixa from "../modals/ModalCaixa";
-import { api } from "../../../../services/api";
-import Swal from "sweetalert2";
-import { GenericSearchSelect } from "./SearchSelect";
-import { Loader2 } from "lucide-react";
-import { motion } from "framer-motion";
-import { formatCurrency } from "../modals/format";
-import { Truck, HandCoins, Handshake, CircleDollarSign } from "lucide-react";
-import { useBalanceStore } from "../../../../store/useBalanceStore";
-import { BalanceSharp } from "@mui/icons-material";
+
+
+import { useEffect, useState } from "react"
+import { api } from "../../../../services/api"
+import Swal from "sweetalert2"
+import { GenericSearchSelect } from "./SearchSelect"
+import { Loader2 } from "lucide-react"
+import { motion } from "framer-motion"
+import { formatCurrency } from "../modals/format"
+import { Truck, HandCoins, Handshake, CircleDollarSign } from "lucide-react"
+import { useBalanceStore } from "../../../../store/useBalanceStore"
 
 interface Transaction {
-  id: string;
-  value: number;
-  userId: string;
-  date: string;
-  direction: "IN" | "OUT";
-  description: string;
-  createdAt: string;
-  updatedAt: string;
-  supplierId?: string;
-  carrierId?: string;
+  id: string
+  value: number
+  userId: string
+  date: string
+  direction: "IN" | "OUT"
+  description: string
+  createdAt: string
+  updatedAt: string
+  supplierId?: string
+  carrierId?: string
 }
 
 export interface Caixa {
-  id: string;
-  name: string;
-  type: "freteiro" | "fornecedor" | "parceiro";
+  id: string
+  name: string
+  type: "freteiro" | "fornecedor" | "parceiro"
 
-  description: string;
-  createdAt: string;
-  updatedAt: string;
-  input: number;
-  output: number;
-  balance?: number;
-  transactions: Transaction[];
+  description: string
+  createdAt: string
+  updatedAt: string
+  input: number
+  output: number
+  balance?: number
+  transactions: Transaction[]
 }
 
 interface TransactionHistory {
-  id: string;
-  date: string;
-  description: string;
-  value: number;
-  isInvoice: boolean;
-  direction: "IN" | "OUT";
+  id: string
+  date: string
+  description: string
+  value: number
+  isInvoice: boolean
+  direction: "IN" | "OUT"
 }
 
 export const CaixasTab = () => {
-  const [combinedItems, setCombinedItems] = useState<any[]>([]);
-  const [caixaUser, setCaixaUser] = useState<Caixa>();
+  const [combinedItems, setCombinedItems] = useState<any[]>([])
+  const [caixaUser, setCaixaUser] = useState<Caixa>()
   // const [showModal, setShowModal] = useState(false);
-  const [selectedEntity, setSelectedEntity] = useState<any | null>(null);
-  const [totalBalance, setTotalBalance] = useState<number>(0);
-  const [filterStartDate, setFilterStartDate] = useState<string>("");
-  const [filterEndDate, setFilterEndDate] = useState<string>("");
-  const [transactionHistoryList, setTransactionHistoryList] = useState<TransactionHistory[]>([]);
+  const [selectedEntity, setSelectedEntity] = useState<any | null>(null)
+  const [totalBalance, setTotalBalance] = useState<number>(0)
+  const [filterStartDate, setFilterStartDate] = useState<string>("")
+  const [filterEndDate, setFilterEndDate] = useState<string>("")
+  const [transactionHistoryList, setTransactionHistoryList] = useState<TransactionHistory[]>([])
 
-  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
-  const [loadingFetch, setLoadingFetch] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [loadingFetch2, setLoadingFetch2] = useState(false);
-  const [loadingFetch3, setLoadingFetch3] = useState(false);
-  const [loadingClearId, setLoadingClearId] = useState<string | null>(null);
-  const [valorRaw, setValorRaw] = useState(""); 
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null)
+  const [loadingFetch, setLoadingFetch] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
+  const [loadingFetch2, setLoadingFetch2] = useState(false)
+  const [loadingFetch3, setLoadingFetch3] = useState(false)
+  const [loadingClearId, setLoadingClearId] = useState<string | null>(null)
+  const [valorRaw, setValorRaw] = useState("")
 
   const [formData, setFormData] = useState({
     date: new Date().toISOString().split("T")[0],
     value: "",
     description: "",
-  });
+  })
 
-  const [currentPage, setCurrentPage] = useState(0);
-  const itemsPerPage = 6; // ou o número que preferir
-  const { getBalances, balanceCarrier, balanceGeneralUSD, balancePartnerUSD, balanceSupplier } = useBalanceStore();
-    const filterTransactionsByDate = () => {
-  if (!filterStartDate || !filterEndDate) return transactionHistoryList;
-  
-  const start = new Date(filterStartDate);
-  const end = new Date(filterEndDate);
-  end.setDate(end.getDate() + 1); // Inclui o dia final
+  const [currentPage, setCurrentPage] = useState(0)
+  const itemsPerPage = 6 // ou o número que preferir
+  const { getBalances, balanceCarrier, balanceGeneralUSD, balancePartnerUSD, balanceSupplier } = useBalanceStore()
 
-  return transactionHistoryList.filter(transaction => {
-    const transactionDate = new Date(transaction.date);
-    return transactionDate >= start && transactionDate < end;
-  });
-}; 
- const filteredTransactions = filterTransactionsByDate();
+  const [activeFilterStartDate, setActiveFilterStartDate] = useState<string>("")
+  const [activeFilterEndDate, setActiveFilterEndDate] = useState<string>("")
 
-  const paginatedTransactions = filteredTransactions.slice(
-    currentPage * itemsPerPage,
-    (currentPage + 1) * itemsPerPage
-  );
+  const filterTransactionsByDate = () => {
+    if (!activeFilterStartDate || !activeFilterEndDate) return transactionHistoryList
+
+    const start = new Date(activeFilterStartDate)
+    const end = new Date(activeFilterEndDate)
+    end.setDate(end.getDate() + 1) // Inclui o dia final
+
+    return transactionHistoryList.filter((transaction) => {
+      const transactionDate = new Date(transaction.date)
+      return transactionDate >= start && transactionDate < end
+    })
+  }
+  const filteredTransactions = filterTransactionsByDate()
+
+  const paginatedTransactions = filteredTransactions.slice(currentPage * itemsPerPage, (currentPage + 1) * itemsPerPage)
 
   useEffect(() => {
-    console.log("foi?");
-    fetchAllData();
-    getBalances();
-  }, []);
+    console.log("foi?")
+    fetchAllData()
+    getBalances()
+  }, [])
 
-  console.log(selectedUserId);
+  console.log(selectedUserId)
 
   const fetchAllData = async () => {
-    setLoadingFetch(true);
-    setIsLoading(true);
+    setLoadingFetch(true)
+    setIsLoading(true)
     try {
       // Fetch only carriers and suppliers in parallel
       const [carriersRes, suppliersRes, partnerRes] = await Promise.all([
         api.get("/invoice/carriers"),
         api.get("/invoice/supplier"),
         api.get("/invoice/partner"),
-      ]);
+      ])
 
       // Combine carriers and suppliers with type labels
       const carrierItems = carriersRes.data.map((item: any) => ({
         ...item,
         typeInvoice: "freteiro",
-      }));
+      }))
 
       const supplierItems = suppliersRes.data.map((item: any) => ({
         ...item,
         typeInvoice: "fornecedor",
-      }));
+      }))
 
-      console.log("partners", partnerRes);
+      console.log("partners", partnerRes)
 
       const partnerItems = partnerRes.data.usd.map((item: any) => ({
         ...item,
         typeInvoice: "parceiro",
-      }));
+      }))
 
       // Combine all items
-      const combined = [...carrierItems, ...supplierItems, ...partnerItems];
-      setCombinedItems(combined);
+      const combined = [...carrierItems, ...supplierItems, ...partnerItems]
+      setCombinedItems(combined)
 
-      console.log("combined", combined);
+      console.log("combined", combined)
 
       // Calculate total balance from all entities
-      let total = 0;
+      let total = 0
       combined.forEach((entity) => {
         if (entity.balance && entity.balance.balance) {
-          total += entity.balance.balance;
+          total += entity.balance.balance
         }
-      });
-      setTotalBalance(total);
+      })
+      setTotalBalance(total)
 
-      console.log("All data fetched:", combined);
+      console.log("All data fetched:", combined)
     } catch (error) {
-      console.error("Erro ao buscar dados:", error);
+      console.error("Erro ao buscar dados:", error)
       Swal.fire({
         icon: "error",
         title: "Erro!",
@@ -155,26 +156,26 @@ export const CaixasTab = () => {
         customClass: {
           confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
         },
-      });
+      })
     } finally {
-      setLoadingFetch(false);
-      setIsLoading(false);
+      setLoadingFetch(false)
+      setIsLoading(false)
     }
-  };
+  }
 
   const fetchEntityData = async (entityId: string) => {
-    console.log("foi?");
+    console.log("foi?")
     try {
-      setTransactionHistoryList([]);
-      setLoadingFetch2(true);
+      setTransactionHistoryList([])
+      setLoadingFetch2(true)
 
-      const res = await api.get(`/invoice/box/transaction/${entityId}`);
-      console.log("res", res.data);
-      const entity = combinedItems.find((item) => item.id === entityId);
+      const res = await api.get(`/invoice/box/transaction/${entityId}`)
+      console.log("res", res.data)
+      const entity = combinedItems.find((item) => item.id === entityId)
       setSelectedEntity({
         ...entity,
         ...res.data,
-      });
+      })
 
       // Adiciona as transações normais
       const transactions = res.data.TransactionBoxUserInvoice.map((transactionBox: any) => ({
@@ -184,13 +185,13 @@ export const CaixasTab = () => {
         value: transactionBox.value,
         isInvoice: false,
         direction: transactionBox.direction,
-      }));
+      }))
 
       // Busca invoices baseado no tipo da entidade
-      let invoices = [];
+      let invoices = []
       if (entity?.typeInvoice === "fornecedor") {
-        const { data: listInvoicesBySupplier } = await api.get(`/invoice/list/supplier/${entityId}`);
-        console.log("istInvoicesBySupplier", listInvoicesBySupplier);
+        const { data: listInvoicesBySupplier } = await api.get(`/invoice/list/supplier/${entityId}`)
+        console.log("istInvoicesBySupplier", listInvoicesBySupplier)
 
         invoices = listInvoicesBySupplier.map((invoice: any) => ({
           id: invoice.id,
@@ -199,10 +200,10 @@ export const CaixasTab = () => {
           value: invoice.subAmount,
           isInvoice: true,
           direction: "OUT", // Invoices são sempre saídas
-        }));
+        }))
       } else if (entity?.typeInvoice === "freteiro") {
-        const { data: listInvoicesByCarrier } = await api.get(`/invoice/list/carrier/${entityId}`);
-        console.log("istInvoicesByCarrier", listInvoicesByCarrier);
+        const { data: listInvoicesByCarrier } = await api.get(`/invoice/list/carrier/${entityId}`)
+        console.log("istInvoicesByCarrier", listInvoicesByCarrier)
 
         invoices = listInvoicesByCarrier.map((invoice: any) => ({
           id: invoice.id,
@@ -211,17 +212,17 @@ export const CaixasTab = () => {
           value: invoice.subAmount,
           isInvoice: true,
           direction: "OUT", // Invoices são sempre saídas
-        }));
+        }))
       } else if (entity?.typeInvoice === "parceiro") {
         // Se necessário, adicione lógica similar para parceiros
       }
 
       // Combina transações e invoices, ordenando por data
       setTransactionHistoryList(
-        [...transactions, ...invoices].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-      );
+        [...transactions, ...invoices].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()),
+      )
     } catch (error) {
-      console.error("Erro ao buscar dados:", error);
+      console.error("Erro ao buscar dados:", error)
       Swal.fire({
         icon: "error",
         title: "Erro!",
@@ -230,41 +231,41 @@ export const CaixasTab = () => {
         customClass: {
           confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
         },
-      });
+      })
     } finally {
-      setLoadingFetch2(false);
+      setLoadingFetch2(false)
     }
-  };
+  }
   const getTotalBalance = () => {
     // Calcula o saldo baseado nas transações e invoices
     return transactionHistoryList.reduce((acc, transaction) => {
       // Para transações normais (não invoices)
       if (!transaction.isInvoice) {
-        return acc + (transaction.direction === "IN" ? transaction.value : -transaction.value);
+        return acc + (transaction.direction === "IN" ? transaction.value : -transaction.value)
       }
       // Para invoices (sempre subtrai o valor)
       else {
-        return acc - transaction.value;
+        return acc - transaction.value
       }
-    }, 0);
-  };
+    }, 0)
+  }
 
   const salvarCaixa = async (nome: string, description: string) => {
     // Implemente lógica de criação de caixa com POST
-  };
+  }
 
   const limparHistorico = async (recolhedorId: string) => {
     // const confirm = window.confirm("Deseja realmente excluir TODO o histórico de transações deste recolhedor?");
     // if (!confirm) return;
 
-    setLoadingClearId(recolhedorId);
+    setLoadingClearId(recolhedorId)
     try {
-      setLoadingFetch3(true);
+      setLoadingFetch3(true)
 
-      await api.delete(`/invoice/box/trasnsaction/user/${recolhedorId}`);
+      await api.delete(`/invoice/box/trasnsaction/user/${recolhedorId}`)
 
-      await fetchEntityData(selectedEntity.id);
-      fetchDatUser();
+      await fetchEntityData(selectedEntity.id)
+      fetchDatUser()
       Swal.fire({
         icon: "success",
         title: "Sucesso",
@@ -274,7 +275,7 @@ export const CaixasTab = () => {
         customClass: {
           confirmButton: "bg-green-600 text-white hover:bg-green-700 px-4 py-2 rounded font-semibold",
         },
-      });
+      })
     } catch (e: any) {
       Swal.fire({
         icon: "error",
@@ -284,46 +285,46 @@ export const CaixasTab = () => {
         customClass: {
           confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
         },
-      });
+      })
     } finally {
-      setLoadingClearId(null);
-      setLoadingFetch3(false);
+      setLoadingClearId(null)
+      setLoadingFetch3(false)
     }
-  };
+  }
 
-  const caixaAtual = combinedItems.find((c) => c.id === selectedUserId);
-  console.log(caixaAtual);
+  const caixaAtual = combinedItems.find((c) => c.id === selectedUserId)
+  console.log(caixaAtual)
 
-  console.log();
+  console.log()
   const fetchDatUser = async () => {
     try {
-      if (!selectedUserId) return;
-      setLoadingFetch2(true);
+      if (!selectedUserId) return
+      setLoadingFetch2(true)
 
       // Find the selected item to determine its type
-      const selectedItem = combinedItems.find((item) => item.id === selectedUserId);
+      const selectedItem = combinedItems.find((item) => item.id === selectedUserId)
 
       if (!selectedItem) {
-        console.error("Item selecionado não encontrado");
-        return;
+        console.error("Item selecionado não encontrado")
+        return
       }
 
       // Use the appropriate endpoint based on the item type
-      let endpoint = `/invoice/box/transaction/${selectedUserId}`;
+      let endpoint = `/invoice/box/transaction/${selectedUserId}`
       if (
         selectedItem.typeInvoice === "freteiro" ||
         selectedItem.typeInvoice === "fornecedor" ||
         selectedItem.typeInvoice === "parceiro"
       ) {
         // Assuming the endpoint is the same for both types
-        endpoint = `/invoice/box/transaction/${selectedUserId}`;
+        endpoint = `/invoice/box/transaction/${selectedUserId}`
       }
 
-      const res = await api.get(endpoint);
-      console.log(res.data);
-      setCaixaUser(res.data);
+      const res = await api.get(endpoint)
+      console.log(res.data)
+      setCaixaUser(res.data)
     } catch (error) {
-      console.error("Erro ao buscar dados:", error);
+      console.error("Erro ao buscar dados:", error)
       Swal.fire({
         icon: "error",
         title: "Erro!",
@@ -332,24 +333,24 @@ export const CaixasTab = () => {
         customClass: {
           confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
         },
-      });
+      })
     } finally {
-      setLoadingFetch2(false);
+      setLoadingFetch2(false)
     }
-  };
-
-  function isValidNumber(value: string): boolean {
-    const number = Number(value);
-    return !isNaN(number) && isFinite(number);
   }
 
-  console.log(caixaUser);
+  function isValidNumber(value: string): boolean {
+    const number = Number(value)
+    return !isNaN(number) && isFinite(number)
+  }
+
+  console.log(caixaUser)
 
   useEffect(() => {
-    fetchDatUser();
-  }, [selectedUserId]);
+    fetchDatUser()
+  }, [selectedUserId])
 
-  console.log("selectedEntity", selectedEntity);
+  console.log("selectedEntity", selectedEntity)
 
   const submitPayment = async () => {
     try {
@@ -362,8 +363,8 @@ export const CaixasTab = () => {
           customClass: {
             confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
           },
-        });
-        return;
+        })
+        return
       }
       if (!isValidNumber(formData.value)) {
         Swal.fire({
@@ -374,8 +375,8 @@ export const CaixasTab = () => {
           customClass: {
             confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
           },
-        });
-        return;
+        })
+        return
       }
       if (!formData.description) {
         Swal.fire({
@@ -386,8 +387,8 @@ export const CaixasTab = () => {
           customClass: {
             confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
           },
-        });
-        return;
+        })
+        return
       }
       if (!selectedEntity) {
         Swal.fire({
@@ -398,18 +399,18 @@ export const CaixasTab = () => {
           customClass: {
             confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
           },
-        });
-        return;
+        })
+        return
       }
 
-      console.log("selectedEntity", selectedEntity);
-      const now = new Date();
-      const currentTime = now.toTimeString().split(" ")[0]; // HH:MM:SS
-      const fullDate = new Date(`${formData.date}T${currentTime}`);
+      console.log("selectedEntity", selectedEntity)
+      const now = new Date()
+      const currentTime = now.toTimeString().split(" ")[0] // HH:MM:SS
+      const fullDate = new Date(`${formData.date}T${currentTime}`)
 
-      console.log(Math.abs(Number(formData.value)));
+      console.log(Math.abs(Number(formData.value)))
 
-      setLoadingFetch3(true);
+      setLoadingFetch3(true)
       await api.post(`/invoice/box/transaction`, {
         value: Math.abs(Number(formData.value)),
         entityId: selectedEntity.id,
@@ -420,19 +421,19 @@ export const CaixasTab = () => {
           selectedEntity.typeInvoice === "freteiro"
             ? "CARRIER"
             : selectedEntity.typeInvoice === "parceiro"
-            ? "PARTNER"
-            : selectedEntity.typeInvoice === "fornecedor"
-            ? "SUPPLIER"
-            : "",
+              ? "PARTNER"
+              : selectedEntity.typeInvoice === "fornecedor"
+                ? "SUPPLIER"
+                : "",
         userId: caixaUser?.id,
-      });
+      })
 
-      await fetchEntityData(selectedEntity.id);
+      await fetchEntityData(selectedEntity.id)
 
-      getBalances();
+      getBalances()
 
-      setFormData({ date: "", value: "", description: "" });
-      fetchDatUser();
+      setFormData({ date: "", value: "", description: "" })
+      fetchDatUser()
       Swal.fire({
         icon: "success",
         title: "Sucesso",
@@ -442,9 +443,9 @@ export const CaixasTab = () => {
         customClass: {
           confirmButton: "bg-green-600 text-white hover:bg-green-700 px-4 py-2 rounded font-semibold",
         },
-      });
+      })
     } catch (error) {
-      console.error("Erro ao buscar caixas:", error);
+      console.error("Erro ao buscar caixas:", error)
       Swal.fire({
         icon: "error",
         title: "Erro",
@@ -454,13 +455,11 @@ export const CaixasTab = () => {
         customClass: {
           confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
         },
-      });
+      })
     } finally {
-      setLoadingFetch3(false);
+      setLoadingFetch3(false)
     }
-  };
-
-
+  }
 
   return (
     <div className="fade-in">
@@ -581,10 +580,10 @@ export const CaixasTab = () => {
               getSearchString={(p) => p.name}
               getId={(p) => p.id}
               onChange={(id) => {
-                const entity = combinedItems.find((item) => item.id === id);
+                const entity = combinedItems.find((item) => item.id === id)
                 if (entity) {
-                  setSelectedEntity(entity);
-                  fetchEntityData(id);
+                  setSelectedEntity(entity)
+                  fetchEntityData(id)
                 }
               }}
               label="Selecione um usuário"
@@ -606,10 +605,10 @@ export const CaixasTab = () => {
                 {selectedEntity.typeInvoice === "freteiro"
                   ? "TRANSPORTADORA"
                   : selectedEntity.typeInvoice === "fornecedor"
-                  ? "FORNECEDOR"
-                  : selectedEntity.typeInvoice === "parceiro"
-                  ? "PARCEIRO"
-                  : ""}{" "}
+                    ? "FORNECEDOR"
+                    : selectedEntity.typeInvoice === "parceiro"
+                      ? "PARCEIRO"
+                      : ""}{" "}
                 : {selectedEntity.name}
               </span>
             </h2>
@@ -674,28 +673,27 @@ export const CaixasTab = () => {
                     value={valorRaw}
                     onChange={(e) => {
                       // Permite números, ponto decimal e sinal negativo
-                      const cleanedValue = e.target.value.replace(/[^0-9.-]/g, "");
+                      const cleanedValue = e.target.value.replace(/[^0-9.-]/g, "")
 
                       // Garante que há apenas um sinal negativo no início
-                      let newValue = cleanedValue;
+                      let newValue = cleanedValue
                       if ((cleanedValue.match(/-/g) || []).length > 1) {
-                        newValue = cleanedValue.replace(/-/g, "");
+                        newValue = cleanedValue.replace(/-/g, "")
                       }
 
                       // Garante que há apenas um ponto decimal
                       if ((cleanedValue.match(/\./g) || []).length > 1) {
-                        const parts = cleanedValue.split(".");
-                        newValue = parts[0] + "." + parts.slice(1).join("");
+                        const parts = cleanedValue.split(".")
+                        newValue = parts[0] + "." + parts.slice(1).join("")
                       }
 
-                      setValorRaw(newValue);
+                      setValorRaw(newValue)
 
                       setFormData({ ...formData, value: newValue })
                     }}
-
                     onBlur={(e) => {
                       if (valorRaw) {
-                        const numericValue = parseFloat(valorRaw);
+                        const numericValue = Number.parseFloat(valorRaw)
                         if (!isNaN(numericValue)) {
                           // Formata mantendo o sinal negativo se existir
                           const formattedValue = numericValue.toLocaleString("en-US", {
@@ -703,18 +701,18 @@ export const CaixasTab = () => {
                             currency: "USD",
                             minimumFractionDigits: 2,
                             maximumFractionDigits: 2,
-                          });
-                          setValorRaw(formattedValue);
-                          setFormData({ ...formData, value:numericValue.toString()});
+                          })
+                          setValorRaw(formattedValue)
+                          setFormData({ ...formData, value: numericValue.toString() })
                         }
                       }
                     }}
                     onFocus={(e) => {
                       // Remove formatação quando o input recebe foco
                       if (valorRaw) {
-                        const numericValue = parseFloat(valorRaw.replace(/[^0-9.-]/g, ""));
+                        const numericValue = Number.parseFloat(valorRaw.replace(/[^0-9.-]/g, ""))
                         if (!isNaN(numericValue)) {
-                          setValorRaw(numericValue.toString());
+                          setValorRaw(numericValue.toString())
                         }
                       }
                     }}
@@ -749,164 +747,171 @@ export const CaixasTab = () => {
             </div>
 
             <div>
-  <div className="mb-2 border-b pb-2 w-full flex flex-row items-center justify-between max-w-[100%]">
-    <div className="w-full flex justify-between items-start border-b pb-2 mb-4">
-      <div className="flex flex-col whitespace-nowrap">
-        <span className="text-xs font-medium text-gray-700 mb-1">
-          {filterStartDate || filterEndDate 
-            ? `(Filtrado: ${filterStartDate || 'início'} a ${filterEndDate || 'fim'})` 
-            : '(ÚLTIMOS 6)'}
-        </span>
-        <h3 className="font-medium">HISTÓRICO DE TRANSAÇÕES</h3>
-      </div>
+              <div className="mb-2 border-b pb-2 w-full flex flex-row items-center justify-between max-w-[100%]">
+                <div className="w-full flex justify-between items-start border-b pb-2 mb-4">
+                  <div className="flex flex-col whitespace-nowrap">
+                    <span className="text-xs font-medium text-gray-700 mb-1">
+                      {activeFilterStartDate || activeFilterEndDate
+                        ? `(Filtrado: ${activeFilterStartDate || "início"} a ${activeFilterEndDate || "fim"})`
+                        : "(ÚLTIMOS 6)"}
+                    </span>
+                    <h3 className="font-medium">HISTÓRICO DE TRANSAÇÕES</h3>
+                  </div>
 
-      <div className="flex items-end gap-2">
-        <div className="flex flex-col">
-          <label className="text-xs font-medium text-gray-700 mb-1">Data Inicial</label>
-          <input
-            type="date"
-            value={filterStartDate}
-            onChange={(e) => setFilterStartDate(e.target.value)}
-            className="w-24 h-6 border border-gray-300 rounded-md text-sm text-center leading-6 py-0 focus:outline-none focus:ring-2 focus:ring-blue-400"
-          />
-        </div>
+                  <div className="flex items-end gap-2">
+                    <div className="flex flex-col">
+                      <label className="text-xs font-medium text-gray-700 mb-1">Data Inicial</label>
+                      <input
+                        type="date"
+                        value={filterStartDate}
+                        onChange={(e) => setFilterStartDate(e.target.value)}
+                        className="w-24 h-6 border border-gray-300 rounded-md text-sm text-center leading-6 py-0 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                      />
+                    </div>
 
-        <span className="text-sm font-medium">até</span>
+                    <span className="text-sm font-medium">até</span>
 
-        <div className="flex flex-col">
-          <label className="text-xs font-medium text-gray-700 mb-1">Data Final</label>
-          <input
-            type="date"
-            value={filterEndDate}
-            onChange={(e) => setFilterEndDate(e.target.value)}
-            className="w-24 h-6 border border-gray-300 rounded-md text-sm text-center leading-6 py-0 focus:outline-none focus:ring-2 focus:ring-blue-400"
-          />
-        </div>
+                    <div className="flex flex-col">
+                      <label className="text-xs font-medium text-gray-700 mb-1">Data Final</label>
+                      <input
+                        type="date"
+                        value={filterEndDate}
+                        onChange={(e) => setFilterEndDate(e.target.value)}
+                        className="w-24 h-6 border border-gray-300 rounded-md text-sm text-center leading-6 py-0 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                      />
+                    </div>
 
-        <button
-          onClick={() => setCurrentPage(0)}
-          className="bg-white text-blue-600 border border-blue-600 hover:bg-blue-600 hover:text-white rounded-md text-sm font-medium h-6 px-4 mr-2 flex items-center justify-center transition-colors"
-        >
-          Filtrar
-        </button>
-        
-        <button
-          onClick={() => {
-            setFilterStartDate("");
-            setFilterEndDate("");
-            setCurrentPage(0);
-          }}
-          className="bg-gray-200 text-gray-700 hover:bg-gray-300 rounded-md text-sm font-medium h-6 px-4 flex items-center justify-center transition-colors"
-        >
-          Limpar
-        </button>
-      </div>
-    </div>
-  </div>
+                    <button
+                      onClick={() => {
+                        setActiveFilterStartDate(filterStartDate)
+                        setActiveFilterEndDate(filterEndDate)
+                        setCurrentPage(0)
+                      }}
+                      className="bg-white text-blue-600 border border-blue-600 hover:bg-blue-600 hover:text-white rounded-md text-sm font-medium h-6 px-4 mr-2 flex items-center justify-center transition-colors"
+                    >
+                      Filtrar
+                    </button>
 
-  <div className="overflow-x-auto max-h-96">
-    <table className="min-w-full bg-white">
-      <thead>
-        <tr className="bg-gray-200">
-          <th className="py-2 px-4 border">DATA</th>
-          <th className="py-2 px-4 border">DESCRIÇÃO</th>
-          <th className="py-2 px-4 border">VALOR</th>
-          <th className="py-2 px-4 border">AÇÕES</th>
-        </tr>
-      </thead>
-      <tbody>
-        {loadingFetch2 ? (
-          <tr>
-            <td colSpan={4} className="text-center py-4">
-              <Loader2 className="inline animate-spin w-4 h-4 mr-2" />
-              Carregando...
-            </td>
-          </tr>
-        ) : paginatedTransactions.length ? (
-          paginatedTransactions.map((t: TransactionHistory) => (
-            <motion.tr
-              key={t.id}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.3 }}
-              className="odd:bg-blue-50 even:bg-green-50"
-            >
-              <td className="py-2 px-4 border text-center">
-                <i className="fas fa-clock text-green-500 mr-2"></i>
-                {new Date(t.date).toLocaleString("pt-BR", {
-              //    timeZone: "UTC",
-                  day: "2-digit",
-                  month: "2-digit",
-                  year: "numeric",
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })}
-              </td>
-              <td className="py-2 px-4 border">{t.description}</td>
-              <td
-                className={`py-2 px-4 border text-right ${
-                  t.direction === "OUT" ? "text-red-600" : "text-green-600"
-                }`}
-              >
-                {t.direction === "OUT" ? "-" : "+"}
-                {new Intl.NumberFormat("en-US", {
-                  style: "currency",
-                  currency: "USD",
-                  minimumFractionDigits: 2,
-                }).format(t.value)}{" "}
-              </td>
-              <td className="py-2 px-4 border text-center">
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={() => limparHistorico(t.id)}
-                  disabled={loadingClearId === t.id}
-                  className="bg-red-500 hover:bg-red-700 text-white px-3 py-1 rounded"
-                >
-                  {loadingClearId === t.id ? <Loader2 className="w-4 h-4 animate-spin" /> : "Excluir"}
-                </motion.button>
-              </td>
-            </motion.tr>
-          ))
-        ) : (
-          <tr>
-            <td colSpan={4} className="text-center py-4 text-gray-500">
-              {filterStartDate || filterEndDate
-                ? "Nenhuma transação encontrada no período"
-                : "Nenhuma transação registrada"}
-            </td>
-          </tr>
-        )}
-      </tbody>
-    </table>
-    
-    {filteredTransactions.length > itemsPerPage && (
-      <div className="flex justify-between items-center mt-4">
-        <button
-          onClick={() => setCurrentPage(prev => Math.max(0, prev - 1))}
-          disabled={currentPage === 0}
-          className="px-3 py-1 bg-gray-200 text-sm rounded disabled:opacity-50"
-        >
-          Anterior
-        </button>
-        <span className="text-sm text-gray-600">
-          Página {currentPage + 1} de {Math.ceil(filteredTransactions.length / itemsPerPage)} • 
-          Mostrando {filteredTransactions.length} de {transactionHistoryList.length} transações
-        </span>
-        <button
-          onClick={() => setCurrentPage(prev => 
-            Math.min(prev + 1, Math.ceil(filteredTransactions.length / itemsPerPage) - 1)
-          )}
-          disabled={(currentPage + 1) * itemsPerPage >= filteredTransactions.length}
-          className="px-3 py-1 bg-gray-200 text-sm rounded disabled:opacity-50"
-        >
-          Próxima
-        </button>
-      </div>
-    )}
-  </div>
-</div>
+                    <button
+                      onClick={() => {
+                        setFilterStartDate("")
+                        setFilterEndDate("")
+                        setActiveFilterStartDate("")
+                        setActiveFilterEndDate("")
+                        setCurrentPage(0)
+                      }}
+                      className="bg-gray-200 text-gray-700 hover:bg-gray-300 rounded-md text-sm font-medium h-6 px-4 flex items-center justify-center transition-colors"
+                    >
+                      Limpar
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="overflow-x-auto max-h-96">
+                <table className="min-w-full bg-white">
+                  <thead>
+                    <tr className="bg-gray-200">
+                      <th className="py-2 px-4 border">DATA</th>
+                      <th className="py-2 px-4 border">DESCRIÇÃO</th>
+                      <th className="py-2 px-4 border">VALOR</th>
+                      <th className="py-2 px-4 border">AÇÕES</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {loadingFetch2 ? (
+                      <tr>
+                        <td colSpan={4} className="text-center py-4">
+                          <Loader2 className="inline animate-spin w-4 h-4 mr-2" />
+                          Carregando...
+                        </td>
+                      </tr>
+                    ) : paginatedTransactions.length ? (
+                      paginatedTransactions.map((t: TransactionHistory) => (
+                        <motion.tr
+                          key={t.id}
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -10 }}
+                          transition={{ duration: 0.3 }}
+                          className="odd:bg-blue-50 even:bg-green-50"
+                        >
+                          <td className="py-2 px-4 border text-center">
+                            <i className="fas fa-clock text-green-500 mr-2"></i>
+                            {new Date(t.date).toLocaleString("pt-BR", {
+                              day: "2-digit",
+                              month: "2-digit",
+                              year: "numeric",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
+                          </td>
+                          <td className="py-2 px-4 border">{t.description}</td>
+                          <td
+                            className={`py-2 px-4 border text-right ${
+                              t.direction === "OUT" ? "text-red-600" : "text-green-600"
+                            }`}
+                          >
+                            {t.direction === "OUT" ? "-" : "+"}
+                            {new Intl.NumberFormat("en-US", {
+                              style: "currency",
+                              currency: "USD",
+                              minimumFractionDigits: 2,
+                            }).format(t.value)}{" "}
+                          </td>
+                          <td className="py-2 px-4 border text-center">
+                            <motion.button
+                              whileHover={{ scale: 1.05 }}
+                              whileTap={{ scale: 0.95 }}
+                              onClick={() => limparHistorico(t.id)}
+                              disabled={loadingClearId === t.id}
+                              className="bg-red-500 hover:bg-red-700 text-white px-3 py-1 rounded"
+                            >
+                              {loadingClearId === t.id ? <Loader2 className="w-4 h-4 animate-spin" /> : "Excluir"}
+                            </motion.button>
+                          </td>
+                        </motion.tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={4} className="text-center py-4 text-gray-500">
+                          {filterStartDate || filterEndDate
+                            ? "Nenhuma transação encontrada no período"
+                            : "Nenhuma transação registrada"}
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+
+                {filteredTransactions.length > itemsPerPage && (
+                  <div className="flex justify-between items-center mt-4">
+                    <button
+                      onClick={() => setCurrentPage((prev) => Math.max(0, prev - 1))}
+                      disabled={currentPage === 0}
+                      className="px-3 py-1 bg-gray-200 text-sm rounded disabled:opacity-50"
+                    >
+                      Anterior
+                    </button>
+                    <span className="text-sm text-gray-600">
+                      Página {currentPage + 1} de {Math.ceil(filteredTransactions.length / itemsPerPage)} • Mostrando{" "}
+                      {filteredTransactions.length} de {transactionHistoryList.length} transações
+                    </span>
+                    <button
+                      onClick={() =>
+                        setCurrentPage((prev) =>
+                          Math.min(prev + 1, Math.ceil(filteredTransactions.length / itemsPerPage) - 1),
+                        )
+                      }
+                      disabled={(currentPage + 1) * itemsPerPage >= filteredTransactions.length}
+                      className="px-3 py-1 bg-gray-200 text-sm rounded disabled:opacity-50"
+                    >
+                      Próxima
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       )}
@@ -918,7 +923,7 @@ export const CaixasTab = () => {
         fetchDataUser={fetchAllData}
       /> */}
     </div>
-  );
-};
+  )
+}
 
-export default CaixasTab;
+export default CaixasTab
