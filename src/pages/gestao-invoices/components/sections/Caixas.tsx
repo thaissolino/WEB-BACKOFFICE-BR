@@ -726,7 +726,7 @@ export const CaixasTab = () => {
                     type="text"
                     className="mt-1 block w-full border border-gray-300 rounded-md p-2"
                     value={formData.description}
-                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    onChange={(e) => setFormData({ ...formData, description: e.target.value.toUpperCase() })}
                   />
                 </div>
                 <button
