@@ -6,6 +6,7 @@ import axios from "axios";
 import { showAlertError } from "./components/alertError";
 import { isAxiosError } from "./components/alertError/isAxiosError";
 import Swal from "sweetalert2";
+import { useNotification } from "../../hooks/notification";
 
 interface BilletCamProps {
   handleClose: () => void;
@@ -29,6 +30,7 @@ const ScannBillsBackoffice = ({ handleClose }: BilletCamProps) => {
   const [scannedData, setScannedData] = useState<BilletData | null>(null);
   const html5QrCodeRef = useRef<Html5Qrcode | null>(null);
   const [alreadyScanned, setAlreadyScanned] = useState(false);
+  const { setOpenNotification } = useNotification();
 
   const navigation = useNavigate();
 
@@ -157,15 +159,20 @@ const ScannBillsBackoffice = ({ handleClose }: BilletCamProps) => {
       await sendBilletToAPI(billetInfo);
 
       // alert("Boleto registrado com sucesso!");
-            Swal.fire({
-              icon: "success",
-              title: "Sucesso!",
-              text: "Boleto registrado com sucesso!",
-              confirmButtonText: "Ok",
-              buttonsStyling: false,
-              customClass: {
-                confirmButton: "bg-blue-600 text-white hover:bg-blue-700 px-4 py-2 rounded font-semibold",
-              },
+            // Swal.fire({
+            //   icon: "success",
+            //   title: "Sucesso!",
+            //   text: "Boleto registrado com sucesso!",
+            //   confirmButtonText: "Ok",
+            //   buttonsStyling: false,
+            //   customClass: {
+            //     confirmButton: "bg-blue-600 text-white hover:bg-blue-700 px-4 py-2 rounded font-semibold",
+            //   },
+            // });
+            setOpenNotification({
+              type: 'success',
+              title: 'Sucesso!',
+              notification: 'Boleto registrado com sucesso!'
             });
       // handleClose();
 

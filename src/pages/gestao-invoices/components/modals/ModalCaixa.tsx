@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { api } from "../../../../services/api";
 import Swal from "sweetalert2";
+import { useNotification } from "../../../../hooks/notification";
 
 interface ModalCaixaProps {
   isOpen: boolean;
@@ -19,6 +20,7 @@ const ModalCaixa: React.FC<ModalCaixaProps> = ({ isOpen, onClose, onSave, fetchD
   const [nomeSelecionado, setNomeSelecionado] = useState("");
   const [nomeOutro, setNomeOutro] = useState("");
   const [descricao, setDescricao] = useState("");
+  const { setOpenNotification } = useNotification();
 
   const [recolhedores, setRecolhedores] = useState<Pessoa[]>([]);
   const [fornecedores, setFornecedores] = useState<Pessoa[]>([]);
@@ -41,15 +43,20 @@ const ModalCaixa: React.FC<ModalCaixaProps> = ({ isOpen, onClose, onSave, fetchD
       })
       .catch((error) => {
         console.error("Erro ao buscar dados:", error);
-        Swal.fire({
-          icon: "error",
-          title: "Erro",
-          text: "Erro ao carregar dados.",
-          buttonsStyling: false,
-          customClass: {
-            confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
-          },
-        });
+        // Swal.fire({
+        //   icon: "error",
+        //   title: "Erro",
+        //   text: "Erro ao carregar dados.",
+        //   buttonsStyling: false,
+        //   customClass: {
+        //     confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
+        //   },
+        // });
+      setOpenNotification({
+        type: 'error',
+        title: 'Erro!',
+        notification: 'Erro ao carregar dados!'
+      });
       })
       .finally(() => setLoading(false));
   }, [isOpen]);
@@ -99,6 +106,11 @@ const ModalCaixa: React.FC<ModalCaixaProps> = ({ isOpen, onClose, onSave, fetchD
         customClass: {
           confirmButton: "bg-blue-600 text-white hover:bg-blue-700 px-4 py-2 rounded font-semibold mr-2",
         },
+      });
+      setOpenNotification({
+        type: 'success',
+        title: 'Sucesso!',
+        notification: 'Dados salvos com sucesso!'
       });
 
       onSave(nomeFinal, descricao);

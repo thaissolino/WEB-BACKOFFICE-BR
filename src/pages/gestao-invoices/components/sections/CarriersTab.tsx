@@ -3,6 +3,7 @@ import { Truck, Plus, Edit, Trash2, Loader2 } from "lucide-react";
 import { formatCurrency } from "../../../cambiobackoffice/formatCurrencyUtil";
 import Swal from "sweetalert2";
 import { api } from "../../../../services/api";
+import { useNotification } from "../../../../hooks/notification";
 
 interface Carrier {
   id: string;
@@ -18,6 +19,7 @@ export function CarriersTab() {
   const [currentCarrier, setCurrentCarrier] = useState<Carrier | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const { setOpenNotification } = useNotification();
 
   async function fetchCarriers() {
     setIsLoading(true);
@@ -74,14 +76,19 @@ export function CarriersTab() {
         setIsSubmitting(true);
         await api.delete(`/invoice/carriers/${id}`);
         await fetchCarriers();
-        Swal.fire({
-          icon: "success",
-          title: "Excluído!",
-          text: "O freteiro foi removido com sucesso.",
-          buttonsStyling: false,
-          customClass: {
-            confirmButton: "bg-green-600 text-white hover:bg-green-700 px-4 py-2 rounded font-semibold",
-          },
+        // Swal.fire({
+        //   icon: "success",
+        //   title: "Excluído!",
+        //   text: "O freteiro foi removido com sucesso.",
+        //   buttonsStyling: false,
+        //   customClass: {
+        //     confirmButton: "bg-green-600 text-white hover:bg-green-700 px-4 py-2 rounded font-semibold",
+        //   },
+        // });
+        setOpenNotification({
+          type: 'success',
+          title: 'Excluído!',
+          notification: 'O freteiro foi removido com sucesso!'
         });
       } catch (error) {
         console.error("Erro ao excluir freteiro:", error);
@@ -122,30 +129,40 @@ export function CarriersTab() {
       if (currentCarrier.id) {
         // Edição
         await api.patch(`/invoice/carriers/${currentCarrier.id}`, currentCarrier);
-        Swal.fire({
-          icon: "success",
-          title: "Sucesso!",
-          text: "Freteiro atualizado com sucesso.",
-          confirmButtonText: "Ok",
-          buttonsStyling: false,
-          customClass: {
-            confirmButton: "bg-green-600 text-white hover:bg-green-700 px-4 py-2 rounded font-semibold",
-          },
-        });
+        // Swal.fire({
+        //   icon: "success",
+        //   title: "Sucesso!",
+        //   text: "Freteiro atualizado com sucesso.",
+        //   confirmButtonText: "Ok",
+        //   buttonsStyling: false,
+        //   customClass: {
+        //     confirmButton: "bg-green-600 text-white hover:bg-green-700 px-4 py-2 rounded font-semibold",
+        //   },
+        // });
+        setOpenNotification({
+        type: 'success',
+        title: 'Sucesso!',
+        notification: 'Freteiro atualizado com sucesso!'
+      });
       } else {
         // Novo
         const response = await api.post("/invoice/carriers", currentCarrier);
         setCarriers((prev) => [...prev, response.data]);
-        Swal.fire({
-          icon: "success",
-          title: "Sucesso!",
-          text: "Freteiro criado com sucesso.",
-          confirmButtonText: "Ok",
-          buttonsStyling: false,
-          customClass: {
-            confirmButton: "bg-green-600 text-white hover:bg-green-700 px-4 py-2 rounded font-semibold",
-          },
-        });
+        // Swal.fire({
+        //   icon: "success",
+        //   title: "Sucesso!",
+        //   text: "Freteiro criado com sucesso.",
+        //   confirmButtonText: "Ok",
+        //   buttonsStyling: false,
+        //   customClass: {
+        //     confirmButton: "bg-green-600 text-white hover:bg-green-700 px-4 py-2 rounded font-semibold",
+        //   },
+        // });
+        setOpenNotification({
+        type: 'success',
+        title: 'Sucesso!',
+        notification: 'Freteiro criado com sucesso!'
+      });
       }
 
       setShowModal(false);

@@ -9,6 +9,7 @@ import { motion } from "framer-motion"
 import { formatCurrency } from "../modals/format"
 import { Truck, HandCoins, Handshake, CircleDollarSign } from "lucide-react"
 import { useBalanceStore } from "../../../../store/useBalanceStore"
+import { useNotification } from "../../../../hooks/notification"
 
 interface Transaction {
   id: string
@@ -63,6 +64,7 @@ export const CaixasTab = () => {
   const [loadingFetch3, setLoadingFetch3] = useState(false)
   const [loadingClearId, setLoadingClearId] = useState<string | null>(null)
   const [valorRaw, setValorRaw] = useState("")
+  const { setOpenNotification } = useNotification();
 
   const [formData, setFormData] = useState({
     date: new Date().toISOString().split("T")[0],
@@ -148,15 +150,20 @@ export const CaixasTab = () => {
       console.log("All data fetched:", combined)
     } catch (error) {
       console.error("Erro ao buscar dados:", error)
-      Swal.fire({
-        icon: "error",
-        title: "Erro!",
-        text: "Erro ao carregar dados.",
-        buttonsStyling: false,
-        customClass: {
-          confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
-        },
-      })
+      // Swal.fire({
+      //   icon: "error",
+      //   title: "Erro!",
+      //   text: "Erro ao carregar dados.",
+      //   buttonsStyling: false,
+      //   customClass: {
+      //     confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
+      //   },
+      // })
+      setOpenNotification({
+        type: 'error',
+        title: 'Erro!',
+        notification: 'Erro ao carregar dados!'
+      });
     } finally {
       setLoadingFetch(false)
       setIsLoading(false)
@@ -266,26 +273,36 @@ export const CaixasTab = () => {
 
       await fetchEntityData(selectedEntity.id)
       fetchDatUser()
-      Swal.fire({
-        icon: "success",
-        title: "Sucesso",
-        text: "Transação deletada com sucesso",
-        confirmButtonText: "Ok",
-        buttonsStyling: false,
-        customClass: {
-          confirmButton: "bg-green-600 text-white hover:bg-green-700 px-4 py-2 rounded font-semibold",
-        },
-      })
+      // Swal.fire({
+      //   icon: "success",
+      //   title: "Sucesso",
+      //   text: "Transação deletada com sucesso",
+      //   confirmButtonText: "Ok",
+      //   buttonsStyling: false,
+      //   customClass: {
+      //     confirmButton: "bg-green-600 text-white hover:bg-green-700 px-4 py-2 rounded font-semibold",
+      //   },
+      // })
+      setOpenNotification({
+        type: 'success',
+        title: 'Sucesso!',
+        notification: 'Transação deletada com sucesso!'
+      });
     } catch (e: any) {
-      Swal.fire({
-        icon: "error",
-        title: "Erro!",
-        text: "Erro ao apagar registo de pagamento",
-        buttonsStyling: false,
-        customClass: {
-          confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
-        },
-      })
+      // Swal.fire({
+      //   icon: "error",
+      //   title: "Erro!",
+      //   text: "Erro ao apagar registo de pagamento",
+      //   buttonsStyling: false,
+      //   customClass: {
+      //     confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
+      //   },
+      // })
+      setOpenNotification({
+        type: 'error',
+        title: 'Erro!',
+        notification: 'Erro ao apagar registo de pagamento!'
+      });
     } finally {
       setLoadingClearId(null)
       setLoadingFetch3(false)
@@ -434,16 +451,21 @@ export const CaixasTab = () => {
 
       setFormData({ date: new Date().toISOString().split("T")[0], value: "", description: "" })
       fetchDatUser()
-      Swal.fire({
-        icon: "success",
-        title: "Sucesso",
-        text: "Transação registrada com sucesso",
-        confirmButtonText: "Ok",
-        buttonsStyling: false,
-        customClass: {
-          confirmButton: "bg-green-600 text-white hover:bg-green-700 px-4 py-2 rounded font-semibold",
-        },
-      })
+      // Swal.fire({
+      //   icon: "success",
+      //   title: "Sucesso",
+      //   text: "Transação registrada com sucesso",
+      //   confirmButtonText: "Ok",
+      //   buttonsStyling: false,
+      //   customClass: {
+      //     confirmButton: "bg-green-600 text-white hover:bg-green-700 px-4 py-2 rounded font-semibold",
+      //   },
+      // })
+      setOpenNotification({
+        type: 'success',
+        title: 'Sucesso!',
+        notification: 'Transação registrada com sucesso!'
+      });
     } catch (error) {
       console.error("Erro ao buscar caixas:", error)
       Swal.fire({

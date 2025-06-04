@@ -5,6 +5,7 @@ import { Product } from "./ProductsTab";
 import { InvoiceData } from "./InvoiceHistory";
 import { api } from "../../../../services/api";
 import Swal from "sweetalert2";
+import { useNotification } from "../../../../hooks/notification";
 
 interface ExchangeTransaction {
   id: string;
@@ -47,6 +48,7 @@ export function ExchangeTab() {
     date: new Date().toISOString().split("T")[0],
     usd: 0,
   });
+  const { setOpenNotification } = useNotification();
 
   const [valueRaw3, setValorRaw3] = useState("");
 
@@ -159,15 +161,20 @@ export function ExchangeTab() {
         usd: Number(addBalance.usd),
       });
       console.log(response.data);
-      Swal.fire({
-        icon: "success",
-        title: "Sucesso!",
-        text: "Saldo adicionado com sucesso!",
-        confirmButtonText: "Ok",
-        buttonsStyling: false,
-        customClass: {
-          confirmButton: "bg-blue-600 text-white hover:bg-blue-700 px-4 py-2 rounded font-semibold",
-        },
+      // Swal.fire({
+      //   icon: "success",
+      //   title: "Sucesso!",
+      //   text: "Saldo adicionado com sucesso!",
+      //   confirmButtonText: "Ok",
+      //   buttonsStyling: false,
+      //   customClass: {
+      //     confirmButton: "bg-blue-600 text-white hover:bg-blue-700 px-4 py-2 rounded font-semibold",
+      //   },
+      // });
+      setOpenNotification({
+        type: 'success',
+        title: 'Sucesso!',
+        notification: 'Saldo adicionado com sucesso!'
       });
       setValorRaw("")
       setValorRaw2("")
@@ -262,15 +269,20 @@ export function ExchangeTab() {
         usd: Number(dataPayment.usd),
         rate: balance?.averageRate,
       });
-      Swal.fire({
-        icon: "success",
-        title: "Sucesso!",
-        text: "Pagamento realizado com sucesso!",
-        confirmButtonText: "Ok",
-        buttonsStyling: false,
-        customClass: {
-          confirmButton: "bg-blue-600 text-white hover:bg-blue-700 px-4 py-2 rounded font-semibold",
-        },
+      // Swal.fire({
+      //   icon: "success",
+      //   title: "Sucesso!",
+      //   text: "Pagamento realizado com sucesso!",
+      //   confirmButtonText: "Ok",
+      //   buttonsStyling: false,
+      //   customClass: {
+      //     confirmButton: "bg-blue-600 text-white hover:bg-blue-700 px-4 py-2 rounded font-semibold",
+      //   },
+      // });
+      setOpenNotification({
+        type: 'success',
+        title: 'Sucesso!',
+        notification: 'Pagamento realizado com sucesso!'
       });
       setValorRaw3("")
       setDataUpdated({

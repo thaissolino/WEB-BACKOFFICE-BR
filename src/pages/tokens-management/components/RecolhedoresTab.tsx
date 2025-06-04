@@ -6,6 +6,7 @@ import { formatCurrency, formatDate } from "./format";
 import ConfirmModal from "./ConfirmModal";
 import { api } from "../../../services/api";
 import Swal from "sweetalert2";
+import { useNotification } from "../../../hooks/notification";
 
 interface Transacao {
   id: number;
@@ -73,6 +74,7 @@ const RecolhedoresTab: React.FC = () => {
   const [filterEndDate, setFilterEndDate] = useState<string>("");
   const [activeFilterStartDate, setActiveFilterStartDate] = useState<string>("");
   const [activeFilterEndDate, setActiveFilterEndDate] = useState<string>("");
+  const { setOpenNotification } = useNotification();
 
   const fetchRecolhedores = async () => {
     setLoading(true);
@@ -125,6 +127,7 @@ const RecolhedoresTab: React.FC = () => {
       setError(e.message);
     } finally {
       setLoading(false);
+
     }
   };
 
@@ -244,22 +247,27 @@ const RecolhedoresTab: React.FC = () => {
       setDataPagamento(new Date().toISOString().split("T")[0]);
 
       // alert("Pagamento registrado com sucesso!");
-      Swal.fire({
-        icon: "success",
-        title: "Sucesso!",
-        text: "Operação registrada com sucesso!",
-        confirmButtonText: "Ok",
-        buttonsStyling: false,
-        customClass: {
-          confirmButton: "bg-blue-600 text-white hover:bg-blue-700 px-4 py-2 rounded font-semibold",
-        },
-      });
+      // Swal.fire({
+      //   icon: "success",
+      //   title: "Sucesso!",
+      //   text: "Operação registrada com sucesso!",
+      //   confirmButtonText: "Ok",
+      //   buttonsStyling: false,
+      //   customClass: {
+      //     confirmButton: "bg-blue-600 text-white hover:bg-blue-700 px-4 py-2 rounded font-semibold",
+      //   },
+      // });
     } catch (e: any) {
       console.log("error", e);
       alert(`Erro ao registrar pagamento: ${e.message}`);
     } finally {
       setValorRaw("");
       setIsProcessingPayment(false);
+      setOpenNotification({
+        type: 'success',
+        title: 'Sucesso!',
+        notification: 'Pagamento registrado com sucesso!'
+      });
     }
   };
 
@@ -301,15 +309,20 @@ const RecolhedoresTab: React.FC = () => {
       const totalBalance = Object.values(updatedBalances).reduce((a, b) => a + b, 0);
       setSaldoAcumulado(totalBalance);
 
-      Swal.fire({
-        icon: "success",
-        title: "Sucesso!",
-        text: "Operação deletada com sucesso!",
-        confirmButtonText: "Ok",
-        buttonsStyling: false,
-        customClass: {
-          confirmButton: "bg-blue-600 text-white hover:bg-blue-700 px-4 py-2 rounded font-semibold",
-        },
+      // Swal.fire({
+      //   icon: "success",
+      //   title: "Sucesso!",
+      //   text: "Operação deletada com sucesso!",
+      //   confirmButtonText: "Ok",
+      //   buttonsStyling: false,
+      //   customClass: {
+      //     confirmButton: "bg-blue-600 text-white hover:bg-blue-700 px-4 py-2 rounded font-semibold",
+      //   },
+      // });
+      setOpenNotification({
+        type: 'success',
+        title: 'Sucesso!',
+        notification: 'Operação deletada com sucesso!'
       });
     } catch (e: any) {
       alert(`Erro ao deletar operação: ${e.message}`);
