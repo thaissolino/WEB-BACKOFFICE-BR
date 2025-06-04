@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Plus, Edit, Trash2, Users, Loader2 } from "lucide-react";
 import Swal from "sweetalert2";
 import { api } from "../../../../services/api";
+import { useNotification } from "../../../../hooks/notification";
 
 export interface Supplier {
   id: string;
@@ -16,6 +17,7 @@ export function SuppliersTab() {
   const [currentSupplier, setCurrentSupplier] = useState<Supplier | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const { setOpenNotification } = useNotification();
 
   const fetchData = async () => {
     setIsLoading(true);
@@ -68,15 +70,20 @@ export function SuppliersTab() {
         await api.delete(`/invoice/supplier/${supplier.id}`);
         await api.delete(`/invoice/box/user/name/${supplier.name}`);
         await fetchData();
-        Swal.fire({
-          icon: "success",
-          title: "Sucesso!",
-          text: "Fornecedor excluído permanentemente.",
-          confirmButtonText: "Ok",
-          buttonsStyling: false,
-          customClass: {
-            confirmButton: "bg-green-600 text-white hover:bg-green-700 px-4 py-2 rounded font-semibold",
-          },
+        // Swal.fire({
+        //   icon: "success",
+        //   title: "Sucesso!",
+        //   text: "Fornecedor excluído permanentemente.",
+        //   confirmButtonText: "Ok",
+        //   buttonsStyling: false,
+        //   customClass: {
+        //     confirmButton: "bg-green-600 text-white hover:bg-green-700 px-4 py-2 rounded font-semibold",
+        //   },
+        // });
+        setOpenNotification({
+          type: 'success',
+          title: 'Sucesso!',
+          notification: 'Fornecedor excluído permanentemente!'
         });
       } catch (error) {
         console.error("Erro ao excluir fornecedor:", error);
@@ -130,15 +137,20 @@ export function SuppliersTab() {
     try {
       if (currentSupplier.id) {
         await api.patch(`/invoice/supplier/${currentSupplier.id}`, currentSupplier);
-        Swal.fire({
-          icon: "success",
-          title: "Sucesso!",
-          text: "Fornecedor atualizado com sucesso.",
-          confirmButtonText: "Ok",
-          buttonsStyling: false,
-          customClass: {
-            confirmButton: "bg-green-600 text-white hover:bg-green-700 px-4 py-2 rounded font-semibold",
-          },
+        // Swal.fire({
+        //   icon: "success",
+        //   title: "Sucesso!",
+        //   text: "Fornecedor atualizado com sucesso.",
+        //   confirmButtonText: "Ok",
+        //   buttonsStyling: false,
+        //   customClass: {
+        //     confirmButton: "bg-green-600 text-white hover:bg-green-700 px-4 py-2 rounded font-semibold",
+        //   },
+        // });
+        setOpenNotification({
+          type: 'success',
+          title: 'Sucesso!',
+          notification: 'Fornecedor atualizado com sucesso'
         });
       } else {
         const res = await api.post("/invoice/supplier", currentSupplier);
@@ -149,16 +161,21 @@ export function SuppliersTab() {
             type: "supplier",
             tabsType: "invoice",
           });
-        Swal.fire({
-          icon: "success",
-          title: "Sucesso!",
-          text: "Fornecedor criado com sucesso.",
-          confirmButtonText: "Ok",
-          buttonsStyling: false,
-          customClass: {
-            confirmButton: "bg-green-600 text-white hover:bg-green-700 px-4 py-2 rounded font-semibold",
-          },
-        });
+        // Swal.fire({
+        //   icon: "success",
+        //   title: "Sucesso!",
+        //   text: "Fornecedor criado com sucesso.",
+        //   confirmButtonText: "Ok",
+        //   buttonsStyling: false,
+        //   customClass: {
+        //     confirmButton: "bg-green-600 text-white hover:bg-green-700 px-4 py-2 rounded font-semibold",
+        //   },
+        // });
+        setOpenNotification({
+        type: 'success',
+        title: 'Sucesso!',
+        notification: 'Fornecedor criado com sucesso!'
+      });
       }
       await fetchData();
       setShowModal(false);

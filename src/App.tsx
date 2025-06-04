@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Hooks } from "./hooks";
 import { Router } from "./routes/authenticatedRoutes";
 import "./styles/index.css";
+import { Notification } from "./components/notifications";
 
 function App() {
   const [showUpdateToast, setShowUpdateToast] = useState(false);
@@ -55,6 +56,7 @@ function App() {
     <>
       <Hooks>
         <Router />
+        <Notification/>
       </Hooks>
 
       {showUpdateToast && (

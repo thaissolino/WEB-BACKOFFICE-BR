@@ -3,6 +3,7 @@ import { formatCurrency, formatDate } from "./format";
 import { api } from "../../../services/api";
 import { motion } from "framer-motion";
 import Swal from "sweetalert2";
+import { useNotification } from "../../../hooks/notification";
 
 interface Operacao {
   id: number;
@@ -44,6 +45,7 @@ const LucrosTab: React.FC = () => {
   const [filterApplied, setFilterApplied] = useState(false);
   const [lucroPeriodoFiltro, setLucroPeriodoFiltro] = useState(0);
   const [comissaoPeriodoFiltro, setComissaoPeriodoFiltro] = useState(0);
+  const { setOpenNotification } = useNotification();
 
   useEffect(() => {
     const fetchOperacoes = async () => {
@@ -172,16 +174,22 @@ const LucrosTab: React.FC = () => {
       await api.delete(`/operations/delete_operation/${id}`);
       setOperacoes((prev) => prev.filter((op) => op.id !== id));
       setFilteredOperations((prev) => prev.filter((op) => op.id !== id));
-      Swal.fire({
-        icon: "success",
-        title: "Sucesso!",
-        text: "Operação registrada com sucesso!",
-        confirmButtonText: "Ok",
-        buttonsStyling: false,
-        customClass: {
-          confirmButton: "bg-blue-600 text-white hover:bg-blue-700 px-4 py-2 rounded font-semibold",
-        },
+      // Swal.fire({
+      //   icon: "success",
+      //   title: "Sucesso!",
+      //   text: "Operação registrada com sucesso!",
+      //   confirmButtonText: "Ok",
+      //   buttonsStyling: false,
+      //   customClass: {
+      //     confirmButton: "bg-blue-600 text-white hover:bg-blue-700 px-4 py-2 rounded font-semibold",
+      //   },
+      // });
+      setOpenNotification({
+        type: 'success',
+        title: 'Sucesso!',
+        notification: 'Operação registrada com sucesso!'
       });
+
     } catch (e: any) {
       Swal.fire({
         icon: "error",

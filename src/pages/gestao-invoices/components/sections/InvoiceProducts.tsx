@@ -4,6 +4,7 @@ import { api } from "../../../../services/api";
 import { Invoice } from "../types/invoice";
 import Swal from "sweetalert2";
 import { ProductSearchSelect } from "./SupplierSearchSelect";
+import { useNotification } from "../../../../hooks/notification";
 
 export type InvoiceProduct = {
   id: string;
@@ -49,6 +50,7 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
   });
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const { setOpenNotification } = useNotification();
 
   useEffect(() => {
     const fetchData = async () => {
@@ -254,15 +256,21 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
             ? "0"
             : currentInvoice.taxaSpEs.toString().trim(),
       });
-      Swal.fire({
-        icon: "success",
-        title: "Sucesso!",
-        text: "Invoice salva com sucesso!",
-        confirmButtonText: "Ok",
-        buttonsStyling: false,
-        customClass: {
-          confirmButton: "bg-blue-600 text-white hover:bg-blue-700 px-4 py-2 rounded font-semibold",
-        },
+      // Swal.fire({
+      //   icon: "success",
+      //   title: "Sucesso!",
+      //   text: "Invoice salva com sucesso!",
+      //   confirmButtonText: "Ok",
+      //   buttonsStyling: false,
+      //   customClass: {
+      //     confirmButton: "bg-blue-600 text-white hover:bg-blue-700 px-4 py-2 rounded font-semibold",
+      //   },
+      // });
+
+      setOpenNotification({
+        type: 'success',
+        title: 'Sucesso!',
+        notification: 'Invoice salva com sucesso!'
       });
 
       setCurrentInvoice({

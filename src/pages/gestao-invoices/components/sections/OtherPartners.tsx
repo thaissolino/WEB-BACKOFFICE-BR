@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Plus, Edit, Trash2, Users, Loader2 } from "lucide-react";
 import Swal from "sweetalert2";
 import { api } from "../../../../services/api";
+import { useNotification } from "../../../../hooks/notification";
 
 interface Partner {
   id: string;
@@ -23,6 +24,7 @@ export function OtherPartnersTab() {
   const [currentpartner, setCurrentpartner] = useState<Partner | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const { setOpenNotification } = useNotification();
 
   const fetchData = async () => {
     setIsLoading(true);
@@ -75,15 +77,20 @@ export function OtherPartnersTab() {
         await api.delete(`/invoice/partner/${partner.id}`);
         await api.delete(`/invoice/box/user/name/${partner.name}`);
         await fetchData();
-        Swal.fire({
-          icon: "success",
-          title: "Sucesso!",
-          text: "Parceiro excluído permanentemente.",
-          confirmButtonText: "Ok",
-          buttonsStyling: false,
-          customClass: {
-            confirmButton: "bg-green-600 text-white hover:bg-green-700 px-4 py-2 rounded font-semibold",
-          },
+        // Swal.fire({
+        //   icon: "success",
+        //   title: "Sucesso!",
+        //   text: "Parceiro excluído permanentemente.",
+        //   confirmButtonText: "Ok",
+        //   buttonsStyling: false,
+        //   customClass: {
+        //     confirmButton: "bg-green-600 text-white hover:bg-green-700 px-4 py-2 rounded font-semibold",
+        //   },
+        // });
+        setOpenNotification({
+          type: 'success',
+          title: 'Sucesso!',
+          notification: 'Parceiro excluído permanentemente!'
         });
       } catch (error) {
         console.error("Erro ao excluir Parceiro:", error);
@@ -145,16 +152,23 @@ export function OtherPartnersTab() {
     try {
       if (currentpartner.id) {
         await api.patch(`/invoice/partner/${currentpartner.id}`, currentpartner);
-        await Swal.fire({
-          icon: "success",
-          title: "Sucesso!",
-          text: "Parceiro atualizado com sucesso.",
-          confirmButtonText: "Ok",
-          buttonsStyling: false,
-          customClass: {
-            confirmButton: "bg-green-600 text-white hover:bg-green-700 px-4 py-2 rounded font-semibold",
-          },
+        // Swal.fire({
+        //   icon: "success",
+        //   title: "Sucesso!",
+        //   text: "Parceiro atualizado com sucesso.",
+        //   confirmButtonText: "Ok",
+        //   buttonsStyling: false,
+        //   customClass: {
+        //     confirmButton: "bg-green-600 text-white hover:bg-green-700 px-4 py-2 rounded font-semibold",
+        //   },
+        // });
+
+        setOpenNotification({
+          type: 'success',
+          title: 'Sucesso!',
+          notification: 'Parceiro atualizado com sucesso!'
         });
+
       } else {
         console.log("currentpartner", currentpartner);
         const payload = {
@@ -175,15 +189,20 @@ export function OtherPartnersTab() {
             type: "partner",
           });
 
-        await Swal.fire({
-          icon: "success",
-          title: "Sucesso!",
-          text: "Parceiro criado com sucesso.",
-          confirmButtonText: "Ok",
-          buttonsStyling: false,
-          customClass: {
-            confirmButton: "bg-blue-600 text-white hover:bg-blue-700 px-4 py-2 rounded font-semibold",
-          },
+        // Swal.fire({
+        //   icon: "success",
+        //   title: "Sucesso!",
+        //   text: "Parceiro criado com sucesso.",
+        //   confirmButtonText: "Ok",
+        //   buttonsStyling: false,
+        //   customClass: {
+        //     confirmButton: "bg-blue-600 text-white hover:bg-blue-700 px-4 py-2 rounded font-semibold",
+        //   },
+        // });
+        setOpenNotification({
+          type: 'success',
+          title: 'Sucesso!',
+          notification: 'Parceiro criado com sucesso!'
         });
       }
 
@@ -192,14 +211,19 @@ export function OtherPartnersTab() {
       setCurrentpartner(null);
     } catch (error) {
       console.error("Erro ao salvar Parceiro:", error);
-      await Swal.fire({
-        icon: "error",
-        title: "Erro!",
-        text: "Não foi possível salvar o Parceiro.",
-        buttonsStyling: false,
-        customClass: {
-          confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
-        },
+      // Swal.fire({
+      //   icon: "error",
+      //   title: "Erro!",
+      //   text: "Não foi possível salvar o Parceiro.",
+      //   buttonsStyling: false,
+      //   customClass: {
+      //     confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
+      //   },
+      // });
+      setOpenNotification({
+        type: 'success',
+        title: 'Sucesso!',
+        notification: 'Não foi possível salvar o Parceiro!'
       });
     } finally {
       setIsSubmitting(false);

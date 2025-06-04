@@ -6,6 +6,7 @@ import { api } from "../../../services/api";
 import { NumericCellType } from "handsontable/cellTypes";
 import Swal from "sweetalert2";
 import { Loader2, Save } from "lucide-react";
+import { useNotification } from "../../../hooks/notification";
 
 interface Operacao {
   id: number;
@@ -57,6 +58,7 @@ const OperacoesTab: React.FC = () => {
   const [showOperationModal, setShowOperationModal] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [currentPage, setCurrentPage] = useState(0);
+  const { setOpenNotification } = useNotification();
   const itemsPerPage = 6; // ou o número que preferir
 
   useEffect(() => {
@@ -174,15 +176,20 @@ const OperacoesTab: React.FC = () => {
       setTaxaRecolhedorOperacao(1.025);
       setTaxaFornecedorOperacao(1.05);
 
-      Swal.fire({
-        icon: "success",
-        title: "Sucesso!",
-        text: "Operação registrada com sucesso!",
-        confirmButtonText: "Ok",
-        buttonsStyling: false,
-        customClass: {
-          confirmButton: "bg-blue-600 text-white hover:bg-blue-700 px-4 py-2 rounded font-semibold",
-        },
+      // Swal.fire({
+      //   icon: "success",
+      //   title: "Sucesso!",
+      //   text: "Operação registrada com sucesso!",
+      //   confirmButtonText: "Ok",
+      //   buttonsStyling: false,
+      //   customClass: {
+      //     confirmButton: "bg-blue-600 text-white hover:bg-blue-700 px-4 py-2 rounded font-semibold",
+      //   },
+      // });
+      setOpenNotification({
+        type: 'success',
+        title: 'Sucesso!',
+        notification: 'Operação registrada com sucesso!'
       });
       setSuccessMessage("Operação registrada com sucesso!");
       // setShowSuccessModal(true);
@@ -213,16 +220,22 @@ const OperacoesTab: React.FC = () => {
         setOperacoes(updatedOperacoes);
 
     
-        Swal.fire({
-        icon: "success",
-        title: "Sucesso!",
-        text: "Operação registrada com sucesso!",
-        confirmButtonText: "Ok",
-        buttonsStyling: false,
-        customClass: {
-          confirmButton: "bg-blue-600 text-white hover:bg-blue-700 px-4 py-2 rounded font-semibold",
-        },
-      });
+        // Swal.fire({
+        //   icon: "success",
+        //   title: "Sucesso!",
+        //   text: "Operação registrada com sucesso!",
+        //   confirmButtonText: "Ok",
+        //   buttonsStyling: false,
+        //   customClass: {
+        //     confirmButton: "bg-blue-600 text-white hover:bg-blue-700 px-4 py-2 rounded font-semibold",
+        //   },
+        // });
+        setOpenNotification({
+          type: 'success',
+          title: 'Sucesso!',
+          notification: 'Operação registrada com sucesso!'
+        });
+
       } catch (e: any) {
         // alert(`Erro ao deletar operação: ${e.message}`);
        Swal.fire({
