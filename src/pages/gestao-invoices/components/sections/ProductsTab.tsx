@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Plus, Edit, Trash2, Boxes, Loader2 } from "lucide-react";
 import Swal from "sweetalert2";
 import { api } from "../../../../services/api";
+import { useNotification } from "../../../../hooks/notification";
 
 export interface Product {
   id: string;
@@ -19,6 +20,7 @@ export function ProductsTab() {
   const [currentProduct, setCurrentProduct] = useState<Product | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const { setOpenNotification } = useNotification();
 
   const fetchData = async () => {
     setIsLoading(true);
@@ -61,15 +63,20 @@ export function ProductsTab() {
       try {
         await api.delete(`/invoice/product/${id}`);
         await fetchData();
-        Swal.fire({
-          icon: "success",
-          title: "Sucesso!",
-          text: "Produto excluído permanentemente.",
-          confirmButtonText: "Ok",
-          buttonsStyling: false,
-          customClass: {
-            confirmButton: "bg-green-600 text-white hover:bg-green-700 px-4 py-2 rounded font-semibold",
-          },
+        // Swal.fire({
+        //   icon: "success",
+        //   title: "Sucesso!",
+        //   text: "Produto excluído permanentemente.",
+        //   confirmButtonText: "Ok",
+        //   buttonsStyling: false,
+        //   customClass: {
+        //     confirmButton: "bg-green-600 text-white hover:bg-green-700 px-4 py-2 rounded font-semibold",
+        //   },
+        // });
+        setOpenNotification({
+          type: 'success',
+          title: 'Sucesso!',
+          notification: 'Produto excluído permanentemente!'
         });
       } catch (error) {
         console.error("Erro ao excluir produto:", error);
@@ -111,27 +118,37 @@ export function ProductsTab() {
     try {
       if (currentProduct.id) {
         await api.patch(`/invoice/product/${currentProduct.id}`, currentProduct);
-        Swal.fire({
-          icon: "success",
-          title: "Sucesso!",
-          text: "Produto atualizado com sucesso.",
-          confirmButtonText: "Ok",
-          buttonsStyling: false,
-          customClass: {
-            confirmButton: "bg-green-600 text-white hover:bg-green-700 px-4 py-2 rounded font-semibold",
-          },
+        // Swal.fire({
+        //   icon: "success",
+        //   title: "Sucesso!",
+        //   text: "Produto atualizado com sucesso.",
+        //   confirmButtonText: "Ok",
+        //   buttonsStyling: false,
+        //   customClass: {
+        //     confirmButton: "bg-green-600 text-white hover:bg-green-700 px-4 py-2 rounded font-semibold",
+        //   },
+        // });
+        setOpenNotification({
+          type: 'success',
+          title: 'Sucesso!',
+          notification: 'Produto atualizado com sucesso!'
         });
       } else {
         await api.post("/invoice/product", currentProduct);
-        Swal.fire({
-          icon: "success",
-          title: "Sucesso!",
-          text: "Produto criado com sucesso.",
-          confirmButtonText: "Ok",
-          buttonsStyling: false,
-          customClass: {
-            confirmButton: "bg-green-600 text-white hover:bg-green-700 px-4 py-2 rounded font-semibold",
-          },
+        // Swal.fire({
+        //   icon: "success",
+        //   title: "Sucesso!",
+        //   text: "Produto criado com sucesso.",
+        //   confirmButtonText: "Ok",
+        //   buttonsStyling: false,
+        //   customClass: {
+        //     confirmButton: "bg-green-600 text-white hover:bg-green-700 px-4 py-2 rounded font-semibold",
+        //   },
+        // });
+        setOpenNotification({
+          type: 'success',
+          title: 'Sucesso!',
+          notification: 'Produto criado com sucesso!'
         });
       }
       await fetchData();

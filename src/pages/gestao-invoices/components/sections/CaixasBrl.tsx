@@ -9,6 +9,7 @@ import { formatCurrency } from "../modals/format";
 import { Truck, HandCoins, Handshake, CircleDollarSign } from 'lucide-react';
 import { useBalanceStore } from "../../../../store/useBalanceStore";
 import { BalanceSharp } from "@mui/icons-material";
+import { useNotification } from "../../../../hooks/notification";
 
 interface Transaction {
   id: string;
@@ -66,6 +67,7 @@ export const CaixasTabBrl = () => {
     value: "",
     description: "",
   });
+  const { setOpenNotification } = useNotification();
 
   const { getBalances, balancePartnerBRL } = useBalanceStore();
 
@@ -248,15 +250,20 @@ export const CaixasTabBrl = () => {
       getBalances();
       await fetchEntityData(selectedEntity.id);
       fetchDatUser();
-      Swal.fire({
-        icon: "success",
-        title: "Sucesso",
-        text: "Transação deletada com sucesso",
-        confirmButtonText: "Ok",
-        buttonsStyling: false,
-        customClass: {
-          confirmButton: "bg-green-600 text-white hover:bg-green-700 px-4 py-2 rounded font-semibold",
-        },
+      // Swal.fire({
+      //   icon: "success",
+      //   title: "Sucesso",
+      //   text: "Transação deletada com sucesso",
+      //   confirmButtonText: "Ok",
+      //   buttonsStyling: false,
+      //   customClass: {
+      //     confirmButton: "bg-green-600 text-white hover:bg-green-700 px-4 py-2 rounded font-semibold",
+      //   },
+      // });
+      setOpenNotification({
+        type: 'success',
+        title: 'Sucesso!',
+        notification: 'Transação deletada com sucesso!'
       });
     } catch (e: any) {
       Swal.fire({
@@ -415,15 +422,20 @@ export const CaixasTabBrl = () => {
       await fetchEntityData(selectedEntity.id);
       getBalances();
       setFormData({ date: new Date().toISOString().split("T")[0], value: "", description: "" });
-      Swal.fire({
-        icon: "success",
-        title: "Sucesso!",
-        text: "Transação registrada com sucesso",
-        confirmButtonText: "Ok",
-        buttonsStyling: false,
-        customClass: {
-          confirmButton: "bg-green-600 text-white hover:bg-green-700 px-4 py-2 rounded font-semibold",
-        },
+      // Swal.fire({
+      //   icon: "success",
+      //   title: "Sucesso!",
+      //   text: "Transação registrada com sucesso",
+      //   confirmButtonText: "Ok",
+      //   buttonsStyling: false,
+      //   customClass: {
+      //     confirmButton: "bg-green-600 text-white hover:bg-green-700 px-4 py-2 rounded font-semibold",
+      //   },
+      // });
+      setOpenNotification({
+        type: 'success',
+        title: 'Sucesso!',
+        notification: 'Transação registrada com sucesso!'
       });
       // Swal.fire({ icon: "success", title: "Sucesso!", text: "Transação registrada" });
     } catch (error) {
