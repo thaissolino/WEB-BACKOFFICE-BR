@@ -122,7 +122,7 @@ const AuthBackofficeProvider = ({ children }: AuthBackofficeProviderProps) => {
     clearTimeout(inactivityTimer);
     inactivityTimer = setTimeout(() => {
       onLogout();
-    }, 3 * 60 * 1000);
+    }, 10 * 60 * 1000);
   }, []);
 
   useEffect(() => {
