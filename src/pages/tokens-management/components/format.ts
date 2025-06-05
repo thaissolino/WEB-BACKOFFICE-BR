@@ -19,7 +19,7 @@ export function formatCurrency(value: number, decimals: number = 2, currency: st
   export function formatDate(dateString: string | Date) {
     const date = new Date(dateString);
     return date.toLocaleString("pt-BR", {
-     // timeZone: "UTC",
+     timeZone: "UTC",
       day: "2-digit",
       month: "2-digit",
       year: "numeric",
@@ -27,6 +27,17 @@ export function formatCurrency(value: number, decimals: number = 2, currency: st
       minute: "2-digit",
       second: "2-digit",
       hour12: false,
+    });
+  }
+
+    export function formatDateIn(dateString: string | Date) {
+    const date = new Date(dateString);
+    return date.toLocaleString("pt-BR", {
+      timeZone: "UTC",
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+ 
     });
   }
   
