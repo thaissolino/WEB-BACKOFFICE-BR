@@ -2,11 +2,12 @@ import type React from "react";
 import { useEffect, useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import ModalFornecedor from "./ModalFornecedor";
-import { formatCurrency, formatDate } from "./format";
+import { formatCurrency, formatDate, formatDateIn } from "./format";
 import ConfirmModal from "./ConfirmModal";
 import { api } from "../../../services/api";
 import Swal from "sweetalert2";
-
+import { jsPDF } from "jspdf";
+import autoTable from "jspdf-autotable";
 interface Transacao {
   id: number;
   date: string;
@@ -71,6 +72,7 @@ const FornecedoresTab: React.FC = () => {
   const [tempStartDate, setTempStartDate] = useState<string>(""); // Estado temporário para data inicial
   const [tempEndDate, setTempEndDate] = useState<string>(""); // Estado temporário para data final
   const itensPorPagina = 6;
+    const [filterApplied, setFilterApplied] = useState(false);
 
   const fetchAllData = async () => {
     setLoading(true);
@@ -361,6 +363,101 @@ const FornecedoresTab: React.FC = () => {
     return arredondado;
   }
 
+  const generateFornecedorPDF = () => {
+  if (!fornecedorSelecionado) return;
+
+  const doc = new jsPDF({
+    orientation: "portrait",
+    unit: "mm",
+    format: "a4"
+  });
+
+  // Título
+  doc.setFontSize(16);
+  doc.setTextColor(40, 100, 40);
+  doc.text(`Extrato de Transações - ${fornecedorSelecionado.name}`, 105, 15, { align: "center" });
+
+  // Informações de emissão e período
+  doc.setFontSize(10);
+  doc.setTextColor(0, 0, 0);
+
+  // Data de emissão formatada
+  const dataEmissao = new Date().toLocaleDateString('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+
+  // Período do filtro formatado
+  const periodoFiltro = filterStartDate || filterEndDate
+    ? `${filterStartDate ? new Date(filterStartDate).toLocaleDateString('pt-BR') : "início"} a ${filterEndDate ? new Date(filterEndDate).toLocaleDateString('pt-BR') : "fim"}`
+    : "Período completo";
+
+  doc.text(`Data de emissão: ${dataEmissao}`, 15, 25);
+  doc.text(`Período: ${periodoFiltro}`, 15, 30);
+  doc.text(`Saldo atual: ${formatCurrency(calculatedBalances[fornecedorSelecionado.id] || 0, 2, "USD")}`, 15, 35);
+
+  // Preparar dados da tabela
+  const tableData = transacoesFiltradas.map((t) => [
+    formatDate(t.date),
+    t.descricao,
+    formatCurrency(t.valor, 2, "USD")
+  ]);
+
+  // Calcular totais
+  const totalEntradas = transacoesFiltradas
+    .filter(t => t.valor > 0)
+    .reduce((sum, t) => sum + t.valor, 0);
+    
+  const totalSaidas = transacoesFiltradas
+    .filter(t => t.valor < 0)
+    .reduce((sum, t) => sum + t.valor, 0);
+    
+  const saldoPeriodo = totalEntradas + totalSaidas;
+
+  // Gerar tabela
+  autoTable(doc, {
+    head: [['Data', 'Descrição', 'Valor (USD)']],
+    body: tableData,
+    startY: 40,
+    styles: {
+      fontSize: 9,
+      cellPadding: 2,
+      halign: 'left'
+    },
+    headStyles: {
+      fillColor: [229, 231, 235],
+      textColor: 0,
+      fontStyle: 'bold'
+    },
+    alternateRowStyles: {
+      fillColor: [240, 249, 255]
+    },
+    columnStyles: {
+      0: { halign: 'center' },
+      2: { halign: 'right' }
+    }
+  });
+
+  // Adicionar totais
+  const finalY = (doc as any).lastAutoTable.finalY + 10;
+  
+  doc.setFontSize(11);
+  doc.setFont("helvetica", "bold");
+  
+  doc.text(`Total de entradas: ${formatCurrency(totalEntradas, 2, "USD")}`, 15, finalY);
+  doc.text(`Total de saídas: ${formatCurrency(totalSaidas, 2, "USD")}`, 70, finalY);
+  doc.text(`Saldo do período: ${formatCurrency(saldoPeriodo, 2, "USD")}`, 130, finalY);
+  
+  // Saldo total
+  doc.text(`Saldo atual: ${formatCurrency(calculatedBalances[fornecedorSelecionado.id] || 0, 2, "USD")}`, 15, finalY + 10);
+
+  // Salvar PDF
+  doc.save(`extrato_${fornecedorSelecionado.name.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`);
+};
+
   useEffect(() => {
     let totalBalance = 0;
     fornecedores.forEach((fornecedor) => {
@@ -534,8 +631,9 @@ const FornecedoresTab: React.FC = () => {
                   <i className="fas fa-times"></i>
                 </motion.button>
                 <button
-                  disabled
-                  className="w-40 h-6 rounded-md bg-gray-200 text-gray-500 text-sm font-medium flex items-center justify-center cursor-not-allowed"
+                  disabled={!filterApplied}
+                  onClick={generateFornecedorPDF}
+                  className={`w-40 h-6 rounded-md text-sm font-medium flex items-center justify-center ${!filterApplied ? "cursor-not-allowed  bg-gray-200 text-gray-500 " : "bg-white text-blue-600 border border-blue-600 hover:bg-blue-600 hover:text-white rounded-md text-sm font-medium h-6 px-4 mr-2 flex items-center justify-center transition-colors"}`}
                 >
                   Exportar extrato PDF
                 </button>
@@ -653,8 +751,8 @@ const FornecedoresTab: React.FC = () => {
                     <div className="flex flex-col whitespace-nowrap">
                       <span className="text-xs font-medium text-gray-700 mb-1">
                         {filterStartDate || filterEndDate
-                          ? `(Filtrado: ${filterStartDate ? formatDate(filterStartDate) : "início"} a ${
-                              filterEndDate ? formatDate(filterEndDate) : "fim"
+                          ? `(Filtrado: ${filterStartDate ? formatDateIn(filterStartDate) : "início"} a ${
+                              filterEndDate ? formatDateIn(filterEndDate) : "fim"
                             })`
                           : "(ÚLTIMOS 6)"}
                       </span>
@@ -688,6 +786,7 @@ const FornecedoresTab: React.FC = () => {
                           }
                           setFilterStartDate(tempStartDate);
                           setFilterEndDate(tempEndDate);
+                          setFilterApplied(true);
                           setPaginaAtual(0);
                         }}
                         className="bg-white text-blue-600 border border-blue-600 hover:bg-blue-600 hover:text-white rounded-md text-sm font-medium h-6 px-4 mr-2 flex items-center justify-center transition-colors"
@@ -700,6 +799,7 @@ const FornecedoresTab: React.FC = () => {
                           setTempEndDate("");
                           setFilterStartDate("");
                           setFilterEndDate("");
+                          setFilterApplied(false);
                           setPaginaAtual(0);
                         }}
                         className="bg-gray-200 text-gray-700 hover:bg-gray-300 rounded-md text-sm font-medium h-6 px-4 flex items-center justify-center transition-colors"
