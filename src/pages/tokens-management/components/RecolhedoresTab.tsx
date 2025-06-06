@@ -369,8 +369,8 @@ const RecolhedoresTab: React.FC = () => {
             : -(op.value || 0) / (op.collectorTax || selectedRecolhedor!?.tax || 1),
         descricao:
           op.comission > 0 || op.comission !== null
-            ? `Comissão #${op.idOperation} · ${op.city?.toUpperCase() || ""}`
-            : `Operação #${op.id} · ${op.city?.toUpperCase() || ""}`,
+            ? `COMISSÃO #${op.idOperation} · ${op.city?.toUpperCase() || ""}`
+            : `OPERAÇÃO #${op.id} · ${op.city?.toUpperCase() || ""}`,
         tipo: "debito",
       })),
     ...payments
