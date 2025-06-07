@@ -530,7 +530,7 @@ export function ExchangeTab() {
                     .filter((item) => !item.completed && !item.paid)
                     .map((invoice) => (
                       <option key={invoice.id} value={invoice.id}>
-                        {invoice.number} - {invoice.supplier.name} ({formatCurrency(invoice.subAmount)})
+                        {invoice.number.toUpperCase()} - {invoice.supplier.name.toUpperCase()} ({formatCurrency(invoice.subAmount)})
                       </option>
                     ))}
                 </>
@@ -617,7 +617,7 @@ export function ExchangeTab() {
                         {new Date(new Date(transacao.date).getTime() + 3 * 60 * 60 * 1000).toLocaleDateString("pt-BR")}
                       </td>
                       <td className={`py-2 px-4 border ${rowClass} text-center`}>
-                        {transacao.type === "BUY" ? "Compra" : transacao.type === "PAYMENT" ? "Pagamento" : "Devolução"}
+                        {transacao.type === "BUY" ? "COMPRA" : transacao.type === "PAYMENT" ? "PAGAMENTO" : "DEVOLUÇÃO"}
                       </td>
                       <td className={`py-2 px-4 border ${rowClass} text-center font-mono`}>
                         {transacao.type === "BUY" ? "+" : "-"}
@@ -626,7 +626,7 @@ export function ExchangeTab() {
                       <td className={`py-2 px-4 border ${rowClass} text-center font-mono`}>
                         {formatCurrency(transacao.rate, 4) || "-"}
                       </td>
-                      <td className={`py-2 px-4 border ${rowClass} text-center`}>{transacao.description}</td>
+                      <td className={`py-2 px-4 border ${rowClass} text-center`}>{transacao.description.toUpperCase()}</td>
                     </tr>
                   );
                 })
