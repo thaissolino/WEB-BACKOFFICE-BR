@@ -50,10 +50,8 @@ const AuthBackofficeProvider = ({ children }: AuthBackofficeProviderProps) => {
     } catch (err) {
       console.error(err);
       localStorage.removeItem("@backoffice:token");
-      return {
-        error: true,
-        message: "Credenciais inválidas",
-      };
+      // ✅ SOLUÇÃO: lançar o erro para que SignIn.tsx possa tratar corretamente
+      throw new Error("Credenciais inválidas");
     }
   };
 
@@ -126,11 +124,10 @@ const AuthBackofficeProvider = ({ children }: AuthBackofficeProviderProps) => {
   }, []);
 
   useEffect(() => {
-    if(process.env.REACT_APP_NODE_ENV !== "develop") {
-      console.log(process.env)
-      window.addEventListener("mousemove", handleMouseActivity)
-    };
-    
+    if (process.env.REACT_APP_NODE_ENV !== "develop") {
+      console.log(process.env);
+      window.addEventListener("mousemove", handleMouseActivity);
+    }
 
     return () => {
       clearTimeout(inactivityTimer);

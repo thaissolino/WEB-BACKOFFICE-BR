@@ -6,6 +6,7 @@ import Swal from "sweetalert2";
 import { useNotification } from "../../../hooks/notification";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
+import PdfShareModal from "../../../components/PdfShareModal";
 interface Operacao {
   id: number;
   date: string;
@@ -47,6 +48,7 @@ const LucrosTab: React.FC = () => {
   const [lucroPeriodoFiltro, setLucroPeriodoFiltro] = useState(0);
   const [comissaoPeriodoFiltro, setComissaoPeriodoFiltro] = useState(0);
   const { setOpenNotification } = useNotification();
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   useEffect(() => {
     const fetchOperacoes = async () => {
@@ -186,11 +188,10 @@ const LucrosTab: React.FC = () => {
       //   },
       // });
       setOpenNotification({
-        type: 'success',
-        title: 'Sucesso!',
-        notification: 'Operação registrada com sucesso!'
+        type: "success",
+        title: "Sucesso!",
+        notification: "Operação registrada com sucesso!",
       });
-
     } catch (e: any) {
       Swal.fire({
         icon: "error",
@@ -205,118 +206,99 @@ const LucrosTab: React.FC = () => {
     }
   };
   const generatePDF = () => {
-  const doc = new jsPDF({
-    orientation: "landscape",
-    unit: "mm",
-    format: "a4"
-  });
+    const doc = new jsPDF({
+      orientation: "landscape",
+      unit: "mm",
+      format: "a4",
+    });
 
-  // Cabeçalho principal
-  doc.setFontSize(16);
-  doc.setTextColor(40, 100, 40);
-  doc.text("Relatório de Lucros", 105, 15, { align: "center" });
-  
-  // Informações de emissão e período
-  doc.setFontSize(10);
-  doc.setTextColor(0, 0, 0);
-  
-  // Data de emissão formatada
-  const dataEmissao = new Date().toLocaleDateString('pt-BR', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit'
-  });
-  
-  // Período do filtro formatado
-  const periodoFiltro = filterApplied
-    ? `${filterStartDate ? new Date(filterStartDate).toLocaleDateString('pt-BR', {timeZone: 'UTC'}) : "início"} a ${filterEndDate ? new Date(filterEndDate).toLocaleDateString('pt-BR', {timeZone: 'UTC'}) : "fim"}`
-    : "Período completo";
-  
-  // Adicionar informações ao PDF
-  doc.text(`Data de emissão: ${dataEmissao}`, 15, 22);
-  doc.text(`Período: ${periodoFiltro}`, 15, 27);
+    // Cabeçalho principal
+    doc.setFontSize(16);
+    doc.setTextColor(40, 100, 40);
+    doc.text("Relatório de Lucros", 105, 15, { align: "center" });
 
-  // Preparar dados da tabela
-  const tableData = operacoesValidas
-    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-    .map((op) => [
-      formatDate(op.date),
-      op.city || "Desconhecido",
-      getRecolhedorNome(op.collectorId),
-      getFornecedorNome(op.supplierId),
-      formatCurrency(op.value || 0),
-      formatCurrency(op.profit || 0)
-    ]);
+    // Informações de emissão e período
+    doc.setFontSize(10);
+    doc.setTextColor(0, 0, 0);
 
-  // Gerar tabela
-  autoTable(doc, {
-    head: [
-      [
-        "Data",
-        "Operação",
-        "Recolhedor",
-        "Fornecedor",
-        "Valor Operação",
-        "Lucro"
-      ]
-    ],
-    body: tableData,
-    startY: 32,
-    styles: {
-      fontSize: 9,
-      cellPadding: 2,
-      halign: "center"
-    },
-    headStyles: {
-      fillColor: [229, 231, 235],
-      textColor: 0,
-      fontStyle: "bold"
-    },
-    alternateRowStyles: {
-      fillColor: [240, 249, 255]
-    },
-    didDrawPage: (data) => {
-      doc.setFontSize(10);
-      doc.text(
-        `Gerado em: ${new Date().toLocaleDateString()}`,
-        15,
-        doc.internal.pageSize.height - 10
-      );
+    // Data de emissão formatada
+    const dataEmissao = new Date().toLocaleDateString("pt-BR", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+
+    // Período do filtro formatado
+    const periodoFiltro = filterApplied
+      ? `${filterStartDate ? new Date(filterStartDate).toLocaleDateString("pt-BR", { timeZone: "UTC" }) : "início"} a ${
+          filterEndDate ? new Date(filterEndDate).toLocaleDateString("pt-BR", { timeZone: "UTC" }) : "fim"
+        }`
+      : "Período completo";
+
+    // Adicionar informações ao PDF
+    doc.text(`Data de emissão: ${dataEmissao}`, 15, 22);
+    doc.text(`Período: ${periodoFiltro}`, 15, 27);
+
+    // Preparar dados da tabela
+    const tableData = operacoesValidas
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+      .map((op) => [
+        formatDate(op.date),
+        op.city || "Desconhecido",
+        getRecolhedorNome(op.collectorId),
+        getFornecedorNome(op.supplierId),
+        formatCurrency(op.value || 0),
+        formatCurrency(op.profit || 0),
+      ]);
+
+    // Gerar tabela
+    autoTable(doc, {
+      head: [["Data", "Operação", "Recolhedor", "Fornecedor", "Valor Operação", "Lucro"]],
+      body: tableData,
+      startY: 32,
+      styles: {
+        fontSize: 9,
+        cellPadding: 2,
+        halign: "center",
+      },
+      headStyles: {
+        fillColor: [229, 231, 235],
+        textColor: 0,
+        fontStyle: "bold",
+      },
+      alternateRowStyles: {
+        fillColor: [240, 249, 255],
+      },
+      didDrawPage: (data) => {
+        doc.setFontSize(10);
+        doc.text(`Gerado em: ${new Date().toLocaleDateString()}`, 15, doc.internal.pageSize.height - 10);
+      },
+    });
+
+    // Adicionar totais
+    const finalY = (doc as any).lastAutoTable.finalY + 10;
+
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "bold");
+
+    if (filterApplied) {
+      doc.text(`Lucro Por Período Selecionado: ${formatCurrency(lucroPeriodoFiltro)}`, 15, finalY);
+      // doc.text(
+      //   `Comissão Total: ${formatCurrency(comissaoPeriodoFiltro)}`,
+      //   100,
+      //   finalY
+      // );
+    } else {
+      doc.text(`Lucro Mês Atual: ${formatCurrency(lucroMesAtual)}`, 15, finalY);
+      doc.text(`Lucro Mês Anterior: ${formatCurrency(lucroMesAnterior)}`, 70, finalY);
+      doc.text(`Total Acumulado: ${formatCurrency(totalAcumulado)}`, 150, finalY);
     }
-  });
 
-  // Adicionar totais
-  const finalY = (doc as any).lastAutoTable.finalY + 10;
-  
-  doc.setFontSize(12);
-  doc.setFont("helvetica", "bold");
-  
-  if (filterApplied) {
-    doc.text(`Lucro Por Período Selecionado: ${formatCurrency(lucroPeriodoFiltro)}`, 15, finalY);
-    // doc.text(
-    //   `Comissão Total: ${formatCurrency(comissaoPeriodoFiltro)}`,
-    //   100,
-    //   finalY
-    // );
-  } else {
-    doc.text(`Lucro Mês Atual: ${formatCurrency(lucroMesAtual)}`, 15, finalY);
-    doc.text(
-      `Lucro Mês Anterior: ${formatCurrency(lucroMesAnterior)}`,
-      70,
-      finalY
-    );
-    doc.text(
-      `Total Acumulado: ${formatCurrency(totalAcumulado)}`,
-      150,
-      finalY
-    );
-  }
-
-  // Salvar PDF
-  doc.save(`relatorio_lucros_${new Date().toISOString().split("T")[0]}.pdf`);
-};
+    // Salvar PDF
+    doc.save(`relatorio_lucros_${new Date().toISOString().split("T")[0]}.pdf`);
+  };
   if (loading) {
     return (
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex items-center justify-center h-64">
@@ -342,15 +324,19 @@ const LucrosTab: React.FC = () => {
         <div className="w-full flex flex-row items-center justify-between max-w-[100%]">
           <div className="w-full flex justify-between items-start border-b pb-2 mb-4">
             <div className="flex flex-col whitespace-nowrap">
-              
               <h2 className="text-xl font-semibold mt-4 text-green-700">
                 <i className="fas fa-chart-line mr-2"></i> HISTÓRICO DE LUCROS
               </h2>
               <span className="text-xs font-medium text-gray-700 mb-1">
                 {filterApplied
-                ? `(Filtrado: ${filterStartDate ? new Date(filterStartDate).toLocaleDateString('pt-BR',{timeZone: 'UTC'}) : "início"} a ${filterEndDate ? new Date(filterEndDate).toLocaleDateString('pt-BR',{ timeZone: 'UTC'}) : "fim"})`
-                : ""}
-
+                  ? `(Filtrado: ${
+                      filterStartDate
+                        ? new Date(filterStartDate).toLocaleDateString("pt-BR", { timeZone: "UTC" })
+                        : "início"
+                    } a ${
+                      filterEndDate ? new Date(filterEndDate).toLocaleDateString("pt-BR", { timeZone: "UTC" }) : "fim"
+                    })`
+                  : ""}
               </span>
             </div>
 
@@ -384,9 +370,13 @@ const LucrosTab: React.FC = () => {
                 Filtrar
               </button>
               <button
-                onClick={generatePDF}
+                onClick={() => setIsModalOpen(true)}
                 disabled={!filterApplied}
-                className={`w-40 h-6 rounded-md  text-sm font-medium flex items-center justify-center ${!filterApplied ? "cursor-not-allowed bg-gray-200 text-gray-500 " : "bg-white text-blue-600 border border-blue-600 hover:bg-blue-600 hover:text-white rounded-md text-sm font-medium h-6 px-4 mr-2 flex items-center justify-center transition-colors"}`}
+                className={`w-40 h-6 rounded-md text-sm font-medium flex items-center justify-center ${
+                  !filterApplied
+                    ? "cursor-not-allowed bg-gray-200 text-gray-500 "
+                    : "bg-white text-blue-600 border border-blue-600 hover:bg-blue-600 hover:text-white rounded-md text-sm font-medium h-6 px-4 mr-2 flex items-center justify-center transition-colors"
+                }`}
               >
                 Exportar extrato PDF
               </button>
@@ -496,6 +486,7 @@ const LucrosTab: React.FC = () => {
           </div>
         </div>
       </div>
+      {isModalOpen && <PdfShareModal onClose={() => setIsModalOpen(false)} generatePDF={generatePDF} />}
     </div>
   );
 };

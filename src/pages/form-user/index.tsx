@@ -1,4 +1,14 @@
-import { Box, Button, CircularProgress, TextField, Snackbar, Alert, Card, CardContent, Typography } from "@mui/material";
+import {
+  Box,
+  Button,
+  CircularProgress,
+  TextField,
+  Snackbar,
+  Alert,
+  Card,
+  CardContent,
+  Typography,
+} from "@mui/material";
 import { Formik, FormikHelpers } from "formik";
 import * as yup from "yup";
 import useMediaQuery from "@mui/material/useMediaQuery";
@@ -33,7 +43,7 @@ const FormUser = () => {
     try {
       const payload = {
         name: values.name,
-        userName: values.userName,
+        userName: values.userName.trim().toLowerCase(),
         hardPassword: values.hardPassword,
         password_hash: values.password,
       };
