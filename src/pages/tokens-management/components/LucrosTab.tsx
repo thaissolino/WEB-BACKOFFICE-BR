@@ -294,12 +294,12 @@ const LucrosTab: React.FC = () => {
   doc.setFont("helvetica", "bold");
   
   if (filterApplied) {
-    doc.text(`Lucro Total: ${formatCurrency(lucroPeriodoFiltro)}`, 15, finalY);
-    doc.text(
-      `Comissão Total: ${formatCurrency(comissaoPeriodoFiltro)}`,
-      100,
-      finalY
-    );
+    doc.text(`Lucro Por Período Selecionado: ${formatCurrency(lucroPeriodoFiltro)}`, 15, finalY);
+    // doc.text(
+    //   `Comissão Total: ${formatCurrency(comissaoPeriodoFiltro)}`,
+    //   100,
+    //   finalY
+    // );
   } else {
     doc.text(`Lucro Mês Atual: ${formatCurrency(lucroMesAtual)}`, 15, finalY);
     doc.text(
@@ -403,13 +403,13 @@ const LucrosTab: React.FC = () => {
         {filterApplied ? (
           <div className="mb-6 grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="bg-blue-50 p-4 rounded-lg">
-              <h3 className="font-medium mb-2">LUCRO</h3>
+              <h3 className="font-medium mb-2">LUCRO POR PERIODO SELECIONADO</h3>
               <p className="text-2xl font-bold text-blue-600">{formatCurrency(lucroPeriodoFiltro)}</p>
             </div>
-            <div className="bg-green-50 p-4 rounded-lg">
+            {/* <div className="bg-green-50 p-4 rounded-lg">
               <h3 className="font-medium mb-2">COMISSÃO RECEBIDA</h3>
               <p className="text-2xl font-bold text-green-600">{formatCurrency(comissaoPeriodoFiltro)}</p>
-            </div>
+            </div> */}
           </div>
         ) : (
           <div className="mb-6 grid grid-cols-1 md:grid-cols-3 gap-4">

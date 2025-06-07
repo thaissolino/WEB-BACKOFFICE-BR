@@ -447,12 +447,12 @@ const FornecedoresTab: React.FC = () => {
   doc.setFontSize(11);
   doc.setFont("helvetica", "bold");
   
-  doc.text(`Total de entradas: ${formatCurrency(totalEntradas, 2, "USD")}`, 15, finalY);
-  doc.text(`Total de saídas: ${formatCurrency(totalSaidas, 2, "USD")}`, 70, finalY);
-  doc.text(`Saldo do período: ${formatCurrency(saldoPeriodo, 2, "USD")}`, 130, finalY);
+  // doc.text(`Total de entradas: ${formatCurrency(totalEntradas, 2, "USD")}`, 15, finalY);
+  // doc.text(`Total de saídas: ${formatCurrency(totalSaidas, 2, "USD")}`, 70, finalY);
+   doc.text(`Saldo período selecionado: ${formatCurrency(saldoPeriodo, 2, "USD")}`, 15, finalY);
   
-  // Saldo total
-  doc.text(`Saldo atual: ${formatCurrency(calculatedBalances[fornecedorSelecionado.id] || 0, 2, "USD")}`, 15, finalY + 10);
+  // // Saldo total
+  // doc.text(`Saldo atual: ${formatCurrency(calculatedBalances[fornecedorSelecionado.id] || 0, 2, "USD")}`, 15, finalY + 10);
 
   // Salvar PDF
   doc.save(`extrato_${fornecedorSelecionado.name.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`);

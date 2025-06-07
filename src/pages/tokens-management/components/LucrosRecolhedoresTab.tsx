@@ -222,17 +222,21 @@ const LucrosRecolhedoresFusionTab: React.FC = () => {
           <>
             <div className="mb-6 grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="bg-blue-50 p-4 rounded-lg">
-                <h3 className="font-medium mb-2">LUCRO ESTE MÊS</h3>
+                <h3 className="font-medium mb-2">LUCRO</h3>
                 <p className="text-2xl font-bold text-blue-600">{formatCurrency(lucroMesAtual)}</p>
               </div>
-              <div className="bg-green-50 p-4 rounded-lg">
+              <div className="bg-yellow-100 p-4 rounded-lg">
+                <h3 className="font-medium mb-2">COMISSÃO</h3>
+                <p className="text-2xl font-bold text-yellow-600">{formatCurrency(lucroMesAnterior)}</p>
+              </div>
+              {/* <div className="bg-green-50 p-4 rounded-lg">
                 <h3 className="font-medium mb-2">LUCRO MÊS ANTERIOR</h3>
                 <p className="text-2xl font-bold text-green-600">{formatCurrency(lucroMesAnterior)}</p>
-              </div>
-              <div className="bg-purple-50 p-4 rounded-lg">
+              </div> */}
+              {/* <div className="bg-purple-50 p-4 rounded-lg">
                 <h3 className="font-medium mb-2">TOTAL ACUMULADO</h3>
                 <p className="text-2xl font-bold text-purple-600">{formatCurrency(lucroMesAtual + lucroMesAnterior)}</p>
-              </div>
+              </div> */}
             </div>
           </>
         )}
