@@ -516,7 +516,7 @@ export function ExchangeTab() {
                   invoiceId: invoiceId,
                   type: "PAYMENT",
                   usd: valueInvoice?.subAmount || 0,
-                  description: `Pagamento Invoice - ${valueInvoice?.number}`,
+                  description: `PAGAMENTO INVOICE - ${valueInvoice?.number.toUpperCase()}`,
                 }));
               }}
               className="w-full h-11 border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500"

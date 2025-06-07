@@ -294,7 +294,7 @@ const FornecedoresTab: React.FC = () => {
         id: `op-${op.id}`,
         date: op.date || new Date().toISOString(),
         valor: -(op.value || 0) / (op.supplierTax || fornecedorSelecionado?.tax || 1),
-        descricao: `operação #${op.id} · ${op.city?.toLowerCase() || ""}`,
+        descricao: `OPERAÇÃO #${op.id} · ${op.city?.toUpperCase() || ""}`,
         tipo: "debito",
       })),
     ...payments
