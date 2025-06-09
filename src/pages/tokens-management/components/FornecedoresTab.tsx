@@ -72,8 +72,8 @@ const FornecedoresTab: React.FC = () => {
   const [paginaAtual, setPaginaAtual] = useState(0);
   const [filterStartDate, setFilterStartDate] = useState<string>("");
   const [filterEndDate, setFilterEndDate] = useState<string>("");
-  const [tempStartDate, setTempStartDate] = useState<string>(""); // Estado temporário para data inicial
-  const [tempEndDate, setTempEndDate] = useState<string>(""); // Estado temporário para data final
+  const [tempStartDate, setTempStartDate] = useState<string>(new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split("T")[0]); // Estado temporário para data inicial
+  const [tempEndDate, setTempEndDate] = useState<string>(new Date().toLocaleDateString("en-CA")); // Estado temporário para data final
   const itensPorPagina = 6;
   const [filterApplied, setFilterApplied] = useState(false);
   const { setOpenNotification } = useNotification();
@@ -156,6 +156,11 @@ const FornecedoresTab: React.FC = () => {
         });
         setCalculatedBalances(updatedBalances);
 
+            setFilterStartDate(tempStartDate);
+    setFilterEndDate(tempEndDate);
+    setFilterApplied(true);
+    setPaginaAtual(0);
+
         return updatedPayments;
       });
     } catch (error: any) {
@@ -163,6 +168,7 @@ const FornecedoresTab: React.FC = () => {
       alert("Erro ao carregar detalhes do fornecedor.");
       setFornecedorSelecionado(null);
     }
+
   };
 
   const fecharCaixa = () => {
@@ -559,7 +565,7 @@ const FornecedoresTab: React.FC = () => {
                     transition={{ duration: 0.2 }}
                     className="hover:bg-gray-50"
                   >
-                    <td className="py-2 px-4 border text-center">{f.name}</td>
+                    <td className="py-2 px-4 border text-center">{f.name.toUpperCase()}</td>
                     <td
                       className={`py-2 px-4 border text-center font-bold ${
                         Math.abs(calculatedBalances[f.id]) < 0.009

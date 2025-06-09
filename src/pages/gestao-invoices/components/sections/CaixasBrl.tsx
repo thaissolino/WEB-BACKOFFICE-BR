@@ -74,7 +74,7 @@ export const CaixasTabBrl = () => {
   const [valorRaw, setValorRaw] = useState("");
   const [currentPage, setCurrentPage] = useState(0);
   const itemsPerPage = 6; // ou o número que preferir
-  const [filterStartDate, setFilterStartDate] = useState<string>("");
+  const [filterStartDate, setFilterStartDate] = useState<string>(new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split("T")[0]);
   const [filterEndDate, setFilterEndDate] = useState<string>("");
   const [activeFilterStartDate, setActiveFilterStartDate] = useState<string>("");
   const [activeFilterEndDate, setActiveFilterEndDate] = useState<string>("");
