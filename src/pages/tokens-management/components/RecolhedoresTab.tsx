@@ -111,8 +111,8 @@ const RecolhedoresTab: React.FC = () => {
   const [paginaAtual, setPaginaAtual] = useState(0);
   const [filterApplied, setFilterApplied] = useState(false); //Estado pra saber se o filtro já foi acionado ou não!
   const itensPorPagina = 6;
-  const [filterStartDate, setFilterStartDate] = useState<string>("");
-  const [filterEndDate, setFilterEndDate] = useState<string>("");
+  const [filterStartDate, setFilterStartDate] = useState<string>(new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split("T")[0]);
+  const [filterEndDate, setFilterEndDate] = useState<string>(new Date().toLocaleDateString("en-CA"));
   const [activeFilterStartDate, setActiveFilterStartDate] = useState<string>("");
   const [activeFilterEndDate, setActiveFilterEndDate] = useState<string>("");
   const { setOpenNotification } = useNotification();
@@ -205,6 +205,10 @@ const RecolhedoresTab: React.FC = () => {
       });
 
       setSelectedRecolhedor(recolhedorDetalhes.data);
+      setActiveFilterStartDate(filterStartDate);
+      setActiveFilterEndDate(filterEndDate);
+      setFilterApplied(true);
+      setPaginaAtual(0);
     } catch (error: any) {
       console.error("Erro ao buscar detalhes do recolhedor:", error.message);
       alert("Erro ao carregar detalhes do recolhedor.");
@@ -658,7 +662,7 @@ const RecolhedoresTab: React.FC = () => {
                     transition={{ duration: 0.2 }}
                     className="hover:bg-gray-50"
                   >
-                    <td className="py-2 px-4 border text-center">{r.name}</td>
+                    <td className="py-2 px-4 border text-center">{r.name.toUpperCase()}</td>
                     <td
                       className={`py-2 px-4 border text-center font-bold ${
                         Math.abs(calculatedBalances[r.id]) < 0.009
