@@ -41,7 +41,7 @@ const OperacoesTab: React.FC = () => {
   const [fornecedores, setFornecedores] = useState<Fornecedor[]>([]);
   const [operacoes, setOperacoes] = useState<Operacao[]>([]);
 
-  const [dataOperacao, setDataOperacao] = useState<string>(new Date().toISOString().split("T")[0]);
+  const [dataOperacao, setDataOperacao] = useState<string>(new Date().toLocaleDateString('en-CA'));
   const [localOperacao, setLocalOperacao] = useState("");
   const [valorOperacao, setValorOperacao] = useState<number | null>(null);
   // const [valorOperacao2, setValorOperacao2] = useState(""); // Controla o valor digitado

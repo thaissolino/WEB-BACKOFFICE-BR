@@ -8,6 +8,8 @@ import { api } from "../../../services/api";
 import Swal from "sweetalert2";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
+import { useNotification } from "../../../hooks/notification";
+import { subtractHoursToLocaleBR } from "./RecolhedoresTab";
 interface Transacao {
   id: number;
   date: string;
@@ -54,7 +56,7 @@ const FornecedoresTab: React.FC = () => {
   const [fornecedorSelecionado, setFornecedorSelecionado] = useState<Fornecedor | null>(null);
   const [valorPagamento, setValorPagamento] = useState<number | null>(null);
   const [descricaoPagamento, setDescricaoPagamento] = useState("");
-  const [dataPagamento, setDataPagamento] = useState<string>(new Date().toISOString().split("T")[0]);
+  const [dataPagamento, setDataPagamento] = useState<string>(new Date().toLocaleDateString('en-CA'));
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [fornecedorToDelete, setFornecedorToDelete] = useState<number | null>(null);
@@ -72,7 +74,8 @@ const FornecedoresTab: React.FC = () => {
   const [tempStartDate, setTempStartDate] = useState<string>(""); // Estado temporário para data inicial
   const [tempEndDate, setTempEndDate] = useState<string>(""); // Estado temporário para data final
   const itensPorPagina = 6;
-    const [filterApplied, setFilterApplied] = useState(false);
+  const [filterApplied, setFilterApplied] = useState(false);
+  const { setOpenNotification } = useNotification();
 
   const fetchAllData = async () => {
     setLoading(true);
@@ -176,7 +179,7 @@ const FornecedoresTab: React.FC = () => {
     setIsProcessingPayment(true);
 
     try {
-      const isHoje = dataPagamento === new Date().toISOString().split("T")[0];
+      const isHoje = dataPagamento === new Date().toLocaleDateString('en-CA');
       const dataFinal = isHoje ? new Date().toISOString() : new Date(`${dataPagamento}T00:00:00`).toISOString();
 
       const paymentData = {
@@ -202,19 +205,25 @@ const FornecedoresTab: React.FC = () => {
 
       setValorPagamento(null);
       setDescricaoPagamento("");
-      setDataPagamento(new Date().toISOString().split("T")[0]);
+      setDataPagamento(new Date().toLocaleDateString('en-CA'));
 
       setNewPaymentId(`pay-${newPayment.id}`);
       // alert("Pagamento registrado com sucesso!");
-      Swal.fire({
-        icon: "success",
-        title: "Sucesso!",
-        text: "Operação registrada com sucesso!",
-        confirmButtonText: "Ok",
-        buttonsStyling: false,
-        customClass: {
-          confirmButton: "bg-blue-600 text-white hover:bg-blue-700 px-4 py-2 rounded font-semibold",
-        },
+      // Swal.fire({
+      //   icon: "success",
+      //   title: "Sucesso!",
+      //   text: "Operação registrada com sucesso!",
+      //   confirmButtonText: "Ok",
+      //   buttonsStyling: false,
+      //   customClass: {
+      //     confirmButton: "bg-blue-600 text-white hover:bg-blue-700 px-4 py-2 rounded font-semibold",
+      //   },
+      // });
+
+      setOpenNotification({
+        type: 'success',
+        title: 'Sucesso!',
+        notification: 'Operação registrada com sucesso!'
       });
     } catch (e: any) {
       console.log("error", e);
@@ -303,7 +312,7 @@ const FornecedoresTab: React.FC = () => {
         id: `pay-${p.id}`,
         date: p.date,
         valor: p.amount,
-        descricao: p.description,
+        descricao: p.description.toUpperCase(),
         tipo: "pagamento",
       })),
   ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
@@ -830,9 +839,9 @@ const FornecedoresTab: React.FC = () => {
                             className="odd:bg-blue-50 even:bg-green-50"
                           >
                             <td className="py-2 px-4 border text-sm text-gray-700">
-                              <div className="flex items-center gap-2" title={new Date(t.date).toISOString()}>
+                              <div className="flex items-center gap-2" title={subtractHoursToLocaleBR(t.date)}>
                                 <i className="fas fa-clock text-green-500 mr-2"></i>
-                                {formatDate(t.date)}
+                                {subtractHoursToLocaleBR(t.date)}
                               </div>
                             </td>
                             <td className="py-2 px-4 border text-sm text-gray-700">{t.descricao}</td>

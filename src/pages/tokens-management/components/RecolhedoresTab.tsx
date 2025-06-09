@@ -49,6 +49,44 @@ export interface Operacao {
   idOperation: number;
 }
 
+export function addLocalTimeToDate(dateStr: string) {
+  const now = new Date();
+  const hours = String(now.getHours()).padStart(2, '0');
+  const minutes = String(now.getMinutes()).padStart(2, '0');
+  const seconds = String(now.getSeconds()).padStart(2, '0');
+  const milliseconds = String(now.getMilliseconds()).padStart(3, '0');
+  
+  return `${dateStr}T${hours}:${minutes}:${seconds}.${milliseconds}`;
+}
+
+function subtractHoursGetTime(dateStr:string, hours:number) {
+  const date = new Date(dateStr);
+  date.setHours(date.getHours() - hours);
+  return date.toISOString().split('T')[1].split('.')[0];
+}
+
+function subtractHoursGetDate(dateStr:string, hours:number) {
+  const date = new Date(dateStr);
+  date.setHours(date.getHours() - hours);
+  return date.toISOString().split('T')[0];
+}
+
+
+
+export function subtractHoursToLocaleBR(dateStr:string) {
+  const date = new Date(dateStr);
+
+  return date.toLocaleString('pt-BR', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  });
+}
+
 const RecolhedoresTab: React.FC = () => {
   const [recolhedores, setRecolhedores] = useState<Recolhedor[]>([]);
   const [showModal, setShowModal] = useState(false);
@@ -57,7 +95,7 @@ const RecolhedoresTab: React.FC = () => {
   const [valorPagamento, setValorPagamento] = useState<number | null>(null);
   //const [valorPagamento, setValorPagamento] = useState<string>('');
   const [descricaoPagamento, setDescricaoPagamento] = useState("");
-  const [dataPagamento, setDataPagamento] = useState<string>(new Date().toISOString().split("T")[0]);
+  const [dataPagamento, setDataPagamento] = useState<string>(new Date().toLocaleDateString('en-CA'));
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [recolhedorToDelete, setRecolhedorToDelete] = useState<number | null>(null);
@@ -214,14 +252,15 @@ const RecolhedoresTab: React.FC = () => {
     setIsProcessingPayment(true);
 
     try {
-      const isHoje = dataPagamento === new Date().toISOString().split("T")[0];
+      const isHoje = dataPagamento === new Date().toLocaleDateString('en-CA');
+      const dataOk = addLocalTimeToDate(dataPagamento);
       const dataFinal = isHoje ? new Date().toISOString() : new Date(`${dataPagamento}T00:00:00`).toISOString();
 
       const paymentData = {
         collectorId: selectedRecolhedor.id,
         amount: valorPagamento,
         description: descricaoPagamento,
-        date: dataFinal,
+        date: dataOk,
       };
 
       const response = await api.post("/api/payments", paymentData);
@@ -246,7 +285,7 @@ const RecolhedoresTab: React.FC = () => {
       // Resetar o formulário
       setValorPagamento(null);
       setDescricaoPagamento("");
-      setDataPagamento(new Date().toISOString().split("T")[0]);
+      setDataPagamento(new Date().toLocaleDateString('en-CA'));
 
       // alert("Pagamento registrado com sucesso!");
       // Swal.fire({
@@ -937,9 +976,9 @@ const RecolhedoresTab: React.FC = () => {
                             className="odd:bg-blue-50 even:bg-green-50"
                           >
                             <td className="py-2 px-4 border text-sm text-gray-700">
-                              <div className="flex items-center gap-2" title={new Date(t.date).toISOString()}>
+                              <div className="flex items-center gap-2" title={subtractHoursToLocaleBR(t.date)}>
                                 <i className="fas fa-clock text-green-500 mr-2"></i>
-                                {formatDate(t.date)}
+                                {subtractHoursToLocaleBR(t.date)}
                               </div>
                             </td>
                             <td className="py-2 px-4 border text-sm text-gray-700">{t.descricao}</td>

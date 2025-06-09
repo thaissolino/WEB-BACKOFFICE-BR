@@ -315,7 +315,7 @@ const LucrosTab: React.FC = () => {
   }
 
   // Salvar PDF
-  doc.save(`relatorio_lucros_${new Date().toISOString().split("T")[0]}.pdf`);
+  doc.save(`relatorio_lucros_${new Date().toLocaleDateString('en-CA')}.pdf`);
 };
   if (loading) {
     return (
