@@ -18,6 +18,7 @@ interface Operacao {
   supplierTax: number;
   profit: number;
   comission: number;
+  idOperation: number;
 }
 
 interface Recolhedor {
@@ -127,6 +128,7 @@ const LucrosTab: React.FC = () => {
     }
 
     const filtered = operacoes.filter((op) => {
+      if(op.idOperation) return false;
       const opDate = new Date(op.date);
       const isAfterStart = !startDate || opDate >= startDate;
       const isBeforeEnd = !endDate || opDate < endDate;
