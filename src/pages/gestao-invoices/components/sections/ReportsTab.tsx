@@ -34,8 +34,8 @@ export function ReportsTab() {
   }, []);
 
   const [filters, setFilters] = useState({
-    startDate: "",
-    endDate: "",
+    startDate: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split("T")[0],
+    endDate: new Date().toLocaleDateString("en-CA"),
     status: "all",
     supplier: "all",
   });
