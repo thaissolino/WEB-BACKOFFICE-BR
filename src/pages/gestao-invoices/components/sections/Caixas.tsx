@@ -53,8 +53,8 @@ export const CaixasTab = () => {
   // const [showModal, setShowModal] = useState(false);
   const [selectedEntity, setSelectedEntity] = useState<any | null>(null)
   const [totalBalance, setTotalBalance] = useState<number>(0)
-  const [filterStartDate, setFilterStartDate] = useState<string>("")
-  const [filterEndDate, setFilterEndDate] = useState<string>("")
+  const [filterStartDate, setFilterStartDate] = useState<string>(new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split("T")[0])
+  const [filterEndDate, setFilterEndDate] = useState<string>(new Date().toLocaleDateString("en-CA"))
   const [transactionHistoryList, setTransactionHistoryList] = useState<TransactionHistory[]>([])
 
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null)
@@ -352,6 +352,9 @@ export const CaixasTab = () => {
         },
       })
     } finally {
+      setActiveFilterStartDate(filterStartDate)
+      setActiveFilterEndDate(filterEndDate)
+      setCurrentPage(0)
       setLoadingFetch2(false)
     }
   }
