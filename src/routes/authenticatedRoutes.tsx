@@ -17,6 +17,7 @@ import { CambioPage } from "../pages/cambiobackoffice/CambioPage";
 import InvocesManagement from "../pages/gestao-invoices/InvocesManagement";
 import TokensManagement from "../pages/tokens-management/TokensManagement";
 import BillsManagement from "../pages/bills-management";
+import OperatorsManagement from "../pages/form-operators/OperatorsManagement";
 
 const BACKOFFICE_ROUTE = "/backoffice";
 const LOGIN_ROUTE = "/signin/backoffice";
@@ -63,6 +64,7 @@ export function Router() {
           <Route path="backoffice" element={<Dashboard />} />
           <Route path="team" element={<Team />} />
           <Route path="users" element={<Contacts />} />
+          <Route path="operators-management" element={<OperatorsManagement />} />
           <Route path="spreadsheets" element={<SpreadsheetApp />} />
           <Route path="invoices" element={<Invoices />} />
           <Route path="create-form-group" element={<FormGroup />} />
