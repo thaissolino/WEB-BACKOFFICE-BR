@@ -67,7 +67,7 @@ export const CaixasTab = () => {
   const { setOpenNotification } = useNotification();
 
   const [formData, setFormData] = useState({
-    date: new Date().toISOString().split("T")[0],
+    date: new Date().toLocaleDateString('en-CA'),
     value: "",
     description: "",
   })
@@ -449,7 +449,7 @@ export const CaixasTab = () => {
 
       getBalances()
 
-      setFormData({ date: new Date().toISOString().split("T")[0], value: "", description: "" })
+      setFormData({ date: new Date().toLocaleDateString('en-CA'), value: "", description: "" })
       fetchDatUser()
       // Swal.fire({
       //   icon: "success",

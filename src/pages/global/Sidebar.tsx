@@ -12,6 +12,7 @@ import TableChartOutlinedIcon from "@mui/icons-material/TableChartOutlined";
 import PersonOutlinedIcon from "@mui/icons-material/PersonOutlined";
 import MenuOutlinedIcon from "@mui/icons-material/MenuOutlined";
 import PersonAddIcon from "@mui/icons-material/PersonAdd";
+import AdminPanelSettingsOutlinedIcon from "@mui/icons-material/AdminPanelSettingsOutlined";
 import { useAuthBackoffice } from "../../hooks/authBackoffice";
 import { EnhancedModal } from "../../components/modals/harCodedModal";
 import DescriptionOutlinedIcon from "@mui/icons-material/DescriptionOutlined";
@@ -227,6 +228,14 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebar }) => {
               title="Gerenciar Usuários"
               to="/users"
               icon={<PersonOutlinedIcon />}
+              selected={selected}
+              setSelected={setSelected}
+            />
+
+            <Item
+              title="Gerenciar Operadores"
+              to="/operators-management"
+              icon={<AdminPanelSettingsOutlinedIcon />} // OU PersonOutlinedIcon se preferir
               selected={selected}
               setSelected={setSelected}
             />

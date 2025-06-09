@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { formatCurrency, formatDate } from "./format";
+import { formatCurrency, formatDate, formatDateIn } from "./format";
 import SuccessModal from "./SuccessModal";
 import OperationDetailsModal from "./OperationDetailsModal";
 import { api } from "../../../services/api";
@@ -41,7 +41,7 @@ const OperacoesTab: React.FC = () => {
   const [fornecedores, setFornecedores] = useState<Fornecedor[]>([]);
   const [operacoes, setOperacoes] = useState<Operacao[]>([]);
 
-  const [dataOperacao, setDataOperacao] = useState<string>(new Date().toISOString().split("T")[0]);
+  const [dataOperacao, setDataOperacao] = useState<string>(new Date().toLocaleDateString('en-CA'));
   const [localOperacao, setLocalOperacao] = useState("");
   const [valorOperacao, setValorOperacao] = useState<number | null>(null);
   // const [valorOperacao2, setValorOperacao2] = useState(""); // Controla o valor digitado
@@ -465,7 +465,7 @@ const OperacoesTab: React.FC = () => {
                   <tr key={op.id} className="odd:bg-blue-50 even:bg-green-50">
                     <td className="py-2 px-4 border text-center align-middle">
                       <i className="fas fa-clock text-green-500 mr-2"></i>
-                      {formatDate(new Date(op.date))}
+                      {formatDateIn(new Date(op.date))}
                     </td>
                     <td className="py-2 px-4 border align-middle text-center">{op.city}</td>
                     <td className="py-2 px-4 border align-middle text-center">{getRecolhedorNome(op.collectorId)}</td>

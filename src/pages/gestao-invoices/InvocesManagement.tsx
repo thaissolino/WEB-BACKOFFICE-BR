@@ -28,7 +28,7 @@ export default function InvocesManagement() {
   const [currentInvoice, setCurrentInvoice] = useState<Invoice>({
     id: null,
     number: `INV-${Date.now()}`,
-    date: new Date().toISOString().split("T")[0],
+    date: new Date().toLocaleDateString('en-CA'),
     supplierId: "",
     products: [],
     amountTaxcarrier: 0,
