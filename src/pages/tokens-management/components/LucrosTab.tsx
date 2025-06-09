@@ -73,6 +73,10 @@ const LucrosTab: React.FC = () => {
         const startDate = filterStartDate ? new Date(filterStartDate) : null;
         const endDate = filterEndDate ? new Date(filterEndDate) : null;
 
+        // if (endDate) {
+        //   endDate.setDate(endDate.getDate() + 1); // Inclui o dia final
+        // }
+
         const filtered = response.data.filter((op:any) => {
           if(op.idOperation) return false;
           const opDate = new Date(op.date);
@@ -90,7 +94,7 @@ const LucrosTab: React.FC = () => {
         setComissaoPeriodoFiltro(comissaoTotal);
 
         // Inicialmente não aplicamos filtro
-        // setFilteredOperations(response.data);
+        setFilteredOperations(response.data);
 
         const totalCount = response.headers["x-total-count"];
         setTotalPaginas(totalCount ? Math.ceil(parseInt(totalCount, 10) / itensPorPagina) : 1);
