@@ -42,8 +42,8 @@ const LucrosTab: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
 
   // Estados para filtro de data
-  const [filterStartDate, setFilterStartDate] = useState<string>("");
-  const [filterEndDate, setFilterEndDate] = useState<string>("");
+  const [filterStartDate, setFilterStartDate] = useState<string>(new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split("T")[0]);
+  const [filterEndDate, setFilterEndDate] = useState<string>(new Date().toLocaleDateString("en-CA"));
   const [filteredOperations, setFilteredOperations] = useState<Operacao[]>([]);
   const [filterApplied, setFilterApplied] = useState(false);
   const [lucroPeriodoFiltro, setLucroPeriodoFiltro] = useState(0);
@@ -64,6 +64,34 @@ const LucrosTab: React.FC = () => {
         });
 
         setOperacoes(response.data);
+
+        if (!filterStartDate && !filterEndDate) {
+          setFilteredOperations(operacoes);
+          setFilterApplied(false);
+        }
+
+        const startDate = filterStartDate ? new Date(filterStartDate) : null;
+        const endDate = filterEndDate ? new Date(filterEndDate) : null;
+
+        // if (endDate) {
+        //   endDate.setDate(endDate.getDate() + 1); // Inclui o dia final
+        // }
+
+        const filtered = response.data.filter((op:any) => {
+          if(op.idOperation) return false;
+          const opDate = new Date(op.date);
+          const isAfterStart = !startDate || opDate >= startDate;
+          const isBeforeEnd = !endDate || opDate < endDate;
+          return isAfterStart && isBeforeEnd;
+        });
+
+        setFilteredOperations(filtered);
+        setFilterApplied(true);
+        const lucroTotal = filtered.reduce((acc:any, op:any) => acc + (op.profit || 0), 0);
+        const comissaoTotal = filtered.reduce((acc:any, op:any) => acc + (op.comission || 0), 0);
+
+        setLucroPeriodoFiltro(lucroTotal);
+        setComissaoPeriodoFiltro(comissaoTotal);
 
         // Inicialmente não aplicamos filtro
         setFilteredOperations(response.data);
@@ -110,6 +138,7 @@ const LucrosTab: React.FC = () => {
     };
 
     fetchOperacoes();
+    
   }, [paginaAtual, itensPorPagina]);
 
   // Função para aplicar o filtro quando o botão for clicado
@@ -409,14 +438,14 @@ const LucrosTab: React.FC = () => {
               <h3 className="font-medium mb-2">LUCRO ESTE MÊS</h3>
               <p className="text-2xl font-bold text-blue-600">{formatCurrency(lucroMesAtual)}</p>
             </div>
-            <div className="bg-green-50 p-4 rounded-lg">
+            {/* <div className="bg-green-50 p-4 rounded-lg">
               <h3 className="font-medium mb-2">LUCRO MÊS ANTERIOR</h3>
               <p className="text-2xl font-bold text-green-600">{formatCurrency(lucroMesAnterior)}</p>
             </div>
             <div className="bg-purple-50 p-4 rounded-lg">
               <h3 className="font-medium mb-2">TOTAL ACUMULADO</h3>
               <p className="text-2xl font-bold text-purple-600">{formatCurrency(totalAcumulado)}</p>
-            </div>
+            </div> */}
           </div>
         )}
 

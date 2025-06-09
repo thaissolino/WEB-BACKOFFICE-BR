@@ -39,10 +39,10 @@ const LucrosRecolhedoresFusionTab: React.FC = () => {
   const itensPorPagina = 10;
 
   // Estados para filtro de data
-  const [filterStartDate, setFilterStartDate] = useState<string>("");
+  const [filterStartDate, setFilterStartDate] = useState<string>(new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split("T")[0]);
+  const [filterEndDate, setFilterEndDate] = useState<string>(new Date().toLocaleDateString("en-CA"));
   const [lucroTotal, setLucroTotal] = useState(0);
   const [comissaoTotal, setComissaoTotal] = useState(0);
-  const [filterEndDate, setFilterEndDate] = useState<string>("");
   // Estado para controlar se o filtro foi aplicado
   const [filterApplied, setFilterApplied] = useState(false);
   // Estado para as operações filtradas
@@ -100,8 +100,15 @@ const LucrosRecolhedoresFusionTab: React.FC = () => {
 
   // Função para limpar o filtro
   const clearFilter = () => {
-    setFilterStartDate("");
-    setFilterEndDate("");
+  setFilterStartDate(new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split("T")[0]);
+  setFilterEndDate(new Date().toLocaleDateString("en-CA"));
+    setOperacoesFiltradas(operacoes);
+    setFilterApplied(false);
+    setPaginaAtual(0);
+  };
+  const clearFilter2 = () => {
+  setFilterStartDate('');
+  setFilterEndDate('');
     setOperacoesFiltradas(operacoes);
     setFilterApplied(false);
     setPaginaAtual(0);
@@ -143,11 +150,13 @@ const LucrosRecolhedoresFusionTab: React.FC = () => {
   useEffect(()=>{
     if(selectedRecolhedor && operacoesPorRecolhedor.length>0){
       calcularTotais(operacoesPorRecolhedor)
+      applyDateFilter()
     } else {
       setLucroTotal(0)
       setComissaoTotal(0)
     }
   }, [operacoesPorRecolhedor, selectedRecolhedor])
+
   const lucroMesAnterior = calcularLucro(
     operacoesPorRecolhedor.filter((op) => {
       const d = new Date(op.date);
@@ -244,7 +253,7 @@ const LucrosRecolhedoresFusionTab: React.FC = () => {
                 </button>
 
                 <button
-                  onClick={clearFilter}
+                  onClick={clearFilter2}
                   className="bg-gray-200 text-gray-700 hover:bg-gray-300 rounded-md text-sm font-medium h-6 px-4 flex items-center justify-center transition-colors"
                 >
                   Limpar
