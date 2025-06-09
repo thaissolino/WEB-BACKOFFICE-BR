@@ -45,7 +45,7 @@ export function ExchangeTab() {
 
   const [dataPayment, setDataUpdated] = useState({
     invoiceId: "",
-    date: new Date().toISOString().split("T")[0],
+    date: new Date().toLocaleDateString('en-CA'),
     usd: 0,
   });
   const { setOpenNotification } = useNotification();
@@ -59,7 +59,7 @@ export function ExchangeTab() {
     rate: string | number;
     description: string;
   }>({
-    date: new Date().toISOString().split("T")[0],
+    date: new Date().toLocaleDateString('en-CA'),
     usd: "", // sempre resultará em "", mas mostra a estrutura
     rate: "", // sempre resultará em "", mas mostra a estrutura
     type: "BUY",
@@ -179,7 +179,7 @@ export function ExchangeTab() {
       setValorRaw("")
       setValorRaw2("")
       setAddBalance({
-        date: new Date().toISOString().split("T")[0],
+        date: new Date().toLocaleDateString('en-CA'),
         rate: "",
         usd: "",
         type: "BUY",
@@ -287,7 +287,7 @@ export function ExchangeTab() {
       setValorRaw3("")
       setDataUpdated({
         invoiceId: "",
-        date: new Date().toISOString().split("T")[0],
+        date: new Date().toLocaleDateString('en-CA'),
         usd: 0,
       });
 
@@ -499,7 +499,7 @@ export function ExchangeTab() {
               onChange={(e) => {
                 const invoiceId = e.target.value;
                 if (!invoiceId)
-                  return setDataUpdated({ invoiceId: "", date: new Date().toISOString().split("T")[0], usd: 0 });
+                  return setDataUpdated({ invoiceId: "", date: new Date().toLocaleDateString('en-CA'), usd: 0 });
                 const valueInvoice = invoices.find((item) => item.id === invoiceId);
                 setValorRaw3(
                   valueInvoice && valueInvoice.subAmount !== undefined
@@ -516,7 +516,7 @@ export function ExchangeTab() {
                   invoiceId: invoiceId,
                   type: "PAYMENT",
                   usd: valueInvoice?.subAmount || 0,
-                  description: `Pagamento Invoice - ${valueInvoice?.number}`,
+                  description: `PAGAMENTO INVOICE - ${valueInvoice?.number.toUpperCase()}`,
                 }));
               }}
               className="w-full h-11 border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500"
@@ -530,7 +530,7 @@ export function ExchangeTab() {
                     .filter((item) => !item.completed && !item.paid)
                     .map((invoice) => (
                       <option key={invoice.id} value={invoice.id}>
-                        {invoice.number} - {invoice.supplier.name} ({formatCurrency(invoice.subAmount)})
+                        {invoice.number.toUpperCase()} - {invoice.supplier.name.toUpperCase()} ({formatCurrency(invoice.subAmount)})
                       </option>
                     ))}
                 </>
@@ -617,7 +617,7 @@ export function ExchangeTab() {
                         {new Date(new Date(transacao.date).getTime() + 3 * 60 * 60 * 1000).toLocaleDateString("pt-BR")}
                       </td>
                       <td className={`py-2 px-4 border ${rowClass} text-center`}>
-                        {transacao.type === "BUY" ? "Compra" : transacao.type === "PAYMENT" ? "Pagamento" : "Devolução"}
+                        {transacao.type === "BUY" ? "COMPRA" : transacao.type === "PAYMENT" ? "PAGAMENTO" : "DEVOLUÇÃO"}
                       </td>
                       <td className={`py-2 px-4 border ${rowClass} text-center font-mono`}>
                         {transacao.type === "BUY" ? "+" : "-"}
@@ -626,7 +626,7 @@ export function ExchangeTab() {
                       <td className={`py-2 px-4 border ${rowClass} text-center font-mono`}>
                         {formatCurrency(transacao.rate, 4) || "-"}
                       </td>
-                      <td className={`py-2 px-4 border ${rowClass} text-center`}>{transacao.description}</td>
+                      <td className={`py-2 px-4 border ${rowClass} text-center`}>{transacao.description.toUpperCase()}</td>
                     </tr>
                   );
                 })

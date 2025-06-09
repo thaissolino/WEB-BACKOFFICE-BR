@@ -212,7 +212,7 @@ export const useMode = () => {
     []
   );
 
-  const routesLightTheme = ["/invoices-management", "/tokens-management", "/spreadsheets" , "/billets-management", "/scanner-billets"];
+  const routesLightTheme = ["/invoices-management", "/tokens-management", "/spreadsheets" , "/billets-management", "/scanner-billets", "/operators-management"];
   const effectiveMode = routesLightTheme.some((item)=> item.startsWith(location.pathname))  ? "light" : mode;
 
   const theme = useMemo(() => createTheme(themeSettings(effectiveMode)), [effectiveMode]);

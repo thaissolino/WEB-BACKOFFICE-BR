@@ -40,11 +40,28 @@ const LucrosRecolhedoresFusionTab: React.FC = () => {
 
   // Estados para filtro de data
   const [filterStartDate, setFilterStartDate] = useState<string>("");
+  const [lucroTotal, setLucroTotal] = useState(0);
+  const [comissaoTotal, setComissaoTotal] = useState(0);
   const [filterEndDate, setFilterEndDate] = useState<string>("");
   // Estado para controlar se o filtro foi aplicado
   const [filterApplied, setFilterApplied] = useState(false);
   // Estado para as operações filtradas
   const [operacoesFiltradas, setOperacoesFiltradas] = useState<Operacao[]>([]);
+
+  const calcularTotais = (operacoes: Operacao[])=>{
+    let lucro = 0
+    let comissao = 0
+    operacoes.forEach((op)=>{
+      const tax = op.collectorTax || 1;
+      const lucroOp = op.value - (op.value / tax);
+      lucro += lucroOp
+      comissao += lucroOp * (selectedRecolhedor?.comission || 0)/100;
+    })
+
+    setLucroTotal(lucro)
+    setComissaoTotal(comissao)
+  }
+
 
   // Função para aplicar o filtro quando o botão for clicado
   const applyDateFilter = () => {
@@ -65,6 +82,18 @@ const LucrosRecolhedoresFusionTab: React.FC = () => {
     });
 
     setOperacoesFiltradas(filtered);
+      // Força recálculo dos totais
+    setTimeout(() => {
+      if (selectedRecolhedor) {
+        const opsFiltradas = selectedRecolhedor
+          ? filtered.filter(
+              (op) => op.collectorId === selectedRecolhedor.id && (!op.comission || op.comission <= 0)
+            )
+          : filtered.filter((op) => !op.comission || op.comission <= 0);
+          
+        calcularTotais(opsFiltradas);
+      }
+    }, 0);
     setFilterApplied(true);
     setPaginaAtual(0); // Resetar para a primeira página
   };
@@ -111,7 +140,14 @@ const LucrosRecolhedoresFusionTab: React.FC = () => {
         new Date(op.date).getFullYear() === new Date().getFullYear()
     )
   );
-
+  useEffect(()=>{
+    if(selectedRecolhedor && operacoesPorRecolhedor.length>0){
+      calcularTotais(operacoesPorRecolhedor)
+    } else {
+      setLucroTotal(0)
+      setComissaoTotal(0)
+    }
+  }, [operacoesPorRecolhedor, selectedRecolhedor])
   const lucroMesAnterior = calcularLucro(
     operacoesPorRecolhedor.filter((op) => {
       const d = new Date(op.date);
@@ -222,17 +258,21 @@ const LucrosRecolhedoresFusionTab: React.FC = () => {
           <>
             <div className="mb-6 grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="bg-blue-50 p-4 rounded-lg">
-                <h3 className="font-medium mb-2">LUCRO ESTE MÊS</h3>
-                <p className="text-2xl font-bold text-blue-600">{formatCurrency(lucroMesAtual)}</p>
+                <h3 className="font-medium mb-2">LUCRO</h3>
+                <p className="text-2xl font-bold text-blue-600">{formatCurrency(lucroTotal)}</p>
               </div>
-              <div className="bg-green-50 p-4 rounded-lg">
+              <div className="bg-yellow-100 p-4 rounded-lg">
+                <h3 className="font-medium mb-2">COMISSÃO</h3>
+                <p className="text-2xl font-bold text-yellow-600">{formatCurrency(comissaoTotal)}</p>
+              </div>
+              {/* <div className="bg-green-50 p-4 rounded-lg">
                 <h3 className="font-medium mb-2">LUCRO MÊS ANTERIOR</h3>
                 <p className="text-2xl font-bold text-green-600">{formatCurrency(lucroMesAnterior)}</p>
-              </div>
-              <div className="bg-purple-50 p-4 rounded-lg">
+              </div> */}
+              {/* <div className="bg-purple-50 p-4 rounded-lg">
                 <h3 className="font-medium mb-2">TOTAL ACUMULADO</h3>
                 <p className="text-2xl font-bold text-purple-600">{formatCurrency(lucroMesAtual + lucroMesAnterior)}</p>
-              </div>
+              </div> */}
             </div>
           </>
         )}

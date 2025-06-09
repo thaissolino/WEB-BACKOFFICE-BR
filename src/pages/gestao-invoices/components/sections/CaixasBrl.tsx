@@ -63,7 +63,7 @@ export const CaixasTabBrl = () => {
   const [loadingFetch3, setLoadingFetch3] = useState(false);
   const [loadingClearId, setLoadingClearId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
-    date: new Date().toISOString().split("T")[0],
+    date: new Date().toLocaleDateString('en-CA'),
     value: "",
     description: "",
   });
@@ -421,7 +421,7 @@ export const CaixasTabBrl = () => {
 
       await fetchEntityData(selectedEntity.id);
       getBalances();
-      setFormData({ date: new Date().toISOString().split("T")[0], value: "", description: "" });
+      setFormData({ date: new Date().toLocaleDateString('en-CA'), value: "", description: "" });
       // Swal.fire({
       //   icon: "success",
       //   title: "Sucesso!",

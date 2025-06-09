@@ -8,6 +8,9 @@ import { api } from "../../../services/api";
 import Swal from "sweetalert2";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
+import { useNotification } from "../../../hooks/notification";
+import { subtractHoursToLocaleBR } from "./RecolhedoresTab";
+import PdfShareModal from "../../../components/PdfShareModal";
 interface Transacao {
   id: number;
   date: string;
@@ -54,7 +57,7 @@ const FornecedoresTab: React.FC = () => {
   const [fornecedorSelecionado, setFornecedorSelecionado] = useState<Fornecedor | null>(null);
   const [valorPagamento, setValorPagamento] = useState<number | null>(null);
   const [descricaoPagamento, setDescricaoPagamento] = useState("");
-  const [dataPagamento, setDataPagamento] = useState<string>(new Date().toISOString().split("T")[0]);
+  const [dataPagamento, setDataPagamento] = useState<string>(new Date().toLocaleDateString('en-CA'));
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [fornecedorToDelete, setFornecedorToDelete] = useState<number | null>(null);
@@ -72,7 +75,9 @@ const FornecedoresTab: React.FC = () => {
   const [tempStartDate, setTempStartDate] = useState<string>(""); // Estado temporário para data inicial
   const [tempEndDate, setTempEndDate] = useState<string>(""); // Estado temporário para data final
   const itensPorPagina = 6;
-    const [filterApplied, setFilterApplied] = useState(false);
+  const [filterApplied, setFilterApplied] = useState(false);
+  const { setOpenNotification } = useNotification();
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   const fetchAllData = async () => {
     setLoading(true);
@@ -176,7 +181,7 @@ const FornecedoresTab: React.FC = () => {
     setIsProcessingPayment(true);
 
     try {
-      const isHoje = dataPagamento === new Date().toISOString().split("T")[0];
+      const isHoje = dataPagamento === new Date().toLocaleDateString('en-CA');
       const dataFinal = isHoje ? new Date().toISOString() : new Date(`${dataPagamento}T00:00:00`).toISOString();
 
       const paymentData = {
@@ -202,19 +207,25 @@ const FornecedoresTab: React.FC = () => {
 
       setValorPagamento(null);
       setDescricaoPagamento("");
-      setDataPagamento(new Date().toISOString().split("T")[0]);
+      setDataPagamento(new Date().toLocaleDateString('en-CA'));
 
       setNewPaymentId(`pay-${newPayment.id}`);
       // alert("Pagamento registrado com sucesso!");
-      Swal.fire({
-        icon: "success",
-        title: "Sucesso!",
-        text: "Operação registrada com sucesso!",
-        confirmButtonText: "Ok",
-        buttonsStyling: false,
-        customClass: {
-          confirmButton: "bg-blue-600 text-white hover:bg-blue-700 px-4 py-2 rounded font-semibold",
-        },
+      // Swal.fire({
+      //   icon: "success",
+      //   title: "Sucesso!",
+      //   text: "Operação registrada com sucesso!",
+      //   confirmButtonText: "Ok",
+      //   buttonsStyling: false,
+      //   customClass: {
+      //     confirmButton: "bg-blue-600 text-white hover:bg-blue-700 px-4 py-2 rounded font-semibold",
+      //   },
+      // });
+
+      setOpenNotification({
+        type: 'success',
+        title: 'Sucesso!',
+        notification: 'Operação registrada com sucesso!'
       });
     } catch (e: any) {
       console.log("error", e);
@@ -294,7 +305,7 @@ const FornecedoresTab: React.FC = () => {
         id: `op-${op.id}`,
         date: op.date || new Date().toISOString(),
         valor: -(op.value || 0) / (op.supplierTax || fornecedorSelecionado?.tax || 1),
-        descricao: `operação #${op.id} · ${op.city?.toLowerCase() || ""}`,
+        descricao: `OPERAÇÃO #${op.id} · ${op.city?.toUpperCase() || ""}`,
         tipo: "debito",
       })),
     ...payments
@@ -303,7 +314,7 @@ const FornecedoresTab: React.FC = () => {
         id: `pay-${p.id}`,
         date: p.date,
         valor: p.amount,
-        descricao: p.description,
+        descricao: p.description.toUpperCase(),
         tipo: "pagamento",
       })),
   ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
@@ -364,99 +375,100 @@ const FornecedoresTab: React.FC = () => {
   }
 
   const generateFornecedorPDF = () => {
-  if (!fornecedorSelecionado) return;
+    if (!fornecedorSelecionado) return;
 
-  const doc = new jsPDF({
-    orientation: "portrait",
-    unit: "mm",
-    format: "a4"
-  });
+    const doc = new jsPDF({
+      orientation: "portrait",
+      unit: "mm",
+      format: "a4",
+    });
 
-  // Título
-  doc.setFontSize(16);
-  doc.setTextColor(40, 100, 40);
-  doc.text(`Extrato de Transações - ${fornecedorSelecionado.name}`, 105, 15, { align: "center" });
+    // Título
+    doc.setFontSize(16);
+    doc.setTextColor(40, 100, 40);
+    doc.text(`Extrato de Transações - ${fornecedorSelecionado.name}`, 105, 15, { align: "center" });
 
-  // Informações de emissão e período
-  doc.setFontSize(10);
-  doc.setTextColor(0, 0, 0);
+    // Informações de emissão e período
+    doc.setFontSize(10);
+    doc.setTextColor(0, 0, 0);
 
-  // Data de emissão formatada
-  const dataEmissao = new Date().toLocaleDateString('pt-BR', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit'
-  });
+    // Data de emissão formatada
+    const dataEmissao = new Date().toLocaleDateString("pt-BR", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
 
-  // Período do filtro formatado
-  const periodoFiltro = filterStartDate || filterEndDate
-    ? `${filterStartDate ? new Date(filterStartDate).toLocaleDateString('pt-BR') : "início"} a ${filterEndDate ? new Date(filterEndDate).toLocaleDateString('pt-BR') : "fim"}`
-    : "Período completo";
+    // Período do filtro formatado
+    const periodoFiltro =
+      filterStartDate || filterEndDate
+        ? `${filterStartDate ? new Date(filterStartDate).toLocaleDateString("pt-BR") : "início"} a ${
+            filterEndDate ? new Date(filterEndDate).toLocaleDateString("pt-BR") : "fim"
+          }`
+        : "Período completo";
 
-  doc.text(`Data de emissão: ${dataEmissao}`, 15, 25);
-  doc.text(`Período: ${periodoFiltro}`, 15, 30);
-  doc.text(`Saldo atual: ${formatCurrency(calculatedBalances[fornecedorSelecionado.id] || 0, 2, "USD")}`, 15, 35);
+    doc.text(`Data de emissão: ${dataEmissao}`, 15, 25);
+    doc.text(`Período: ${periodoFiltro}`, 15, 30);
+    doc.text(`Saldo atual: ${formatCurrency(calculatedBalances[fornecedorSelecionado.id] || 0, 2, "USD")}`, 15, 35);
 
-  // Preparar dados da tabela
-  const tableData = transacoesFiltradas.map((t) => [
-    formatDate(t.date),
-    t.descricao,
-    formatCurrency(t.valor, 2, "USD")
-  ]);
+    // Preparar dados da tabela
+    const tableData = transacoesFiltradas.map((t) => [
+      formatDate(t.date),
+      t.descricao,
+      formatCurrency(t.valor, 2, "USD"),
+    ]);
 
-  // Calcular totais
-  const totalEntradas = transacoesFiltradas
-    .filter(t => t.valor > 0)
-    .reduce((sum, t) => sum + t.valor, 0);
-    
-  const totalSaidas = transacoesFiltradas
-    .filter(t => t.valor < 0)
-    .reduce((sum, t) => sum + t.valor, 0);
-    
-  const saldoPeriodo = totalEntradas + totalSaidas;
+    // Calcular totais
+    const totalEntradas = transacoesFiltradas.filter((t) => t.valor > 0).reduce((sum, t) => sum + t.valor, 0);
 
-  // Gerar tabela
-  autoTable(doc, {
-    head: [['Data', 'Descrição', 'Valor (USD)']],
-    body: tableData,
-    startY: 40,
-    styles: {
-      fontSize: 9,
-      cellPadding: 2,
-      halign: 'left'
-    },
-    headStyles: {
-      fillColor: [229, 231, 235],
-      textColor: 0,
-      fontStyle: 'bold'
-    },
-    alternateRowStyles: {
-      fillColor: [240, 249, 255]
-    },
-    columnStyles: {
-      0: { halign: 'center' },
-      2: { halign: 'right' }
-    }
-  });
+    const totalSaidas = transacoesFiltradas.filter((t) => t.valor < 0).reduce((sum, t) => sum + t.valor, 0);
 
-  // Adicionar totais
-  const finalY = (doc as any).lastAutoTable.finalY + 10;
-  
-  doc.setFontSize(11);
-  doc.setFont("helvetica", "bold");
-  
-  doc.text(`Total de entradas: ${formatCurrency(totalEntradas, 2, "USD")}`, 15, finalY);
-  doc.text(`Total de saídas: ${formatCurrency(totalSaidas, 2, "USD")}`, 70, finalY);
-  doc.text(`Saldo do período: ${formatCurrency(saldoPeriodo, 2, "USD")}`, 130, finalY);
-  
-  // Saldo total
-  doc.text(`Saldo atual: ${formatCurrency(calculatedBalances[fornecedorSelecionado.id] || 0, 2, "USD")}`, 15, finalY + 10);
+    const saldoPeriodo = totalEntradas + totalSaidas;
 
-  // Salvar PDF
-  doc.save(`extrato_${fornecedorSelecionado.name.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`);
-};
+    // Gerar tabela
+    autoTable(doc, {
+      head: [["Data", "Descrição", "Valor (USD)"]],
+      body: tableData,
+      startY: 40,
+      styles: {
+        fontSize: 9,
+        cellPadding: 2,
+        halign: "left",
+      },
+      headStyles: {
+        fillColor: [229, 231, 235],
+        textColor: 0,
+        fontStyle: "bold",
+      },
+      alternateRowStyles: {
+        fillColor: [240, 249, 255],
+      },
+      columnStyles: {
+        0: { halign: "center" },
+        2: { halign: "right" },
+      },
+    });
+
+    // Adicionar totais
+    const finalY = (doc as any).lastAutoTable.finalY + 10;
+
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "bold");
+
+    // doc.text(`Total de entradas: ${formatCurrency(totalEntradas, 2, "USD")}`, 15, finalY);
+    // doc.text(`Total de saídas: ${formatCurrency(totalSaidas, 2, "USD")}`, 70, finalY);
+    doc.text(`Saldo período selecionado: ${formatCurrency(saldoPeriodo, 2, "USD")}`, 15, finalY);
+
+    // // Saldo total
+    // doc.text(`Saldo atual: ${formatCurrency(calculatedBalances[fornecedorSelecionado.id] || 0, 2, "USD")}`, 15, finalY + 10);
+
+    // Salvar PDF
+    doc.save(
+      `extrato_${fornecedorSelecionado.name.replace(/\s+/g, "_")}_${new Date().toISOString().split("T")[0]}.pdf`
+    );
+  };
 
   useEffect(() => {
     let totalBalance = 0;
@@ -632,8 +644,12 @@ const FornecedoresTab: React.FC = () => {
                 </motion.button>
                 <button
                   disabled={!filterApplied}
-                  onClick={generateFornecedorPDF}
-                  className={`w-40 h-6 rounded-md text-sm font-medium flex items-center justify-center ${!filterApplied ? "cursor-not-allowed  bg-gray-200 text-gray-500 " : "bg-white text-blue-600 border border-blue-600 hover:bg-blue-600 hover:text-white rounded-md text-sm font-medium h-6 px-4 mr-2 flex items-center justify-center transition-colors"}`}
+                  onClick={() => setIsModalOpen(true)}
+                  className={`w-40 h-6 rounded-md text-sm font-medium flex items-center justify-center ${
+                    !filterApplied
+                      ? "cursor-not-allowed  bg-gray-200 text-gray-500 "
+                      : "bg-white text-blue-600 border border-blue-600 hover:bg-blue-600 hover:text-white rounded-md text-sm font-medium h-6 px-4 mr-2 flex items-center justify-center transition-colors"
+                  }`}
                 >
                   Exportar extrato PDF
                 </button>
@@ -830,9 +846,9 @@ const FornecedoresTab: React.FC = () => {
                             className="odd:bg-blue-50 even:bg-green-50"
                           >
                             <td className="py-2 px-4 border text-sm text-gray-700">
-                              <div className="flex items-center gap-2" title={new Date(t.date).toISOString()}>
+                              <div className="flex items-center gap-2" title={subtractHoursToLocaleBR(t.date)}>
                                 <i className="fas fa-clock text-green-500 mr-2"></i>
-                                {formatDate(t.date)}
+                                {subtractHoursToLocaleBR(t.date)}
                               </div>
                             </td>
                             <td className="py-2 px-4 border text-sm text-gray-700">{t.descricao}</td>
@@ -906,7 +922,6 @@ const FornecedoresTab: React.FC = () => {
           </motion.div>
         )}
       </AnimatePresence>
-
       <ModalFornecedor
         isOpen={showModal}
         onClose={() => setShowModal(false)}
@@ -920,6 +935,8 @@ const FornecedoresTab: React.FC = () => {
         onConfirm={deletarFornecedor}
         onClose={() => setShowConfirmModal(false)}
       />
+
+      {isModalOpen && <PdfShareModal onClose={() => setIsModalOpen(false)} generatePDF={generateFornecedorPDF} />}
     </motion.div>
   );
 };

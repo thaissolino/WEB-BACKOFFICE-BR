@@ -276,7 +276,7 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
       setCurrentInvoice({
         id: null,
         number: "",
-        date: new Date().toISOString().split("T")[0],
+        date: new Date().toLocaleDateString('en-CA'),
         supplierId: "",
         products: [],
         carrierId: "",

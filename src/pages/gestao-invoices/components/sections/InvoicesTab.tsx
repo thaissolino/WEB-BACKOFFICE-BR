@@ -18,7 +18,7 @@ export function InvoicesTab({ currentInvoice, setCurrentInvoice }: NewInvoiceFor
   // const [currentInvoice, setCurrentInvoice] = useState<Invoice>({
   //   id: null,
   //   number: `INV-${Date.now()}`,
-  //   date: new Date().toISOString().split("T")[0],
+  //   date: new Date().toLocaleDateString('en-CA'),
   //   supplierId: "",
   //   products: [],
   //   amountTaxcarrier: 0,

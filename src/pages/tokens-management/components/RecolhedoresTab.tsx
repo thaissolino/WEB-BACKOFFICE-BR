@@ -9,6 +9,7 @@ import Swal from "sweetalert2";
 import { useNotification } from "../../../hooks/notification";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
+import PdfShareModal from "../../../components/PdfShareModal";
 interface Transacao {
   id: number;
   date: string;
@@ -49,6 +50,44 @@ export interface Operacao {
   idOperation: number;
 }
 
+export function addLocalTimeToDate(dateStr: string) {
+  const now = new Date();
+  const hours = String(now.getHours()).padStart(2, '0');
+  const minutes = String(now.getMinutes()).padStart(2, '0');
+  const seconds = String(now.getSeconds()).padStart(2, '0');
+  const milliseconds = String(now.getMilliseconds()).padStart(3, '0');
+  
+  return `${dateStr}T${hours}:${minutes}:${seconds}.${milliseconds}`;
+}
+
+function subtractHoursGetTime(dateStr:string, hours:number) {
+  const date = new Date(dateStr);
+  date.setHours(date.getHours() - hours);
+  return date.toISOString().split('T')[1].split('.')[0];
+}
+
+function subtractHoursGetDate(dateStr:string, hours:number) {
+  const date = new Date(dateStr);
+  date.setHours(date.getHours() - hours);
+  return date.toISOString().split('T')[0];
+}
+
+
+
+export function subtractHoursToLocaleBR(dateStr:string) {
+  const date = new Date(dateStr);
+
+  return date.toLocaleString('pt-BR', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  });
+}
+
 const RecolhedoresTab: React.FC = () => {
   const [recolhedores, setRecolhedores] = useState<Recolhedor[]>([]);
   const [showModal, setShowModal] = useState(false);
@@ -57,7 +96,7 @@ const RecolhedoresTab: React.FC = () => {
   const [valorPagamento, setValorPagamento] = useState<number | null>(null);
   //const [valorPagamento, setValorPagamento] = useState<string>('');
   const [descricaoPagamento, setDescricaoPagamento] = useState("");
-  const [dataPagamento, setDataPagamento] = useState<string>(new Date().toISOString().split("T")[0]);
+  const [dataPagamento, setDataPagamento] = useState<string>(new Date().toLocaleDateString('en-CA'));
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [recolhedorToDelete, setRecolhedorToDelete] = useState<number | null>(null);
@@ -77,6 +116,7 @@ const RecolhedoresTab: React.FC = () => {
   const [activeFilterStartDate, setActiveFilterStartDate] = useState<string>("");
   const [activeFilterEndDate, setActiveFilterEndDate] = useState<string>("");
   const { setOpenNotification } = useNotification();
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   const fetchRecolhedores = async () => {
     setLoading(true);
@@ -129,7 +169,6 @@ const RecolhedoresTab: React.FC = () => {
       setError(e.message);
     } finally {
       setLoading(false);
-
     }
   };
 
@@ -214,14 +253,15 @@ const RecolhedoresTab: React.FC = () => {
     setIsProcessingPayment(true);
 
     try {
-      const isHoje = dataPagamento === new Date().toISOString().split("T")[0];
+      const isHoje = dataPagamento === new Date().toLocaleDateString('en-CA');
+      const dataOk = addLocalTimeToDate(dataPagamento);
       const dataFinal = isHoje ? new Date().toISOString() : new Date(`${dataPagamento}T00:00:00`).toISOString();
 
       const paymentData = {
         collectorId: selectedRecolhedor.id,
         amount: valorPagamento,
         description: descricaoPagamento,
-        date: dataFinal,
+        date: dataOk,
       };
 
       const response = await api.post("/api/payments", paymentData);
@@ -246,7 +286,7 @@ const RecolhedoresTab: React.FC = () => {
       // Resetar o formulário
       setValorPagamento(null);
       setDescricaoPagamento("");
-      setDataPagamento(new Date().toISOString().split("T")[0]);
+      setDataPagamento(new Date().toLocaleDateString('en-CA'));
 
       // alert("Pagamento registrado com sucesso!");
       // Swal.fire({
@@ -266,9 +306,9 @@ const RecolhedoresTab: React.FC = () => {
       setValorRaw("");
       setIsProcessingPayment(false);
       setOpenNotification({
-        type: 'success',
-        title: 'Sucesso!',
-        notification: 'Pagamento registrado com sucesso!'
+        type: "success",
+        title: "Sucesso!",
+        notification: "Pagamento registrado com sucesso!",
       });
     }
   };
@@ -322,9 +362,9 @@ const RecolhedoresTab: React.FC = () => {
       //   },
       // });
       setOpenNotification({
-        type: 'success',
-        title: 'Sucesso!',
-        notification: 'Operação deletada com sucesso!'
+        type: "success",
+        title: "Sucesso!",
+        notification: "Operação deletada com sucesso!",
       });
     } catch (e: any) {
       alert(`Erro ao deletar operação: ${e.message}`);
@@ -369,8 +409,8 @@ const RecolhedoresTab: React.FC = () => {
             : -(op.value || 0) / (op.collectorTax || selectedRecolhedor!?.tax || 1),
         descricao:
           op.comission > 0 || op.comission !== null
-            ? `Comissão #${op.idOperation} · ${op.city?.toLowerCase() || ""}`
-            : `Operação #${op.id} · ${op.city?.toLowerCase() || ""}`,
+            ? `COMISSÃO #${op.idOperation} · ${op.city?.toUpperCase() || ""}`
+            : `OPERAÇÃO #${op.id} · ${op.city?.toUpperCase() || ""}`,
         tipo: "debito",
       })),
     ...payments
@@ -444,99 +484,98 @@ const RecolhedoresTab: React.FC = () => {
   }, [recolhedores, operacoes, payments]);
 
   const generateRecolhedorPDF = () => {
-  if (!selectedRecolhedor) return;
+    if (!selectedRecolhedor) return;
 
-  const doc = new jsPDF({
-    orientation: "portrait",
-    unit: "mm",
-    format: "a4"
-  });
+    const doc = new jsPDF({
+      orientation: "portrait",
+      unit: "mm",
+      format: "a4",
+    });
 
-  // Título
-  doc.setFontSize(16);
-  doc.setTextColor(40, 100, 40);
-  doc.text(`Extrato de Transações - ${selectedRecolhedor.name}`, 105, 15, { align: "center" });
+    // Título
+    doc.setFontSize(16);
+    doc.setTextColor(40, 100, 40);
+    doc.text(`Extrato de Transações - ${selectedRecolhedor.name}`, 105, 15, { align: "center" });
 
-  // Informações de emissão e período
-  doc.setFontSize(10);
-  doc.setTextColor(0, 0, 0);
+    // Informações de emissão e período
+    doc.setFontSize(10);
+    doc.setTextColor(0, 0, 0);
 
-  // Data de emissão formatada
-  const dataEmissao = new Date().toLocaleDateString('pt-BR', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit'
-  });
+    // Data de emissão formatada
+    const dataEmissao = new Date().toLocaleDateString("pt-BR", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
 
-  // Período do filtro formatado
-  const periodoFiltro = filterApplied
-    ? `${activeFilterStartDate ? new Date(activeFilterStartDate).toLocaleDateString('pt-BR') : "início"} a ${activeFilterEndDate ? new Date(activeFilterEndDate).toLocaleDateString('pt-BR') : "fim"}`
-    : "Período completo";
+    // Período do filtro formatado
+    const periodoFiltro = filterApplied
+      ? `${activeFilterStartDate ? new Date(activeFilterStartDate).toLocaleDateString("pt-BR") : "início"} a ${
+          activeFilterEndDate ? new Date(activeFilterEndDate).toLocaleDateString("pt-BR") : "fim"
+        }`
+      : "Período completo";
 
-  doc.text(`Data de emissão: ${dataEmissao}`, 15, 25);
-  doc.text(`Período: ${periodoFiltro}`, 15, 30);
-  doc.text(`Saldo atual: ${formatCurrency(calculatedBalances[selectedRecolhedor.id] || 0, 2, "USD")}`, 15, 35);
+    doc.text(`Data de emissão: ${dataEmissao}`, 15, 25);
+    doc.text(`Período: ${periodoFiltro}`, 15, 30);
+    doc.text(`Saldo atual: ${formatCurrency(calculatedBalances[selectedRecolhedor.id] || 0, 2, "USD")}`, 15, 35);
 
-  // Preparar dados da tabela
-  const tableData = transacoesFiltradas.map((t) => [
-    formatDate(t.date),
-    t.descricao,
-    formatCurrency(t.valor, 2, "USD")
-  ]);
+    // Preparar dados da tabela
+    const tableData = transacoesFiltradas.map((t) => [
+      formatDate(t.date),
+      t.descricao,
+      formatCurrency(t.valor, 2, "USD"),
+    ]);
 
-  // Calcular totais
-  const totalEntradas = transacoesFiltradas
-    .filter(t => t.valor > 0)
-    .reduce((sum, t) => sum + t.valor, 0);
-    
-  const totalSaidas = transacoesFiltradas
-    .filter(t => t.valor < 0)
-    .reduce((sum, t) => sum + t.valor, 0);
-    
-  const saldoPeriodo = totalEntradas + totalSaidas;
+    // Calcular totais
+    const totalEntradas = transacoesFiltradas.filter((t) => t.valor > 0).reduce((sum, t) => sum + t.valor, 0);
 
-  // Gerar tabela
-  autoTable(doc, {
-    head: [['Data', 'Descrição', 'Valor (USD)']],
-    body: tableData,
-    startY: 40,
-    styles: {
-      fontSize: 9,
-      cellPadding: 2,
-      halign: 'left'
-    },
-    headStyles: {
-      fillColor: [229, 231, 235],
-      textColor: 0,
-      fontStyle: 'bold'
-    },
-    alternateRowStyles: {
-      fillColor: [240, 249, 255]
-    },
-    columnStyles: {
-      0: { halign: 'center' },
-      2: { halign: 'right' }
-    }
-  });
+    const totalSaidas = transacoesFiltradas.filter((t) => t.valor < 0).reduce((sum, t) => sum + t.valor, 0);
 
-  // Adicionar totais
-  const finalY = (doc as any).lastAutoTable.finalY + 10;
-  
-  doc.setFontSize(11);
-  doc.setFont("helvetica", "bold");
-  
-  doc.text(`Total de entradas: ${formatCurrency(totalEntradas, 2, "USD")}`, 15, finalY);
-  doc.text(`Total de saídas: ${formatCurrency(totalSaidas, 2, "USD")}`, 70, finalY);
-  doc.text(`Saldo do período: ${formatCurrency(saldoPeriodo, 2, "USD")}`, 130, finalY);
-  
-  // Saldo total
-  doc.text(`Saldo atual: ${formatCurrency(calculatedBalances[selectedRecolhedor.id] || 0, 2, "USD")}`, 15, finalY + 10);
+    const saldoPeriodo = totalEntradas + totalSaidas;
 
-  // Salvar PDF
-  doc.save(`extrato_${selectedRecolhedor.name.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`);
-};
+    // Gerar tabela
+    autoTable(doc, {
+      head: [["Data", "Descrição", "Valor (USD)"]],
+      body: tableData,
+      startY: 40,
+      styles: {
+        fontSize: 9,
+        cellPadding: 2,
+        halign: "left",
+      },
+      headStyles: {
+        fillColor: [229, 231, 235],
+        textColor: 0,
+        fontStyle: "bold",
+      },
+      alternateRowStyles: {
+        fillColor: [240, 249, 255],
+      },
+      columnStyles: {
+        0: { halign: "center" },
+        2: { halign: "right" },
+      },
+    });
+
+    // Adicionar totais
+    const finalY = (doc as any).lastAutoTable.finalY + 10;
+
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "bold");
+
+    // doc.text(`Total de entradas: ${formatCurrency(totalEntradas, 2, "USD")}`, 15, finalY);
+    // doc.text(`Total de saídas: ${formatCurrency(totalSaidas, 2, "USD")}`, 70, finalY);
+    // doc.text(`Saldo do período: ${formatCurrency(saldoPeriodo, 2, "USD")}`, 130, finalY);
+
+    // // Saldo total
+    // doc.text(`Saldo atual: ${formatCurrency(calculatedBalances[selectedRecolhedor.id] || 0, 2, "USD")}`, 15, finalY + 10);
+    doc.text(`Saldo período selecionado: ${formatCurrency(saldoPeriodo, 2, "USD")}`, 15, finalY);
+
+    // Salvar PDF
+    doc.save(`extrato_${selectedRecolhedor.name.replace(/\s+/g, "_")}_${new Date().toISOString().split("T")[0]}.pdf`);
+  };
   if (loading) {
     return (
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex items-center justify-center h-64">
@@ -669,7 +708,6 @@ const RecolhedoresTab: React.FC = () => {
           </table>
         </div>
       </motion.div>
-
       <AnimatePresence>
         {selectedRecolhedor && (
           <motion.div
@@ -705,9 +743,13 @@ const RecolhedoresTab: React.FC = () => {
                 </motion.button>
                 <button
                   disabled={!filterApplied}
-                  onClick={generateRecolhedorPDF}
+                  onClick={() => setIsModalOpen(true)}
                   className={`w-40 h-6 rounded-md text-sm font-medium flex items-center justify-center  
-                    ${!filterApplied ? " bg-gray-200 text-gray-500 cursor-not-allowed" :"bg-white text-blue-600 border border-blue-600 hover:bg-blue-600 hover:text-white rounded-md text-sm font-medium h-6 px-4 mr-2 flex items-center justify-center transition-colors"}`}
+                    ${
+                      !filterApplied
+                        ? " bg-gray-200 text-gray-500 cursor-not-allowed"
+                        : "bg-white text-blue-600 border border-blue-600 hover:bg-blue-600 hover:text-white rounded-md text-sm font-medium h-6 px-4 mr-2 flex items-center justify-center transition-colors"
+                    }`}
                 >
                   Exportar extrato PDF
                 </button>
@@ -839,7 +881,9 @@ const RecolhedoresTab: React.FC = () => {
                       {/* Label “(ÚLTIMOS 6)” em texto menor */}
                       <span className="text-xs font-medium text-gray-700 mb-1">
                         {activeFilterStartDate || activeFilterEndDate
-                          ? `(Filtrado: ${activeFilterStartDate ? formatDateIn(activeFilterStartDate):  "início"} a ${activeFilterEndDate ? formatDateIn(activeFilterEndDate) : "fim"})`
+                          ? `(Filtrado: ${activeFilterStartDate ? formatDateIn(activeFilterStartDate) : "início"} a ${
+                              activeFilterEndDate ? formatDateIn(activeFilterEndDate) : "fim"
+                            })`
                           : "(ÚLTIMOS 6)"}
                       </span>
                       {/* Título principal */}
@@ -937,9 +981,9 @@ const RecolhedoresTab: React.FC = () => {
                             className="odd:bg-blue-50 even:bg-green-50"
                           >
                             <td className="py-2 px-4 border text-sm text-gray-700">
-                              <div className="flex items-center gap-2" title={new Date(t.date).toISOString()}>
+                              <div className="flex items-center gap-2" title={subtractHoursToLocaleBR(t.date)}>
                                 <i className="fas fa-clock text-green-500 mr-2"></i>
-                                {formatDate(t.date)}
+                                {subtractHoursToLocaleBR(t.date)}
                               </div>
                             </td>
                             <td className="py-2 px-4 border text-sm text-gray-700">{t.descricao}</td>
@@ -1015,7 +1059,6 @@ const RecolhedoresTab: React.FC = () => {
           </motion.div>
         )}
       </AnimatePresence>
-
       <ModalRecolhedor
         isOpen={showModal}
         onClose={() => setShowModal(false)}
@@ -1029,6 +1072,8 @@ const RecolhedoresTab: React.FC = () => {
         onConfirm={deletarRecolhedor}
         onClose={() => setShowConfirmModal(false)}
       />
+
+      {isModalOpen && <PdfShareModal onClose={() => setIsModalOpen(false)} generatePDF={generateRecolhedorPDF} />}
     </motion.div>
   );
 };
