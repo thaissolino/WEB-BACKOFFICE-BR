@@ -3,13 +3,14 @@ import ModalCaixa from "../modals/ModalCaixa";
 import { api } from "../../../../services/api";
 import Swal from "sweetalert2";
 import { GenericSearchSelect } from "./SearchSelect";
-import { Loader2 } from 'lucide-react';
+import { Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
 import { formatCurrency } from "../modals/format";
-import { Truck, HandCoins, Handshake, CircleDollarSign } from 'lucide-react';
+import { Truck, HandCoins, Handshake, CircleDollarSign } from "lucide-react";
 import { useBalanceStore } from "../../../../store/useBalanceStore";
 import { BalanceSharp } from "@mui/icons-material";
 import { useNotification } from "../../../../hooks/notification";
+import { formatDateIn } from "../../../tokens-management/components/format";
 
 interface Transaction {
   id: string;
@@ -63,7 +64,7 @@ export const CaixasTabBrl = () => {
   const [loadingFetch3, setLoadingFetch3] = useState(false);
   const [loadingClearId, setLoadingClearId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
-    date: new Date().toLocaleDateString('en-CA'),
+    date: new Date().toLocaleDateString("en-CA"),
     value: "",
     description: "",
   });
@@ -74,7 +75,9 @@ export const CaixasTabBrl = () => {
   const [valorRaw, setValorRaw] = useState("");
   const [currentPage, setCurrentPage] = useState(0);
   const itemsPerPage = 6; // ou o número que preferir
-  const [filterStartDate, setFilterStartDate] = useState<string>(new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split("T")[0]);
+  const [filterStartDate, setFilterStartDate] = useState<string>(
+    new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split("T")[0]
+  );
   const [filterEndDate, setFilterEndDate] = useState<string>(new Date().toLocaleDateString("en-CA"));
   const [activeFilterStartDate, setActiveFilterStartDate] = useState<string>("");
   const [activeFilterEndDate, setActiveFilterEndDate] = useState<string>("");
@@ -86,7 +89,7 @@ export const CaixasTabBrl = () => {
     const end = new Date(activeFilterEndDate);
     end.setDate(end.getDate() + 1); // Inclui o dia final
 
-    return transactionHistoryList.filter(transaction => {
+    return transactionHistoryList.filter((transaction) => {
       const transactionDate = new Date(transaction.date);
       return transactionDate >= start && transactionDate < end;
     });
@@ -261,9 +264,9 @@ export const CaixasTabBrl = () => {
       //   },
       // });
       setOpenNotification({
-        type: 'success',
-        title: 'Sucesso!',
-        notification: 'Transação deletada com sucesso!'
+        type: "success",
+        title: "Sucesso!",
+        notification: "Transação deletada com sucesso!",
       });
     } catch (e: any) {
       Swal.fire({
@@ -320,9 +323,9 @@ export const CaixasTabBrl = () => {
         },
       });
     } finally {
-      setActiveFilterStartDate(filterStartDate)
-      setActiveFilterEndDate(filterEndDate)
-      setCurrentPage(0)
+      setActiveFilterStartDate(filterStartDate);
+      setActiveFilterEndDate(filterEndDate);
+      setCurrentPage(0);
       setLoadingFetch2(false);
     }
   };
@@ -424,7 +427,7 @@ export const CaixasTabBrl = () => {
 
       await fetchEntityData(selectedEntity.id);
       getBalances();
-      setFormData({ date: new Date().toLocaleDateString('en-CA'), value: "", description: "" });
+      setFormData({ date: new Date().toLocaleDateString("en-CA"), value: "", description: "" });
       // Swal.fire({
       //   icon: "success",
       //   title: "Sucesso!",
@@ -436,9 +439,9 @@ export const CaixasTabBrl = () => {
       //   },
       // });
       setOpenNotification({
-        type: 'success',
-        title: 'Sucesso!',
-        notification: 'Transação registrada com sucesso!'
+        type: "success",
+        title: "Sucesso!",
+        notification: "Transação registrada com sucesso!",
       });
       // Swal.fire({ icon: "success", title: "Sucesso!", text: "Transação registrada" });
     } catch (error) {
@@ -456,7 +459,7 @@ export const CaixasTabBrl = () => {
       });
     } finally {
       setLoadingFetch3(false);
-      setValorRaw("")
+      setValorRaw("");
     }
   };
 
@@ -569,10 +572,10 @@ export const CaixasTabBrl = () => {
                 {selectedEntity.typeInvoice === "freteiro"
                   ? "TRANSPORTADORA"
                   : selectedEntity.typeInvoice === "fornecedor"
-                    ? "FORNECEDOR"
-                    : selectedEntity.typeInvoice === "parceiro"
-                      ? "PARCEIRO"
-                      : ""}{" "}
+                  ? "FORNECEDOR"
+                  : selectedEntity.typeInvoice === "parceiro"
+                  ? "PARCEIRO"
+                  : ""}{" "}
                 : {selectedEntity.name}
               </span>
             </h2>
@@ -653,9 +656,8 @@ export const CaixasTabBrl = () => {
 
                       setValorRaw(newValue);
 
-                      setFormData({ ...formData, value: newValue })
+                      setFormData({ ...formData, value: newValue });
                     }}
-
                     onBlur={(e) => {
                       if (valorRaw) {
                         const numericValue = parseFloat(valorRaw);
@@ -713,12 +715,12 @@ export const CaixasTabBrl = () => {
 
             <div>
               <div className="mb-2 border-b pb-2 w-full flex flex-row items-center justify-between max-w-[100%]">
-                <div className="w-full flex justify-between items-start border-b pb-2 mb-4">
+                <div className="w-full flex justify-between items-start">
                   <div className="flex flex-col whitespace-nowrap">
                     <span className="text-xs font-medium text-gray-700 mb-1">
                       {activeFilterStartDate || activeFilterEndDate
-                        ? `(Filtrado: ${activeFilterStartDate || 'início'} a ${activeFilterEndDate || 'fim'})`
-                        : '(ÚLTIMOS 6)'}
+                        ? `(Filtrado: ${formatDateIn(activeFilterStartDate) || "início"} a ${formatDateIn(activeFilterEndDate) || "fim"})`
+                        : "(ÚLTIMOS 6)"}
                     </span>
                     <h3 className="font-medium">HISTÓRICO DE TRANSAÇÕES</h3>
                   </div>
@@ -814,8 +816,9 @@ export const CaixasTabBrl = () => {
                           </td>
                           <td className="py-2 px-4 border">{t.description}</td>
                           <td
-                            className={`py-2 px-4 border text-right ${t.direction === "OUT" ? "text-red-600" : "text-green-600"
-                              }`}
+                            className={`py-2 px-4 border text-right ${
+                              t.direction === "OUT" ? "text-red-600" : "text-green-600"
+                            }`}
                           >
                             {t.direction === "OUT" ? "-" : "+"}
                             {new Intl.NumberFormat("en-US", {
@@ -852,20 +855,22 @@ export const CaixasTabBrl = () => {
                 {filteredTransactions.length > itemsPerPage && (
                   <div className="flex justify-between items-center mt-4">
                     <button
-                      onClick={() => setCurrentPage(prev => Math.max(0, prev - 1))}
+                      onClick={() => setCurrentPage((prev) => Math.max(0, prev - 1))}
                       disabled={currentPage === 0}
                       className="px-3 py-1 bg-gray-200 text-sm rounded disabled:opacity-50"
                     >
                       Anterior
                     </button>
                     <span className="text-sm text-gray-600">
-                      Página {currentPage + 1} de {Math.ceil(filteredTransactions.length / itemsPerPage)} •
-                      Mostrando {filteredTransactions.length} de {transactionHistoryList.length} transações
+                      Página {currentPage + 1} de {Math.ceil(filteredTransactions.length / itemsPerPage)} • Mostrando{" "}
+                      {filteredTransactions.length} de {transactionHistoryList.length} transações
                     </span>
                     <button
-                      onClick={() => setCurrentPage(prev =>
-                        Math.min(prev + 1, Math.ceil(filteredTransactions.length / itemsPerPage) - 1)
-                      )}
+                      onClick={() =>
+                        setCurrentPage((prev) =>
+                          Math.min(prev + 1, Math.ceil(filteredTransactions.length / itemsPerPage) - 1)
+                        )
+                      }
                       disabled={(currentPage + 1) * itemsPerPage >= filteredTransactions.length}
                       className="px-3 py-1 bg-gray-200 text-sm rounded disabled:opacity-50"
                     >

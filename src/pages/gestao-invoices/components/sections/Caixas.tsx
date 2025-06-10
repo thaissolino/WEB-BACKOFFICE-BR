@@ -10,6 +10,7 @@ import { formatCurrency } from "../modals/format"
 import { Truck, HandCoins, Handshake, CircleDollarSign } from "lucide-react"
 import { useBalanceStore } from "../../../../store/useBalanceStore"
 import { useNotification } from "../../../../hooks/notification"
+import { formatDateIn } from "../../../tokens-management/components/format"
 
 interface Transaction {
   id: string
@@ -774,11 +775,11 @@ export const CaixasTab = () => {
 
             <div>
               <div className="mb-2 border-b pb-2 w-full flex flex-row items-center justify-between max-w-[100%]">
-                <div className="w-full flex justify-between items-start border-b pb-2 mb-4">
+                <div className="w-full flex justify-between items-start">
                   <div className="flex flex-col whitespace-nowrap">
                     <span className="text-xs font-medium text-gray-700 mb-1">
                       {activeFilterStartDate || activeFilterEndDate
-                        ? `(Filtrado: ${activeFilterStartDate || "início"} a ${activeFilterEndDate || "fim"})`
+                        ? `(Filtrado: ${formatDateIn(activeFilterStartDate) || "início"} a ${formatDateIn(activeFilterEndDate) || "fim"})`
                         : "(ÚLTIMOS 6)"}
                     </span>
                     <h3 className="font-medium">HISTÓRICO DE TRANSAÇÕES</h3>
