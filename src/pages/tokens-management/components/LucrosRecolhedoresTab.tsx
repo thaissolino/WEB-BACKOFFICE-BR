@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { formatCurrency, formatDate } from "./format";
+import { formatCurrency, formatDate, formatDateIn } from "./format";
 import { api } from "../../../services/api";
 import { motion } from "framer-motion";
 import { GenericSearchSelect } from "../../gestao-invoices/components/sections/SearchSelect";
@@ -216,7 +216,7 @@ const LucrosRecolhedoresFusionTab: React.FC = () => {
                 <i className="fas fa-chart-line mr-2"></i> HISTÓRICO DE LUCROS
               </h2>
               <span className="text-xs font-medium text-gray-700 mb-1">
-                {filterApplied ? `(Filtrado: ${filterStartDate || "início"} a ${filterEndDate || "fim"})` : ""}
+                {filterApplied ? `(Filtrado: ${formatDateIn(filterStartDate) || "início"} a ${formatDateIn(filterEndDate) || "fim"})` : ""}
               </span>
             </div>
 
