@@ -328,13 +328,24 @@ const FornecedoresTab: React.FC = () => {
   const filtrarTransacoesPorData = (transacoes: any[]) => {
     if (!filterStartDate && !filterEndDate) return transacoes;
 
+
     const start = new Date(filterStartDate);
     const end = new Date(filterEndDate);
     end.setDate(end.getDate() + 1);
 
     return transacoes.filter((transacao) => {
+          
+
       const dataTransacao = new Date(transacao.date);
-      return dataTransacao >= start && dataTransacao < end;
+
+    // Ajusta para o horário local sem afetar a data
+    const localDataTransacao = new Date(
+      dataTransacao.getFullYear(),
+      dataTransacao.getMonth(),
+      dataTransacao.getDate()
+    );
+
+    return (!start || localDataTransacao >= start) && (!end || localDataTransacao <= end);
     });
   };
 
