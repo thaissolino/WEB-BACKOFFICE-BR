@@ -88,8 +88,16 @@ export const CaixasTab = () => {
     end.setDate(end.getDate() + 1) // Inclui o dia final
 
     return transactionHistoryList.filter((transaction) => {
-      const transactionDate = new Date(transaction.date)
-      return transactionDate >= start && transactionDate < end
+      const dataTransacao = new Date(transaction.date);
+
+    // Ajusta para o horário local sem afetar a data
+    const localDataTransacao = new Date(
+      dataTransacao.getFullYear(),
+      dataTransacao.getMonth(),
+      dataTransacao.getDate()
+    );
+
+    return (!start || localDataTransacao >= start) && (!end || localDataTransacao <= end);
     })
   }
   const filteredTransactions = filterTransactionsByDate()
