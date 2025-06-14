@@ -430,15 +430,13 @@ const RecolhedoresTab: React.FC = () => {
   const filtrarTransacoesPorData = (transacoes: any[]) => {
     if (!activeFilterStartDate && !activeFilterEndDate) return transacoes;
 
-    const start = new Date(activeFilterStartDate);
-    const end = new Date(activeFilterEndDate);
-    end.setDate(end.getDate() + 1); // Inclui o dia final
+
+       const start =  new Date(`${activeFilterStartDate}T00:00:00`) 
+    const end =  new Date(`${activeFilterEndDate}T23:59:59`) 
+    // end.setDate(end.getDate() + 1); // Inclui o dia final
 
     return transacoes.filter((transacao) => {
-       
-
       const dataTransacao = new Date(transacao.date);
-
     // Ajusta para o horário local sem afetar a data
     const localDataTransacao = new Date(
       dataTransacao.getFullYear(),

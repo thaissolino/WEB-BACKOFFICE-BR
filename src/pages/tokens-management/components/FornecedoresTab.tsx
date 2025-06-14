@@ -328,10 +328,9 @@ const FornecedoresTab: React.FC = () => {
   const filtrarTransacoesPorData = (transacoes: any[]) => {
     if (!filterStartDate && !filterEndDate) return transacoes;
 
-
-    const start = new Date(filterStartDate);
-    const end = new Date(filterEndDate);
-    end.setDate(end.getDate() + 1);
+       const start =  new Date(`${filterStartDate}T00:00:00`) 
+    const end =  new Date(`${filterEndDate}T23:59:59`) 
+    // end.setDate(end.getDate() + 1);
 
     return transacoes.filter((transacao) => {
           
