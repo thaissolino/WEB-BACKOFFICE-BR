@@ -234,7 +234,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebar }) => {
 
             <Item
               title="Gerenciar Operadores"
-              to="/operators-management"
+              to="/operators-management2"
               icon={<AdminPanelSettingsOutlinedIcon />} // OU PersonOutlinedIcon se preferir
               selected={selected}
               setSelected={setSelected}
