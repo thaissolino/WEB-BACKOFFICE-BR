@@ -41,6 +41,17 @@ export function ReportsTab() {
   });
 
   const filteredInvoices = invoices.filter((invoice) => {
+
+          const dataTransacao = new Date(invoice.date);
+
+    // Ajusta para o horário local sem afetar a data
+    const localDataTransacao = new Date(
+      dataTransacao.getFullYear(),
+      dataTransacao.getMonth(),
+      dataTransacao.getDate()
+    );
+
+
     // Filtrar por data
     if (filters.startDate && new Date(invoice.date) < new Date(filters.startDate)) {
       return false;
