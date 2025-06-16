@@ -136,32 +136,32 @@ const Team: React.FC = () => {
       headerName: "Descricão",
       flex: 1,
     },
-    {
-      field: "action",
-      headerName: "Ação",
-      flex: 1,
-      renderCell: (params: any) => (
-        <Box
-          width="60%"
-          m="0 auto"
-          p="5px"
-          display="flex"
-          justifyContent="center"
-          sx={{ cursor: "pointer", backgroundColor: "red" }}
-          borderRadius="4px"
-        >
-          <Button
-            variant="contained"
-            color="error"
-            startIcon={<DeleteIcon />}
-            onClick={() => handleDelete(params.row.id_group, params.row.name)}
-            // Passa o ID ou userName
-          >
-            Excluir
-          </Button>
-        </Box>
-      ),
-    },
+    // {
+    //   field: "action",
+    //   headerName: "Ação",
+    //   flex: 1,
+    //   renderCell: (params: any) => (
+    //     <Box
+    //       width="60%"
+    //       m="0 auto"
+    //       p="5px"
+    //       display="flex"
+    //       justifyContent="center"
+    //       sx={{ cursor: "pointer", backgroundColor: "red" }}
+    //       borderRadius="4px"
+    //     >
+    //       <Button
+    //         variant="contained"
+    //         color="error"
+    //         startIcon={<DeleteIcon />}
+    //         onClick={() => handleDelete(params.row.id_group, params.row.name)}
+    //         // Passa o ID ou userName
+    //       >
+    //         Excluir
+    //       </Button>
+    //     </Box>
+    //   ),
+    // },
   ];
 
   return (

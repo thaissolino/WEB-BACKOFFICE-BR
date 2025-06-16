@@ -130,7 +130,14 @@ const FormUser = () => {
                 type="text"
                 label="Apelido"
                 onBlur={handleBlur}
-                onChange={handleChange}
+                onChange={(e) => {
+                  handleChange({
+                    target: {
+                      name: "userName",
+                      value: e.target.value.replace(/\s/g, ""),
+                    },
+                  });
+                }}
                 value={values.userName}
                 name="userName"
                 error={!!touched.userName && !!errors.userName}
