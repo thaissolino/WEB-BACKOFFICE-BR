@@ -11,6 +11,7 @@ import autoTable from "jspdf-autotable";
 import { useNotification } from "../../../hooks/notification";
 import { subtractHoursToLocaleBR } from "./RecolhedoresTab";
 import PdfShareModal from "../../../components/PdfShareModal";
+import { usePermissionStore } from "../../../store/permissionsStore";
 interface Transacao {
   id: number;
   date: string;
@@ -78,6 +79,7 @@ const FornecedoresTab: React.FC = () => {
   const [filterApplied, setFilterApplied] = useState(false);
   const { setOpenNotification } = useNotification();
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const { permissions, getPermissions } = usePermissionStore();
 
   const fetchAllData = async () => {
     setLoading(true);
@@ -566,7 +568,7 @@ const FornecedoresTab: React.FC = () => {
             </thead>
             <tbody>
               <AnimatePresence>
-                {fornecedores.map((f) => (
+                {fornecedores.filter((fornecedor)=> permissions?.GERENCIAR_TOKENS.FORNECEDORES_PERMITIDOS.includes(fornecedor.name)).map((f) => (
                   <motion.tr
                     key={f.id}
                     initial={{ opacity: 0, y: 10 }}

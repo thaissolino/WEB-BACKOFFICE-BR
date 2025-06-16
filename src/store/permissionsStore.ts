@@ -20,6 +20,7 @@ export type PermissionType = {
   };
   GERENCIAR_INVOICES: {
     enabled: boolean;
+    INVOICES: boolean;
     PRODUTOS: boolean;
     FORNECEDORES: boolean;
     FRETEIROS: boolean;

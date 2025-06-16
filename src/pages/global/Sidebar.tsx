@@ -44,7 +44,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebar }) => {
   useEffect(() => {
       getPermissions();
       console.log("Permissões carregadas:", permissions);
-  }, []);
+  }, [location.pathname]);
 
   const { onLogout } = useAuthBackoffice();
 

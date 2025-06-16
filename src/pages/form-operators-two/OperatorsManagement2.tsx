@@ -7,6 +7,7 @@ interface Operator {
   name: string;
   email: string;
   password: string;
+  role: "OPERATOR" | "ADMIN" | "MASTER" ;
   status: "active" | "inactive" | "pending";
   lastAccess: string | null;
   createdAt: string;
@@ -93,6 +94,7 @@ const OperatorManager2: React.FC = () => {
       category: "Financeiro",
       subPermissions: [
         { id: "PRODUTOS", label: "Produtos", type: "boolean" },
+        { id: "INVOICES", label: "Invoices", type: "boolean" },
         { id: "FORNECEDORES", label: "Fornecedores", type: "boolean" },
         { id: "FRETEIROS", label: "Freteiros", type: "boolean" },
         { id: "OUTROS", label: "Outros", type: "boolean" },
@@ -162,6 +164,7 @@ const OperatorManager2: React.FC = () => {
   },
   GERENCIAR_INVOICES: {
     enabled: false,
+    INVOICES: false,
     PRODUTOS: false,
     FORNECEDORES: false,
     FRETEIROS: false,
@@ -191,7 +194,7 @@ const OperatorManager2: React.FC = () => {
   const [currentOperator, setCurrentOperator] = useState<Operator | null>(null);
   const [selectedPermissions, setSelectedPermissions] = useState<Record<string, any>>(defaultPermissions);
   const [searchTerm, setSearchTerm] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState({ show: false, message: "", type: "success" });
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
@@ -241,6 +244,8 @@ const OperatorManager2: React.FC = () => {
       catch (e) {
         console.error("Erro ao carregar operadores:", e);
         setOperators([]);
+      } finally {
+        setLoading(false);
       }
   }
   
@@ -330,6 +335,7 @@ const OperatorManager2: React.FC = () => {
           email,
           password,
           status,
+          role: "OPERATOR", // Definir role como OPERATOR por padrão
           lastAccess: null,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
@@ -373,6 +379,7 @@ const OperatorManager2: React.FC = () => {
           password,
           status,
           lastAccess: null,
+          role: operators[operatorIndex].role,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
           permissions: JSON.parse(JSON.stringify(selectedPermissions)),
@@ -476,7 +483,7 @@ const OperatorManager2: React.FC = () => {
           });
         }
       } else {
-        delete newPermissions[permissionId];
+        newPermissions[permissionId] = { enabled: false };
       }
 
       return newPermissions;
@@ -596,6 +603,7 @@ const OperatorManager2: React.FC = () => {
     }
 
     return operators
+      .filter((operator) => operator.role !== "MASTER") // Excluir operadores MASTER da lista
       .filter((operator) => {
         if (!searchTerm) return true;
         return (
@@ -681,13 +689,13 @@ const OperatorManager2: React.FC = () => {
             <i className={`fas fa-${getCategoryIcon(category)} text-indigo-500 mr-2`} />
             {category}
           </h4>
-          <button
+          {/* <button
             onClick={() => handleExpandCategory(category, permissions)}
             className="text-xs text-indigo-600 hover:text-indigo-800 opacity-0 group-hover:opacity-100 transition-opacity"
             aria-label={`Expandir/recolher ${category}`}
           >
             {expandedCategories[category] ? "Recolher" : "Expandir todos"}
-          </button>
+          </button> */}
         </div>
 
         <AnimatePresence>
@@ -746,11 +754,11 @@ const OperatorManager2: React.FC = () => {
                             </label>
                           </div>
                           <div className="flex items-center gap-2">
-                            {permission.subPermissions && (
+                            {/* {permission.subPermissions && (
                               <span className="selected-count text-xs px-2 py-1 rounded-full bg-gray-100 text-gray-600">
                                 {getSelectedSubPermissionsCount(permission.id)}/{permission.subPermissions.length}
                               </span>
-                            )}
+                            )} */}
                             <span
                               className={`badge px-2 py-1 rounded-full text-xs ${
                                 isSelected ? "bg-indigo-100 text-indigo-800" : "bg-gray-100 text-gray-600"
@@ -1200,10 +1208,10 @@ const OperatorManager2: React.FC = () => {
                     <i className="fas fa-user-shield text-indigo-600 mr-2"></i> Permissões de Acesso
                   </h3>
                   <div className="flex items-center">
-                    <span className="text-sm text-gray-500 mr-2">
+                    {/* <span className="text-sm text-gray-500 mr-2">
                       Selecionadas: <span id="selected-count">{countSelectedPermissions()}</span>/
                       <span id="total-count">{availablePermissions.length}</span>
-                    </span>
+                    </span> */}
                     <button
                       id="expand-all"
                       className="text-xs text-indigo-600 hover:text-indigo-800"

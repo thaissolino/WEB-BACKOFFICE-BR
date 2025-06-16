@@ -10,6 +10,7 @@ import { useNotification } from "../../../hooks/notification";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import PdfShareModal from "../../../components/PdfShareModal";
+import { usePermissionStore } from "../../../store/permissionsStore";
 interface Transacao {
   id: number;
   date: string;
@@ -117,6 +118,7 @@ const RecolhedoresTab: React.FC = () => {
   const [activeFilterEndDate, setActiveFilterEndDate] = useState<string>("");
   const { setOpenNotification } = useNotification();
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const {permissions, getPermissions} = usePermissionStore();
 
   const fetchRecolhedores = async () => {
     setLoading(true);
@@ -661,7 +663,7 @@ const RecolhedoresTab: React.FC = () => {
             </thead>
             <tbody>
               <AnimatePresence>
-                {recolhedores.map((r) => (
+                {recolhedores.filter((recolhedor)=> permissions?.GERENCIAR_TOKENS.RECOLHEDORES_PERMITIDOS.includes(recolhedor.name)).map((r) => (
                   <motion.tr
                     key={r.id}
                     initial={{ opacity: 0, y: 10 }}

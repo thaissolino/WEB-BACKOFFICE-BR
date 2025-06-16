@@ -21,10 +21,23 @@ export type TabType =
   | "relatorios"
   | "caixas"
   | "others"
-  | "caixas-brl";
+  | "caixas-brl" | "";
+
+export const permissionTabMap: Record<string, TabType> = {
+  INVOICES: "invoices",
+  PRODUTOS: "products",
+  FORNECEDORES: "suppliers",
+  FRETEIROS: "carriers",
+  MEDIA_DOLAR: "media-dolar",
+  RELATORIOS: "relatorios",
+  CAIXAS_PERMITIDOS: "caixas",
+  OUTROS: "others",
+  CAIXAS_BR_PERMITIDOS: "caixas-brl",
+};
+
 
 export default function InvocesManagement() {
-  const [activeTab, setActiveTab] = useState<TabType>("invoices");
+  const [activeTab, setActiveTab] = useState<TabType>("");
   const {getPermissions, permissions} = usePermissionStore()
   const [currentInvoice, setCurrentInvoice] = useState<Invoice>({
     id: null,
@@ -47,10 +60,24 @@ export default function InvocesManagement() {
     subAmount: 0,
   });
 
+  
+
   useEffect(() => {
     getPermissions();
-    console.log(permissions)
-  }, [activeTab]);
+  }, []);
+
+    useEffect(() => {
+    if (!permissions?.GERENCIAR_INVOICES) return;
+
+    for (const [permKey, tab] of Object.entries(permissionTabMap)) {
+      const value = permissions.GERENCIAR_INVOICES[permKey as keyof typeof permissions.GERENCIAR_INVOICES];
+
+      if (Array.isArray(value) ? value.length > 0 : value === true) {
+        setActiveTab(tab);
+        break;
+      }
+    }
+  }, [permissions]);
 
   return (
     <div className="bg-gray-50 min-h-screen">
@@ -63,7 +90,7 @@ export default function InvocesManagement() {
         <Tabs activeTab={activeTab} setActiveTab={setActiveTab} />
 
         <div className="mt-6">
-          {activeTab === "invoices" && permissions?.GERENCIAR_INVOICES?.enabled && (
+          {activeTab === "invoices" && permissions?.GERENCIAR_INVOICES?.INVOICES && (
             <InvoicesTab currentInvoice={currentInvoice} setCurrentInvoice={setCurrentInvoice} />
           )}
 

@@ -9,7 +9,7 @@ interface TabsProps {
 }
 
 const allTabs = [
-  { id: "invoices", icon: <FileText className="mr-2" size={16} />, label: "Invoices", permissionKey: "enabled" },
+  { id: "invoices", icon: <FileText className="mr-2" size={16} />, label: "Invoices", permissionKey: "INVOICES" },
   { id: "products", icon: <Boxes className="mr-2" size={16} />, label: "Produtos", permissionKey: "PRODUTOS" },
   { id: "suppliers", icon: <Package className="mr-2" size={16} />, label: "Fornecedores", permissionKey: "FORNECEDORES" },
   { id: "carriers", icon: <Truck className="mr-2" size={16} />, label: "Freteiros", permissionKey: "FRETEIROS" },
