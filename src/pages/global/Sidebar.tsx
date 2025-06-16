@@ -1,9 +1,9 @@
 import type React from "react";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ProSidebar, Menu, MenuItem } from "react-pro-sidebar";
 import { Box, Button, IconButton, Typography, useTheme, Snackbar, Alert } from "@mui/material";
-import { useNavigate } from "react-router-dom"; // Removido o import do Link
+import { useLocation, useNavigate } from "react-router-dom"; // Removido o import do Link
 import "react-pro-sidebar/dist/css/styles.css";
 import { tokens } from "../../theme";
 import HomeOutlinedIcon from "@mui/icons-material/HomeOutlined";
@@ -16,6 +16,7 @@ import AdminPanelSettingsOutlinedIcon from "@mui/icons-material/AdminPanelSettin
 import { useAuthBackoffice } from "../../hooks/authBackoffice";
 import { EnhancedModal } from "../../components/modals/harCodedModal";
 import DescriptionOutlinedIcon from "@mui/icons-material/DescriptionOutlined";
+import { usePermissionStore } from "../../store/permissionsStore";
 
 interface SidebarProps {
   isSidebar?: boolean;
@@ -37,6 +38,13 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebar }) => {
   const [spreadsheetInput, setSpreadsheetInput] = useState("");
   const [showErrorToast, setShowErrorToast] = useState(false);
   const [pendingNavigation, setPendingNavigation] = useState<string | null>(null);
+  const {getPermissions, permissions} = usePermissionStore();
+  const location = useLocation();
+
+  useEffect(() => {
+      getPermissions();
+      console.log("Permissões carregadas:", permissions);
+  }, [location.pathname]);
 
   const { onLogout } = useAuthBackoffice();
 
@@ -191,6 +199,9 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebar }) => {
           )}
 
           <Box paddingLeft={isCollapsed ? undefined : "10%"}>
+
+            {
+              
             <Item
               title="Menu Principal"
               to="/"
@@ -198,21 +209,31 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebar }) => {
               selected={selected}
               setSelected={setSelected}
             />
+            }
+            
 
-            {!isCollapsed && (
+            
+            {
+              permissions?.CRIAR_USUARIO?.enabled &&<>
+              {!isCollapsed && (
               <Typography variant="h6" color={colors.greenAccent[300]} sx={{ m: "15px 0 5px 20px" }}>
                 Novo Cadastro:
               </Typography>
             )}
-            <Item
-              title="Criar Usuário"
-              to="/create-form-user"
-              icon={<PersonAddIcon />}
-              selected={selected}
-              setSelected={setSelected}
-            />
+              <Item
+                title="Criar Usuário"
+                to="/create-form-user"
+                icon={<PersonAddIcon />}
+                selected={selected}
+                setSelected={setSelected}
+              />
+              </>
+            }
 
-            {!isCollapsed && (
+            {
+              permissions?.GERENCIAR_GRUPOS?.enabled &&
+              <>
+              {!isCollapsed && (
               <Typography variant="h6" color={colors.greenAccent[300]} sx={{ m: "15px 0 5px 20px" }}>
                 Usuário/Grupo
               </Typography>
@@ -224,6 +245,10 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebar }) => {
               selected={selected}
               setSelected={setSelected}
             />
+            </>
+            }
+            {
+              permissions?.GERENCIAR_USUARIOS?.enabled &&
             <Item
               title="Gerenciar Usuários"
               to="/users"
@@ -231,7 +256,9 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebar }) => {
               selected={selected}
               setSelected={setSelected}
             />
-
+            }
+            {
+              permissions?.GERENCIAR_OPERADORES?.enabled &&
             <Item
               title="Gerenciar Operadores"
               to="/operators-management"
@@ -239,13 +266,17 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebar }) => {
               selected={selected}
               setSelected={setSelected}
             />
-
-            {!isCollapsed && (
+            }
+            
+            {/* Este item agora requer validação */}
+            {
+              permissions?.GERENCIAR_PLANILHAS?.enabled &&
+              <>
+              {!isCollapsed && (
               <Typography variant="h6" color={colors.greenAccent[300]} sx={{ m: "15px 0 5px 20px" }}>
                 Planilhas:
               </Typography>
             )}
-            {/* Este item agora requer validação */}
             <Item
               title="Gerenciar Planilhas"
               to="/spreadsheets"
@@ -254,6 +285,10 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebar }) => {
               setSelected={setSelected}
               requiresValidation={true}
             />
+            </>
+            }
+            {
+              permissions?.GERENCIAR_INVOICES?.enabled &&
             <Item
               title="Gerenciar Invoices"
               to="/invoices-management"
@@ -262,7 +297,9 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebar }) => {
               setSelected={setSelected}
               requiresValidation={true}
             />
-
+            }
+            {
+              permissions?.GERENCIAR_TOKENS?.enabled &&
             <Item
               title="Gerenciar Tokens"
               to="/tokens-management"
@@ -271,13 +308,17 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebar }) => {
               setSelected={setSelected}
               requiresValidation={true}
             />
-
-            {!isCollapsed && (
+            }
+            
+            {/* Este item agora requer validação */}
+            {
+              permissions?.GERENCIAR_BOLETOS?.enabled &&
+              <>
+              {!isCollapsed && (
               <Typography variant="h6" color={colors.greenAccent[300]} sx={{ m: "15px 0 5px 20px" }}>
                 Boletos:
               </Typography>
             )}
-            {/* Este item agora requer validação */}
             <Item
               title="Gerenciar Boletos"
               to="/billets-management"
@@ -286,6 +327,8 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebar }) => {
               setSelected={setSelected}
               requiresValidation={true}
             />
+            </>
+            }
             {/* Enhanced Modal Component */}
             <EnhancedModal
               open={openModal}

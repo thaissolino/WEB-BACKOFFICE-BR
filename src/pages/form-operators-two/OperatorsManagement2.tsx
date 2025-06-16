@@ -3,10 +3,11 @@ import React, { useState, useEffect, useRef } from "react";
 import { api } from "../../services/api";
 
 interface Operator {
-  id: string;
+  id: string ;
   name: string;
   email: string;
   password: string;
+  role: "OPERATOR" | "ADMIN" | "MASTER" ;
   status: "active" | "inactive" | "pending";
   lastAccess: string | null;
   createdAt: string;
@@ -44,6 +45,8 @@ const OperatorManager2: React.FC = () => {
   const [recolhedores, setRecolhedores] = useState<string[]>([]);
   const mockRecolhedores = ["Recolhedor X", "Recolhedor Y", "Recolhedor Z", "Recolhedor W", "Recolhedor V"];
   const mockCaixas = ["Caixa 01", "Caixa 02", "Caixa 03", "Caixa 04", "Caixa 05"];
+  const [caixa, setCaixa] = useState<string[]>([]);
+  const [caixaBR, setCaixaBR] = useState<string[]>([]);
   const mockCaixasBR = ["Caixa BR 01", "Caixa BR 02", "Caixa BR 03", "Caixa BR 04", "Caixa BR 05"];
 
   // Permissões disponíveis
@@ -69,8 +72,8 @@ const OperatorManager2: React.FC = () => {
       description: "Permite gerenciar tokens de acesso e configurações relacionadas",
       category: "Segurança",
       subPermissions: [
-        { id: "FORNECEDORES", label: "Fornecedores", options: mockFornecedores },
-        { id: "RECOLHEDORES", label: "Recolhedores", options: mockRecolhedores },
+        { id: "FORNECEDORES_PERMITIDOS", label: "Fornecedores", options: fornecedores },
+        { id: "RECOLHEDORES_PERMITIDOS", label: "Recolhedores", options: recolhedores },
         { id: "OPERAÇÕES", label: "Operações", type: "boolean" },
         { id: "LUCROS", label: "Lucros", type: "boolean" },
         { id: "LUCROS_RECOLHEDORES", label: "Lucros Recolhedores", type: "boolean" },
@@ -91,13 +94,14 @@ const OperatorManager2: React.FC = () => {
       category: "Financeiro",
       subPermissions: [
         { id: "PRODUTOS", label: "Produtos", type: "boolean" },
+        { id: "INVOICES", label: "Invoices", type: "boolean" },
         { id: "FORNECEDORES", label: "Fornecedores", type: "boolean" },
         { id: "FRETEIROS", label: "Freteiros", type: "boolean" },
         { id: "OUTROS", label: "Outros", type: "boolean" },
         { id: "MEDIA_DOLAR", label: "Média Dólar", type: "boolean" },
         { id: "RELATORIOS", label: "Relatórios", type: "boolean" },
-        { id: "CAIXAS", label: "Caixas", options: mockCaixas },
-        { id: "CAIXAS_BR", label: "Caixas BR", options: mockCaixasBR },
+        { id: "CAIXAS_PERMITIDOS", label: "Caixas", options: caixa },
+        { id: "CAIXAS_BR_PERMITIDOS", label: "Caixas BR", options: caixaBR },
       ],
     },
     {
@@ -140,75 +144,57 @@ const OperatorManager2: React.FC = () => {
   }, {});
 
   // Estado
-  const [operators, setOperators] = useState<Operator[]>([
-    {
-      id: "1",
-      name: "Admin Master",
-      email: "admin@empresa.com",
-      password: "senha123",
-      status: "active",
-      lastAccess: "2023-06-15T14:30:00",
-      createdAt: "2023-01-15T10:30:00Z",
-      updatedAt: "2023-06-20T14:45:00Z",
-      permissions: {
-        CRIAR_USUARIO: { enabled: true },
-        GERENCIAR_GRUPOS: { enabled: true },
-        GERENCIAR_TOKENS: {
-          enabled: true,
-          FORNECEDORES: ["Fornecedor A", "Fornecedor B"],
-          RECOLHEDORES: ["Recolhedor X", "Recolhedor Y"],
-          OPERACOES: true,
-          LUCROS: true,
-          LUCROS_RECOLHEDORES: false,
-        },
-        GERENCIAR_BOLETOS: { enabled: true },
-        GERENCIAR_INVOICES: {
-          enabled: true,
-          PRODUTOS: true,
-          FORNECEDORES: true,
-          FRETEIROS: false,
-          OUTROS: false,
-          MEDIA_DOLAR: true,
-          RELATORIOS: true,
-          CAIXAS: ["Caixa 01", "Caixa 02"],
-          CAIXAS_BR: ["Caixa BR 01"],
-        },
-        GERENCIAR_USUARIOS: { enabled: true },
-        GERENCIAR_OPERACOES: { enabled: true },
-        GERENCIAR_PLANILHAS: { enabled: true },
-        GERENCIAR_OPERADORES: { enabled: true },
-      },
-    },
-    {
-      id: '2',
-      name: "Operador Financeiro",
-      email: "financeiro@empresa.com",
-      password: "senha456",
-      status: "active",
-      lastAccess: "2023-05-18T11:20:00Z",
-      createdAt: "2023-03-10T09:15:00Z",
-      updatedAt: "2023-05-18T11:20:00Z",
-      permissions: {
-        GERENCIAR_BOLETOS: { enabled: true },
-        GERENCIAR_INVOICES: {
-          enabled: true,
-          PRODUTOS: true,
-          FORNECEDORES: false,
-          FRETEIROS: false,
-          OUTROS: false,
-          MEDIA_DOLAR: true,
-          RELATORIOS: true,
-          CAIXAS: ["Caixa 01"],
-          CAIXAS_BR: [],
-        },
-      },
-    },
-  ]);
+  const [operators, setOperators] = useState<Operator[]>([]);
+
+  const defaultPermissions = {
+  CRIAR_USUARIO: {
+    enabled: false,
+  },
+  GERENCIAR_GRUPOS: {
+    enabled: false,
+  },
+  GERENCIAR_USUARIOS: {
+    enabled: false,
+  },
+  GERENCIAR_OPERADORES: {
+    enabled: false,
+  },
+  GERENCIAR_PLANILHAS: {
+    enabled: false,
+  },
+  GERENCIAR_INVOICES: {
+    enabled: false,
+    INVOICES: false,
+    PRODUTOS: false,
+    FORNECEDORES: false,
+    FRETEIROS: false,
+    OUTROS: false,
+    MEDIA_DOLAR: false,
+    RELATORIOS: false,
+    CAIXAS: [],
+    CAIXAS_BR: [],
+  },
+  GERENCIAR_TOKENS: {
+    enabled: false,
+    FORNECEDORES: [],
+    RECOLHEDORES: [],
+    OPERAÇÕES: false,
+    LUCROS: false,
+    LUCROS_RECOLHEDORES: false,
+  },
+  GERENCIAR_BOLETOS: {
+    enabled: false,
+  },
+  GERENCIAR_OPERACOES: {
+    enabled: false,
+  },
+};
+
 
   const [currentOperator, setCurrentOperator] = useState<Operator | null>(null);
-  const [selectedPermissions, setSelectedPermissions] = useState<Record<string, any>>({});
+  const [selectedPermissions, setSelectedPermissions] = useState<Record<string, any>>(defaultPermissions);
   const [searchTerm, setSearchTerm] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState({ show: false, message: "", type: "success" });
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
@@ -232,13 +218,34 @@ const OperatorManager2: React.FC = () => {
 
   const loadOperatorsFromDB = async () => {
   try {
-        const response = await api.get("/users_operators");
-        const fornecedores = await api.get("/suppliers/list_suppliers");
+        // const response = await api.get("/users_operators");
+        // const fornecedores = await api.get("/suppliers/list_suppliers");
+
+        const [response, fornecedores, colletors, caixa1, caixa2, caixaBR ] = await Promise.all([
+          api.get("/users_operators"),
+          api.get("/suppliers/list_suppliers"),
+          api.get("/collectors/list_collectors"),
+          api.get("/invoice/carriers"),
+          api.get("/invoice/supplier"),
+          api.get("/invoice/partner")
+        ]);
+        const fornecedoresData = fornecedores.data.map((f: any) => f.name);
+        const recolhedoresData = colletors.data.map((c: any) => c.name);
+        const caixaData = caixa1.data.map((c: any) => c.name);
+        const caixaData2 = caixa2.data.map((c: any) => c.name);
+        const caixaUnion = [...caixaData, ...caixaData2];
+        const caixaBRData = caixaBR.data.brl.map((c: any) => c.name);
+        setFornecedores(fornecedoresData);
+        setRecolhedores(recolhedoresData);
+        setCaixa(caixaUnion);
+        setCaixaBR(caixaBRData);
         setOperators(response.data);
       } 
       catch (e) {
         console.error("Erro ao carregar operadores:", e);
         setOperators([]);
+      } finally {
+        setLoading(false);
       }
   }
   
@@ -247,8 +254,6 @@ const OperatorManager2: React.FC = () => {
   useEffect(() => {
     loadOperatorsFromDB();
   }, []);
-
-
 
   // Carregar operador
   const loadOperator = (operator: Operator) => {
@@ -275,7 +280,7 @@ const OperatorManager2: React.FC = () => {
       confirmPassword: "",
       status: "active",
     });
-    setSelectedPermissions({});
+    setSelectedPermissions(defaultPermissions);
   };
 
   // Salvar operador
@@ -310,19 +315,35 @@ const OperatorManager2: React.FC = () => {
 
       if (isNew) {
         // Criar novo operador
+        const newOperatorData2 = {
+          id: "",
+          name,
+          email,
+          status,
+          lastAccess: null,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          permissions: JSON.parse(JSON.stringify(selectedPermissions)),
+           ...(password ? { password } : {}),
+        };
+
+        const response = await api.post("/users_operators", newOperatorData2);
+
         newOperatorData = {
           id: "",
           name,
           email,
           password,
           status,
+          role: "OPERATOR", // Definir role como OPERATOR por padrão
           lastAccess: null,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
           permissions: JSON.parse(JSON.stringify(selectedPermissions)),
+          
         };
 
-        updatedOperators = [...operators, newOperatorData];
+        // updatedOperators = [...operators, newOperatorData];
         setCurrentOperator(newOperatorData);
       } else {
         // Atualizar operador existente
@@ -331,13 +352,38 @@ const OperatorManager2: React.FC = () => {
           throw new Error("Operador não encontrado");
         }
 
-        const updatedOperator = {
-          ...operators[operatorIndex],
+        // const updatedOperator = {
+        //   ...operators[operatorIndex],
+        //   name,
+        //   email,
+        //   status,
+        //   updatedAt: new Date().toISOString(),
+        //   permissions: JSON.parse(JSON.stringify(selectedPermissions)),
+        // };
+
+        const updatedOperator2 = {
+          id: operators[operatorIndex].id,
           name,
           email,
           status,
+          lastAccess: null,
+          createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
           permissions: JSON.parse(JSON.stringify(selectedPermissions)),
+           ...(password ? { password } : {}),
+        };
+        const updatedOperator = {
+          id: operators[operatorIndex].id,
+          name,
+          email,
+          password,
+          status,
+          lastAccess: null,
+          role: operators[operatorIndex].role,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          permissions: JSON.parse(JSON.stringify(selectedPermissions)),
+          
         };
 
         // Atualizar senha apenas se foi fornecida
@@ -345,17 +391,19 @@ const OperatorManager2: React.FC = () => {
           updatedOperator.password = password;
         }
 
-        updatedOperators = [...operators];
-        updatedOperators[operatorIndex] = updatedOperator;
+        const response = await api.patch(`/users_operators/${updatedOperator.id}`, updatedOperator2);
+
+        // updatedOperators = [...operators];
+        // updatedOperators[operatorIndex] = updatedOperator;
         setCurrentOperator(updatedOperator);
       }
-
-      setOperators(updatedOperators);
+      
       showToast(isNew ? "Operador criado com sucesso!" : "Operador atualizado com sucesso!");
     } catch (error) {
       console.error("Error saving operator:", error);
       showToast(error instanceof Error ? error.message : "Erro ao salvar operador", "error");
     } finally {
+      loadOperatorsFromDB();
       setLoading(false);
     }
   };
@@ -435,7 +483,7 @@ const OperatorManager2: React.FC = () => {
           });
         }
       } else {
-        delete newPermissions[permissionId];
+        newPermissions[permissionId] = { enabled: false };
       }
 
       return newPermissions;
@@ -555,6 +603,7 @@ const OperatorManager2: React.FC = () => {
     }
 
     return operators
+      .filter((operator) => operator.role !== "MASTER") // Excluir operadores MASTER da lista
       .filter((operator) => {
         if (!searchTerm) return true;
         return (
@@ -640,13 +689,13 @@ const OperatorManager2: React.FC = () => {
             <i className={`fas fa-${getCategoryIcon(category)} text-indigo-500 mr-2`} />
             {category}
           </h4>
-          <button
+          {/* <button
             onClick={() => handleExpandCategory(category, permissions)}
             className="text-xs text-indigo-600 hover:text-indigo-800 opacity-0 group-hover:opacity-100 transition-opacity"
             aria-label={`Expandir/recolher ${category}`}
           >
             {expandedCategories[category] ? "Recolher" : "Expandir todos"}
-          </button>
+          </button> */}
         </div>
 
         <AnimatePresence>
@@ -705,11 +754,11 @@ const OperatorManager2: React.FC = () => {
                             </label>
                           </div>
                           <div className="flex items-center gap-2">
-                            {permission.subPermissions && (
+                            {/* {permission.subPermissions && (
                               <span className="selected-count text-xs px-2 py-1 rounded-full bg-gray-100 text-gray-600">
                                 {getSelectedSubPermissionsCount(permission.id)}/{permission.subPermissions.length}
                               </span>
-                            )}
+                            )} */}
                             <span
                               className={`badge px-2 py-1 rounded-full text-xs ${
                                 isSelected ? "bg-indigo-100 text-indigo-800" : "bg-gray-100 text-gray-600"
@@ -749,7 +798,10 @@ const OperatorManager2: React.FC = () => {
                                 }
                                 onChange={(e) => {
                                   if (sub.options) {
-                                    updateSubPermission(permission.id, sub.id, e.target.checked ? [] : undefined);
+                                    // updateSubPermission(permission.id, sub.id, e.target.checked ? [] : undefined);
+
+                                        const newValues = sub.options
+                                        updateSubPermission(permission.id, sub.id, !e.target.checked?[]:newValues);
                                   } else {
                                     updateSubPermission(permission.id, sub.id, e.target.checked);
                                   }
@@ -1156,10 +1208,10 @@ const OperatorManager2: React.FC = () => {
                     <i className="fas fa-user-shield text-indigo-600 mr-2"></i> Permissões de Acesso
                   </h3>
                   <div className="flex items-center">
-                    <span className="text-sm text-gray-500 mr-2">
+                    {/* <span className="text-sm text-gray-500 mr-2">
                       Selecionadas: <span id="selected-count">{countSelectedPermissions()}</span>/
                       <span id="total-count">{availablePermissions.length}</span>
-                    </span>
+                    </span> */}
                     <button
                       id="expand-all"
                       className="text-xs text-indigo-600 hover:text-indigo-800"
@@ -1178,7 +1230,7 @@ const OperatorManager2: React.FC = () => {
               </div>
               <div className="p-6">
                 <div
-                  className="select-all-container p-3 rounded-lg border border-gray-200 cursor-pointer"
+                  className="select-all-container p-3 rounded-lg border mb-3 border-gray-200 cursor-pointer"
                   onClick={() => {
                     const allSelected = countSelectedPermissions() === availablePermissions.length;
                     availablePermissions.forEach((permission) => {

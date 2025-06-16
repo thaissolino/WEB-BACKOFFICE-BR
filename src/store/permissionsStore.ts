@@ -2,12 +2,57 @@ import { create } from "zustand";
 import { api } from "../services/api";
 import { parseError } from "../utils/parseError";
 
+export type PermissionType = {
+  CRIAR_USUARIO: {
+    enabled: boolean;
+  };
+  GERENCIAR_GRUPOS: {
+    enabled: boolean;
+  };
+  GERENCIAR_USUARIOS: {
+    enabled: boolean;
+  };
+  GERENCIAR_OPERADORES: {
+    enabled: boolean;
+  };
+  GERENCIAR_PLANILHAS: {
+    enabled: boolean;
+  };
+  GERENCIAR_INVOICES: {
+    enabled: boolean;
+    INVOICES: boolean;
+    PRODUTOS: boolean;
+    FORNECEDORES: boolean;
+    FRETEIROS: boolean;
+    OUTROS: boolean;
+    MEDIA_DOLAR: boolean;
+    RELATORIOS: boolean;
+    CAIXAS_PERMITIDOS: string[];
+    CAIXAS_BR_PERMITIDOS: string[];
+  };
+  GERENCIAR_TOKENS: {
+    enabled: boolean;
+    FORNECEDORES_PERMITIDOS: string[];
+    RECOLHEDORES_PERMITIDOS: string[];
+    OPERAÇÕES: boolean;
+    LUCROS: boolean;
+    LUCROS_RECOLHEDORES: boolean;
+  };
+  GERENCIAR_BOLETOS: {
+    enabled: boolean;
+  };
+  GERENCIAR_OPERACOES: {
+    enabled: boolean;
+  };
+};
+
+
 interface PermissionStore {
-  permissions: Permissions | null;
+  permissions: PermissionType | null;
   isLoading: boolean;
   error: string | null;
 
-  getPermissions: (id: string) => Promise<void>;
+  getPermissions: () => Promise<void>;
   updatePermissions: (id: string, data: Permissions) => Promise<void>;
   refreshPermissions: (id: string) => Promise<void>;
 }
@@ -16,11 +61,13 @@ export const usePermissionStore = create<PermissionStore>((set) => ({
   permissions: null,
   isLoading: false,
   error: null,
+  
 
-  getPermissions: async (id) => {
+  getPermissions: async () => {
     set({ isLoading: true, error: null });
     try {
-      const response = await api.get(`/get_permission_by_id/${id}`);
+      const datauser = JSON.parse(localStorage.getItem("@backoffice:user") || "{}") || {};
+      const response = await api.get(`/get_permission_by_id/${datauser.id}`);
       set({ permissions: response.data, isLoading: false });
     } catch (err) {
       set({ error: parseError(err), isLoading: false });
@@ -38,6 +85,6 @@ export const usePermissionStore = create<PermissionStore>((set) => ({
   },
 
   refreshPermissions: async (id) => {
-    await usePermissionStore.getState().getPermissions(id);
+    await usePermissionStore.getState().getPermissions();
   },
 }));

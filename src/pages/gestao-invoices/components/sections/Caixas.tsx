@@ -11,6 +11,7 @@ import { Truck, HandCoins, Handshake, CircleDollarSign } from "lucide-react"
 import { useBalanceStore } from "../../../../store/useBalanceStore"
 import { useNotification } from "../../../../hooks/notification"
 import { formatDateIn } from "../../../tokens-management/components/format"
+import { usePermissionStore } from "../../../../store/permissionsStore"
 
 interface Transaction {
   id: string
@@ -79,25 +80,18 @@ export const CaixasTab = () => {
 
   const [activeFilterStartDate, setActiveFilterStartDate] = useState<string>("")
   const [activeFilterEndDate, setActiveFilterEndDate] = useState<string>("")
+  const {getPermissions, permissions} = usePermissionStore()
 
   const filterTransactionsByDate = () => {
     if (!activeFilterStartDate || !activeFilterEndDate) return transactionHistoryList
 
-    const start = new Date(activeFilterStartDate)
-    const end = new Date(activeFilterEndDate)
-    end.setDate(end.getDate() + 1) // Inclui o dia final
+  const start =  new Date(`${activeFilterStartDate}T00:00:00`) 
+  const end =  new Date(`${activeFilterEndDate}T23:59:59`) 
+    // end.setDate(end.getDate() + 1) 
 
     return transactionHistoryList.filter((transaction) => {
-      const dataTransacao = new Date(transaction.date);
-
-    // Ajusta para o horário local sem afetar a data
-    const localDataTransacao = new Date(
-      dataTransacao.getFullYear(),
-      dataTransacao.getMonth(),
-      dataTransacao.getDate()
-    );
-
-    return (!start || localDataTransacao >= start) && (!end || localDataTransacao <= end);
+      const transactionDate = new Date(transaction.date)
+      return transactionDate >= start && transactionDate < end
     })
   }
   const filteredTransactions = filterTransactionsByDate()
@@ -377,6 +371,7 @@ export const CaixasTab = () => {
 
   useEffect(() => {
     fetchDatUser()
+    getPermissions()
   }, [selectedUserId])
 
   console.log("selectedEntity", selectedEntity)
@@ -592,7 +587,7 @@ export const CaixasTab = () => {
         ) : (
           <div className="flex items-center space-x-4">
             <GenericSearchSelect
-              items={combinedItems}
+              items={combinedItems.filter((item) => permissions?.GERENCIAR_INVOICES?.CAIXAS_PERMITIDOS?.includes(item.name))}
               value={selectedEntity?.id || ""}
               getLabel={(p) => (
                 <span className="flex items-center">
