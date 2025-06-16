@@ -48,6 +48,6 @@
     "enabled": false
   },
   "GERENCIAR_OPERADORES": {
-    "enabled": false
+    "enabled": true
   }
 }

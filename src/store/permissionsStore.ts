@@ -26,13 +26,13 @@ export type PermissionType = {
     OUTROS: boolean;
     MEDIA_DOLAR: boolean;
     RELATORIOS: boolean;
-    CAIXAS: string[];
-    CAIXAS_BR: string[];
+    CAIXAS_PERMITIDOS: string[];
+    CAIXAS_BR_PERMITIDOS: string[];
   };
   GERENCIAR_TOKENS: {
     enabled: boolean;
-    FORNECEDORES: string[];
-    RECOLHEDORES: string[];
+    FORNECEDORES_PERMITIDOS: string[];
+    RECOLHEDORES_PERMITIDOS: string[];
     OPERAÇÕES: boolean;
     LUCROS: boolean;
     LUCROS_RECOLHEDORES: boolean;
