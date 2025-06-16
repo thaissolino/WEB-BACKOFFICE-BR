@@ -261,7 +261,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebar }) => {
               permissions?.GERENCIAR_OPERADORES?.enabled &&
             <Item
               title="Gerenciar Operadores"
-              to="/operators-management2"
+              to="/operators-management"
               icon={<AdminPanelSettingsOutlinedIcon />} // OU PersonOutlinedIcon se preferir
               selected={selected}
               setSelected={setSelected}
