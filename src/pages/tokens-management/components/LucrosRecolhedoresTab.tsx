@@ -3,6 +3,7 @@ import { formatCurrency, formatDate, formatDateIn } from "./format";
 import { api } from "../../../services/api";
 import { motion } from "framer-motion";
 import { GenericSearchSelect } from "../../gestao-invoices/components/sections/SearchSelect";
+import { usePermissionStore } from "../../../store/permissionsStore";
 
 interface Fornecedor {
   id: number;
@@ -47,6 +48,7 @@ const LucrosRecolhedoresFusionTab: React.FC = () => {
   const [filterApplied, setFilterApplied] = useState(false);
   // Estado para as operações filtradas
   const [operacoesFiltradas, setOperacoesFiltradas] = useState<Operacao[]>([]);
+  const { permissions } = usePermissionStore();
 
   const calcularTotais = (operacoes: Operacao[])=>{
     let lucro = 0
@@ -289,7 +291,7 @@ const LucrosRecolhedoresFusionTab: React.FC = () => {
         <div className="bg-white p-6 rounded-lg shadow mb-6">
           <div className="flex items-center space-x-4">
             <GenericSearchSelect
-              items={recolhedores}
+              items={recolhedores.filter((item) => permissions?.GERENCIAR_TOKENS?.RECOLHEDORES_PERMITIDOS?.includes(item.name) || permissions?.GERENCIAR_TOKENS?.FORNECEDORES_PERMITIDOS?.includes(item.name))}
               value={selectedRecolhedor?.id.toString() || ""}
               getLabel={(r) => r.name}
               getId={(r) => r.id.toString()}

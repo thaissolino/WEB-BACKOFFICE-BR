@@ -11,6 +11,7 @@ import { Truck, HandCoins, Handshake, CircleDollarSign } from "lucide-react"
 import { useBalanceStore } from "../../../../store/useBalanceStore"
 import { useNotification } from "../../../../hooks/notification"
 import { formatDateIn } from "../../../tokens-management/components/format"
+import { usePermissionStore } from "../../../../store/permissionsStore"
 
 interface Transaction {
   id: string
@@ -79,6 +80,7 @@ export const CaixasTab = () => {
 
   const [activeFilterStartDate, setActiveFilterStartDate] = useState<string>("")
   const [activeFilterEndDate, setActiveFilterEndDate] = useState<string>("")
+  const {getPermissions, permissions} = usePermissionStore()
 
   const filterTransactionsByDate = () => {
     if (!activeFilterStartDate || !activeFilterEndDate) return transactionHistoryList
@@ -369,6 +371,7 @@ export const CaixasTab = () => {
 
   useEffect(() => {
     fetchDatUser()
+    getPermissions()
   }, [selectedUserId])
 
   console.log("selectedEntity", selectedEntity)
@@ -584,7 +587,7 @@ export const CaixasTab = () => {
         ) : (
           <div className="flex items-center space-x-4">
             <GenericSearchSelect
-              items={combinedItems}
+              items={combinedItems.filter((item) => permissions?.GERENCIAR_INVOICES?.CAIXAS_PERMITIDOS?.includes(item.name))}
               value={selectedEntity?.id || ""}
               getLabel={(p) => (
                 <span className="flex items-center">
