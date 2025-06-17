@@ -113,7 +113,7 @@ export const CaixasTabBrl = () => {
   useEffect(() => {
     fetchAllData();
     getBalances();
-    getPermissions()
+    // getPermissions()
   }, []);
 
   console.log(selectedUserId);
