@@ -487,7 +487,44 @@ const FornecedoresTab: React.FC = () => {
       `extrato_${fornecedorSelecionado.name.replace(/\s+/g, "_")}_${new Date().toISOString().split("T")[0]}.pdf`
     );
   };
+const getFornecedorPDFDataJSON = () => {
+    if (!fornecedorSelecionado) return null;
 
+    const dataEmissao = new Date().toLocaleDateString("pt-BR", {
+        day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit",
+    });
+
+    const periodoFiltro =
+        filterStartDate || filterEndDate
+        ? `${filterStartDate ? new Date(filterStartDate).toLocaleDateString("pt-BR") : "início"} a ${
+            filterEndDate ? new Date(filterEndDate).toLocaleDateString("pt-BR") : "fim"
+            }`
+        : "Período completo";
+
+    const tableData = transacoesFiltradas.map((t: any) => ({
+        date: formatDate(t.date),
+        description: t.descricao,
+        value: formatCurrency(t.valor, 2, "USD"),
+    }));
+
+    const totalEntradas = transacoesFiltradas.filter((t: any) => t.valor > 0).reduce((sum: number, t: any) => sum + t.valor, 0);
+    const totalSaidas = transacoesFiltradas.filter((t: any) => t.valor < 0).reduce((sum: number, t: any) => sum + t.valor, 0);
+    const saldoPeriodo = totalEntradas + totalSaidas;
+
+    return {
+        title: `Extrato de Transações - ${fornecedorSelecionado.name}`,
+        issueDate: dataEmissao,
+        filterPeriod: periodoFiltro,
+        currentBalance: formatCurrency(calculatedBalances[fornecedorSelecionado.id] || 0, 2, "USD"),
+        transactions: tableData,
+        summary: {
+            totalEntries: formatCurrency(totalEntradas, 2, "USD"),
+            totalExits: formatCurrency(totalSaidas, 2, "USD"),
+            periodBalance: formatCurrency(saldoPeriodo, 2, "USD"),
+        },
+        reportName: fornecedorSelecionado.name, // Nome do fornecedor para o modal
+    };
+};
   useEffect(() => {
     let totalBalance = 0;
     fornecedores.forEach((fornecedor) => {
@@ -954,7 +991,7 @@ const FornecedoresTab: React.FC = () => {
         onClose={() => setShowConfirmModal(false)}
       />
 
-      {isModalOpen && <PdfShareModal onClose={() => setIsModalOpen(false)} generatePDF={generateFornecedorPDF} />}
+      {isModalOpen && <PdfShareModal onClose={() => setIsModalOpen(false)} generatePDF={generateFornecedorPDF} getPDFDataJSON={getFornecedorPDFDataJSON as () => any | null} />}
     </motion.div>
   );
 };
