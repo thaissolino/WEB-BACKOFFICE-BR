@@ -371,7 +371,7 @@ export const CaixasTab = () => {
 
   useEffect(() => {
     fetchDatUser()
-    getPermissions()
+    // getPermissions()
   }, [selectedUserId])
 
   console.log("selectedEntity", selectedEntity)
