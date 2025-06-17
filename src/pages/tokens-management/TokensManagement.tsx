@@ -52,7 +52,7 @@ const tabItems = [
 
 const TokensManagement: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'operacoes' | 'recolhedores' | 'fornecedores' | 'lucros' | 'lucros-recolhedores' | "">("");
-  const {getPermissions, permissions} = usePermissionStore()
+  const {getPermissions, permissions, user} = usePermissionStore()
 
       useEffect(() => {
         getPermissions();
@@ -69,9 +69,12 @@ const TokensManagement: React.FC = () => {
           break;
         }
       }
-    }, [permissions]);
+    }, []);
 
     const canShowTab = (key: string): boolean => {
+
+    if(user?.role === "MASTER") return true;
+    
     const perms = permissions?.GERENCIAR_TOKENS;
     if (!perms) return false;
 

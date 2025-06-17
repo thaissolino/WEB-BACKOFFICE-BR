@@ -46,9 +46,82 @@ export type PermissionType = {
   };
 };
 
+export type PermissionKey =
+  | 'CRIAR_USUARIO'
+  | 'GERENCIAR_GRUPOS'
+  | 'GERENCIAR_TOKENS'
+  | 'GERENCIAR_BOLETOS'
+  | 'GERENCIAR_INVOICES'
+  | 'GERENCIAR_USUARIOS'
+  | 'GERENCIAR_OPERACOES'
+  | 'GERENCIAR_PLANILHAS'
+  | 'GERENCIAR_OPERADORES';
+
+export interface UserPermissions {
+  CRIAR_USUARIO: {
+    enabled: boolean;
+  };
+  GERENCIAR_GRUPOS: {
+    enabled: boolean;
+  };
+  GERENCIAR_TOKENS: {
+    enabled: boolean;
+    LUCROS?: boolean;
+    OPERAÇÕES?: boolean;
+    LUCROS_RECOLHEDORES?: boolean;
+    FORNECEDORES_PERMITIDOS?: string[];
+    RECOLHEDORES_PERMITIDOS?: string[];
+  };
+  GERENCIAR_BOLETOS: {
+    enabled: boolean;
+  };
+  GERENCIAR_INVOICES: {
+    enabled: boolean;
+    OUTROS?: boolean;
+    INVOICES?: boolean;
+    PRODUTOS?: boolean;
+    FRETEIROS?: boolean;
+    RELATORIOS?: boolean;
+    MEDIA_DOLAR?: boolean;
+    FORNECEDORES?: boolean;
+    CAIXAS_PERMITIDOS?: string[];
+    CAIXAS_BR_PERMITIDOS?: string[];
+  };
+  GERENCIAR_USUARIOS: {
+    enabled: boolean;
+  };
+  GERENCIAR_OPERACOES: {
+    enabled: boolean;
+  };
+  GERENCIAR_PLANILHAS: {
+    enabled: boolean;
+  };
+  GERENCIAR_OPERADORES: {
+    enabled: boolean;
+  };
+}
+
+export interface UserData {
+  id: string;
+  name: string;
+  document: string;
+  email: string;
+  role: 'MASTER' | 'ADMIN' | 'USER'; // ajuste se tiver mais roles
+  status: 'ACTIVE' | 'INACTIVE'; // ajuste se tiver mais status
+  created_at: string;
+  updated_at: string;
+  access_token: string | null;
+  refId: string;
+  type: 'LEGAL' | 'PHYSICAL'; // ajuste conforme enum usado
+  api_key: string;
+  permissions: UserPermissions;
+}
+
+
 
 interface PermissionStore {
   permissions: PermissionType | null;
+  user:  UserData | null;
   isLoading: boolean;
   error: string | null;
 
@@ -59,6 +132,7 @@ interface PermissionStore {
 
 export const usePermissionStore = create<PermissionStore>((set) => ({
   permissions: null,
+  user: null,
   isLoading: false,
   error: null,
   
@@ -68,6 +142,7 @@ export const usePermissionStore = create<PermissionStore>((set) => ({
     try {
       const datauser = JSON.parse(localStorage.getItem("@backoffice:user") || "{}") || {};
       const response = await api.get(`/get_permission_by_id/${datauser.id}`);
+      set({ user: datauser as UserData });
       set({ permissions: response.data, isLoading: false });
     } catch (err) {
       set({ error: parseError(err), isLoading: false });

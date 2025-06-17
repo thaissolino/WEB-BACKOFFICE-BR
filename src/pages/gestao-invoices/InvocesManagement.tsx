@@ -38,7 +38,7 @@ export const permissionTabMap: Record<string, TabType> = {
 
 export default function InvocesManagement() {
   const [activeTab, setActiveTab] = useState<TabType>("");
-  const {getPermissions, permissions} = usePermissionStore()
+  const {getPermissions, permissions, user} = usePermissionStore()
   const [currentInvoice, setCurrentInvoice] = useState<Invoice>({
     id: null,
     number: `INV-${Date.now()}`,
@@ -77,7 +77,21 @@ export default function InvocesManagement() {
         break;
       }
     }
-  }, [permissions]);
+  }, []);
+
+    const canShowTab = (key: string): boolean => {
+    if (user?.role === "MASTER") return true;
+
+    const perms = permissions?.GERENCIAR_INVOICES;
+    if (!perms) return false;
+
+    if (key === "CAIXAS_PERMITIDOS" || key === "CAIXAS_BR_PERMITIDOS") {
+      return Array.isArray(perms[key]) && perms[key].length > 0;
+    }
+
+    return perms[key as keyof typeof perms] === true;
+  };
+
 
   return (
     <div className="bg-gray-50 min-h-screen">
@@ -90,25 +104,17 @@ export default function InvocesManagement() {
         <Tabs activeTab={activeTab} setActiveTab={setActiveTab} />
 
         <div className="mt-6">
-          {activeTab === "invoices" && permissions?.GERENCIAR_INVOICES?.INVOICES && (
+                   {activeTab === "invoices" && canShowTab("INVOICES") && (
             <InvoicesTab currentInvoice={currentInvoice} setCurrentInvoice={setCurrentInvoice} />
           )}
-
-          {activeTab === "products" && permissions?.GERENCIAR_INVOICES?.PRODUTOS && <ProductsTab />}
-          
-          {activeTab === "suppliers" && permissions?.GERENCIAR_INVOICES?.FORNECEDORES && <SuppliersTab />}
-          
-          {activeTab === "carriers" && permissions?.GERENCIAR_INVOICES?.FRETEIROS && <CarriersTab />}
-          
-          {activeTab === "others" && permissions?.GERENCIAR_INVOICES?.OUTROS && <OtherPartnersTab />}
-          
-          {activeTab === "media-dolar" && permissions?.GERENCIAR_INVOICES?.MEDIA_DOLAR && <ExchangeTab />}
-          
-          {activeTab === "relatorios" && permissions?.GERENCIAR_INVOICES?.RELATORIOS && <ReportsTab />}
-          
-          {activeTab === "caixas" && Array.isArray(permissions?.GERENCIAR_INVOICES?.CAIXAS_PERMITIDOS) && permissions.GERENCIAR_INVOICES.CAIXAS_PERMITIDOS.length > 0 && <CaixasTab />}
-          
-          {activeTab === "caixas-brl" && Array.isArray(permissions?.GERENCIAR_INVOICES?.CAIXAS_BR_PERMITIDOS) && permissions.GERENCIAR_INVOICES.CAIXAS_BR_PERMITIDOS.length > 0 && <CaixasTabBrl />}
+          {activeTab === "products" && canShowTab("PRODUTOS") && <ProductsTab />}
+          {activeTab === "suppliers" && canShowTab("FORNECEDORES") && <SuppliersTab />}
+          {activeTab === "carriers" && canShowTab("FRETEIROS") && <CarriersTab />}
+          {activeTab === "others" && canShowTab("OUTROS") && <OtherPartnersTab />}
+          {activeTab === "media-dolar" && canShowTab("MEDIA_DOLAR") && <ExchangeTab />}
+          {activeTab === "relatorios" && canShowTab("RELATORIOS") && <ReportsTab />}
+          {activeTab === "caixas" && canShowTab("CAIXAS_PERMITIDOS") && <CaixasTab />}
+          {activeTab === "caixas-brl" && canShowTab("CAIXAS_BR_PERMITIDOS") && <CaixasTabBrl />}
         </div>
 
       </div>
