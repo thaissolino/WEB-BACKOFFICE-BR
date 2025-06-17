@@ -392,6 +392,107 @@ const FornecedoresTab: React.FC = () => {
     return arredondado;
   }
 
+  const getFornecedorPDF = () => {
+    if (!fornecedorSelecionado) return;
+
+    const doc = new jsPDF({
+      orientation: "portrait",
+      unit: "mm",
+      format: "a4",
+    });
+
+    // Título
+    doc.setFontSize(16);
+    doc.setTextColor(40, 100, 40);
+    doc.text(`Extrato de Transações - ${fornecedorSelecionado.name}`, 105, 15, { align: "center" });
+
+    // Informações de emissão e período
+    doc.setFontSize(10);
+    doc.setTextColor(0, 0, 0);
+
+    // Data de emissão formatada
+    const dataEmissao = new Date().toLocaleDateString("pt-BR", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+
+    // Período do filtro formatado
+    const periodoFiltro =
+      filterStartDate || filterEndDate
+        ? `${filterStartDate ? new Date(filterStartDate).toLocaleDateString("pt-BR") : "início"} a ${
+            filterEndDate ? new Date(filterEndDate).toLocaleDateString("pt-BR") : "fim"
+          }`
+        : "Período completo";
+
+    doc.text(`Data de emissão: ${dataEmissao}`, 15, 25);
+    doc.text(`Período: ${periodoFiltro}`, 15, 30);
+    doc.text(`Saldo atual: ${formatCurrency(calculatedBalances[fornecedorSelecionado.id] || 0, 2, "USD")}`, 15, 35);
+
+    // Preparar dados da tabela
+    const tableData = transacoesFiltradas.map((t) => [
+      formatDate(t.date),
+      t.descricao,
+      formatCurrency(t.valor, 2, "USD"),
+    ]);
+
+    // Calcular totais
+    const totalEntradas = transacoesFiltradas.filter((t) => t.valor > 0).reduce((sum, t) => sum + t.valor, 0);
+
+    const totalSaidas = transacoesFiltradas.filter((t) => t.valor < 0).reduce((sum, t) => sum + t.valor, 0);
+
+    const saldoPeriodo = totalEntradas + totalSaidas;
+
+    // Gerar tabela
+    autoTable(doc, {
+      head: [["Data", "Descrição", "Valor (USD)"]],
+      body: tableData,
+      startY: 40,
+      styles: {
+        fontSize: 9,
+        cellPadding: 2,
+        halign: "left",
+      },
+      headStyles: {
+        fillColor: [229, 231, 235],
+        textColor: 0,
+        fontStyle: "bold",
+      },
+      alternateRowStyles: {
+        fillColor: [240, 249, 255],
+      },
+      columnStyles: {
+        0: { halign: "center" },
+        2: { halign: "right" },
+      },
+    });
+
+    // Adicionar totais
+    const finalY = (doc as any).lastAutoTable.finalY + 10;
+
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "bold");
+
+    // doc.text(`Total de entradas: ${formatCurrency(totalEntradas, 2, "USD")}`, 15, finalY);
+    // doc.text(`Total de saídas: ${formatCurrency(totalSaidas, 2, "USD")}`, 70, finalY);
+    doc.text(`Saldo período selecionado: ${formatCurrency(saldoPeriodo, 2, "USD")}`, 15, finalY);
+
+    // // Saldo total
+    // doc.text(`Saldo atual: ${formatCurrency(calculatedBalances[fornecedorSelecionado.id] || 0, 2, "USD")}`, 15, finalY + 10);
+
+    // Salvar PDF
+    const pdfBlob =   doc.output("blob")
+      // Converter blob para File
+
+      const hoje = new Date();
+const dia = String(hoje.getDate()).padStart(2, "0");
+const mes = String(hoje.getMonth() + 1).padStart(2, "0"); // meses começam do zero
+const ano = hoje.getFullYear();
+    const fileName = `extrato_${fornecedorSelecionado.name.replace(/\s+/g, "_")}_${dia}-${mes}-${ano}.pdf`;
+    return new File([pdfBlob], fileName, { type: "application/pdf" });
+  };
   const generateFornecedorPDF = () => {
     if (!fornecedorSelecionado) return;
 
@@ -483,8 +584,13 @@ const FornecedoresTab: React.FC = () => {
     // doc.text(`Saldo atual: ${formatCurrency(calculatedBalances[fornecedorSelecionado.id] || 0, 2, "USD")}`, 15, finalY + 10);
 
     // Salvar PDF
+
+              const hoje = new Date();
+const dia = String(hoje.getDate()).padStart(2, "0");
+const mes = String(hoje.getMonth() + 1).padStart(2, "0"); // meses começam do zero
+const ano = hoje.getFullYear();
     doc.save(
-      `extrato_${fornecedorSelecionado.name.replace(/\s+/g, "_")}_${new Date().toISOString().split("T")[0]}.pdf`
+      `extrato_${fornecedorSelecionado.name.replace(/\s+/g, "_")}_${dia}-${mes}-${ano}.pdf`
     );
   };
 const getFornecedorPDFDataJSON = () => {
@@ -1045,7 +1151,7 @@ const getFornecedorPDFDataJSON = () => {
         onClose={() => setShowConfirmModal(false)}
       />
 
-      {isModalOpen && <PdfShareModal onClose={() => setIsModalOpen(false)} generatePDF={generateFornecedorPDF} getPDFDataJSON={getFornecedorPDFDataJSON as () => any | null} />}
+      {isModalOpen && <PdfShareModal onClose={() => setIsModalOpen(false)} getFileToSendPDF={getFornecedorPDF} generatePDF={generateFornecedorPDF} getPDFDataJSON={getFornecedorPDFDataJSON as () => any | null} />}
     </motion.div>
   );
 };
