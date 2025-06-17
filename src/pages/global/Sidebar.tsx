@@ -38,7 +38,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebar }) => {
   const [spreadsheetInput, setSpreadsheetInput] = useState("");
   const [showErrorToast, setShowErrorToast] = useState(false);
   const [pendingNavigation, setPendingNavigation] = useState<string | null>(null);
-  const {getPermissions, permissions} = usePermissionStore();
+  const {getPermissions, permissions, user} = usePermissionStore();
   const location = useLocation();
 
   useEffect(() => {
@@ -132,6 +132,27 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebar }) => {
   const colors = tokens(theme.palette.mode);
   const [isCollapsed, setIsCollapsed] = useState(false);
 
+  const canShowTab = (key: string): boolean => {
+  if (user?.role === "MASTER") return true;
+
+  const perms = permissions;
+
+  switch (key) {
+    case "CRIAR_USUARIO":
+    case "GERENCIAR_GRUPOS":
+    case "GERENCIAR_USUARIOS":
+    case "GERENCIAR_OPERADORES":
+    case "GERENCIAR_PLANILHAS":
+    case "GERENCIAR_INVOICES":
+    case "GERENCIAR_TOKENS":
+    case "GERENCIAR_BOLETOS":
+      return perms?.[key]?.enabled === true;
+    default:
+      return false;
+  }
+};
+
+
   return (
     <Box
       sx={{
@@ -211,10 +232,9 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebar }) => {
             />
             }
             
-
             
             {
-              permissions?.CRIAR_USUARIO?.enabled &&<>
+              canShowTab("CRIAR_USUARIO") &&<>
               {!isCollapsed && (
               <Typography variant="h6" color={colors.greenAccent[300]} sx={{ m: "15px 0 5px 20px" }}>
                 Novo Cadastro:
@@ -231,7 +251,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebar }) => {
             }
 
             {
-              permissions?.GERENCIAR_GRUPOS?.enabled &&
+              canShowTab("GERENCIAR_GRUPOS")&&
               <>
               {!isCollapsed && (
               <Typography variant="h6" color={colors.greenAccent[300]} sx={{ m: "15px 0 5px 20px" }}>
@@ -248,7 +268,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebar }) => {
             </>
             }
             {
-              permissions?.GERENCIAR_USUARIOS?.enabled &&
+              canShowTab("GERENCIAR_USUARIOS") &&
             <Item
               title="Gerenciar Usuários"
               to="/users"
@@ -258,7 +278,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebar }) => {
             />
             }
             {
-              permissions?.GERENCIAR_OPERADORES?.enabled &&
+              canShowTab("GERENCIAR_OPERADORES") &&
             <Item
               title="Gerenciar Operadores"
               to="/operators-management"
@@ -270,7 +290,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebar }) => {
             
             {/* Este item agora requer validação */}
             {
-              permissions?.GERENCIAR_PLANILHAS?.enabled &&
+              canShowTab("GERENCIAR_PLANILHAS") &&
               <>
               {!isCollapsed && (
               <Typography variant="h6" color={colors.greenAccent[300]} sx={{ m: "15px 0 5px 20px" }}>
@@ -288,7 +308,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebar }) => {
             </>
             }
             {
-              permissions?.GERENCIAR_INVOICES?.enabled &&
+              canShowTab("GERENCIAR_INVOICES") &&
             <Item
               title="Gerenciar Invoices"
               to="/invoices-management"
@@ -299,7 +319,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebar }) => {
             />
             }
             {
-              permissions?.GERENCIAR_TOKENS?.enabled &&
+              canShowTab("GERENCIAR_TOKENS") &&
             <Item
               title="Gerenciar Tokens"
               to="/tokens-management"
@@ -312,7 +332,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebar }) => {
             
             {/* Este item agora requer validação */}
             {
-              permissions?.GERENCIAR_BOLETOS?.enabled &&
+              canShowTab("GERENCIAR_BOLETOS") &&
               <>
               {!isCollapsed && (
               <Typography variant="h6" color={colors.greenAccent[300]} sx={{ m: "15px 0 5px 20px" }}>

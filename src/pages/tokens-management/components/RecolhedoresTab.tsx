@@ -118,7 +118,7 @@ const RecolhedoresTab: React.FC = () => {
   const [activeFilterEndDate, setActiveFilterEndDate] = useState<string>("");
   const { setOpenNotification } = useNotification();
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const {permissions, getPermissions} = usePermissionStore();
+  const {permissions, getPermissions, user} = usePermissionStore();
 
   const fetchRecolhedores = async () => {
     setLoading(true);
@@ -700,7 +700,61 @@ const RecolhedoresTab: React.FC = () => {
             </thead>
             <tbody>
               <AnimatePresence>
-                {recolhedores.filter((recolhedor)=> permissions?.GERENCIAR_TOKENS.RECOLHEDORES_PERMITIDOS.includes(recolhedor.name)).map((r) => (
+                {user?.role !== "MASTER" && recolhedores.filter((recolhedor)=> permissions?.GERENCIAR_TOKENS.RECOLHEDORES_PERMITIDOS.includes(recolhedor.name)).map((r) => (
+                  <motion.tr
+                    key={r.id}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    transition={{ duration: 0.2 }}
+                    className="hover:bg-gray-50"
+                  >
+                    <td className="py-2 px-4 border text-center">{r.name.toUpperCase()}</td>
+                    <td
+                      className={`py-2 px-4 border text-center font-bold ${
+                        Math.abs(calculatedBalances[r.id]) < 0.009
+                          ? "text-gray-800"
+                          : calculatedBalances[r.id] < 0
+                          ? "text-red-600"
+                          : "text-green-600"
+                      }`}
+                    >
+                      {Math.abs(calculatedBalances[r.id]) < 0.009
+                        ? formatCurrency(0)
+                        : formatCurrency(calculatedBalances[r.id])}
+                    </td>
+                    <td className="py-2 px-4 border space-x-2 text-center">
+                      <motion.button
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => abrirCaixa(r)}
+                        className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded"
+                      >
+                        Caixa
+                      </motion.button>
+                      <motion.button
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => {
+                          setRecolhedorEdit(r);
+                          setShowModal(true);
+                        }}
+                        className="bg-yellow-400 hover:bg-yellow-500 text-white px-3 py-1 rounded"
+                      >
+                        Editar
+                      </motion.button>
+                      <motion.button
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => confirmarDeleteRecolhedor(r.id)}
+                        className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded"
+                      >
+                        <i className="fas fa-trash"></i>
+                      </motion.button>
+                    </td>
+                  </motion.tr>
+                ))}
+                {user?.role === "MASTER" && recolhedores.filter((recolhedor)=> permissions?.GERENCIAR_TOKENS.RECOLHEDORES_PERMITIDOS.includes(recolhedor.name)).map((r) => (
                   <motion.tr
                     key={r.id}
                     initial={{ opacity: 0, y: 10 }}

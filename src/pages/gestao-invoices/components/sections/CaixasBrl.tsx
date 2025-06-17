@@ -82,7 +82,7 @@ export const CaixasTabBrl = () => {
   const [filterEndDate, setFilterEndDate] = useState<string>(new Date().toLocaleDateString("en-CA"));
   const [activeFilterStartDate, setActiveFilterStartDate] = useState<string>("");
   const [activeFilterEndDate, setActiveFilterEndDate] = useState<string>("");
-  const {getPermissions, permissions} = usePermissionStore()
+  const {getPermissions, permissions,user} = usePermissionStore()
 
   const filterTransactionsByDate = () => {
     if (!activeFilterStartDate || !activeFilterEndDate) return transactionHistoryList;
@@ -529,7 +529,7 @@ export const CaixasTabBrl = () => {
         ) : (
           <div className="flex items-center space-x-4">
             <GenericSearchSelect
-              items={combinedItems.filter((item) => permissions?.GERENCIAR_INVOICES?.CAIXAS_BR_PERMITIDOS?.includes(item.name)) || []}
+              items={user?.role === "MASTER" || user?.role === "ADMIN" ? combinedItems : combinedItems.filter((item) =>permissions?.GERENCIAR_INVOICES?.CAIXAS_BR_PERMITIDOS?.includes(item.name))}
               value={selectedEntity?.id || ""}
               getSearchString={(p) => `${p.name} ${p.typeInvoice}`}
               getLabel={(p) => {

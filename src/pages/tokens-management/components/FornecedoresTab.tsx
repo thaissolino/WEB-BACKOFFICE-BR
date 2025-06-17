@@ -79,7 +79,7 @@ const FornecedoresTab: React.FC = () => {
   const [filterApplied, setFilterApplied] = useState(false);
   const { setOpenNotification } = useNotification();
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const { permissions, getPermissions } = usePermissionStore();
+  const { permissions, getPermissions, user } = usePermissionStore();
 
   const fetchAllData = async () => {
     setLoading(true);
@@ -605,7 +605,61 @@ const getFornecedorPDFDataJSON = () => {
             </thead>
             <tbody>
               <AnimatePresence>
-                {fornecedores.filter((fornecedor)=> permissions?.GERENCIAR_TOKENS.FORNECEDORES_PERMITIDOS.includes(fornecedor.name)).map((f) => (
+                {user?.role !== "MASTER" && fornecedores.filter((fornecedor)=> permissions?.GERENCIAR_TOKENS.FORNECEDORES_PERMITIDOS.includes(fornecedor.name)).map((f) => (
+                  <motion.tr
+                    key={f.id}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    transition={{ duration: 0.2 }}
+                    className="hover:bg-gray-50"
+                  >
+                    <td className="py-2 px-4 border text-center">{f.name.toUpperCase()}</td>
+                    <td
+                      className={`py-2 px-4 border text-center font-bold ${
+                        Math.abs(calculatedBalances[f.id]) < 0.009
+                          ? "text-gray-800"
+                          : calculatedBalances[f.id] < 0
+                          ? "text-red-600"
+                          : "text-green-600"
+                      }`}
+                    >
+                      {Math.abs(calculatedBalances[f.id]) < 0.009
+                        ? formatCurrency(0)
+                        : formatCurrency(calculatedBalances[f.id])}
+                    </td>
+                    <td className="py-2 px-4 border space-x-2 text-center">
+                      <motion.button
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => abrirCaixa(f)}
+                        className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded"
+                      >
+                        Caixa
+                      </motion.button>
+                      <motion.button
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => {
+                          setFornecedorEdit(f);
+                          setShowModal(true);
+                        }}
+                        className="bg-yellow-400 hover:bg-yellow-500 text-white px-3 py-1 rounded"
+                      >
+                        Editar
+                      </motion.button>
+                      <motion.button
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => confirmarDeleteFornecedor(f.id)}
+                        className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded"
+                      >
+                        <i className="fas fa-trash"></i>
+                      </motion.button>
+                    </td>
+                  </motion.tr>
+                ))}
+                {user?.role === "MASTER" && fornecedores.map((f) => (
                   <motion.tr
                     key={f.id}
                     initial={{ opacity: 0, y: 10 }}
