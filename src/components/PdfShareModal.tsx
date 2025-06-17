@@ -3,9 +3,10 @@
 import React, { useEffect, useState, Fragment } from "react";
 import { Dialog, Transition, Listbox } from "@headlessui/react";
 import { api } from "../services/api";
-import { CheckIcon, ChevronDown } from "lucide-react";
+import { CheckIcon, ChevronDown, Loader2 } from "lucide-react";
 import jsPDF from "jspdf";
 import autoTable from 'jspdf-autotable'; // Importe autoTable
+import { useNotification } from "../hooks/notification";
 
 // --- Definições de Tipos (Mova para um arquivo separado como src/types/pdfTypes.ts se preferir) ---
 
@@ -66,13 +67,18 @@ interface PdfShareModalProps {
   // Nova prop: função para obter os dados JSON brutos do PDF,
   // que o modal usará para enviar por PWA ou gerar para e-mail
   getPDFDataJSON: () => PdfDataContent | null;
+  getFileToSendPDF: () => File | undefined
 }
 
-const PdfShareModal: React.FC<PdfShareModalProps> = ({ onClose, generatePDF, getPDFDataJSON }) => {
+const PdfShareModal: React.FC<PdfShareModalProps> = ({ onClose, generatePDF, getPDFDataJSON, getFileToSendPDF }) => {
   const [users, setUsers] = useState<User[]>([]); // Altere para armazenar objetos User
   const [selectedUser, setSelectedUser] = useState<User | null>(null); // Altere para armazenar o objeto User selecionado
   const [email, setEmail] = useState<string>("");
   const [emailError, setEmailError] = useState<string>("");
+  const { setOpenNotification } = useNotification();
+  const [isSendEmail, setSendEmail] = useState(false);
+  const [isLoadingDownloadPDF, setIsLoadingDownloadPDF] = useState(false);
+  const [isSendToPWA, setIsSendToPWA] = useState(false);
 
   useEffect(() => {
     const fetchUsers = async () => {
@@ -199,7 +205,10 @@ const PdfShareModal: React.FC<PdfShareModalProps> = ({ onClose, generatePDF, get
   // --- Handlers dos Botões ---
 
   // Botão "Baixar PDF" - CHAMA A PROP ORIGINAL generatePDF DO COMPONENTE PAI
-  const handleDownload = () => {
+  const handleDownload = async () => {
+    setIsLoadingDownloadPDF(true);
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    setIsLoadingDownloadPDF(false);
     console.log("Chamando a função 'generatePDF' original do componente pai...");
     generatePDF();
     onClose();
@@ -208,7 +217,11 @@ const PdfShareModal: React.FC<PdfShareModalProps> = ({ onClose, generatePDF, get
   // Botão "Enviar para BR-PWA" - USA A NOVA PROP getPDFDataJSON
   const handleSendToPWA = async () => {
     if (!selectedUser) {
-      alert("Por favor, selecione um usuário para enviar.");
+      setOpenNotification({
+        type: 'warning',
+        title: 'Atenção!',
+        notification: 'Por favor, selecione um usuário para enviar!'
+      });
       return;
     }
 
@@ -216,17 +229,26 @@ const PdfShareModal: React.FC<PdfShareModalProps> = ({ onClose, generatePDF, get
     const pdfDataJSON = getPDFDataJSON();
 
     if (!pdfDataJSON) {
-      alert("Não foi possível obter os dados do PDF para envio. Verifique o console.");
+      setOpenNotification({
+        type: 'error',
+        title: 'Erro!',
+        notification: 'Não foi possível obter os dados do PDF para envio. Verifique o console!'
+      });
       return;
     }
 
     try {
+      setIsSendToPWA(true);
       console.log("Dados JSON obtidos, enviando para backend...");
 
       const token = localStorage.getItem("@backoffice:token");
       if (!token) {
         console.error("Token não encontrado!");
-        alert("Token de autenticação não encontrado. Faça login novamente.");
+        setOpenNotification({
+          type: 'error',
+          title: 'Erro!',
+          notification: 'Token de autenticação não encontrado. Faça login novamente!'
+        });
         return;
       }
 
@@ -247,11 +269,22 @@ const PdfShareModal: React.FC<PdfShareModalProps> = ({ onClose, generatePDF, get
       );
 
       console.log("Resposta do backend (PWA):", response);
-      alert("PDF enviado com sucesso para o usuário BR-PWA!");
+      setOpenNotification({
+        type: 'success',
+        title: 'Sucesso!',
+        notification: 'PDF enviado com sucesso para o usuário BR-PWA!'
+      });
       onClose();
     } catch (error: any) {
       console.error("Erro ao enviar PDF para PWA:", error?.response?.status, error?.response?.data);
-      alert("Erro ao enviar PDF para BR-PWA. Verifique o console para mais detalhes.");
+      setOpenNotification({
+        type: 'error',
+        title: 'Erro!',
+        notification: 'Erro ao enviar PDF para BR-PWA. Verifique o console para mais detalhes!'
+      });
+    } finally {
+      setIsSendToPWA(false);
+      setSelectedUser(null); // Limpa a seleção após o envio
     }
   };
 
@@ -262,15 +295,18 @@ const PdfShareModal: React.FC<PdfShareModalProps> = ({ onClose, generatePDF, get
 
   // Botão "Enviar via E-mail" - USA A NOVA PROP getPDFDataJSON
   const handleSendEmail = async () => {
+    
     const trimmedEmail = email.trim().toLowerCase();
 
     if (!trimmedEmail) {
       setEmailError("Por favor, digite um e-mail.");
+      setTimeout(() => { setEmailError("")},3000);
       return;
     }
 
     if (!validateEmail(trimmedEmail)) {
       setEmailError("E-mail inválido. Verifique e tente novamente.");
+      setTimeout(() => { setEmailError("")},3000);
       return;
     }
 
@@ -280,43 +316,75 @@ const PdfShareModal: React.FC<PdfShareModalProps> = ({ onClose, generatePDF, get
     const pdfDataJSON = getPDFDataJSON();
 
     if (!pdfDataJSON) {
-      alert("Não foi possível obter os dados do PDF para envio por e-mail. Verifique o console.");
+      setOpenNotification({
+        type: 'error',
+        title: 'Erro!',
+        notification: 'Não foi possível obter os dados do PDF para envio por e-mail. Verifique o console!'
+      });
       return;
     }
 
     try {
-      // Gera o PDF a partir dos dados JSON e converte para Base64
-      const doc = generatePdfFromJSONData(pdfDataJSON);
-      const pdfBase64 = doc.output("datauristring").split(",")[1]; // Pega só o base64 puro
+      setSendEmail(true);
+
+      const pdfFile = getFileToSendPDF();
+      if (!pdfFile) {
+        setOpenNotification({
+          type: 'error',
+          title: 'Erro!',
+          notification: 'Não foi possível obter o arquivo PDF para envio por e-mail.'
+        });
+        return;
+      }
 
       const token = localStorage.getItem("@backoffice:token");
       if (!token) {
         console.error("Token não encontrado!");
-        alert("Token de autenticação não encontrado. Faça login novamente.");
+        setOpenNotification({
+          type: 'error',
+          title: 'Erro!',
+          notification: 'Token de autenticação não encontrado. Faça login novamente!'
+        });
         return;
       }
 
+      const [name] = trimmedEmail.split("@");
+      const formData = new FormData();
+      formData.append("name", name);
+      formData.append("email", trimmedEmail); // troque conforme necessário
+      formData.append("sender", "no-reply@suaempresa.com");
+      formData.append("subject", "Relatório");
+      formData.append("namefile",  pdfFile.name.split(".")[0]); // Nome do arquivo PDF
+      formData.append("file", pdfFile);
+
       const response = await api.post(
-        "/api/send-email-report", // Endpoint da sua API para envio de e-mail
-        {
-          email: trimmedEmail,
-          pdfBase64: pdfBase64,
-          reportName: pdfDataJSON.reportName, // Envia o nome do relatório para o assunto do e-mail, por exemplo
-        },
+        "/send_email_report", // Endpoint da sua API para envio de e-mail
+        formData,
         {
           headers: {
             Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
           },
         }
       );
 
       console.log("Resposta do backend (e-mail):", response);
-      alert("PDF enviado por e-mail com sucesso!");
+      setOpenNotification({
+        type: 'success',
+        title: 'Sucesso!',
+        notification: 'PDF enviado por e-mail com sucesso!'
+      });
       onClose();
     } catch (error: any) {
       console.error("Erro ao enviar PDF por e-mail:", error?.response?.status, error?.response?.data);
-      alert("Erro ao enviar PDF por e-mail. Verifique o console para mais detalhes.");
+
+      setOpenNotification({
+        type: 'error',
+        title: 'Erro!',
+        notification: 'Erro ao enviar PDF por e-mail. Verifique o console para mais detalhes!'
+      });
+    }finally{
+      setSendEmail(false);
+      setEmail(""); // Limpa o campo de e-mail após o envio
     }
   };
 
@@ -360,8 +428,19 @@ const PdfShareModal: React.FC<PdfShareModalProps> = ({ onClose, generatePDF, get
                   onClick={handleDownload}
                   className="w-full flex items-center justify-center gap-2 bg-blue-500 text-white py-3 px-4 rounded-xl hover:bg-blue-600 transition text-lg font-medium"
                 >
-                  <i className="fa-solid fa-download"></i>
-                  Baixar PDF
+
+                  {isLoadingDownloadPDF ? (
+                    <>
+                      <Loader2 className="animate-spin mr-2" size={18} />
+                      baixando...
+                    </>
+                  ) : (
+                    <>
+                      <i className="fa-solid fa-download"></i>
+                      Baixar PDF
+                    </>
+                  )}
+
                 </button>
 
                 <div className="space-y-2">
@@ -419,8 +498,19 @@ const PdfShareModal: React.FC<PdfShareModalProps> = ({ onClose, generatePDF, get
                   onClick={handleSendToPWA}
                   className="w-full flex items-center justify-center gap-2 bg-green-500 text-white py-3 px-4 rounded-xl hover:bg-green-600 transition text-lg font-medium"
                 >
-                  <i className="fa-solid fa-paper-plane"></i>
-                  Enviar PDF para BR-PWA
+
+
+                  {isSendToPWA ? (
+                    <>
+                      <Loader2 className="animate-spin mr-2" size={18} />
+                      Enviando...
+                    </>
+                  ) : (
+                    <>
+                        <i className="fa-solid fa-paper-plane"></i>
+                        Enviar PDF para BR-PWA
+                    </>
+                  )}
                 </button>
 
                 <div className="space-y-2">
@@ -429,6 +519,11 @@ const PdfShareModal: React.FC<PdfShareModalProps> = ({ onClose, generatePDF, get
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        handleSendEmail();
+                      }
+                    }}
                     placeholder="exemplo@dominio.com"
                     className={`w-full border rounded-xl p-3 text-gray-700 text-base shadow-sm focus:outline-none focus:ring-2 ${
                       emailError ? "border-red-500 focus:ring-red-500" : "focus:ring-blue-500"
@@ -441,8 +536,17 @@ const PdfShareModal: React.FC<PdfShareModalProps> = ({ onClose, generatePDF, get
                   onClick={handleSendEmail}
                   className="w-full flex items-center justify-center gap-2 bg-purple-500 text-white py-3 px-4 rounded-xl hover:bg-purple-600 transition text-lg font-medium"
                 >
-                  <i className="fa-solid fa-envelope"></i>
-                  Enviar via E-mail
+                  {isSendEmail? (
+                    <>
+                      <Loader2 className="animate-spin mr-2" size={18} />
+                      Enviando...
+                    </>
+                  ) : (
+                    <>
+                      <i className="fa-solid fa-envelope"></i>
+                          Enviar via E-mail
+                    </>
+                  )}
                 </button>
               </Dialog.Panel>
             </Transition.Child>
