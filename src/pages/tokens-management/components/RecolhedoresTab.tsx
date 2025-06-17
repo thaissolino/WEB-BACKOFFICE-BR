@@ -590,6 +590,43 @@ const RecolhedoresTab: React.FC = () => {
     // Salvar PDF
     doc.save(`extrato_${selectedRecolhedor.name.replace(/\s+/g, "_")}_${new Date().toISOString().split("T")[0]}.pdf`);
   };
+  const getRecolhedorPDFDataJSON = () => {
+    if (!selectedRecolhedor) return null;
+
+    const dataEmissao = new Date().toLocaleDateString("pt-BR", {
+        day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit",
+    });
+
+    const periodoFiltro = filterApplied
+        ? `${activeFilterStartDate ? new Date(activeFilterStartDate).toLocaleDateString("pt-BR") : "início"} a ${
+            activeFilterEndDate ? new Date(activeFilterEndDate).toLocaleDateString("pt-BR") : "fim"
+            }`
+        : "Período completo";
+
+    const tableData = transacoesFiltradas.map((t: any) => ({
+        date: formatDate(t.date),
+        description: t.descricao,
+        value: formatCurrency(t.valor, 2, "USD"),
+    }));
+
+    const totalEntradas = transacoesFiltradas.filter((t: any) => t.valor > 0).reduce((sum: number, t: any) => sum + t.valor, 0);
+    const totalSaidas = transacoesFiltradas.filter((t: any) => t.valor < 0).reduce((sum: number, t: any) => sum + t.valor, 0);
+    const saldoPeriodo = totalEntradas + totalSaidas;
+
+    return {
+        title: `Extrato de Transações - ${selectedRecolhedor.name}`,
+        issueDate: dataEmissao,
+        filterPeriod: periodoFiltro,
+        currentBalance: formatCurrency(calculatedBalances[selectedRecolhedor.id] || 0, 2, "USD"),
+        transactions: tableData,
+        summary: {
+            totalEntries: formatCurrency(totalEntradas, 2, "USD"),
+            totalExits: formatCurrency(totalSaidas, 2, "USD"),
+            periodBalance: formatCurrency(saldoPeriodo, 2, "USD"),
+        },
+        reportName: selectedRecolhedor.name, // Nome do recolhedor para o modal
+    };
+};
   if (loading) {
     return (
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex items-center justify-center h-64">
@@ -1087,7 +1124,7 @@ const RecolhedoresTab: React.FC = () => {
         onClose={() => setShowConfirmModal(false)}
       />
 
-      {isModalOpen && <PdfShareModal onClose={() => setIsModalOpen(false)} generatePDF={generateRecolhedorPDF} />}
+      {isModalOpen && <PdfShareModal onClose={() => setIsModalOpen(false)} generatePDF={generateRecolhedorPDF}      getPDFDataJSON={getRecolhedorPDFDataJSON as () => any | null}/>}
     </motion.div>
   );
 };

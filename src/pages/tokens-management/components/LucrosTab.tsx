@@ -330,6 +330,51 @@ const LucrosTab: React.FC = () => {
     // Salvar PDF
     doc.save(`relatorio_lucros_${new Date().toLocaleDateString('en-CA')}.pdf`);
   };
+    const getProfitPDFDataJSON = () => {
+    const dataEmissao = new Date().toLocaleDateString("pt-BR", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+
+    const periodoFiltro = filterApplied
+      ? `${filterStartDate ? new Date(filterStartDate).toLocaleDateString("pt-BR", { timeZone: "UTC" }) : "início"} a ${
+            filterEndDate ? new Date(filterEndDate).toLocaleDateString("pt-BR", { timeZone: "UTC" }) : "fim"
+          }`
+      : "Período completo";
+
+    const operationsData = operacoesValidas
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+      .map((op: any) => ({
+        date: formatDate(op.date),
+        city: op.city || "Desconhecido",
+        collectorName: getRecolhedorNome(op.collectorId),
+        supplierName: getFornecedorNome(op.supplierId),
+        operationValue: formatCurrency(op.value || 0),
+        profit: formatCurrency(op.profit || 0),
+      }));
+
+    const summaryData = filterApplied
+        ? { filteredPeriodProfit: formatCurrency(lucroPeriodoFiltro) }
+        : {
+            currentMonthProfit: formatCurrency(lucroMesAtual),
+            previousMonthProfit: formatCurrency(lucroMesAnterior),
+            totalAccumulated: formatCurrency(totalAcumulado),
+        };
+
+    return {
+        type: "profit", // O DISCRIMINADOR!
+        title: "Relatório de Lucros",
+        issueDate: dataEmissao,
+        filterPeriod: periodoFiltro,
+        operations: operationsData,
+        summary: summaryData,
+        reportName: "relatorio_lucros",
+    };
+  };
+
   if (loading) {
     return (
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex items-center justify-center h-64">
@@ -517,7 +562,7 @@ const LucrosTab: React.FC = () => {
           </div>
         </div>
       </div>
-      {isModalOpen && <PdfShareModal onClose={() => setIsModalOpen(false)} generatePDF={generatePDF} />}
+      {isModalOpen && <PdfShareModal onClose={() => setIsModalOpen(false)} generatePDF={generatePDF} getPDFDataJSON={getProfitPDFDataJSON as () => any | null} />}
     </div>
   );
 };
