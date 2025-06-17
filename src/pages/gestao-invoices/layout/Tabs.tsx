@@ -22,9 +22,10 @@ const allTabs = [
 
 export function Tabs({ activeTab, setActiveTab }: TabsProps) {
 
-  const { permissions } = usePermissionStore();
+  const { permissions, user } = usePermissionStore();
 
   const canShowTab = (key: string): boolean => {
+    if (user?.role === "MASTER") return true;
     const perms = permissions?.GERENCIAR_INVOICES;
     if (!perms) return false;
 

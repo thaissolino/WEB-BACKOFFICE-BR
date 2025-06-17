@@ -48,7 +48,7 @@ const LucrosRecolhedoresFusionTab: React.FC = () => {
   const [filterApplied, setFilterApplied] = useState(false);
   // Estado para as operações filtradas
   const [operacoesFiltradas, setOperacoesFiltradas] = useState<Operacao[]>([]);
-  const { permissions } = usePermissionStore();
+  const { permissions, user } = usePermissionStore();
 
   const calcularTotais = (operacoes: Operacao[])=>{
     let lucro = 0
@@ -291,7 +291,7 @@ const LucrosRecolhedoresFusionTab: React.FC = () => {
         <div className="bg-white p-6 rounded-lg shadow mb-6">
           <div className="flex items-center space-x-4">
             <GenericSearchSelect
-              items={recolhedores.filter((item) => permissions?.GERENCIAR_TOKENS?.RECOLHEDORES_PERMITIDOS?.includes(item.name) || permissions?.GERENCIAR_TOKENS?.FORNECEDORES_PERMITIDOS?.includes(item.name))}
+              items={user?.role === "MASTER" || user?.role === "ADMIN" ? recolhedores : recolhedores.filter((item) => permissions?.GERENCIAR_TOKENS?.RECOLHEDORES_PERMITIDOS?.includes(item.name) || permissions?.GERENCIAR_TOKENS?.FORNECEDORES_PERMITIDOS?.includes(item.name))}
               value={selectedRecolhedor?.id.toString() || ""}
               getLabel={(r) => r.name}
               getId={(r) => r.id.toString()}
