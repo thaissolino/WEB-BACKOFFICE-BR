@@ -432,6 +432,8 @@ const OperatorManager: React.FC = () => {
         status: "active",
       })
 
+      newOperator()
+
       // Carregar o primeiro operador se houver
       if (updatedOperators.length > 0) {
         loadOperator(updatedOperators[0]);
