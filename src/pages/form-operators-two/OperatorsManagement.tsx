@@ -361,6 +361,15 @@ const OperatorManager: React.FC = () => {
 
       showToast("Operador excluído com sucesso!");
 
+      setFormData({
+        id: "",
+        name: "",
+        email: "",
+        password: "",
+        confirmPassword: "",
+        status: "active",
+      })
+
       // Carregar o primeiro operador se houver
       if (updatedOperators.length > 0) {
         loadOperator(updatedOperators[0]);
