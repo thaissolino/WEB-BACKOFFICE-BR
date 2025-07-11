@@ -1,3 +1,4 @@
+import axios from "axios";
 import { AnimatePresence, motion } from "framer-motion";
 import React, { useState, useEffect, useRef } from "react";
 
@@ -352,7 +353,8 @@ const OperatorManager: React.FC = () => {
 
     try {
       // Simular chamada à API
-      await new Promise((resolve) => setTimeout(resolve, 800));
+      
+      await axios.delete(`/users_operators/${currentOperator.id}`);
 
       const updatedOperators = operators.filter((op) => op.id !== currentOperator.id);
       setOperators(updatedOperators);
