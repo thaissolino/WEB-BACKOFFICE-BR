@@ -537,7 +537,7 @@ const RecolhedoresTab: React.FC = () => {
 
     // Preparar dados da tabela
     const tableData = transacoesFiltradas.map((t) => [
-      formatDate(t.date),
+      subtractHoursToLocaleBR(t.date),
       t.descricao,
       formatCurrency(t.valor, 2, "USD"),
     ]);
@@ -642,7 +642,7 @@ const ano = hoje.getFullYear();
 
     // Preparar dados da tabela
     const tableData = transacoesFiltradas.map((t) => [
-      formatDate(t.date),
+      subtractHoursToLocaleBR(t.date),
       t.descricao,
       formatCurrency(t.valor, 2, "USD"),
     ]);
