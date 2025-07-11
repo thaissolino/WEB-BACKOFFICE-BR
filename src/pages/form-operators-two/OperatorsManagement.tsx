@@ -1,6 +1,7 @@
 import axios from "axios";
 import { AnimatePresence, motion } from "framer-motion";
 import React, { useState, useEffect, useRef } from "react";
+import { api } from "../../services/api";
 
 interface Operator {
   id: number;
@@ -354,7 +355,7 @@ const OperatorManager: React.FC = () => {
     try {
       // Simular chamada à API
       
-      await axios.delete(`/users_operators/${currentOperator.id}`);
+      await api.delete(`/users_operators/${currentOperator.id}`);
 
       const updatedOperators = operators.filter((op) => op.id !== currentOperator.id);
       setOperators(updatedOperators);

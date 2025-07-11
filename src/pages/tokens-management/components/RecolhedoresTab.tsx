@@ -863,7 +863,7 @@ const ano = hoje.getFullYear();
                     </td>
                   </motion.tr>
                 ))}
-                {user?.role === "MASTER" && recolhedores.filter((recolhedor)=> permissions?.GERENCIAR_TOKENS.RECOLHEDORES_PERMITIDOS.includes(recolhedor.name)).map((r) => (
+                {user?.role === "MASTER" && recolhedores.map((r) => (
                   <motion.tr
                     key={r.id}
                     initial={{ opacity: 0, y: 10 }}
