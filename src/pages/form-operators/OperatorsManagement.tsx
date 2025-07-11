@@ -416,12 +416,21 @@ const OperatorManager: React.FC = () => {
 
     try {
       // Simular chamada à API
-      await new Promise((resolve) => setTimeout(resolve, 800));
+      await api.delete(`/users_operators/${currentOperator.id}`);
 
       const updatedOperators = operators.filter((op) => op.id !== currentOperator.id);
       setOperators(updatedOperators);
 
       showToast("Operador excluído com sucesso!");
+
+      setFormData({
+        id: "",
+        name: "",
+        email: "",
+        password: "",
+        confirmPassword: "",
+        status: "active",
+      })
 
       // Carregar o primeiro operador se houver
       if (updatedOperators.length > 0) {
