@@ -462,6 +462,32 @@ const OperatorManager: React.FC = () => {
   };
 
   // Alternar permissão
+const togglePermissionAll = (permissionId: string, checked: boolean) => {
+  setSelectedPermissions(prev => {
+    const updated = { ...prev };
+    const permission = availablePermissions.find(p => p.id === permissionId);
+    if (!permission) return updated;
+
+    // Estado da permissão-pai
+    updated[permissionId] = { enabled: checked };
+
+    // Sincronizar sub-permissões
+    if (permission.subPermissions) {
+      permission.subPermissions.forEach(sub => {
+        if (sub.type === "boolean") {
+          updated[permissionId][sub.id] = checked;            // true ou false
+        } else if (sub.options) {
+          updated[permissionId][sub.id] = checked             // lista cheia ou vazia
+            ? [...sub.options]                                // todos os itens
+            : [];
+        }
+      });
+    }
+
+    return updated;
+  });
+};
+
   const togglePermission = (permissionId: string, enabled: boolean) => {
     setSelectedPermissions((prev) => {
       const newPermissions = { ...prev };
@@ -558,7 +584,12 @@ const OperatorManager: React.FC = () => {
 
   // Contar permissões selecionadas
   const countSelectedPermissions = () => {
-    return Object.keys(selectedPermissions).length;
+    return Object.keys(selectedPermissions).reduce((count, key) => {
+      if (selectedPermissions[key].enabled) {
+        count++;
+      }
+      return count;
+    }, 0);
   };
 
   // Alternar visibilidade da senha
@@ -1218,7 +1249,7 @@ const OperatorManager: React.FC = () => {
                       onClick={() => {
                         availablePermissions.forEach((permission) => {
                           if (!selectedPermissions[permission.id]) {
-                            togglePermission(permission.id, true);
+                            // togglePermissionAll(permission.id, true);
                           }
                         });
                       }}
@@ -1246,7 +1277,7 @@ const OperatorManager: React.FC = () => {
                       checked={countSelectedPermissions() === availablePermissions.length}
                       onChange={(e) => {
                         availablePermissions.forEach((permission) => {
-                          togglePermission(permission.id, e.target.checked);
+                          togglePermissionAll(permission.id, e.target.checked);
                         });
                       }}
                     />
