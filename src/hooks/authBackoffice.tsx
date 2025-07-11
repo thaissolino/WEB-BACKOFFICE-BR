@@ -43,8 +43,20 @@ const AuthBackofficeProvider = ({ children }: AuthBackofficeProviderProps) => {
     try {
       const response = await api.post("/auth/backoffice", params);
       setUser(response.data.user);
-      localStorage.setItem("@backoffice:token", response.data.token);
-      localStorage.setItem("@backoffice:user", JSON.stringify(response.data.user));
+      try {
+        localStorage.setItem("@backoffice:token", response.data.token);
+        localStorage.setItem("@backoffice:user", JSON.stringify(response.data.user));
+
+        const savedToken = localStorage.getItem("@backoffice:token");
+        const savedUser = localStorage.getItem("@backoffice:user");
+
+        if (!savedToken || !savedUser) {
+          throw new Error("Falha ao persistir os dados tente novamente.");
+        }
+      } catch (storageError) {
+        console.error("Erro ao salvar/verificar localStorage:", storageError);
+        throw new Error("Erro ao salvar dados de autenticação localmente.");
+      }
       setIsAuthenticate(true);
       return response.data;
     } catch (err) {
