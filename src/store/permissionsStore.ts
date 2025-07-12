@@ -106,7 +106,7 @@ export interface UserData {
   name: string;
   document: string;
   email: string;
-  role: 'MASTER' | 'ADMIN' | 'USER'; // ajuste se tiver mais roles
+  role: 'MASTER' | 'ADMIN' | 'USER' | 'OPERATOR'; // ajuste se tiver mais roles
   status: 'ACTIVE' | 'INACTIVE'; // ajuste se tiver mais status
   created_at: string;
   updated_at: string;
