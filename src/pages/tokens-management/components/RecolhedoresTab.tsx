@@ -537,7 +537,7 @@ const RecolhedoresTab: React.FC = () => {
 
     // Preparar dados da tabela
     const tableData = transacoesFiltradas.map((t) => [
-      formatDate(t.date),
+      subtractHoursToLocaleBR(t.date),
       t.descricao,
       formatCurrency(t.valor, 2, "USD"),
     ]);
@@ -642,7 +642,7 @@ const ano = hoje.getFullYear();
 
     // Preparar dados da tabela
     const tableData = transacoesFiltradas.map((t) => [
-      formatDate(t.date),
+      subtractHoursToLocaleBR(t.date),
       t.descricao,
       formatCurrency(t.valor, 2, "USD"),
     ]);
@@ -863,7 +863,7 @@ const ano = hoje.getFullYear();
                     </td>
                   </motion.tr>
                 ))}
-                {user?.role === "MASTER" && recolhedores.filter((recolhedor)=> permissions?.GERENCIAR_TOKENS.RECOLHEDORES_PERMITIDOS.includes(recolhedor.name)).map((r) => (
+                {user?.role === "MASTER" && recolhedores.map((r) => (
                   <motion.tr
                     key={r.id}
                     initial={{ opacity: 0, y: 10 }}
