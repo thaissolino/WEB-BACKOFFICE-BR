@@ -38,12 +38,12 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebar }) => {
   const [spreadsheetInput, setSpreadsheetInput] = useState("");
   const [showErrorToast, setShowErrorToast] = useState(false);
   const [pendingNavigation, setPendingNavigation] = useState<string | null>(null);
-  const {getPermissions, permissions, user} = usePermissionStore();
+  const { getPermissions, permissions, user } = usePermissionStore();
   const location = useLocation();
 
   useEffect(() => {
-      getPermissions();
-      console.log("Permissões carregadas:", permissions);
+    getPermissions();
+    console.log("Permissões carregadas:", permissions);
   }, [location.pathname]);
 
   const { onLogout } = useAuthBackoffice();
@@ -133,25 +133,24 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebar }) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
 
   const canShowTab = (key: string): boolean => {
-  if (user?.role === "MASTER") return true;
+    if (user?.role === "MASTER") return true;
 
-  const perms = permissions;
+    const perms = permissions;
 
-  switch (key) {
-    case "CRIAR_USUARIO":
-    case "GERENCIAR_GRUPOS":
-    case "GERENCIAR_USUARIOS":
-    case "GERENCIAR_OPERADORES":
-    case "GERENCIAR_PLANILHAS":
-    case "GERENCIAR_INVOICES":
-    case "GERENCIAR_TOKENS":
-    case "GERENCIAR_BOLETOS":
-      return perms?.[key]?.enabled === true;
-    default:
-      return false;
-  }
-};
-
+    switch (key) {
+      case "CRIAR_USUARIO":
+      case "GERENCIAR_GRUPOS":
+      case "GERENCIAR_USUARIOS":
+      case "GERENCIAR_OPERADORES":
+      case "GERENCIAR_PLANILHAS":
+      case "GERENCIAR_INVOICES":
+      case "GERENCIAR_TOKENS":
+      case "GERENCIAR_BOLETOS":
+        return perms?.[key]?.enabled === true;
+      default:
+        return false;
+    }
+  };
 
   return (
     <Box
@@ -188,7 +187,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebar }) => {
             {!isCollapsed && (
               <Box display="flex" justifyContent="center" alignItems="center" ml="3.4375rem" gap="0.5rem">
                 <Typography variant="h3" color={colors.grey[300]}>
-                  Black Rabbit
+                  Pet Store
                 </Typography>
                 <IconButton onClick={() => setIsCollapsed(!isCollapsed)}>
                   <MenuOutlinedIcon />
@@ -209,146 +208,156 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebar }) => {
                 />
               </Box>
               <Box textAlign="center">
-                <Typography variant="h2" color={colors.grey[100]} fontWeight="bold" sx={{ m: "10px 0 0 0" }}>
-                  Ed Rocha
-                </Typography>
-                <Typography variant="h5" color={colors.greenAccent[500]}>
-                  VP Administrador
-                </Typography>
+                {user && user.role !== "MASTER" ? (
+                  <>
+                    <Typography variant="h2" color={colors.grey[100]} fontWeight="bold" sx={{ m: "10px 0 0 0" }}>
+                      {/* Exibe primeiro e último nome do usuário */}
+                      {user.name ? `${user.name.split(" ")[0]} ${user.name.split(" ").slice(-1)[0]}` : "Usuário"}
+                    </Typography>
+                    <Typography variant="h5" color={colors.greenAccent[500]}>
+                      {user.role === "OPERATOR" ? "OPERADOR" : "VP Administrador"}
+                    </Typography>
+                  </>
+                ) : (
+                  <>
+                    <Typography variant="h2" color={colors.grey[100]} fontWeight="bold" sx={{ m: "10px 0 0 0" }}>
+                      Ed Rocha
+                    </Typography>
+                    <Typography variant="h5" color={colors.greenAccent[500]}>
+                      VP Administrador
+                    </Typography>
+                  </>
+                )}
               </Box>
             </Box>
           )}
 
           <Box paddingLeft={isCollapsed ? undefined : "10%"}>
-
             {
-              
-            <Item
-              title="Menu Principal"
-              to="/"
-              icon={<HomeOutlinedIcon />}
-              selected={selected}
-              setSelected={setSelected}
-            />
-            }
-            
-            
-            {
-              canShowTab("CRIAR_USUARIO") &&<>
-              {!isCollapsed && (
-              <Typography variant="h6" color={colors.greenAccent[300]} sx={{ m: "15px 0 5px 20px" }}>
-                Novo Cadastro:
-              </Typography>
-            )}
               <Item
-                title="Criar Usuário"
-                to="/create-form-user"
-                icon={<PersonAddIcon />}
+                title="Menu Principal"
+                to="/"
+                icon={<HomeOutlinedIcon />}
                 selected={selected}
                 setSelected={setSelected}
               />
-              </>
             }
 
-            {
-              canShowTab("GERENCIAR_GRUPOS")&&
-              <>
-              {!isCollapsed && (
-              <Typography variant="h6" color={colors.greenAccent[300]} sx={{ m: "15px 0 5px 20px" }}>
-                Usuário/Grupo
-              </Typography>
+            {user?.role === "OPERATOR" && (
+              <Item
+                title="Meu Perfil"
+                to="/meu-perfil"
+                icon={<PersonOutlinedIcon />}
+                selected={selected}
+                setSelected={setSelected}
+              />
             )}
-            <Item
-              title="Gerenciar Grupos"
-              to="/team"
-              icon={<PeopleOutlinedIcon />}
-              selected={selected}
-              setSelected={setSelected}
-            />
-            </>
-            }
-            {
-              canShowTab("GERENCIAR_USUARIOS") &&
-            <Item
-              title="Gerenciar Usuários"
-              to="/users"
-              icon={<PersonOutlinedIcon />}
-              selected={selected}
-              setSelected={setSelected}
-            />
-            }
-            {
-              canShowTab("GERENCIAR_OPERADORES") &&
-            <Item
-              title="Gerenciar Operadores"
-              to="/operators-management"
-              icon={<AdminPanelSettingsOutlinedIcon />} // OU PersonOutlinedIcon se preferir
-              selected={selected}
-              setSelected={setSelected}
-            />
-            }
-            
+            {canShowTab("CRIAR_USUARIO") && (
+              <>
+                {!isCollapsed && (
+                  <Typography variant="h6" color={colors.greenAccent[300]} sx={{ m: "15px 0 5px 20px" }}>
+                    Novo Cadastro:
+                  </Typography>
+                )}
+                <Item
+                  title="Criar Usuário"
+                  to="/create-form-user"
+                  icon={<PersonAddIcon />}
+                  selected={selected}
+                  setSelected={setSelected}
+                />
+              </>
+            )}
+            {canShowTab("GERENCIAR_GRUPOS") && (
+              <>
+                {!isCollapsed && (
+                  <Typography variant="h6" color={colors.greenAccent[300]} sx={{ m: "15px 0 5px 20px" }}>
+                    Usuário/Grupo
+                  </Typography>
+                )}
+                <Item
+                  title="Gerenciar Grupos"
+                  to="/team"
+                  icon={<PeopleOutlinedIcon />}
+                  selected={selected}
+                  setSelected={setSelected}
+                />
+              </>
+            )}
+            {canShowTab("GERENCIAR_USUARIOS") && (
+              <Item
+                title="Gerenciar Usuários"
+                to="/users"
+                icon={<PersonOutlinedIcon />}
+                selected={selected}
+                setSelected={setSelected}
+              />
+            )}
+            {canShowTab("GERENCIAR_OPERADORES") && (
+              <Item
+                title="Gerenciar Operadores"
+                to="/operators-management"
+                icon={<AdminPanelSettingsOutlinedIcon />} // OU PersonOutlinedIcon se preferir
+                selected={selected}
+                setSelected={setSelected}
+              />
+            )}
             {/* Este item agora requer validação */}
-            {
-              canShowTab("GERENCIAR_PLANILHAS") &&
+            {canShowTab("GERENCIAR_PLANILHAS") && (
               <>
-              {!isCollapsed && (
-              <Typography variant="h6" color={colors.greenAccent[300]} sx={{ m: "15px 0 5px 20px" }}>
-                Planilhas:
-              </Typography>
+                {!isCollapsed && (
+                  <Typography variant="h6" color={colors.greenAccent[300]} sx={{ m: "15px 0 5px 20px" }}>
+                    Planilhas:
+                  </Typography>
+                )}
+                <Item
+                  title="Gerenciar Planilhas"
+                  to="/spreadsheets"
+                  icon={<TableChartOutlinedIcon />}
+                  selected={selected}
+                  setSelected={setSelected}
+                  requiresValidation={true}
+                />
+              </>
             )}
-            <Item
-              title="Gerenciar Planilhas"
-              to="/spreadsheets"
-              icon={<TableChartOutlinedIcon />}
-              selected={selected}
-              setSelected={setSelected}
-              requiresValidation={true}
-            />
-            </>
-            }
-            {
-              canShowTab("GERENCIAR_INVOICES") &&
-            <Item
-              title="Gerenciar Invoices"
-              to="/invoices-management"
-              icon={<DescriptionOutlinedIcon />}
-              selected={selected}
-              setSelected={setSelected}
-              requiresValidation={true}
-            />
-            }
-            {
-              canShowTab("GERENCIAR_TOKENS") &&
-            <Item
-              title="Gerenciar Tokens"
-              to="/tokens-management"
-              icon={<DescriptionOutlinedIcon />}
-              selected={selected}
-              setSelected={setSelected}
-              requiresValidation={true}
-            />
-            }
-            
+            {canShowTab("GERENCIAR_INVOICES") && (
+              <Item
+                title="Gerenciar Invoices"
+                to="/invoices-management"
+                icon={<DescriptionOutlinedIcon />}
+                selected={selected}
+                setSelected={setSelected}
+                requiresValidation={true}
+              />
+            )}
+            {canShowTab("GERENCIAR_TOKENS") && (
+              <Item
+                title="Gerenciar Tokens"
+                to="/tokens-management"
+                icon={<DescriptionOutlinedIcon />}
+                selected={selected}
+                setSelected={setSelected}
+                requiresValidation={true}
+              />
+            )}
             {/* Este item agora requer validação */}
-            {
-              canShowTab("GERENCIAR_BOLETOS") &&
+            {canShowTab("GERENCIAR_BOLETOS") && (
               <>
-              {!isCollapsed && (
-              <Typography variant="h6" color={colors.greenAccent[300]} sx={{ m: "15px 0 5px 20px" }}>
-                Boletos:
-              </Typography>
+                {!isCollapsed && (
+                  <Typography variant="h6" color={colors.greenAccent[300]} sx={{ m: "15px 0 5px 20px" }}>
+                    Boletos:
+                  </Typography>
+                )}
+                <Item
+                  title="Gerenciar Boletos"
+                  to="/billets-management"
+                  icon={<TableChartOutlinedIcon />}
+                  selected={selected}
+                  setSelected={setSelected}
+                  requiresValidation={true}
+                />
+              </>
             )}
-            <Item
-              title="Gerenciar Boletos"
-              to="/billets-management"
-              icon={<TableChartOutlinedIcon />}
-              selected={selected}
-              setSelected={setSelected}
-              requiresValidation={true}
-            />
-            </>
-            }
             {/* Enhanced Modal Component */}
             <EnhancedModal
               open={openModal}
@@ -357,7 +366,6 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebar }) => {
               title="Digite a senha de acesso"
               label="Code"
             />
-
             {/* Error Toast */}
             <Snackbar
               open={showErrorToast}
@@ -369,7 +377,6 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebar }) => {
                 Não foi possível acessar a planilha. Verifique o valor inserido.
               </Alert>
             </Snackbar>
-
             {/* Barra Superior com Botão de Sair */}
             {!isCollapsed && (
               <Box
