@@ -7,6 +7,7 @@ interface Operator {
   name: string;
   email: string;
   password: string;
+  accessPassword: string;
   role: "OPERATOR" | "ADMIN" | "MASTER";
   status: "active" | "inactive" | "pending";
   lastAccess: string | null;
@@ -286,7 +287,7 @@ const OperatorManager: React.FC = () => {
 
   // Salvar operador
   const saveOperator = async () => {
-    const { name, email, password, confirmPassword, status } = formData;
+    const { name, email, password, confirmPassword, status, accessPassword } = formData;
     const isNew = !formData.id;
 
     // Validações
@@ -335,6 +336,7 @@ const OperatorManager: React.FC = () => {
           name,
           email,
           password,
+          accessPassword,
           status,
           role: "OPERATOR", // Definir role como OPERATOR por padrão
           lastAccess: null,
@@ -371,12 +373,14 @@ const OperatorManager: React.FC = () => {
           updatedAt: new Date().toISOString(),
           permissions: JSON.parse(JSON.stringify(selectedPermissions)),
           ...(password ? { password } : {}),
+          ...(accessPassword ? { accessPassword } : {}),
         };
         const updatedOperator = {
           id: operators[operatorIndex].id,
           name,
           email,
           password,
+          accessPassword: '',
           status,
           lastAccess: null,
           role: operators[operatorIndex].role,
@@ -395,6 +399,12 @@ const OperatorManager: React.FC = () => {
         // updatedOperators = [...operators];
         // updatedOperators[operatorIndex] = updatedOperator;
         setCurrentOperator(updatedOperator);
+        setFormData((prev) => ({
+          ...prev,
+          password: "", 
+          confirmPassword: "", // Limpar confirmação de senha
+          accessPassword: "", // Garantir que accessPassword esteja sempre presente
+        }));
       }
 
       showToast(isNew ? "Operador criado com sucesso!" : "Operador atualizado com sucesso!");
