@@ -199,15 +199,44 @@ const Contacts: React.FC = () => {
   };
 
   // Função para resetar dispositivos (mockada)
-  const handleResetDevices = (userName: string) => {
-    const user = rows.find((r) => r.userName === userName);
-    if (user) {
-      handleOpenDevicesModal(user);
-    }
+  const handleResetDevices = async (userName: string) => {
+      try {
+        // Obtendo o JWT token de localStorage
+        const token = localStorage.getItem("@backoffice:token");
+
+        if (!token) {
+          console.error("Token não encontrado!");
+          return;
+        }
+
+        console.log("Token encontrado:", token);
+
+        // Adicionando o token ao header da requisição
+        const response = await api.delete(`/userDevices/userGraphicDevice/${userName}`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        // Atualiza a lista de usuários ou remove o usuário da interface
+        setRows((prevRows) =>
+          prevRows.map((row) => {
+            if (row.userName !== userName) return row;
+            return { ...row, devices: [], connectedDevices: 0 };
+          })
+        );
+
+        setMessage(`Dispositivos do usuário ${userName} resetados com sucesso.`);
+        setSeverity("success");
+      }
+      catch (error) {
+        setMessage(`Erro ao resetar dispositivos do usuário ${userName}.`);
+        setSeverity("error");
+      }
   };
 
   // Função que será chamada ao clicar no botão de delete
-  const handleDelete = async (userName: string) => {
+  const   handleDelete = async (userName: string) => {
     try {
       // Obtendo o JWT token de localStorage
       const token = localStorage.getItem("@backoffice:token");
@@ -268,20 +297,9 @@ const Contacts: React.FC = () => {
         // Garantir que os dados recebidos tenham a estrutura esperada
         const formattedRows = response.data.map((item: any, index: number) => {
           // Gera devices coerentes com connectedDevices
-          const connectedDevices = Math.floor(Math.random() * 3);
+          const connectedDevices = item.devices.length;
           let devices: { type: string; browser: string; lastActive: string }[] = [];
-          if (connectedDevices === 2) {
-            devices = [
-              { type: "PC", browser: "Chrome", lastActive: "10/07/2025 18:24:14" },
-              { type: "Mobile", browser: "Safari", lastActive: "09/07/2025 12:10:00" },
-            ];
-          } else if (connectedDevices === 1) {
-            devices = [
-              Math.random() > 0.5
-                ? { type: "PC", browser: "Chrome", lastActive: "10/07/2025 18:24:14" }
-                : { type: "Mobile", browser: "Safari", lastActive: "09/07/2025 12:10:00" },
-            ];
-          }
+
           return {
             id: index + 1,
             name: item.name,
@@ -291,8 +309,8 @@ const Contacts: React.FC = () => {
             blocked: item.blocked,
             counter: item.counter,
             role: item.role === "MANAGER" ? "LÍDER DE GRUPOS" : "USUÁRIO",
-            connectedDevices: devices.length,
-            devices,
+            connectedDevices: item.devices.length,
+            devices: item.devices || [],
           };
         });
         setRows(formattedRows);

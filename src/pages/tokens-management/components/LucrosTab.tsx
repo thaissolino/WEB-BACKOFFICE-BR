@@ -7,6 +7,7 @@ import { useNotification } from "../../../hooks/notification";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import PdfShareModal from "../../../components/PdfShareModal";
+import { usePermissionStore } from "../../../store/permissionsStore";
 interface Operacao {
   id: number;
   date: string;
@@ -40,6 +41,7 @@ const LucrosTab: React.FC = () => {
   const [itensPorPagina] = useState(10);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { permissions, getPermissions, user } = usePermissionStore();
 
   // Estados para filtro de data
   const [filterStartDate, setFilterStartDate] = useState<string>(new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split("T")[0]);
@@ -63,26 +65,47 @@ const LucrosTab: React.FC = () => {
           },
         });
 
-        setOperacoes(response.data);
+        
+
+        const [fornecedoresResponse, recolhedoresResponse] = await Promise.all([
+            api.get<Fornecedor[]>("/suppliers/list_suppliers"),
+            api.get<Recolhedor[]>("/collectors/list_collectors")
+        ]);
+
+        const fornedoresFiltrados = user?.role==="MASTER"? fornecedoresResponse.data:fornecedoresResponse.data.filter((f) => permissions?.GERENCIAR_TOKENS.FORNECEDORES_PERMITIDOS.includes(f.name));
+        const recolhedoresFiltrados = user?.role==="MASTER"? fornecedoresResponse.data:recolhedoresResponse.data.filter((r) => permissions?.GERENCIAR_TOKENS.RECOLHEDORES_PERMITIDOS.includes(r.name));
+
+        const responseApi = (response.data as Operacao[]).filter((op)=> recolhedoresFiltrados.some((r) => r.id === op.collectorId) && fornedoresFiltrados.some((f) => f.id === op.supplierId));
+        
+        setOperacoes(responseApi);
 
         if (!filterStartDate && !filterEndDate) {
-          setFilteredOperations(operacoes);
+          setFilteredOperations(responseApi);
           setFilterApplied(false);
         }
 
-        const startDate = filterStartDate ? new Date(filterStartDate) : null;
-        const endDate = filterEndDate ? new Date(filterEndDate) : null;
+      const startDate = filterStartDate
+        ? new Date(`${filterStartDate}T00:00:00`)
+        : null;
+
+      const endDate = filterEndDate
+        ? new Date(`${filterEndDate}T23:59:59`)
+        : null
 
         // if (endDate) {
         //   endDate.setDate(endDate.getDate() + 1); // Inclui o dia final
         // }
 
-        const filtered = response.data.filter((op:any) => {
-          if(op.idOperation) return false;
+        const filtered = responseApi.filter((op: any) => {
+          // Ignora operações com idOperation
+          if (op.idOperation) return false;
+
           const opDate = new Date(op.date);
-          const isAfterStart = !startDate || opDate >= startDate;
-          const isBeforeEnd = !endDate || opDate < endDate;
-          return isAfterStart && isBeforeEnd;
+          const isWithinRange =
+            (!startDate || opDate >= startDate) &&
+            (!endDate || opDate <= endDate);
+
+          return isWithinRange;
         });
 
         setFilteredOperations(filtered);
@@ -94,13 +117,14 @@ const LucrosTab: React.FC = () => {
         setComissaoPeriodoFiltro(comissaoTotal);
 
         // Inicialmente não aplicamos filtro
-        setFilteredOperations(response.data);
+        // setFilteredOperations(responseApi);
+
 
         const totalCount = response.headers["x-total-count"];
         setTotalPaginas(totalCount ? Math.ceil(parseInt(totalCount, 10) / itensPorPagina) : 1);
 
-        const collectorIds = Array.from(new Set<number>(response.data.map((op: any) => op.collectorId)));
-        const supplierIds = Array.from(new Set<number>(response.data.map((op: any) => op.supplierId)));
+        const collectorIds = Array.from(new Set<number>(responseApi.map((op: any) => op.collectorId)));
+        const supplierIds = Array.from(new Set<number>(responseApi.map((op: any) => op.supplierId)));
 
         const fetchCollectors = Promise.all(
           collectorIds.map(async (id) => {
@@ -149,20 +173,25 @@ const LucrosTab: React.FC = () => {
       return;
     }
 
-    const startDate = filterStartDate ? new Date(filterStartDate) : null;
-    const endDate = filterEndDate ? new Date(filterEndDate) : null;
+      const startDate = filterStartDate
+        ? new Date(`${filterStartDate}T00:00:00`)
+        : null;
 
-    if (endDate) {
-      endDate.setDate(endDate.getDate() + 1); // Inclui o dia final
-    }
+      const endDate = filterEndDate
+        ? new Date(`${filterEndDate}T23:59:59`)
+        : null
 
-    const filtered = operacoes.filter((op) => {
-      if(op.idOperation) return false;
-      const opDate = new Date(op.date);
-      const isAfterStart = !startDate || opDate >= startDate;
-      const isBeforeEnd = !endDate || opDate < endDate;
-      return isAfterStart && isBeforeEnd;
-    });
+        const filtered = operacoes.filter((op: any) => {
+          // Ignora operações com idOperation
+          if (op.idOperation) return false;
+
+          const opDate = new Date(op.date);
+          const isWithinRange =
+            (!startDate || opDate >= startDate) &&
+            (!endDate || opDate <= endDate);
+
+          return isWithinRange;
+        });
 
     setFilteredOperations(filtered);
     setFilterApplied(true);
@@ -187,7 +216,7 @@ const LucrosTab: React.FC = () => {
   );
 
   const lucroMesAtual = operacoesValidas
-    .filter((op) => new Date(op.date).getMonth() === new Date().getMonth())
+    // .filter((op) => new Date(op.date).getMonth() === new Date().getMonth())
     .reduce((acc, op) => acc + (op.profit || 0), 0);
 
   const lucroMesAnterior = operacoesValidas
@@ -586,7 +615,7 @@ const LucrosTab: React.FC = () => {
         ) : (
           <div className="mb-6 grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="bg-blue-50 p-4 rounded-lg">
-              <h3 className="font-medium mb-2">LUCRO ESTE MÊS</h3>
+              <h3 className="font-medium mb-2">LUCRO TOTAL</h3>
               <p className="text-2xl font-bold text-blue-600">{formatCurrency(lucroMesAtual)}</p>
             </div>
             {/* <div className="bg-green-50 p-4 rounded-lg">

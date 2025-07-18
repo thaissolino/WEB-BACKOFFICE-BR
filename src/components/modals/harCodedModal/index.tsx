@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { AnimatedBackground } from "../../backgrounds/animated-background";
 import { api } from "../../../services/api";
 import { styled } from "@mui/material/styles";
+import { useAuthBackoffice } from "../../../hooks/authBackoffice";
 
 // Estilizando o TextField para melhorar a aparência
 const StyledTextField = styled(TextField)({
@@ -75,6 +76,7 @@ export const EnhancedModal = ({ open, onClose, onSave, title, label }: EnhancedM
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const modalRef = useRef<HTMLDivElement>(null);
+  const { user } = useAuthBackoffice();
 
   useEffect(() => {
     if (open) {
@@ -92,7 +94,7 @@ export const EnhancedModal = ({ open, onClose, onSave, title, label }: EnhancedM
       setIsLoading(true);
       setError(null);
 
-      const response = await api.get(`/hardcoded?content=${encodeURIComponent(inputValue)}`);
+      const response = await api.post(`/hardcoded?content=${encodeURIComponent(inputValue)}`, {id:user?.id});
 
       const canNavigate = response.data && response.data.success === true;
 
