@@ -21,6 +21,7 @@ import OperatorsManagement from "../pages/form-operators/OperatorsManagement";
 import OperatorManager2 from "../pages/form-operators-two/OperatorsManagement2";
 import OperatorManager from "../pages/form-operators/OperatorsManagement";
 import OperatorsManagementPerfilEdit from "../pages/form-operators-perfil-edit/OperatorsManagementPerfilEdit";
+import AdmManagementPerfilEdit from "../pages/form-adm-perfil-edit/AdmManagementPerfilEdit";
 
 const BACKOFFICE_ROUTE = "/backoffice";
 const LOGIN_ROUTE = "/signin/backoffice";
@@ -78,7 +79,8 @@ export function Router() {
           <Route path="invoices-management" element={<InvocesManagement />} />
           <Route path="tokens-management" element={<TokensManagement />} />
           <Route path="billets-management" element={<BillsManagement />} />
-          <Route path="meu-perfil" element={<OperatorsManagementPerfilEdit />} />
+          <Route path="meu-perfil-operator" element={<OperatorsManagementPerfilEdit />} />
+          <Route path="meu-perfil-master" element={<AdmManagementPerfilEdit />} />
           {/* <Route path="/backoffice/plans" element={<Plans />} />
             <Route path="/backoffice/transactions-pagbank" element={<TransactionsPagbank />} />
             <Route path="/backoffice/extracts-pagbank" element={<ExtractsPagbank />} />

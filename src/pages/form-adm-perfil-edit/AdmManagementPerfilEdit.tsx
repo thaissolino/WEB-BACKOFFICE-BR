@@ -5,15 +5,15 @@ import { useTheme } from "@mui/material";
 // Mock do usuário logado (tipo OPERATOR)
 const mockLoggedUser = {
   id: "1",
-  name: "João Operador",
-  email: "joao.operador@empresa.com",
+  name: "Ed Admin",
+  email: "ED.adm@empresa.com",
   password: "",
   accessPassword: "",
   status: "active",
   lastAccess: new Date().toISOString(),
 };
 
-const OperatorsManagementPerfilEdit: React.FC = () => {
+const AdmManagementPerfilEdit: React.FC = () => {
   const { user } = useAuthBackoffice();
   const theme = useTheme();
   const isDark = theme.palette.mode === "dark";
@@ -67,7 +67,7 @@ const OperatorsManagementPerfilEdit: React.FC = () => {
   const passwordsMatch = formData.password && formData.password === formData.confirmPassword;
 
   // Checagem correta: user.role
-  // if (!user || user.role !== "OPERATOR") {
+  // if (!user || user.role !== "MASTER") {
   //   return null;
   // }
 
@@ -313,4 +313,4 @@ const OperatorsManagementPerfilEdit: React.FC = () => {
   );
 };
 
-export default OperatorsManagementPerfilEdit;
+export default AdmManagementPerfilEdit;

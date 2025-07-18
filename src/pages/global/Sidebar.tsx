@@ -246,7 +246,16 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebar }) => {
             {user?.role === "OPERATOR" && (
               <Item
                 title="Meu Perfil"
-                to="/meu-perfil"
+                to="/meu-perfil-operator"
+                icon={<PersonOutlinedIcon />}
+                selected={selected}
+                setSelected={setSelected}
+              />
+            )}
+            {user?.role === "MASTER" && (
+              <Item
+                title="Meu Perfil"
+                to="/meu-perfil-master"
                 icon={<PersonOutlinedIcon />}
                 selected={selected}
                 setSelected={setSelected}
