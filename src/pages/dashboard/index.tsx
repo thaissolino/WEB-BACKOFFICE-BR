@@ -12,6 +12,7 @@ import PersonIcon from "@mui/icons-material/Person";
 import Groups2Icon from "@mui/icons-material/Groups2";
 import { useEffect, useState } from "react";
 import { api } from "../../services/api";
+import { useAuthBackoffice } from "../../hooks/authBackoffice";
 
 // Defina o tipo para os dados dos usuários
 interface User {
@@ -26,6 +27,7 @@ interface User {
 const Dashboard: React.FC = () => {
   const theme = useTheme();
   const colors = tokens(theme.palette.mode);
+  const { user } = useAuthBackoffice();
   // Estado para armazenar o número de usuários
   const [totalUsuarios, setTotalUsuarios] = useState<number>(0);
   const [totalGrupos, setTotalGrupos] = useState<number>(0);
@@ -33,6 +35,24 @@ const Dashboard: React.FC = () => {
 
   // Checa se o tamanho da tela é pequeno (mobile)
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
+
+  // Função para formatar o nome do usuário
+  const formatUserName = (name: string) => {
+    if (!name) return "Usuário";
+
+    const nameParts = name.split(" ");
+    if (nameParts.length === 1) {
+      return nameParts[0];
+    } else if (nameParts.length === 2) {
+      return `${nameParts[0]} ${nameParts[1]}`;
+    } else {
+      // Se tem mais de 2 nomes, mostra primeiro, inicial do segundo, e último
+      const first = nameParts[0];
+      const secondInitial = nameParts[1] ? nameParts[1][0] + "." : "";
+      const last = nameParts[nameParts.length - 1];
+      return `${first} ${secondInitial} ${last}`;
+    }
+  };
 
   console.log("Total de usuários:", users);
   useEffect(() => {
@@ -76,7 +96,10 @@ const Dashboard: React.FC = () => {
     <Box borderRadius={"5px"} m="20px">
       {/* HEADER */}
       <Box borderRadius={"5px"} display="flex" justifyContent="space-between" alignItems="center">
-        <Header title="BACKOFFICE" subtitle="seja bem vindo ao seu backoffice:" />
+        <Header
+          title={isMobile ? formatUserName(user?.name || "") : "BACKOFFICE"}
+          subtitle="seja bem vindo ao seu backoffice:"
+        />
 
         {!isMobile ? (
           <Box borderRadius={"5px"}>
@@ -98,85 +121,85 @@ const Dashboard: React.FC = () => {
 
       {/* GRID & CHARTS */}
       <Box
-              borderRadius={"5px"}
-              display="grid"
-              gridTemplateColumns={isMobile ? "repeat(6, 1fr)" : "repeat(12, 1fr)"}
-              gridAutoRows="140px"
-              gap="20px"
-            >
-              {/* ROW 1 */}
-              <Box
-                borderRadius={"5px"}
-                gridColumn={!isMobile ? "span 3" : "span 3"}
-                sx={{
-                  backgroundColor: colors.primary[400],
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <StatBox
-                  title={totalGrupos.toString()}
-                  subtitle="Total de grupos"
-                  progress="0.75"
-                  increase="+14%"
-                  icon={<Groups2Icon sx={{ color: colors.greenAccent[600], fontSize: "26px" }} />}
-                />
-              </Box>
-              <Box
-                borderRadius={"5px"}
-                gridColumn={!isMobile ? "span 3" : "span 3"}
-                sx={{
-                  backgroundColor: colors.primary[400],
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <StatBox
-                  title={totalUsuarios.toString()}
-                  subtitle="Total de usuários"
-                  progress="0.30"
-                  increase="+5%"
-                  icon={<PersonIcon sx={{ color: colors.greenAccent[600], fontSize: "26px" }} />}
-                />
-              </Box>
-              <Box
-                borderRadius={"5px"}
-                gridColumn={!isMobile ? "span 3" : "span 3"}
-                sx={{
-                  backgroundColor: colors.primary[400],
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <StatBox
-                  title="431,225"
-                  subtitle="Total de chamadas"
-                  progress="0.50"
-                  increase="+21%"
-                  icon={<PointOfSaleIcon sx={{ color: colors.greenAccent[600], fontSize: "26px" }} />}
-                />
-              </Box>
-              <Box
-                borderRadius={"5px"}
-                gridColumn={!isMobile ? "span 3" : "span 3"}
-                sx={{
-                  backgroundColor: colors.primary[400],
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <StatBox
-                  title="1,325,134"
-                  subtitle="Total de mensagens"
-                  progress="0.80"
-                  increase="+43%"
-                  icon={<EmailIcon sx={{ color: colors.greenAccent[600], fontSize: "26px" }} />}
-                />
-              </Box>
+        borderRadius={"5px"}
+        display="grid"
+        gridTemplateColumns={isMobile ? "repeat(6, 1fr)" : "repeat(12, 1fr)"}
+        gridAutoRows="140px"
+        gap="20px"
+      >
+        {/* ROW 1 */}
+        <Box
+          borderRadius={"5px"}
+          gridColumn={!isMobile ? "span 3" : "span 3"}
+          sx={{
+            backgroundColor: colors.primary[400],
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <StatBox
+            title={totalGrupos.toString()}
+            subtitle="Total de grupos"
+            progress="0.75"
+            increase="+14%"
+            icon={<Groups2Icon sx={{ color: colors.greenAccent[600], fontSize: "26px" }} />}
+          />
+        </Box>
+        <Box
+          borderRadius={"5px"}
+          gridColumn={!isMobile ? "span 3" : "span 3"}
+          sx={{
+            backgroundColor: colors.primary[400],
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <StatBox
+            title={totalUsuarios.toString()}
+            subtitle="Total de usuários"
+            progress="0.30"
+            increase="+5%"
+            icon={<PersonIcon sx={{ color: colors.greenAccent[600], fontSize: "26px" }} />}
+          />
+        </Box>
+        <Box
+          borderRadius={"5px"}
+          gridColumn={!isMobile ? "span 3" : "span 3"}
+          sx={{
+            backgroundColor: colors.primary[400],
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <StatBox
+            title="431,225"
+            subtitle="Total de chamadas"
+            progress="0.50"
+            increase="+21%"
+            icon={<PointOfSaleIcon sx={{ color: colors.greenAccent[600], fontSize: "26px" }} />}
+          />
+        </Box>
+        <Box
+          borderRadius={"5px"}
+          gridColumn={!isMobile ? "span 3" : "span 3"}
+          sx={{
+            backgroundColor: colors.primary[400],
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <StatBox
+            title="1,325,134"
+            subtitle="Total de mensagens"
+            progress="0.80"
+            increase="+43%"
+            icon={<EmailIcon sx={{ color: colors.greenAccent[600], fontSize: "26px" }} />}
+          />
+        </Box>
         {/* ROW 2 */}
         {!isMobile ? (
           <Box
@@ -217,8 +240,7 @@ const Dashboard: React.FC = () => {
 
         <Box
           gridColumn={isMobile ? "span 6" : "span 4"} // Ajusta a coluna dependendo se é mobile ou não
-
-          borderRadius={"5px"} 
+          borderRadius={"5px"}
           //gridColumn="span 4"
           gridRow="span 2"
           sx={{

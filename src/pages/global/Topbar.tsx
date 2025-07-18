@@ -14,7 +14,6 @@ import HeaderMenu from "./Headerbar";
 interface TopbarProps {
   setIsSidebar?: React.Dispatch<React.SetStateAction<boolean>>;
   isSidebar?: boolean;
-
 }
 
 const Topbar: React.FC<TopbarProps> = ({ setIsSidebar, isSidebar }) => {
@@ -22,58 +21,49 @@ const Topbar: React.FC<TopbarProps> = ({ setIsSidebar, isSidebar }) => {
   const colors = tokens(theme.palette.mode);
   const colorMode = useContext(ColorModeContext);
 
-   // Checa se o tamanho da tela é pequeno (mobile)
-     const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
-     
+  // Checa se o tamanho da tela é pequeno (mobile)
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
+
   return (
     <Box display="flex" justifyContent="space-between" p={2}>
       {/* SEARCH BAR */}
-     
 
-
-{isMobile 
-           ?
-           <Box
-           display="flex"
-           sx={{
-             backgroundColor: colors.primary[400],
-             borderRadius: "3px",
-           }}
-         >
-<Box
+      {isMobile ? (
+        <Box
+          display="flex"
+          sx={{
+            backgroundColor: colors.primary[400],
+            borderRadius: "3px",
+          }}
+        >
+          <Box
             sx={{
               width: { xs: "100%", sm: isSidebar ? "250px" : "80px" }, // Responsivo
               flexShrink: 0, // Evita que a largura da sidebar mude
             }}
           >
-          <HeaderMenu isSidebar={isSidebar} /> 
+            <HeaderMenu isSidebar={isSidebar} />
           </Box>
         </Box>
-           : 
-           <Box
-           display="flex"
-           sx={{
-             backgroundColor: colors.primary[400],
-             borderRadius: "3px",
-           }}
-         >
-          
-        <InputBase sx={{ ml: 2, flex: 1 }} placeholder="Pesquisar..." />
-        <IconButton type="button" sx={{ p: 1 }}>
-          <SearchIcon />
-        </IconButton>
-      </Box>
-  
-      }
-            
+      ) : (
+        <Box
+          display="flex"
+          sx={{
+            backgroundColor: colors.primary[400],
+            borderRadius: "3px",
+          }}
+        >
+          {/* <InputBase sx={{ ml: 2, flex: 1 }} placeholder="Pesquisar..." />
+          <IconButton type="button" sx={{ p: 1 }}>
+            <SearchIcon />
+          </IconButton> */}
+        </Box>
+      )}
+
       {/* ICONS */}
       <Box display="flex">
         <IconButton onClick={colorMode.toggleColorMode}>
-          {theme.palette.mode === "dark" ? (
-            <DarkModeOutlinedIcon />
-          ) : (
-            <LightModeOutlinedIcon />
-          )}
+          {theme.palette.mode === "dark" ? <DarkModeOutlinedIcon /> : <LightModeOutlinedIcon />}
         </IconButton>
         <IconButton>
           <NotificationsOutlinedIcon />

@@ -1,7 +1,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuthBackoffice } from "../../../hooks/authBackoffice";
-import blackRabbitLogo from "../../../assets/icons/black-rabbit-logo.jpg";
+import petStoreLogo from "../../../assets/icons/pet-store-logo.png";
 
 export function SignIn() {
   const navigate = useNavigate();
@@ -77,9 +77,9 @@ export function SignIn() {
       <div className="flex min-h-screen items-center justify-center bg-gradient-to-r from-gray-800 via-gray-900 to-black px-4 py-12 sm:px-6 lg:px-8">
         <div className="w-full max-w-md space-y-8 bg-white rounded-lg shadow-xl p-8">
           <div className="text-center">
-            <img src={blackRabbitLogo} alt="Black Rabbit Logo" className="mx-auto h-16 w-auto" />
+            <img src={petStoreLogo} alt="Pet Store Logo" className="mx-auto h-16 w-auto" />
             <h2 className="mt-6 text-3xl font-extrabold text-gray-900" style={{ fontFamily: "Orbitron, sans-serif" }}>
-              Bem-vindo ao <br /> <span className="text-indigo-500">Black Rabbit</span>
+              Bem-vindo ao <br /> <span className="text-indigo-500">Pet Store</span>
             </h2>
             <p
               className="mt-2 text-sm text-gray-600"
@@ -151,7 +151,7 @@ export function SignIn() {
           </form>
         </div>
         <footer className="fixed bottom-0 w-full text-center py-2 bg-gray-800 text-white">
-          &copy; 2025 Black Rabbit. Todos os direitos reservados.
+          &copy; 2025 Pet Store. Todos os direitos reservados.
         </footer>
       </div>
     </>

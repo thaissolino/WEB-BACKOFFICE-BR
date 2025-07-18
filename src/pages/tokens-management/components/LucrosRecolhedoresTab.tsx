@@ -48,7 +48,7 @@ const LucrosRecolhedoresFusionTab: React.FC = () => {
   const [filterApplied, setFilterApplied] = useState(false);
   // Estado para as operações filtradas
   const [operacoesFiltradas, setOperacoesFiltradas] = useState<Operacao[]>([]);
-  const { permissions, user } = usePermissionStore();
+  const { permissions, getPermissions, user } = usePermissionStore();
 
   const calcularTotais = (operacoes: Operacao[])=>{
     let lucro = 0
@@ -177,15 +177,23 @@ const LucrosRecolhedoresFusionTab: React.FC = () => {
 
   const fetchAllData = async () => {
     try {
-      const [opRes, rcRes, fnRes] = await Promise.all([
+      const [response] = await Promise.all([
         api.get("/operations/list_operations"),
-        api.get("/collectors/list_collectors"),
-        api.get("/suppliers/list_suppliers"),
       ]);
+        const [fornecedoresResponse, recolhedoresResponse] = await Promise.all([
+            api.get<Fornecedor[]>("/suppliers/list_suppliers"),
+            api.get<Recolhedor[]>("/collectors/list_collectors")
+        ]);
 
-      setOperacoes(opRes.data);
-      setRecolhedores(rcRes.data);
-      setFornecedores(fnRes.data);
+        const fornedoresFiltrados = user?.role==="MASTER"? fornecedoresResponse.data : fornecedoresResponse.data.filter((f) => permissions?.GERENCIAR_TOKENS.FORNECEDORES_PERMITIDOS.includes(f.name));
+        const recolhedoresFiltrados = user?.role==="MASTER"? recolhedoresResponse.data : recolhedoresResponse.data.filter((r) => permissions?.GERENCIAR_TOKENS.RECOLHEDORES_PERMITIDOS.includes(r.name));
+
+        const responseApi = (response.data as Operacao[]).filter((op)=> recolhedoresFiltrados.some((r) => r.id === op.collectorId) && fornedoresFiltrados.some((f) => f.id === op.supplierId));
+        
+        setOperacoes(responseApi);
+
+      setRecolhedores(recolhedoresFiltrados);
+      setFornecedores(fornedoresFiltrados);
       setLoading(false);
     } catch (err) {
       console.error("Erro ao carregar dados:", err);

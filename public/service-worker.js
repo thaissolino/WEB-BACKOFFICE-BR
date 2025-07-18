@@ -1,5 +1,5 @@
 // 📦 Nome do cache com base no timestamp do build
-const CACHE_NAME = `black-rabbit-cache-${Date.now()}`;
+const CACHE_NAME = `pet-store-cache-${Date.now()}`;
 
 // 📥 Instalação do SW
 self.addEventListener('install', () => {

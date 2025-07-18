@@ -3,11 +3,12 @@ import React, { useState, useEffect, useRef } from "react";
 import { api } from "../../services/api";
 
 interface Operator {
-  id: string ;
+  id: string;
   name: string;
   email: string;
   password: string;
-  role: "OPERATOR" | "ADMIN" | "MASTER" ;
+  accessPassword: string;
+  role: "OPERATOR" | "ADMIN" | "MASTER";
   status: "active" | "inactive" | "pending";
   lastAccess: string | null;
   createdAt: string;
@@ -147,49 +148,48 @@ const OperatorManager: React.FC = () => {
   const [operators, setOperators] = useState<Operator[]>([]);
 
   const defaultPermissions = {
-  CRIAR_USUARIO: {
-    enabled: false,
-  },
-  GERENCIAR_GRUPOS: {
-    enabled: false,
-  },
-  GERENCIAR_USUARIOS: {
-    enabled: false,
-  },
-  GERENCIAR_OPERADORES: {
-    enabled: false,
-  },
-  GERENCIAR_PLANILHAS: {
-    enabled: false,
-  },
-  GERENCIAR_INVOICES: {
-    enabled: false,
-    INVOICES: false,
-    PRODUTOS: false,
-    FORNECEDORES: false,
-    FRETEIROS: false,
-    OUTROS: false,
-    MEDIA_DOLAR: false,
-    RELATORIOS: false,
-    CAIXAS: [],
-    CAIXAS_BR: [],
-  },
-  GERENCIAR_TOKENS: {
-    enabled: false,
-    FORNECEDORES: [],
-    RECOLHEDORES: [],
-    OPERAÇÕES: false,
-    LUCROS: false,
-    LUCROS_RECOLHEDORES: false,
-  },
-  GERENCIAR_BOLETOS: {
-    enabled: false,
-  },
-  GERENCIAR_OPERACOES: {
-    enabled: false,
-  },
-};
-
+    CRIAR_USUARIO: {
+      enabled: false,
+    },
+    GERENCIAR_GRUPOS: {
+      enabled: false,
+    },
+    GERENCIAR_USUARIOS: {
+      enabled: false,
+    },
+    GERENCIAR_OPERADORES: {
+      enabled: false,
+    },
+    GERENCIAR_PLANILHAS: {
+      enabled: false,
+    },
+    GERENCIAR_INVOICES: {
+      enabled: false,
+      INVOICES: false,
+      PRODUTOS: false,
+      FORNECEDORES: false,
+      FRETEIROS: false,
+      OUTROS: false,
+      MEDIA_DOLAR: false,
+      RELATORIOS: false,
+      CAIXAS: [],
+      CAIXAS_BR: [],
+    },
+    GERENCIAR_TOKENS: {
+      enabled: false,
+      FORNECEDORES: [],
+      RECOLHEDORES: [],
+      OPERAÇÕES: false,
+      LUCROS: false,
+      LUCROS_RECOLHEDORES: false,
+    },
+    GERENCIAR_BOLETOS: {
+      enabled: false,
+    },
+    GERENCIAR_OPERACOES: {
+      enabled: false,
+    },
+  };
 
   const [currentOperator, setCurrentOperator] = useState<Operator | null>(null);
   const [selectedPermissions, setSelectedPermissions] = useState<Record<string, any>>(defaultPermissions);
@@ -205,11 +205,13 @@ const OperatorManager: React.FC = () => {
     email: "",
     password: "",
     confirmPassword: "",
+    accessPassword: "", // Novo campo para senha de acesso
     status: "active" as "active" | "inactive" | "pending",
   });
   const [passwordVisible, setPasswordVisible] = useState({
     password: false,
     confirmPassword: false,
+    accessPassword: false, // Novo campo para visibilidade da senha de acesso
   });
 
   // Refs
@@ -217,38 +219,36 @@ const OperatorManager: React.FC = () => {
   const toastRef = useRef<HTMLDivElement>(null);
 
   const loadOperatorsFromDB = async () => {
-  try {
-        // const response = await api.get("/users_operators");
-        // const fornecedores = await api.get("/suppliers/list_suppliers");
+    try {
+      // const response = await api.get("/users_operators");
+      // const fornecedores = await api.get("/suppliers/list_suppliers");
 
-        const [response, fornecedores, colletors, caixa1, caixa2, caixaBR ] = await Promise.all([
-          api.get("/users_operators"),
-          api.get("/suppliers/list_suppliers"),
-          api.get("/collectors/list_collectors"),
-          api.get("/invoice/carriers"),
-          api.get("/invoice/supplier"),
-          api.get("/invoice/partner")
-        ]);
-        const fornecedoresData = fornecedores.data.map((f: any) => f.name);
-        const recolhedoresData = colletors.data.map((c: any) => c.name);
-        const caixaData = caixa1.data.map((c: any) => c.name);
-        const caixaData2 = caixa2.data.map((c: any) => c.name);
-        const caixaUnion = [...caixaData, ...caixaData2];
-        const caixaBRData = caixaBR.data.brl.map((c: any) => c.name);
-        setFornecedores(fornecedoresData);
-        setRecolhedores(recolhedoresData);
-        setCaixa(caixaUnion);
-        setCaixaBR(caixaBRData);
-        setOperators(response.data);
-      } 
-      catch (e) {
-        console.error("Erro ao carregar operadores:", e);
-        setOperators([]);
-      } finally {
-        setLoading(false);
-      }
-  }
-  
+      const [response, fornecedores, colletors, caixa1, caixa2, caixaBR] = await Promise.all([
+        api.get("/users_operators"),
+        api.get("/suppliers/list_suppliers"),
+        api.get("/collectors/list_collectors"),
+        api.get("/invoice/carriers"),
+        api.get("/invoice/supplier"),
+        api.get("/invoice/partner"),
+      ]);
+      const fornecedoresData = fornecedores.data.map((f: any) => f.name);
+      const recolhedoresData = colletors.data.map((c: any) => c.name);
+      const caixaData = caixa1.data.map((c: any) => c.name);
+      const caixaData2 = caixa2.data.map((c: any) => c.name);
+      const caixaUnion = [...caixaData, ...caixaData2];
+      const caixaBRData = caixaBR.data.brl.map((c: any) => c.name);
+      setFornecedores(fornecedoresData);
+      setRecolhedores(recolhedoresData);
+      setCaixa(caixaUnion);
+      setCaixaBR(caixaBRData);
+      setOperators(response.data);
+    } catch (e) {
+      console.error("Erro ao carregar operadores:", e);
+      setOperators([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Carregar primeiro operador ao montar o componente
   useEffect(() => {
@@ -264,6 +264,7 @@ const OperatorManager: React.FC = () => {
       email: operator.email,
       password: "",
       confirmPassword: "",
+      accessPassword: "", // Resetar senha de acesso ao carregar operador
       status: operator.status.toLocaleLowerCase() as "active" | "inactive" | "pending",
     });
     setSelectedPermissions(JSON.parse(JSON.stringify(operator.permissions || {})));
@@ -278,6 +279,7 @@ const OperatorManager: React.FC = () => {
       email: "",
       password: "",
       confirmPassword: "",
+      accessPassword: "", // Resetar senha de acesso ao criar novo operador
       status: "active",
     });
     setSelectedPermissions(defaultPermissions);
@@ -285,7 +287,7 @@ const OperatorManager: React.FC = () => {
 
   // Salvar operador
   const saveOperator = async () => {
-    const { name, email, password, confirmPassword, status } = formData;
+    const { name, email, password, confirmPassword, status, accessPassword } = formData;
     const isNew = !formData.id;
 
     // Validações
@@ -324,7 +326,7 @@ const OperatorManager: React.FC = () => {
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
           permissions: JSON.parse(JSON.stringify(selectedPermissions)),
-           ...(password ? { password } : {}),
+          ...(password ? { password } : {}),
         };
 
         const response = await api.post("/users_operators", newOperatorData2);
@@ -334,13 +336,13 @@ const OperatorManager: React.FC = () => {
           name,
           email,
           password,
+          accessPassword,
           status,
           role: "OPERATOR", // Definir role como OPERATOR por padrão
           lastAccess: null,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
           permissions: JSON.parse(JSON.stringify(selectedPermissions)),
-          
         };
 
         // updatedOperators = [...operators, newOperatorData];
@@ -370,20 +372,21 @@ const OperatorManager: React.FC = () => {
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
           permissions: JSON.parse(JSON.stringify(selectedPermissions)),
-           ...(password ? { password } : {}),
+          ...(password ? { password } : {}),
+          ...(accessPassword ? { accessPassword } : {}),
         };
         const updatedOperator = {
           id: operators[operatorIndex].id,
           name,
           email,
           password,
+          accessPassword: '',
           status,
           lastAccess: null,
           role: operators[operatorIndex].role,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
           permissions: JSON.parse(JSON.stringify(selectedPermissions)),
-          
         };
 
         // Atualizar senha apenas se foi fornecida
@@ -396,8 +399,14 @@ const OperatorManager: React.FC = () => {
         // updatedOperators = [...operators];
         // updatedOperators[operatorIndex] = updatedOperator;
         setCurrentOperator(updatedOperator);
+        setFormData((prev) => ({
+          ...prev,
+          password: "", 
+          confirmPassword: "", // Limpar confirmação de senha
+          accessPassword: "", // Garantir que accessPassword esteja sempre presente
+        }));
       }
-      
+
       showToast(isNew ? "Operador criado com sucesso!" : "Operador atualizado com sucesso!");
     } catch (error) {
       console.error("Error saving operator:", error);
@@ -429,10 +438,11 @@ const OperatorManager: React.FC = () => {
         email: "",
         password: "",
         confirmPassword: "",
+        accessPassword: "", // Corrigir: garantir sempre presente
         status: "active",
-      })
+      });
 
-      newOperator()
+      newOperator();
 
       // Carregar o primeiro operador se houver
       if (updatedOperators.length > 0) {
@@ -473,31 +483,31 @@ const OperatorManager: React.FC = () => {
   };
 
   // Alternar permissão
-const togglePermissionAll = (permissionId: string, checked: boolean) => {
-  setSelectedPermissions(prev => {
-    const updated = { ...prev };
-    const permission = availablePermissions.find(p => p.id === permissionId);
-    if (!permission) return updated;
+  const togglePermissionAll = (permissionId: string, checked: boolean) => {
+    setSelectedPermissions((prev) => {
+      const updated = { ...prev };
+      const permission = availablePermissions.find((p) => p.id === permissionId);
+      if (!permission) return updated;
 
-    // Estado da permissão-pai
-    updated[permissionId] = { enabled: checked };
+      // Estado da permissão-pai
+      updated[permissionId] = { enabled: checked };
 
-    // Sincronizar sub-permissões
-    if (permission.subPermissions) {
-      permission.subPermissions.forEach(sub => {
-        if (sub.type === "boolean") {
-          updated[permissionId][sub.id] = checked;            // true ou false
-        } else if (sub.options) {
-          updated[permissionId][sub.id] = checked             // lista cheia ou vazia
-            ? [...sub.options]                                // todos os itens
-            : [];
-        }
-      });
-    }
+      // Sincronizar sub-permissões
+      if (permission.subPermissions) {
+        permission.subPermissions.forEach((sub) => {
+          if (sub.type === "boolean") {
+            updated[permissionId][sub.id] = checked; // true ou false
+          } else if (sub.options) {
+            updated[permissionId][sub.id] = checked // lista cheia ou vazia
+              ? [...sub.options] // todos os itens
+              : [];
+          }
+        });
+      }
 
-    return updated;
-  });
-};
+      return updated;
+    });
+  };
 
   const togglePermission = (permissionId: string, enabled: boolean) => {
     setSelectedPermissions((prev) => {
@@ -604,7 +614,7 @@ const togglePermissionAll = (permissionId: string, checked: boolean) => {
   };
 
   // Alternar visibilidade da senha
-  const togglePasswordVisibility = (field: "password" | "confirmPassword") => {
+  const togglePasswordVisibility = (field: "password" | "confirmPassword" | "accessPassword") => {
     setPasswordVisible((prev) => ({
       ...prev,
       [field]: !prev[field],
@@ -842,8 +852,8 @@ const togglePermissionAll = (permissionId: string, checked: boolean) => {
                                   if (sub.options) {
                                     // updateSubPermission(permission.id, sub.id, e.target.checked ? [] : undefined);
 
-                                        const newValues = sub.options
-                                        updateSubPermission(permission.id, sub.id, !e.target.checked?[]:newValues);
+                                    const newValues = sub.options;
+                                    updateSubPermission(permission.id, sub.id, !e.target.checked ? [] : newValues);
                                   } else {
                                     updateSubPermission(permission.id, sub.id, e.target.checked);
                                   }
@@ -1160,6 +1170,35 @@ const togglePermissionAll = (permissionId: string, checked: boolean) => {
                             {passwordsMatch ? "As senhas coincidem" : "As senhas não coincidem"}
                           </span>
                         )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Campo de Senha de Acesso */}
+                  <div>
+                    <label htmlFor="accessPassword" className="block text-sm font-medium text-gray-700 mb-1">
+                      Senha de Acesso
+                    </label>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <i className="fas fa-lock text-gray-400"></i>
+                      </div>
+                      <input
+                        type={passwordVisible.accessPassword ? "text" : "password"}
+                        id="accessPassword"
+                        name="accessPassword"
+                        className="pl-10 block w-full border border-gray-300 rounded-lg shadow-sm py-2.5 px-4 focus:ring-indigo-500 focus:border-indigo-500"
+                        placeholder={formData.id ? "Deixe em branco para manter atual" : "Digite a senha de acesso"}
+                        value={formData.accessPassword}
+                        onChange={handleInputChange}
+                      />
+                      <div className="absolute inset-y-0 right-0 pr-3 flex items-center">
+                        <i
+                          className={`fas ${
+                            passwordVisible.accessPassword ? "fa-eye" : "fa-eye-slash"
+                          } toggle-password cursor-pointer`}
+                          onClick={() => togglePasswordVisibility("accessPassword")}
+                        ></i>
                       </div>
                     </div>
                   </div>
