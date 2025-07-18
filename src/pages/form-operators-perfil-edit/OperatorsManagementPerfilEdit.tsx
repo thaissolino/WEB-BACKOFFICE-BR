@@ -1,31 +1,33 @@
 import React, { useState } from "react";
 import { useAuthBackoffice } from "../../hooks/authBackoffice";
 import { useTheme } from "@mui/material";
+import { api } from "../../services/api";
 
 // Mock do usuário logado (tipo OPERATOR)
 const mockLoggedUser = {
   id: "1",
-  name: "João Operador",
-  email: "joao.operador@empresa.com",
+  name: "Ed Admin",
+  email: "ED.adm@empresa.com",
   password: "",
   accessPassword: "",
   status: "active",
   lastAccess: new Date().toISOString(),
 };
 
-const OperatorsManagementPerfilEdit: React.FC = () => {
+const AdmManagementPerfilEdit: React.FC = () => {
   const { user } = useAuthBackoffice();
   const theme = useTheme();
   const isDark = theme.palette.mode === "dark";
 
   // Hooks SEMPRE no topo
   const [formData, setFormData] = useState({
-    name: mockLoggedUser.name,
-    email: mockLoggedUser.email,
+    userId: user?.id || "",
+    name: user?.name || "",
+    email: user?.email || "",
     password: "",
     confirmPassword: "",
     accessPassword: "",
-    status: mockLoggedUser.status,
+    status: user?.status || "ACTIVE",
   });
   const [passwordVisible, setPasswordVisible] = useState({
     password: false,
@@ -47,14 +49,43 @@ const OperatorsManagementPerfilEdit: React.FC = () => {
   };
 
   // Função para salvar alterações (mock)
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+
+     const updatedOperator2 = {
+          id: user?.id,
+          name: formData.name,
+          email: formData.email,
+          status: formData.status,
+          lastAccess: null,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          ...(formData.password ? { password: formData.password } : {}),
+          ...(formData.accessPassword ? { accessPassword: formData.accessPassword } : {}),
+        };
+
+    try{
+      const response = await api.patch(`/users_operators/${updatedOperator2.id}`, updatedOperator2);
+
+      const newUser = {...user, name: updatedOperator2.name, email: updatedOperator2.email};
+
+      localStorage.setItem("@backoffice:user", JSON.stringify(newUser));
+
     setTimeout(() => {
       setLoading(false);
       showToast("Perfil atualizado com sucesso!", "success");
       // Aqui você pode atualizar o mockLoggedUser se quiser persistir na tela
-    }, 1200);
+    }, 500);
+
+
+    }catch (error) {
+      console.error("Erro ao salvar perfil:", error);
+      showToast("Erro ao atualizar perfil. Tente novamente.", "error");
+      setLoading(false);
+      return;
+    }
+
   };
 
   // Função para lidar com mudanças nos campos
@@ -67,7 +98,7 @@ const OperatorsManagementPerfilEdit: React.FC = () => {
   const passwordsMatch = formData.password && formData.password === formData.confirmPassword;
 
   // Checagem correta: user.role
-  // if (!user || user.role !== "OPERATOR") {
+  // if (!user || user.role !== "MASTER") {
   //   return null;
   // }
 
@@ -313,4 +344,4 @@ const OperatorsManagementPerfilEdit: React.FC = () => {
   );
 };
 
-export default OperatorsManagementPerfilEdit;
+export default AdmManagementPerfilEdit;

@@ -1,11 +1,28 @@
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { api } from "../services/api";
 
-type User = {
-  role: string;
-  name: string;
+export type User = {
   id: string;
+  refId: string;
+  name: string;
+  email: string;
+  document: string;
+  role: "MASTER" | "ADMIN" | "OPERATOR" | string; // ajuste conforme seus enums
+  type: "LEGAL" | "NATURAL" | string;
+  status: "ACTIVE" | "INACTIVE" | string;
+  api_key: string;
+  accessPassword: string;
+  access_token: string | null;
+  permissions: {
+    [key: string]: {
+      enabled: boolean;
+      [subPermission: string]: any; // se houver subpermissões, você pode refinar
+    };
+  };
+  created_at: string; // pode usar Date se fizer parsing
+  updated_at: string;
 };
+
 interface AuthBackofficeContextProps {
   isAuthenticated: boolean;
   onSignIn: (params: { email: string; password: string }) => Promise<void>;
