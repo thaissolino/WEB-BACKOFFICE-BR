@@ -1,8 +1,9 @@
-import { History, Eye, Edit, XIcon, RotateCcw, Check, Loader2, PlusCircle } from "lucide-react";
+import { History, Eye, Edit, XIcon, RotateCcw, Check, Loader2, PlusCircle, Trash } from "lucide-react";
 import { useEffect, useState } from "react";
 import { api } from "../../../../services/api";
 import { Invoice } from "../types/invoice"; // Se necessário, ajuste o caminho do tipo
 import { Product } from "./ProductsTab";
+import Swal from "sweetalert2";
 
 export type InvoiceData = {
   id: string;
@@ -152,6 +153,56 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
       document.removeEventListener("keydown", handleKeyDown);
     };
   }, []);
+
+   const deleteInvoice = (idInvoice: string) => {
+      if (!idInvoice) return;
+  
+      Swal.fire({
+        title: "Tem certeza?",
+        text: "Você não poderá reverter isso!",
+        icon: "warning",
+        showCancelButton: true,
+        confirmButtonText: "Sim, deletar!",
+        cancelButtonText: "Cancelar",
+        customClass: {
+          confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
+          cancelButton: "bg-gray-300 text-gray-800 hover:bg-gray-400 px-4 py-2 rounded font-semibold",
+        },
+      }).then((result) => {
+        if (result.isConfirmed) {
+          api
+        .delete(`/invoice/delete/${idInvoice}`)
+        .then(() => {
+          setInvoices((prevInvoices) => prevInvoices.filter((invoice) => invoice.id !== idInvoice));
+          Swal.fire({
+            icon: "success",
+            title: "Deletado!",
+            text: "Invoice deletada com sucesso.",
+            confirmButtonText: "Ok",
+            buttonsStyling: false,
+            customClass: {
+              confirmButton: "bg-green-600 text-white hover:bg-green-700 px-4 py-2 rounded font-semibold",
+            },
+          });
+        })
+        .catch((error) => {
+          console.error("Erro ao deletar invoice:", error);
+                Swal.fire({
+          icon: "error",
+          title: "Error ",
+          text: "Erro ao deletar invoice. Tente novamente.",
+          confirmButtonText: "Ok",
+          buttonsStyling: false,
+          customClass: {
+            confirmButton: "bg-green-600 text-white hover:bg-green-700 px-4 py-2 rounded font-semibold",
+          },
+        });
+        });
+        }
+      });
+  
+      
+    }
 
   const getStatusText = (invoice: InvoiceData) => {
     if (invoice.completed && invoice.paid) return "Paga";
@@ -379,13 +430,22 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
                             {getStatusText(invoice)}
                           </span>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                          <button
-                            onClick={() => openModal(invoice, true)}
-                            className="text-green-600 hover:text-green-900"
+                        <td className="px-6  py-4 whitespace-nowrap text-right text-sm font-medium">
+                          <div className="flex justify-end gap-2">
+                          
+                                                      <button
+                                                        onClick={() => openModal(invoice, true)}
+                                                        className="text-green-600 hover:text-green-900"
+                                                      >
+                                                        <Edit size={16} />
+                                                      </button>
+                                                      <button
+                            onClick={() => deleteInvoice(invoice.id)}
+                            className="text-red-600 hover:text-red-900"
                           >
-                            <Edit size={16} />
+                            <Trash size={16} />
                           </button>
+                                                      </div>
                         </td>
                       </tr>
                     );

@@ -1,4 +1,4 @@
-import { History, Eye, Edit, XIcon, RotateCcw, Check, Loader2 } from "lucide-react";
+import { History, Eye, Edit, XIcon, RotateCcw, Check, Loader2, Trash } from "lucide-react";
 import { useEffect, useState } from "react";
 import { api } from "../../../../services/api";
 import { Invoice } from "../types/invoice"; // Se necessário, ajuste o caminho do tipo
@@ -6,6 +6,7 @@ import { Product } from "./ProductsTab";
 import { ModalReceiveProduct } from "../modals/ModalReceiveProduct";
 import { an } from "framer-motion/dist/types.d-B50aGbjN";
 import { ModalAnaliseProduct } from "../modals/ModalAnaliseProduct";
+import Swal from "sweetalert2";
 
 export type exchange = {
   id: string;
@@ -171,6 +172,56 @@ export function InvoiceHistoryReport({
     setIsEditMode(editMode);
     setIsModalOpen(true);
   };
+
+  const deleteInvoice = (idInvoice: string) => {
+    if (!idInvoice) return;
+
+    Swal.fire({
+      title: "Tem certeza?",
+      text: "Você não poderá reverter isso!",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonText: "Sim, deletar!",
+      cancelButtonText: "Cancelar",
+      customClass: {
+        confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
+        cancelButton: "bg-gray-300 text-gray-800 hover:bg-gray-400 px-4 py-2 rounded font-semibold",
+      },
+    }).then((result) => {
+      if (result.isConfirmed) {
+        api
+      .delete(`/invoice/delete/${idInvoice}`)
+      .then(() => {
+        setInvoices((prevInvoices) => prevInvoices.filter((invoice) => invoice.id !== idInvoice));
+        Swal.fire({
+          icon: "success",
+          title: "Deletado!",
+          text: "Invoice deletada com sucesso.",
+          confirmButtonText: "Ok",
+          buttonsStyling: false,
+          customClass: {
+            confirmButton: "bg-green-600 text-white hover:bg-green-700 px-4 py-2 rounded font-semibold",
+          },
+        });
+      })
+      .catch((error) => {
+        console.error("Erro ao deletar invoice:", error);
+              Swal.fire({
+        icon: "error",
+        title: "Error ",
+        text: "Erro ao deletar invoice. Tente novamente.",
+        confirmButtonText: "Ok",
+        buttonsStyling: false,
+        customClass: {
+          confirmButton: "bg-green-600 text-white hover:bg-green-700 px-4 py-2 rounded font-semibold",
+        },
+      });
+      });
+      }
+    });
+
+    
+  }
 
   const closeModal = () => {
     setIsModalOpen(false);
@@ -353,12 +404,21 @@ export function InvoiceHistoryReport({
                               <Eye size={16} />
                             </button>
                           ) : (
+                            <div className="flex gap-2">
+                            
                             <button
                               onClick={() => openModal(invoice, true)}
                               className="text-green-600 hover:text-green-900"
                             >
                               <Edit size={16} />
                             </button>
+                            <button
+                              onClick={() => deleteInvoice(invoice.id)}
+                              className="text-red-600 hover:text-red-900"
+                            >
+                              <Trash size={16} />
+                            </button>
+                            </div>
                           )}
                         </div>
                       </td>

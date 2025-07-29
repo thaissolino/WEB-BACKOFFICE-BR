@@ -481,7 +481,7 @@ export function ExchangeTab() {
             <div className="flex justify-between">
               <span className="text-gray-700">Custo Médio:</span>
               <span className="font-bold">
-                {loading ? "Carregando..." : formatCurrency(balance?.averageRate ?? 0, 4)}
+                {loading ? "Carregando..." : balance?.balance === 0 ? formatCurrency( 0, 4) : formatCurrency(balance?.averageRate ?? 0, 4)}
               </span>
             </div>
           </div>
