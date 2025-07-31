@@ -412,12 +412,12 @@ export function InvoiceHistoryReport({
                             >
                               <Edit size={16} />
                             </button>
-                            <button
+                            {/* <button
                               onClick={() => deleteInvoice(invoice.id)}
                               className="text-red-600 hover:text-red-900"
                             >
                               <Trash size={16} />
-                            </button>
+                            </button> */}
                             </div>
                           )}
                         </div>
@@ -549,7 +549,7 @@ export function InvoiceHistoryReport({
                             {products.find((item) => item.id === product.productId)?.name}
                           </td>
                           <td className="px-4 py-2 text-sm text-right">
-                            {product.quantity - product.quantityAnalizer}
+                            {product.quantity - product.quantityAnalizer - product.receivedQuantity}
                           </td>
                           <td className="px-4 py-2 text-sm text-right">{product.value.toFixed(2)}</td>
                           <td className="px-4 py-2 text-sm text-right">{product.weight.toFixed(2)}</td>
@@ -559,10 +559,10 @@ export function InvoiceHistoryReport({
                               {!isOnlyViewMode && (
                                 <button
                                   onClick={() => setSelectedProductToAnalyze(product)}
-                                  disabled={product.quantityAnalizer >= product.quantity}
+                                  disabled={(product.quantityAnalizer + product.quantityAnalizer) >= product.quantity || product.receivedQuantity >= product.quantity}
                                   className={`ml-auto flex items-center gap-1 text-white px-2 py-1 rounded-md text-sm transition font-medium shadow-sm 
                       ${
-                        product.quantityAnalizer >= product.quantity
+                        (product.quantityAnalizer + product.quantityAnalizer) >= product.quantity || product.receivedQuantity >= product.quantity
                           ? "bg-gray-400 cursor-not-allowed opacity-60"
                           : "bg-yellow-600 hover:bg-yellow-500"
                       }`}
@@ -607,13 +607,13 @@ export function InvoiceHistoryReport({
                   </thead>
                   <tbody id="modalInvoicePendingProducts" className="bg-white divide-y divide-gray-200">
                     {selectedInvoice.products
-                      .filter((item) => item.analising && !item.received)
+                      .filter((item) => item.analising && item.quantityAnalizer > 0)
                       .map((product, index) => (
                         <tr key={index}>
                           <td className="px-4 py-2 text-sm text-gray-700">
                             {products.find((item) => item.id === product.productId)?.name}
                           </td>
-                          <td className="px-4 py-2 text-sm text-right">{product.quantityAnalizer}</td>
+                          <td className="px-4 py-2 text-sm text-right">{Math.abs(product.quantityAnalizer)}</td>
                           <td className="px-4 py-2 text-sm text-right">
                             {(() => {
                               const totalFrete =
@@ -685,7 +685,7 @@ export function InvoiceHistoryReport({
                       <td className="px-4 py-2 text-sm text-right text-gray-800">
                         {selectedInvoice.products
                           .filter((item) => item.analising && !item.received)
-                          .reduce((sum, item) => sum + item.quantityAnalizer, 0)}
+                          .reduce((sum, item) => sum + Math.abs(item.quantityAnalizer), 0)}
                       </td>
                       <td className="px-4 py-2 text-sm text-right text-gray-800">—</td>
                       <td className="px-4 py-2 text-sm text-right text-gray-800">
@@ -721,10 +721,11 @@ export function InvoiceHistoryReport({
                             );
 
                             for (const item of productsToReceive) {
+                              const allreceived = (item.receivedQuantity + item.quantityAnalizer) >= item.quantity;
                               await api.patch("/invoice/update/product", {
                                 idProductInvoice: item.id,
                                 bodyupdate: {
-                                  received: true,
+                                  received: allreceived,
                                   receivedQuantity: item.receivedQuantity + item.quantityAnalizer,
                                   quantityAnalizer: 0,
                                 },

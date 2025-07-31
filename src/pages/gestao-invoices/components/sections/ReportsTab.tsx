@@ -56,7 +56,7 @@ export function ReportsTab() {
     if (filters.startDate && new Date(invoice.date) < new Date(filters.startDate)) {
       return false;
     }
-    if (filters.endDate && new Date(invoice.date) > new Date(filters.endDate)) {
+    if (new Date(`${filters.endDate}T23:59:59`) && new Date(invoice.date) > new Date(`${filters.endDate}T23:59:59`)) {
       return false;
     }
     // Filtrar por fornecedor
