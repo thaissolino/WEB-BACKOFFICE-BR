@@ -1,4 +1,4 @@
-import { History, Eye, Edit, XIcon, RotateCcw, Check, Loader2, Trash } from "lucide-react";
+import { History, Eye, Edit, XIcon, RotateCcw, Check, Loader2, Trash, Undo2  } from "lucide-react";
 import { useEffect, useState } from "react";
 import { api } from "../../../../services/api";
 import { Invoice } from "../types/invoice"; // Se necessário, ajuste o caminho do tipo
@@ -172,6 +172,58 @@ export function InvoiceHistoryReport({
     setIsEditMode(editMode);
     setIsModalOpen(true);
   };
+
+     const UndoInvoicePaid = (idInvoice: string) => {
+        if (!idInvoice) return;
+    
+        Swal.fire({
+          title: "Tem certeza?",
+          text: "Você não poderá reverter isso!",
+          icon: "warning",
+          showCancelButton: true,
+          confirmButtonText: "Sim, estornar!",
+          cancelButtonText: "Cancelar",
+          customClass: {
+            confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
+            cancelButton: "bg-gray-300 text-gray-800 hover:bg-gray-400 px-4 py-2 rounded font-semibold",
+          },
+        }).then((result) => {
+          if (result.isConfirmed) {
+            api
+          .post(`/invoice/return-paid`,{
+            idInvoice: idInvoice,
+          })
+          .then(() => {
+            fetchInvoicesAndSuppliers();
+            Swal.fire({
+              icon: "success",
+              title: "Estornado!",
+              text: "Invoice estornada com sucesso.",
+              confirmButtonText: "Ok",
+              buttonsStyling: false,
+              customClass: {
+                confirmButton: "bg-green-600 text-white hover:bg-green-700 px-4 py-2 rounded font-semibold",
+              },
+            });
+          })
+          .catch((error) => {
+            console.error("Erro ao deletar invoice:", error);
+                  Swal.fire({
+            icon: "error",
+            title: "Error ",
+            text: "Erro ao estornar invoice. Tente novamente.",
+            confirmButtonText: "Ok",
+            buttonsStyling: false,
+            customClass: {
+              confirmButton: "bg-green-600 text-white hover:bg-green-700 px-4 py-2 rounded font-semibold",
+            },
+          });
+          });
+          }
+        });
+    
+        
+      }
 
   const deleteInvoice = (idInvoice: string) => {
     if (!idInvoice) return;
@@ -403,8 +455,18 @@ export function InvoiceHistoryReport({
                             >
                               <Eye size={16} />
                             </button>
+                            
                           ) : (
                             <div className="flex gap-2">
+
+                              <button
+                              onClick={() => UndoInvoicePaid(invoice.id)}
+                              className="text-red-600 hover:text-red-900"
+                            >
+                            <Undo2  
+                              size={16}
+                            />
+                            </button>
                             
                             <button
                               onClick={() => openModal(invoice, true)}
@@ -412,6 +474,7 @@ export function InvoiceHistoryReport({
                             >
                               <Edit size={16} />
                             </button>
+                            
                             {/* <button
                               onClick={() => deleteInvoice(invoice.id)}
                               className="text-red-600 hover:text-red-900"

@@ -433,19 +433,19 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
                         <td className="px-6  py-4 whitespace-nowrap text-right text-sm font-medium">
                           <div className="flex justify-end gap-2">
                           
-                                                      <button
-                                                        onClick={() => openModal(invoice, true)}
-                                                        className="text-green-600 hover:text-green-900"
-                                                      >
-                                                        <Edit size={16} />
-                                                      </button>
-                                                      <button
+                          <button
+                            onClick={() => openModal(invoice, true)}
+                            className="text-green-600 hover:text-green-900"
+                          >
+                            <Edit size={16} />
+                          </button>
+                          <button
                             onClick={() => deleteInvoice(invoice.id)}
                             className="text-red-600 hover:text-red-900"
                           >
                             <Trash size={16} />
                           </button>
-                                                      </div>
+                          </div>
                         </td>
                       </tr>
                     );
