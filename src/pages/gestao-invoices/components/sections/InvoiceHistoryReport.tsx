@@ -7,6 +7,7 @@ import { ModalReceiveProduct } from "../modals/ModalReceiveProduct";
 import { an } from "framer-motion/dist/types.d-B50aGbjN";
 import { ModalAnaliseProduct } from "../modals/ModalAnaliseProduct";
 import Swal from "sweetalert2";
+import { InvoiceProduct } from "./InvoiceProducts";
 
 export type exchange = {
   id: string;
@@ -20,6 +21,14 @@ export type exchange = {
   updatedAt: Date;
 };
 
+
+export type Carrier = {
+  id: string;
+  name: string;
+  type: string;
+  value: number;
+  active: boolean;
+};
 export type InvoiceData = {
   id: string;
   number: string;
@@ -292,6 +301,12 @@ export function InvoiceHistoryReport({
         return type;
     }
   };
+
+    const shippingStrategies: Record<string, (carrierSelectedType: Carrier, item: any) => number> = {
+      percentage: (carrierSelectedType, item) =>item.value * (carrierSelectedType.value / 100) ,
+      perKg: (carrierSelectedType, item) => item.weight * carrierSelectedType.value,
+      perUnit: (carrierSelectedType, item) => carrierSelectedType.value ,
+    };
 
   const sendUpdateProductStatus = async (product: ProductData) => {
     if (!product) return;
@@ -679,14 +694,15 @@ export function InvoiceHistoryReport({
                           <td className="px-4 py-2 text-sm text-right">{Math.abs(product.quantityAnalizer)}</td>
                           <td className="px-4 py-2 text-sm text-right">
                             {(() => {
-                              const totalFrete =
-                                selectedInvoice.amountTaxcarrier + (selectedInvoice.amountTaxcarrier2 ?? 0);
+                              const taxCarrie = selectedInvoice.carrier? shippingStrategies[selectedInvoice.carrier?.type]((selectedInvoice.carrier), product):0
+                              const taxCarrie2 = selectedInvoice.carrier2? shippingStrategies[selectedInvoice.carrier2?.type]((selectedInvoice.carrier2), product):0
+                              const valorUnitarioComTaxasFrete = product.value + taxCarrie + taxCarrie2
+
                               const totalQtdProdutos = selectedInvoice.products.reduce((acc, p) => acc + p.quantity, 0);
                               const freteSpEsRate = selectedInvoice.amountTaxSpEs / totalQtdProdutos;
-                              const valorBaseReal = product.value * (taxInvoice?.rate ?? 1);
-                              const custoUnitario = valorBaseReal + totalFrete / totalQtdProdutos + freteSpEsRate;
+                              const valorBaseReal = valorUnitarioComTaxasFrete * (taxInvoice?.rate ?? 1) + freteSpEsRate;
 
-                              return custoUnitario.toLocaleString("pt-BR", {
+                              return valorBaseReal.toLocaleString("pt-BR", {
                                 minimumFractionDigits: 2,
                                 maximumFractionDigits: 2,
                               });
@@ -695,13 +711,14 @@ export function InvoiceHistoryReport({
                           <td className="px-4 py-2 text-sm text-right">{product.weight.toFixed(2)}</td>
                           <td className="px-4 py-2 text-sm text-right">
                             {(() => {
-                              const totalFrete =
-                                selectedInvoice.amountTaxcarrier + (selectedInvoice.amountTaxcarrier2 ?? 0);
+                              const taxCarrie = selectedInvoice.carrier? shippingStrategies[selectedInvoice.carrier?.type]((selectedInvoice.carrier), product):0
+                              const taxCarrie2 = selectedInvoice.carrier2? shippingStrategies[selectedInvoice.carrier2?.type]((selectedInvoice.carrier2), product):0
+                              const valorUnitarioComTaxasFrete = product.value + taxCarrie + taxCarrie2
+
                               const totalQtdProdutos = selectedInvoice.products.reduce((acc, p) => acc + p.quantity, 0);
                               const freteSpEsRate = selectedInvoice.amountTaxSpEs / totalQtdProdutos;
-                              const valorBaseReal = product.value * (taxInvoice?.rate ?? 1);
-                              const custoUnitario = valorBaseReal + totalFrete / totalQtdProdutos + freteSpEsRate;
-                              const custoFinal = custoUnitario * product.quantityAnalizer;
+                              const valorBaseReal = valorUnitarioComTaxasFrete * (taxInvoice?.rate ?? 1) + freteSpEsRate;
+                              const custoFinal = valorBaseReal * product.quantityAnalizer;
 
                               return custoFinal.toLocaleString("pt-BR", {
                                 minimumFractionDigits: 2,
@@ -718,11 +735,11 @@ export function InvoiceHistoryReport({
                                       onClick={() => handleReturnToPending(product)}
                                       disabled={isSavingReturnId === product.id}
                                       className={`-mr-4 flex items-center gap-2 px-3 py-1 rounded-md text-sm font-medium shadow-sm transition
-    ${
-      isSavingReturnId === product.id
-        ? "bg-gray-400 cursor-not-allowed opacity-60 text-white"
-        : "bg-red-600 hover:bg-red-500 text-white"
-    }`}
+                                      ${
+                                        isSavingReturnId === product.id
+                                          ? "bg-gray-400 cursor-not-allowed opacity-60 text-white"
+                                          : "bg-red-600 hover:bg-red-500 text-white"
+                                      }`}
                                     >
                                       {isSavingReturnId === product.id ? (
                                         <>
@@ -767,9 +784,14 @@ export function InvoiceHistoryReport({
                           const total = selectedInvoice.products
                             .filter((item) => item.analising && !item.received)
                             .reduce((sum, item) => {
-                              const valorBase = item.value * (taxInvoice?.rate ?? 1);
-                              const custoUnitario = valorBase + totalFrete / totalQtdProdutos + freteSpEsRate;
-                              return sum + custoUnitario * item.quantityAnalizer;
+                                                                                          const taxCarrie = selectedInvoice.carrier? shippingStrategies[selectedInvoice.carrier?.type]((selectedInvoice.carrier), item):0
+                              const taxCarrie2 = selectedInvoice.carrier2? shippingStrategies[selectedInvoice.carrier2?.type]((selectedInvoice.carrier2), item):0
+                              const valorUnitarioComTaxasFrete = item.value + taxCarrie + taxCarrie2
+
+                              const totalQtdProdutos = selectedInvoice.products.reduce((acc, p) => acc + p.quantity, 0);
+                              const freteSpEsRate = selectedInvoice.amountTaxSpEs / totalQtdProdutos;
+                              const valorBaseReal = valorUnitarioComTaxasFrete * (taxInvoice?.rate ?? 1) + freteSpEsRate;
+                              return sum + valorBaseReal * item.quantityAnalizer;
                             }, 0);
 
                           return total.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -861,14 +883,17 @@ export function InvoiceHistoryReport({
                           </td>
                           <td className="px-4 py-2 text-sm text-right">
                             {(() => {
-                              const totalFrete =
-                                selectedInvoice.amountTaxcarrier + (selectedInvoice.amountTaxcarrier2 ?? 0);
+
+
+                              const taxCarrie = selectedInvoice.carrier? shippingStrategies[selectedInvoice.carrier?.type]((selectedInvoice.carrier), product):0
+                              const taxCarrie2 = selectedInvoice.carrier2? shippingStrategies[selectedInvoice.carrier2?.type]((selectedInvoice.carrier2), product):0
+                              const valorUnitarioComTaxasFrete = product.value + taxCarrie + taxCarrie2
+
                               const totalQtdProdutos = selectedInvoice.products.reduce((acc, p) => acc + p.quantity, 0);
                               const freteSpEsRate = selectedInvoice.amountTaxSpEs / totalQtdProdutos;
-                              const valorBaseReal = product.value * (taxInvoice?.rate ?? 1);
-                              const custoUnitario = (valorBaseReal + totalFrete + freteSpEsRate) / (totalQtdProdutos);
+                              const valorBaseReal = valorUnitarioComTaxasFrete * (taxInvoice?.rate ?? 1) + freteSpEsRate;
 
-                              return custoUnitario.toLocaleString("pt-BR", {
+                              return valorBaseReal.toLocaleString("pt-BR", {
                                 minimumFractionDigits: 2,
                                 maximumFractionDigits: 2,
                               });
@@ -877,15 +902,16 @@ export function InvoiceHistoryReport({
                           <td className="px-4 py-2 text-sm text-right">{product.weight.toFixed(2)}</td>
                           <td className="px-4 py-2 text-sm text-right">
                             {(() => {
-                              const totalFrete =
-                                selectedInvoice.amountTaxcarrier + (selectedInvoice.amountTaxcarrier2 ?? 0);
+
+                              const taxCarrie = selectedInvoice.carrier? shippingStrategies[selectedInvoice.carrier?.type]((selectedInvoice.carrier), product):0
+                              const taxCarrie2 = selectedInvoice.carrier2? shippingStrategies[selectedInvoice.carrier2?.type]((selectedInvoice.carrier2), product):0
+                              const valorUnitarioComTaxasFrete = product.value + taxCarrie + taxCarrie2
+
                               const totalQtdProdutos = selectedInvoice.products.reduce((acc, p) => acc + p.quantity, 0);
                               const freteSpEsRate = selectedInvoice.amountTaxSpEs / totalQtdProdutos;
-                              const valorBaseReal = product.value * (taxInvoice?.rate ?? 1);
-                              const custoUnitario = valorBaseReal + totalFrete / totalQtdProdutos + freteSpEsRate;
-                              const custoFinal = custoUnitario * product.receivedQuantity;
+                              const valorBaseReal = valorUnitarioComTaxasFrete * (taxInvoice?.rate ?? 1) + freteSpEsRate;
 
-                              return custoFinal.toLocaleString("pt-BR", {
+                              return (valorBaseReal * product.receivedQuantity).toLocaleString("pt-BR", {
                                 minimumFractionDigits: 2,
                                 maximumFractionDigits: 2,
                               });
@@ -919,9 +945,14 @@ export function InvoiceHistoryReport({
                           const total = selectedInvoice.products
                             .filter((item) => item.receivedQuantity > 0)
                             .reduce((sum, item) => {
-                              const valorBase = item.value * (taxInvoice?.rate ?? 1);
-                              const custoUnitario = valorBase + totalFrete / totalQtdProdutos + freteSpEsRate;
-                              return sum + custoUnitario * item.receivedQuantity;
+                                                            const taxCarrie = selectedInvoice.carrier? shippingStrategies[selectedInvoice.carrier?.type]((selectedInvoice.carrier), item):0
+                              const taxCarrie2 = selectedInvoice.carrier2? shippingStrategies[selectedInvoice.carrier2?.type]((selectedInvoice.carrier2), item):0
+                              const valorUnitarioComTaxasFrete = item.value + taxCarrie + taxCarrie2
+
+                              const totalQtdProdutos = selectedInvoice.products.reduce((acc, p) => acc + p.quantity, 0);
+                              const freteSpEsRate = selectedInvoice.amountTaxSpEs / totalQtdProdutos;
+                              const valorBaseReal = valorUnitarioComTaxasFrete * (taxInvoice?.rate ?? 1) + freteSpEsRate;
+                              return sum + valorBaseReal * item.receivedQuantity;
                             }, 0);
 
                           return total.toLocaleString("pt-BR", {
