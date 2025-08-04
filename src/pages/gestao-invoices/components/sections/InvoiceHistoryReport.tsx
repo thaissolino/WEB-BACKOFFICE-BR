@@ -866,7 +866,7 @@ export function InvoiceHistoryReport({
                               const totalQtdProdutos = selectedInvoice.products.reduce((acc, p) => acc + p.quantity, 0);
                               const freteSpEsRate = selectedInvoice.amountTaxSpEs / totalQtdProdutos;
                               const valorBaseReal = product.value * (taxInvoice?.rate ?? 1);
-                              const custoUnitario = valorBaseReal + totalFrete / totalQtdProdutos + freteSpEsRate;
+                              const custoUnitario = (valorBaseReal + totalFrete + freteSpEsRate) / (totalQtdProdutos);
 
                               return custoUnitario.toLocaleString("pt-BR", {
                                 minimumFractionDigits: 2,
