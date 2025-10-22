@@ -1,5 +1,17 @@
 import { useEffect, useState } from "react";
-import { Plus, Edit, Trash2, Check, X, ShoppingCart, Package, HelpCircle } from "lucide-react";
+import {
+  Plus,
+  Edit,
+  Trash2,
+  Check,
+  X,
+  ShoppingCart,
+  Package,
+  HelpCircle,
+  Download,
+  FileText,
+  FileSpreadsheet,
+} from "lucide-react";
 import { api } from "../../../../services/api";
 import Swal from "sweetalert2";
 import { useNotification } from "../../../../hooks/notification";
@@ -236,18 +248,78 @@ export function ShoppingListsTab() {
 
   const openQuantityModal = (item: ShoppingListItem) => {
     setSelectedItem(item);
+    const received = item.receivedQuantity || 0;
+    const defective = item.defectiveQuantity || 0;
+    const returned = item.returnedQuantity || 0;
+    const final = received - returned; // CORREÇÃO: Final = Recebido - Devolvido
+
     setQuantityDetails({
       ordered: item.quantity,
-      received: item.receivedQuantity || 0,
-      defective: item.defectiveQuantity || 0,
-      returned: item.returnedQuantity || 0,
-      final: item.finalQuantity || 0,
+      received,
+      defective,
+      returned,
+      final,
     });
     setShowQuantityModal(true);
   };
 
   const handleSaveQuantityDetails = async () => {
     if (!selectedItem) return;
+
+    // VALIDAÇÕES FINAIS ANTES DE SALVAR
+    if (quantityDetails.received < 0) {
+      setOpenNotification({
+        type: "error",
+        title: "Erro!",
+        notification: "Quantidade recebida não pode ser negativa!",
+      });
+      return;
+    }
+
+    if (quantityDetails.received > quantityDetails.ordered) {
+      setOpenNotification({
+        type: "error",
+        title: "Erro!",
+        notification: `Quantidade recebida não pode ser maior que pedida (${quantityDetails.ordered})!`,
+      });
+      return;
+    }
+
+    if (quantityDetails.defective < 0) {
+      setOpenNotification({
+        type: "error",
+        title: "Erro!",
+        notification: "Quantidade com defeito não pode ser negativa!",
+      });
+      return;
+    }
+
+    if (quantityDetails.defective > quantityDetails.received) {
+      setOpenNotification({
+        type: "error",
+        title: "Erro!",
+        notification: `Quantidade com defeito não pode ser maior que recebida (${quantityDetails.received})!`,
+      });
+      return;
+    }
+
+    if (quantityDetails.returned < 0) {
+      setOpenNotification({
+        type: "error",
+        title: "Erro!",
+        notification: "Quantidade devolvida não pode ser negativa!",
+      });
+      return;
+    }
+
+    if (quantityDetails.returned > quantityDetails.defective) {
+      setOpenNotification({
+        type: "error",
+        title: "Erro!",
+        notification: `Quantidade devolvida não pode ser maior que com defeito (${quantityDetails.defective})!`,
+      });
+      return;
+    }
 
     try {
       await api.patch("/invoice/shopping-lists/update-quantities", {
@@ -361,6 +433,73 @@ export function ShoppingListsTab() {
       ...prev,
       items: prev.items.map((item, i) => (i === index ? { ...item, [field]: value } : item)),
     }));
+  };
+
+  // NOVO: Funções de Download
+  const handleDownloadPDF = async (listId: string, listName: string) => {
+    try {
+      const response = await api.get(`/invoice/shopping-lists/${listId}/download/pdf`, {
+        responseType: "blob",
+      });
+
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute(
+        "download",
+        `${listName.replace(/[^a-zA-Z0-9]/g, "_")}_${new Date().toISOString().split("T")[0]}.pdf`
+      );
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+
+      setOpenNotification({
+        type: "success",
+        title: "Sucesso!",
+        notification: "PDF baixado com sucesso!",
+      });
+    } catch (error) {
+      console.error("Erro ao baixar PDF:", error);
+      setOpenNotification({
+        type: "error",
+        title: "Erro!",
+        notification: "Erro ao baixar PDF",
+      });
+    }
+  };
+
+  const handleDownloadExcel = async (listId: string, listName: string) => {
+    try {
+      const response = await api.get(`/invoice/shopping-lists/${listId}/download/excel`, {
+        responseType: "blob",
+      });
+
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute(
+        "download",
+        `${listName.replace(/[^a-zA-Z0-9]/g, "_")}_${new Date().toISOString().split("T")[0]}.csv`
+      );
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+
+      setOpenNotification({
+        type: "success",
+        title: "Sucesso!",
+        notification: "CSV baixado com sucesso!",
+      });
+    } catch (error) {
+      console.error("Erro ao baixar CSV:", error);
+      setOpenNotification({
+        type: "error",
+        title: "Erro!",
+        notification: "Erro ao baixar CSV",
+      });
+    }
   };
 
   const getStatusInfo = (status: string) => {
@@ -613,10 +752,28 @@ export function ShoppingListsTab() {
                       Editar
                     </button>
                   </Tooltip>
+                  <Tooltip content="Baixar lista em PDF" position="bottom" maxWidth="120px">
+                    <button
+                      onClick={() => handleDownloadPDF(list.id, list.name)}
+                      className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm flex items-center"
+                    >
+                      <FileText size={14} className="mr-1" />
+                      PDF
+                    </button>
+                  </Tooltip>
+                  <Tooltip content="Baixar lista em CSV" position="bottom" maxWidth="120px">
+                    <button
+                      onClick={() => handleDownloadExcel(list.id, list.name)}
+                      className="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded text-sm flex items-center"
+                    >
+                      <FileSpreadsheet size={14} className="mr-1" />
+                      CSV
+                    </button>
+                  </Tooltip>
                   <Tooltip content="Deletar lista permanentemente" position="bottom" maxWidth="140px">
                     <button
                       onClick={() => handleDeleteList(list.id)}
-                      className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm flex items-center"
+                      className="bg-gray-500 hover:bg-gray-600 text-white px-3 py-1 rounded text-sm flex items-center"
                     >
                       <Trash2 size={14} className="mr-1" />
                       Deletar
@@ -663,11 +820,11 @@ export function ShoppingListsTab() {
                             {item.receivedQuantity > 0 && (
                               <span className="text-green-600"> / Recebido: {item.receivedQuantity}</span>
                             )}
-                            {/* NOVO: Mostrar quantidade a receber (incluindo devolvidos) */}
-                            {(item.receivedQuantity < item.quantity || item.returnedQuantity > 0) && (
+                            {/* CORREÇÃO: A Receber = Pedido - Recebido (devolvido não conta) */}
+                            {item.receivedQuantity < item.quantity && (
                               <span className="text-yellow-600">
                                 {" "}
-                                / A Receber: {item.quantity - item.receivedQuantity + item.returnedQuantity}
+                                / A Receber: {item.quantity - item.receivedQuantity}
                               </span>
                             )}
                             {item.defectiveQuantity > 0 && (
@@ -776,11 +933,15 @@ export function ShoppingListsTab() {
                   type="number"
                   value={quantityDetails.received}
                   onChange={(e) => {
-                    const received = parseFloat(e.target.value) || 0;
+                    // CORREÇÃO: Aceitar apenas números válidos
+                    const value = e.target.value.replace(/[^0-9.]/g, ""); // Remove caracteres não numéricos
+                    const received = parseFloat(value) || 0;
+                    const final = received - quantityDetails.returned;
+
                     setQuantityDetails((prev) => ({
                       ...prev,
                       received,
-                      final: received - prev.defective - prev.returned,
+                      final,
                     }));
                   }}
                   className="w-full border border-gray-300 rounded-md p-2"
@@ -795,17 +956,40 @@ export function ShoppingListsTab() {
                   type="number"
                   value={quantityDetails.defective}
                   onChange={(e) => {
-                    const defective = parseFloat(e.target.value) || 0;
+                    // CORREÇÃO: Aceitar apenas números válidos
+                    const value = e.target.value.replace(/[^0-9.]/g, "");
+                    const defective = parseFloat(value) || 0;
+
+                    // VALIDAÇÃO: Defeito não pode ser maior que recebido
+                    const maxDefective = quantityDetails.received;
+                    const validDefective = defective > maxDefective ? maxDefective : defective;
+                    const final = quantityDetails.received - quantityDetails.returned;
+
                     setQuantityDetails((prev) => ({
                       ...prev,
-                      defective,
-                      final: prev.received - defective, // CORREÇÃO: Devolvido não diminui
+                      defective: validDefective,
+                      final,
                     }));
                   }}
-                  className="w-full border border-gray-300 rounded-md p-2"
+                  className={`w-full border rounded-md p-2 ${
+                    quantityDetails.defective > quantityDetails.received
+                      ? "border-red-500 bg-red-50"
+                      : "border-gray-300"
+                  }`}
                   min="0"
                   max={quantityDetails.received}
                 />
+                <p
+                  className={`text-xs mt-1 ${
+                    quantityDetails.defective > quantityDetails.received
+                      ? "text-red-500 font-semibold"
+                      : "text-gray-500"
+                  }`}
+                >
+                  {quantityDetails.defective > quantityDetails.received
+                    ? `❌ ERRO: Máximo permitido é ${quantityDetails.received}!`
+                    : `Máximo: ${quantityDetails.received} (igual à quantidade recebida)`}
+                </p>
               </div>
 
               <div>
@@ -814,18 +998,40 @@ export function ShoppingListsTab() {
                   type="number"
                   value={quantityDetails.returned}
                   onChange={(e) => {
-                    const returned = parseFloat(e.target.value) || 0;
+                    // CORREÇÃO: Aceitar apenas números válidos
+                    const value = e.target.value.replace(/[^0-9.]/g, "");
+                    const returned = parseFloat(value) || 0;
+
+                    // VALIDAÇÃO: Não permitir mais que o defeito
+                    const maxReturned = quantityDetails.defective;
+                    const validReturned = returned > maxReturned ? maxReturned : returned;
+                    const final = quantityDetails.received - validReturned;
+
                     setQuantityDetails((prev) => ({
                       ...prev,
-                      returned,
-                      // CORREÇÃO: Devolvido não afeta o cálculo final
-                      final: prev.received - prev.defective,
+                      returned: validReturned,
+                      final,
                     }));
                   }}
-                  className="w-full border border-gray-300 rounded-md p-2"
+                  className={`w-full border rounded-md p-2 ${
+                    quantityDetails.returned > quantityDetails.defective
+                      ? "border-red-500 bg-red-50"
+                      : "border-gray-300"
+                  }`}
                   min="0"
-                  max={quantityDetails.received}
+                  max={quantityDetails.defective} // CORREÇÃO: Máximo = quantidade com defeito
                 />
+                <p
+                  className={`text-xs mt-1 ${
+                    quantityDetails.returned > quantityDetails.defective
+                      ? "text-red-500 font-semibold"
+                      : "text-gray-500"
+                  }`}
+                >
+                  {quantityDetails.returned > quantityDetails.defective
+                    ? `❌ ERRO: Máximo permitido é ${quantityDetails.defective}!`
+                    : `Máximo: ${quantityDetails.defective} (igual à quantidade com defeito)`}
+                </p>
               </div>
 
               <div>
@@ -836,9 +1042,7 @@ export function ShoppingListsTab() {
                   disabled
                   className="w-full border border-gray-300 rounded-md p-2 bg-green-100 font-semibold"
                 />
-                <p className="text-xs text-gray-500 mt-1">
-                  Calculado automaticamente: Recebido - Defeito (Devolvido volta para "A Receber")
-                </p>
+                <p className="text-xs text-gray-500 mt-1">Calculado automaticamente: Recebido - Devolvido</p>
               </div>
             </div>
 
