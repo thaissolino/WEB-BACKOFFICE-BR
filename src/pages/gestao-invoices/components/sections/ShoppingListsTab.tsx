@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Plus, Edit, Trash2, Check, X, ShoppingCart, Package } from "lucide-react";
+import { Plus, Edit, Trash2, Check, X, ShoppingCart, Package, HelpCircle } from "lucide-react";
 import { api } from "../../../../services/api";
 import Swal from "sweetalert2";
 import { useNotification } from "../../../../hooks/notification";
@@ -17,10 +17,16 @@ interface Product {
 interface ShoppingListItem {
   id: string;
   productId: string;
-  quantity: number;
+  quantity: number; // Quantidade pedida
   notes?: string;
+  status: string; // PENDING, PURCHASED, RECEIVED
   purchased: boolean;
   purchasedAt?: string;
+  receivedAt?: string;
+  receivedQuantity: number; // Quantidade recebida
+  defectiveQuantity: number; // Quantidade com defeito
+  returnedQuantity: number; // Quantidade devolvida
+  finalQuantity: number; // Quantidade final (recebida - defeito - devolvida)
   product: Product;
 }
 
@@ -42,6 +48,15 @@ export function ShoppingListsTab() {
   const [isCreating, setIsCreating] = useState(false);
   const [isEditing, setIsEditing] = useState<string | null>(null);
   const [editingList, setEditingList] = useState<ShoppingList | null>(null);
+  const [showQuantityModal, setShowQuantityModal] = useState(false);
+  const [selectedItem, setSelectedItem] = useState<ShoppingListItem | null>(null);
+  const [quantityDetails, setQuantityDetails] = useState({
+    ordered: 0,
+    received: 0,
+    defective: 0,
+    returned: 0,
+    final: 0,
+  });
   const { setOpenNotification } = useNotification();
 
   const [newList, setNewList] = useState({
@@ -188,6 +203,80 @@ export function ShoppingListsTab() {
     }
   };
 
+  const handleUpdateItemStatus = async (itemId: string, newStatus: string, receivedQuantity?: number) => {
+    try {
+      await api.patch("/invoice/shopping-lists/update-status", {
+        itemId,
+        status: newStatus,
+        receivedQuantity: receivedQuantity || 0,
+      });
+
+      const statusMessages = {
+        PENDING: "Item marcado como aguardando",
+        PURCHASED: "Item marcado como comprado",
+        RECEIVED: "Item marcado como recebido",
+      };
+
+      setOpenNotification({
+        type: "success",
+        title: "Sucesso!",
+        notification: statusMessages[newStatus as keyof typeof statusMessages] || "Status atualizado!",
+      });
+
+      await fetchData();
+    } catch (error) {
+      console.error("Erro ao atualizar status:", error);
+      setOpenNotification({
+        type: "error",
+        title: "Erro!",
+        notification: "Erro ao atualizar status do item",
+      });
+    }
+  };
+
+  const openQuantityModal = (item: ShoppingListItem) => {
+    setSelectedItem(item);
+    setQuantityDetails({
+      ordered: item.quantity,
+      received: item.receivedQuantity || 0,
+      defective: item.defectiveQuantity || 0,
+      returned: item.returnedQuantity || 0,
+      final: item.finalQuantity || 0,
+    });
+    setShowQuantityModal(true);
+  };
+
+  const handleSaveQuantityDetails = async () => {
+    if (!selectedItem) return;
+
+    try {
+      await api.patch("/invoice/shopping-lists/update-quantities", {
+        itemId: selectedItem.id,
+        receivedQuantity: quantityDetails.received,
+        defectiveQuantity: quantityDetails.defective,
+        returnedQuantity: quantityDetails.returned,
+        finalQuantity: quantityDetails.final,
+        status: quantityDetails.received > 0 ? "RECEIVED" : "PURCHASED",
+      });
+
+      setOpenNotification({
+        type: "success",
+        title: "Sucesso!",
+        notification: "Quantidades atualizadas com sucesso!",
+      });
+
+      setShowQuantityModal(false);
+      await fetchData();
+    } catch (error) {
+      console.error("Erro ao atualizar quantidades:", error);
+      setOpenNotification({
+        type: "error",
+        title: "Erro!",
+        notification: "Erro ao atualizar quantidades",
+      });
+    }
+  };
+
   const handleEditList = (list: ShoppingList) => {
     setEditingList(list);
     setIsEditing(list.id);
@@ -274,6 +363,83 @@ export function ShoppingListsTab() {
     }));
   };
 
+  const getStatusInfo = (status: string) => {
+    switch (status) {
+      case "PENDING":
+        return {
+          color: "bg-yellow-100 text-yellow-800 border-yellow-200",
+          icon: "⏳",
+          label: "Aguardando",
+        };
+      case "PURCHASED":
+        return {
+          color: "bg-blue-100 text-blue-800 border-blue-200",
+          icon: "🛒",
+          label: "Comprado",
+        };
+      case "RECEIVED":
+        return {
+          color: "bg-green-100 text-green-800 border-green-200",
+          icon: "✅",
+          label: "Recebido",
+        };
+      default:
+        return {
+          color: "bg-gray-100 text-gray-800 border-gray-200",
+          icon: "❓",
+          label: "Desconhecido",
+        };
+    }
+  };
+
+  // Componente de Tooltip
+  const Tooltip = ({
+    children,
+    content,
+    position = "top",
+  }: {
+    children: React.ReactNode;
+    content: string;
+    position?: "top" | "bottom" | "left" | "right";
+  }) => {
+    const [isVisible, setIsVisible] = useState(false);
+
+    const positionClasses = {
+      top: "bottom-full left-1/2 transform -translate-x-1/2 mb-2",
+      bottom: "top-full left-1/2 transform -translate-x-1/2 mt-2",
+      left: "right-full top-1/2 transform -translate-y-1/2 mr-2",
+      right: "left-full top-1/2 transform -translate-y-1/2 ml-2",
+    };
+
+    return (
+      <div
+        className="relative inline-block"
+        onMouseEnter={() => setIsVisible(true)}
+        onMouseLeave={() => setIsVisible(false)}
+      >
+        {children}
+        {isVisible && (
+          <div
+            className={`absolute z-50 px-3 py-2 text-sm text-white bg-gray-900 rounded-lg shadow-lg whitespace-nowrap ${positionClasses[position]}`}
+          >
+            {content}
+            <div
+              className={`absolute w-0 h-0 ${
+                position === "top"
+                  ? "top-full left-1/2 transform -translate-x-1/2 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"
+                  : position === "bottom"
+                  ? "bottom-full left-1/2 transform -translate-x-1/2 border-l-4 border-r-4 border-b-4 border-transparent border-b-gray-900"
+                  : position === "left"
+                  ? "left-full top-1/2 transform -translate-y-1/2 border-t-4 border-b-4 border-l-4 border-transparent border-l-gray-900"
+                  : "right-full top-1/2 transform -translate-y-1/2 border-t-4 border-b-4 border-r-4 border-transparent border-r-gray-900"
+              }`}
+            ></div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -291,14 +457,19 @@ export function ShoppingListsTab() {
         <h2 className="text-xl font-semibold text-blue-700 border-b pb-2">
           <ShoppingCart className="mr-2 inline" size={18} />
           Listas de Compras
+          <Tooltip content="Sistema completo de listas de compras com controle de status e quantidades dinâmicas">
+            <HelpCircle className="ml-2 inline cursor-help text-blue-500 hover:text-blue-700" size={16} />
+          </Tooltip>
         </h2>
-        <button
-          onClick={() => setIsEditing("new")}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded flex items-center"
-        >
-          <Plus className="mr-2" size={16} />
-          Nova Lista
-        </button>
+        <Tooltip content="Criar uma nova lista de compras com produtos">
+          <button
+            onClick={() => setIsEditing("new")}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded flex items-center"
+          >
+            <Plus className="mr-2" size={16} />
+            Nova Lista
+          </button>
+        </Tooltip>
       </div>
 
       {/* Formulário de Nova Lista / Edição */}
@@ -431,74 +602,247 @@ export function ShoppingListsTab() {
                   </p>
                 </div>
                 <div className="flex gap-2">
-                  <button
-                    onClick={() => handleEditList(list)}
-                    className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-sm flex items-center"
-                  >
-                    <Edit size={14} className="mr-1" />
-                    Editar
-                  </button>
-                  <button
-                    onClick={() => handleDeleteList(list.id)}
-                    className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm flex items-center"
-                  >
-                    <Trash2 size={14} className="mr-1" />
-                    Deletar
-                  </button>
+                  <Tooltip content="Editar lista: adicionar/remover produtos, alterar quantidades">
+                    <button
+                      onClick={() => handleEditList(list)}
+                      className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-sm flex items-center"
+                    >
+                      <Edit size={14} className="mr-1" />
+                      Editar
+                    </button>
+                  </Tooltip>
+                  <Tooltip content="Deletar lista permanentemente">
+                    <button
+                      onClick={() => handleDeleteList(list.id)}
+                      className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm flex items-center"
+                    >
+                      <Trash2 size={14} className="mr-1" />
+                      Deletar
+                    </button>
+                  </Tooltip>
                 </div>
               </div>
 
               <div className="space-y-2">
-                {list.shoppingListItems?.map((item) => (
-                  <div
-                    key={item.id}
-                    className={`flex items-center gap-3 p-3 rounded border ${
-                      item.purchased ? "bg-green-50 border-green-200" : "bg-gray-50"
-                    }`}
-                  >
-                    <button
-                      onClick={() => handleMarkAsPurchased(item.id, !item.purchased)}
-                      className={`w-6 h-6 rounded border-2 flex items-center justify-center ${
-                        item.purchased
-                          ? "bg-green-500 border-green-500 text-white"
-                          : "border-gray-300 hover:border-green-500"
+                {list.shoppingListItems?.map((item) => {
+                  const statusInfo = getStatusInfo(item.status);
+                  return (
+                    <div
+                      key={item.id}
+                      className={`flex items-center gap-3 p-3 rounded border ${
+                        item.status === "RECEIVED"
+                          ? "bg-green-50 border-green-200"
+                          : item.status === "PURCHASED"
+                          ? "bg-blue-50 border-blue-200"
+                          : "bg-gray-50 border-gray-200"
                       }`}
                     >
-                      {item.purchased && <Check size={14} />}
-                    </button>
+                      {/* Status Badge */}
+                      <Tooltip content={`Status: ${statusInfo.label}. Clique nos botões para alterar o status do item`}>
+                        <div className={`px-2 py-1 rounded-full text-xs font-medium border ${statusInfo.color}`}>
+                          {statusInfo.icon} {statusInfo.label}
+                        </div>
+                      </Tooltip>
 
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className={`font-medium ${item.purchased ? "line-through text-gray-500" : ""}`}>
-                          {item.product.name}
-                        </span>
-                        <span className="text-sm text-gray-500">({item.product.code})</span>
-                        <span className="text-sm font-semibold text-blue-600">Qtd: {item.quantity}</span>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={`font-medium ${item.status === "RECEIVED" ? "line-through text-gray-500" : ""}`}
+                          >
+                            {item.product.name}
+                          </span>
+                          <span className="text-sm text-gray-500">({item.product.code})</span>
+                          <span className="text-sm font-semibold text-blue-600">
+                            Pedido: {item.quantity}
+                            {item.receivedQuantity > 0 && (
+                              <span className="text-green-600"> / Recebido: {item.receivedQuantity}</span>
+                            )}
+                            {item.defectiveQuantity > 0 && (
+                              <span className="text-red-600"> / Defeito: {item.defectiveQuantity}</span>
+                            )}
+                            {item.returnedQuantity > 0 && (
+                              <span className="text-orange-600"> / Devolvido: {item.returnedQuantity}</span>
+                            )}
+                            {item.finalQuantity > 0 && (
+                              <span className="text-purple-600"> / Final: {item.finalQuantity}</span>
+                            )}
+                          </span>
+                        </div>
+                        {item.notes && <p className="text-sm text-gray-600 mt-1">{item.notes}</p>}
+
+                        {/* Datas */}
+                        <div className="flex gap-4 text-xs text-gray-500 mt-1">
+                          {item.purchasedAt && (
+                            <span>🛒 Comprado: {new Date(item.purchasedAt).toLocaleDateString("pt-BR")}</span>
+                          )}
+                          {item.receivedAt && (
+                            <span>✅ Recebido: {new Date(item.receivedAt).toLocaleDateString("pt-BR")}</span>
+                          )}
+                        </div>
                       </div>
-                      {item.notes && <p className="text-sm text-gray-600 mt-1">{item.notes}</p>}
-                      {item.purchased && item.purchasedAt && (
-                        <p className="text-xs text-green-600 mt-1">
-                          Comprado em: {new Date(item.purchasedAt).toLocaleDateString("pt-BR")}
-                        </p>
-                      )}
+
+                      {/* Botões de Ação */}
+                      <div className="flex gap-1">
+                        {item.status === "PENDING" && (
+                          <Tooltip content="Marcar item como comprado">
+                            <button
+                              onClick={() => handleUpdateItemStatus(item.id, "PURCHASED")}
+                              className="bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded text-xs"
+                            >
+                              🛒 Comprar
+                            </button>
+                          </Tooltip>
+                        )}
+                        {(item.status === "PURCHASED" || item.status === "RECEIVED") && (
+                          <Tooltip content="Gerenciar quantidades: recebido, defeito, devolvido e final">
+                            <button
+                              onClick={() => openQuantityModal(item)}
+                              className="bg-purple-500 hover:bg-purple-600 text-white px-2 py-1 rounded text-xs"
+                            >
+                              📊 Quantidades
+                            </button>
+                          </Tooltip>
+                        )}
+                        {item.status === "RECEIVED" && (
+                          <Tooltip content="Reverter item para aguardando">
+                            <button
+                              onClick={() => handleUpdateItemStatus(item.id, "PENDING")}
+                              className="bg-gray-500 hover:bg-gray-600 text-white px-2 py-1 rounded text-xs"
+                            >
+                              🔄 Reverter
+                            </button>
+                          </Tooltip>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
 
               <div className="mt-3 pt-3 border-t border-gray-200">
                 <div className="flex justify-between text-sm text-gray-600">
                   <span>Total de itens: {list.shoppingListItems?.length || 0}</span>
-                  <span>
-                    Comprados: {list.shoppingListItems?.filter((item) => item.purchased).length || 0} /{" "}
-                    {list.shoppingListItems?.length || 0}
-                  </span>
+                  <div className="flex gap-4">
+                    <span className="text-yellow-600">
+                      ⏳ Aguardando: {list.shoppingListItems?.filter((item) => item.status === "PENDING").length || 0}
+                    </span>
+                    <span className="text-blue-600">
+                      🛒 Comprados: {list.shoppingListItems?.filter((item) => item.status === "PURCHASED").length || 0}
+                    </span>
+                    <span className="text-green-600">
+                      ✅ Recebidos: {list.shoppingListItems?.filter((item) => item.status === "RECEIVED").length || 0}
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
           ))
         )}
       </div>
+
+      {/* Modal de Quantidades */}
+      {showQuantityModal && selectedItem && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-lg shadow-xl max-w-md w-full mx-4">
+            <h3 className="text-lg font-semibold mb-4">📊 Gerenciar Quantidades - {selectedItem.product.name}</h3>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">📦 Quantidade Pedida</label>
+                <input
+                  type="number"
+                  value={quantityDetails.ordered}
+                  disabled
+                  className="w-full border border-gray-300 rounded-md p-2 bg-gray-100"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">✅ Quantidade Recebida</label>
+                <input
+                  type="number"
+                  value={quantityDetails.received}
+                  onChange={(e) => {
+                    const received = parseFloat(e.target.value) || 0;
+                    setQuantityDetails((prev) => ({
+                      ...prev,
+                      received,
+                      final: received - prev.defective - prev.returned,
+                    }));
+                  }}
+                  className="w-full border border-gray-300 rounded-md p-2"
+                  min="0"
+                  max={quantityDetails.ordered}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">❌ Quantidade com Defeito</label>
+                <input
+                  type="number"
+                  value={quantityDetails.defective}
+                  onChange={(e) => {
+                    const defective = parseFloat(e.target.value) || 0;
+                    setQuantityDetails((prev) => ({
+                      ...prev,
+                      defective,
+                      final: prev.received - defective - prev.returned,
+                    }));
+                  }}
+                  className="w-full border border-gray-300 rounded-md p-2"
+                  min="0"
+                  max={quantityDetails.received}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">🔄 Quantidade Devolvida</label>
+                <input
+                  type="number"
+                  value={quantityDetails.returned}
+                  onChange={(e) => {
+                    const returned = parseFloat(e.target.value) || 0;
+                    setQuantityDetails((prev) => ({
+                      ...prev,
+                      returned,
+                      final: prev.received - prev.defective - returned,
+                    }));
+                  }}
+                  className="w-full border border-gray-300 rounded-md p-2"
+                  min="0"
+                  max={quantityDetails.received}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">🎯 Quantidade Final</label>
+                <input
+                  type="number"
+                  value={quantityDetails.final}
+                  disabled
+                  className="w-full border border-gray-300 rounded-md p-2 bg-green-100 font-semibold"
+                />
+                <p className="text-xs text-gray-500 mt-1">Calculado automaticamente: Recebido - Defeito - Devolvido</p>
+              </div>
+            </div>
+
+            <div className="flex gap-2 mt-6">
+              <button
+                onClick={handleSaveQuantityDetails}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded flex-1"
+              >
+                💾 Salvar Quantidades
+              </button>
+              <button
+                onClick={() => setShowQuantityModal(false)}
+                className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded"
+              >
+                ❌ Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
