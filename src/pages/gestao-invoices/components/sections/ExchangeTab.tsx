@@ -310,6 +310,70 @@ export function ExchangeTab() {
     }
   };
 
+  const handleSelectTransaction = (transactionId: string) => {
+    setSelectedTransactions((prev) =>
+      prev.includes(transactionId) ? prev.filter((id) => id !== transactionId) : [...prev, transactionId]
+    );
+  };
+
+  const handleSelectAll = () => {
+    if (selectedTransactions.length === (historyPaymentBuy?.length || 0)) {
+      setSelectedTransactions([]);
+    } else {
+      setSelectedTransactions(historyPaymentBuy?.map((t) => t.id) || []);
+    }
+  };
+
+  const deleteSelectedTransactions = async () => {
+    if (selectedTransactions.length === 0) return;
+
+    try {
+      const result = await Swal.fire({
+        title: "Confirmar Exclusão em Massa",
+        text: `Tem certeza que deseja deletar ${selectedTransactions.length} transação(ões)? O saldo será recalculado automaticamente.`,
+        icon: "warning",
+        showCancelButton: true,
+        confirmButtonColor: "#dc2626",
+        cancelButtonColor: "#6b7280",
+        confirmButtonText: "Sim, deletar todas!",
+        cancelButtonText: "Cancelar",
+        buttonsStyling: false,
+        customClass: {
+          confirmButton: "bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded font-semibold mx-2",
+          cancelButton: "bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded font-semibold mx-2",
+        },
+      });
+
+      if (result.isConfirmed) {
+        setLoading(true);
+
+        // Deletar todas as transações selecionadas
+        await Promise.all(selectedTransactions.map((id) => api.delete(`/invoice/exchange-records/${id}/recalculate`)));
+
+        // Limpar seleção
+        setSelectedTransactions([]);
+
+        // Recarregar dados
+        await Promise.all([getBalance(), fetchData()]);
+
+        setOpenNotification({
+          type: "success",
+          title: "Sucesso!",
+          notification: `${selectedTransactions.length} transação(ões) deletada(s) e saldo recalculado!`,
+        });
+      }
+    } catch (error) {
+      console.error("Erro ao deletar transações:", error);
+      setOpenNotification({
+        type: "error",
+        title: "Erro!",
+        notification: "Erro ao deletar transações em massa",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const deleteTransaction = async (transactionId: string) => {
     try {
       const result = await Swal.fire({
@@ -630,11 +694,32 @@ export function ExchangeTab() {
 
       {/* Histórico de Transações */}
       <div className="mt-6 p-4 bg-gray-50 rounded">
-        <h3 className="font-medium mb-2">Histórico de Transações</h3>
+        <div className="flex justify-between items-center mb-2">
+          <h3 className="font-medium">Histórico de Transações</h3>
+          {selectedTransactions.length > 0 && (
+            <button
+              onClick={deleteSelectedTransactions}
+              className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded font-semibold flex items-center"
+            >
+              🗑️ Deletar Selecionadas ({selectedTransactions.length})
+            </button>
+          )}
+        </div>
         <div className="overflow-x-auto">
           <table className="min-w-full bg-white">
             <thead>
               <tr className="bg-gray-200">
+                <th className="py-2 px-4 border">
+                  <input
+                    type="checkbox"
+                    checked={
+                      selectedTransactions.length === (historyPaymentBuy?.length || 0) &&
+                      (historyPaymentBuy?.length || 0) > 0
+                    }
+                    onChange={handleSelectAll}
+                    className="rounded"
+                  />
+                </th>
                 <th className="py-2 px-4 border">Data</th>
                 <th className="py-2 px-4 border">Tipo</th>
                 <th className="py-2 px-4 border">USD</th>
@@ -646,7 +731,7 @@ export function ExchangeTab() {
             <tbody>
               {historyPaymentBuy && historyPaymentBuy.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-4 text-center text-gray-500">
+                  <td colSpan={7} className="py-4 text-center text-gray-500">
                     Nenhuma transação registrada
                   </td>
                 </tr>
@@ -661,6 +746,14 @@ export function ExchangeTab() {
 
                   return (
                     <tr key={transacao.id} className="hover:bg-gray-50">
+                      <td className={`py-2 px-4 border ${rowClass} text-center`}>
+                        <input
+                          type="checkbox"
+                          checked={selectedTransactions.includes(transacao.id)}
+                          onChange={() => handleSelectTransaction(transacao.id)}
+                          className="rounded"
+                        />
+                      </td>
                       <td className={`py-2 px-2 border ${rowClass} text-center`}>
                         <i className="fas fa-clock text-green-500 mr-2"></i>
 
