@@ -457,97 +457,110 @@ export function ShoppingListsTab() {
         format: "a4",
       });
 
-      // Título
+      // Título PRINCIPAL melhor centralizado
       doc.setFontSize(16);
       doc.setTextColor(40, 100, 40);
-      doc.text(`Lista de Compras - ${shoppingList.name}`, 105, 15, { align: "center" });
+      doc.text(`Lista de Compras - ${shoppingList.name}`, 105, 15, {
+        align: "center",
+        maxWidth: 180,
+      });
 
-      // Informações
-      doc.setFontSize(10);
+      // Informações organizadas
+      doc.setFontSize(9);
       doc.setTextColor(0, 0, 0);
-      doc.text(`Data de emissão: ${new Date().toLocaleDateString("pt-BR")}`, 15, 25);
+
+      // Coluna esquerda
+      doc.text(`Data emissão: ${new Date().toLocaleDateString("pt-BR")}`, 15, 25);
       doc.text(`Criada em: ${new Date(shoppingList.createdAt).toLocaleDateString("pt-BR")}`, 15, 30);
 
-      if (shoppingList.description) {
-        doc.text(`Descrição: ${shoppingList.description}`, 15, 35);
-      }
-
-      // Contadores de status (apenas dos itens incluídos)
+      // Status à direita
       const statusCounts = {
         PENDING: itemsToInclude.filter((item: any) => item.status === "PENDING").length,
         PURCHASED: itemsToInclude.filter((item: any) => item.status === "PURCHASED").length,
         RECEIVED: itemsToInclude.filter((item: any) => item.status === "RECEIVED").length,
       };
 
-      doc.text(
-        `Aguardando: ${statusCounts.PENDING} | Comprados: ${statusCounts.PURCHASED} | Recebidos: ${statusCounts.RECEIVED}`,
-        15,
-        40
-      );
+      const statusText = `Aguardando: ${statusCounts.PENDING} | Comprados: ${statusCounts.PURCHASED} | Recebidos: ${statusCounts.RECEIVED}`;
+      doc.text(statusText, 195, 25, { align: "right" });
 
-      // Indicar se é seleção parcial
-      if (selectedItems && selectedItems.length < shoppingList.shoppingListItems.length) {
-        doc.text(`Itens selecionados: ${selectedItems.length} de ${shoppingList.shoppingListItems.length}`, 15, 45);
+      // Descrição centralizada
+      if (shoppingList.description) {
+        doc.text(`Descrição: ${shoppingList.description}`, 105, 35, { align: "center" });
       }
 
-      // Mapear status para português
+      // Seleção parcial centralizada
+      if (selectedItems && selectedItems.length < shoppingList.shoppingListItems.length) {
+        doc.text(`Itens selecionados: ${selectedItems.length} de ${shoppingList.shoppingListItems.length}`, 105, 40, {
+          align: "center",
+        });
+      }
+
+      // Mapear status
       const statusMap = {
         PENDING: "Aguardando",
         PURCHASED: "Comprado",
         RECEIVED: "Recebido",
       };
 
-      // Preparar dados da tabela (apenas itens selecionados)
+      // Função para truncar textos
+      const truncateText = (text: string, maxLength: number) => {
+        if (text.length > maxLength) {
+          return text.substring(0, maxLength - 3) + "...";
+        }
+        return text;
+      };
+
+      // Preparar dados com truncagem
       const tableData = itemsToInclude.map((item: any) => [
-        `${item.product.name} (${item.product.code})`,
+        truncateText(`${item.product.name} (${item.product.code})`, 35),
         item.quantity.toString(),
         item.receivedQuantity.toString(),
         item.defectiveQuantity.toString(),
         item.finalQuantity.toString(),
-        (item.quantity - item.receivedQuantity + item.returnedQuantity).toString(),
-        statusMap[item.status as keyof typeof statusMap] || item.status,
+        (item.quantity - item.receivedQuantity).toString(),
+        truncateText(statusMap[item.status as keyof typeof statusMap] || item.status, 12),
       ]);
 
-      // Tabela usando autoTable
+      // Tabela com cabeçalho em UMA LINHA
       const { autoTable } = await import("jspdf-autotable");
       autoTable(doc, {
         head: [["PRODUTO", "PEDIDO", "RECEBIDO", "DEFEITO", "FINAL", "A RECEBER", "STATUS"]],
         body: tableData,
-        startY: selectedItems ? 55 : 50,
+        startY: 45,
         styles: {
-          fontSize: 9,
-          cellPadding: 4,
-          halign: "left",
-          overflow: "linebreak",
+          fontSize: 8,
+          cellPadding: 3,
+          halign: "center",
         },
         headStyles: {
           fillColor: [229, 231, 235],
           textColor: 0,
           fontStyle: "bold",
-          fontSize: 10,
-          cellPadding: 5,
+          fontSize: 9,
+          cellPadding: 4,
+          halign: "center",
+          valign: "middle",
         },
         alternateRowStyles: {
           fillColor: [240, 249, 255],
         },
         columnStyles: {
-          0: { halign: "left", cellWidth: 70 },
-          1: { halign: "center", cellWidth: 18 },
-          2: { halign: "center", cellWidth: 18 },
-          3: { halign: "center", cellWidth: 18 },
+          0: {
+            halign: "left",
+            cellWidth: 40,
+            fontStyle: "bold",
+          },
+          1: { halign: "center", cellWidth: 25 },
+          2: { halign: "center", cellWidth: 25 },
+          3: { halign: "center", cellWidth: 25 },
           4: { halign: "center", cellWidth: 18 },
-          5: { halign: "center", cellWidth: 18 },
+          5: { halign: "center", cellWidth: 28 },
           6: { halign: "center", cellWidth: 25 },
         },
-        margin: { left: 3, right: 3 },
+        margin: { left: 10, right: 10 },
+
         tableWidth: "auto",
         showHead: "everyPage",
-        didParseCell: (data: any) => {
-          // Garantir que cabeçalhos não quebrem linha
-          if (data.section === "head") {
-            data.cell.text = data.cell.text.map((text: string) => text.replace(/\s+/g, ""));
-          }
-        },
       });
 
       // Salvar PDF
