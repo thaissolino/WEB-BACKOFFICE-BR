@@ -435,24 +435,116 @@ export function ShoppingListsTab() {
     }));
   };
 
-  // NOVO: Funções de Download
-  const handleDownloadPDF = async (listId: string, listName: string) => {
+  // NOVO: Funções de Download - USANDO JSPDF COMO OS OUTROS
+  const handleDownloadPDF = async (listId: string, listName: string, selectedItems?: any[]) => {
     try {
-      const response = await api.get(`/invoice/shopping-lists/${listId}/download/pdf`, {
-        responseType: "blob",
+      // Buscar dados da lista
+      const response = await api.get(`/invoice/shopping-lists/${listId}`);
+      const shoppingList = response.data;
+
+      // Filtrar itens se seleção específica foi fornecida
+      const itemsToInclude = selectedItems
+        ? shoppingList.shoppingListItems.filter((item: any) =>
+            selectedItems.some((selected) => selected.id === item.id)
+          )
+        : shoppingList.shoppingListItems;
+
+      // Criar PDF usando jsPDF (igual aos outros)
+      const { jsPDF } = await import("jspdf");
+      const doc = new jsPDF({
+        orientation: "portrait",
+        unit: "mm",
+        format: "a4",
       });
 
-      const url = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement("a");
-      link.href = url;
-      link.setAttribute(
-        "download",
-        `${listName.replace(/[^a-zA-Z0-9]/g, "_")}_${new Date().toISOString().split("T")[0]}.pdf`
+      // Título
+      doc.setFontSize(16);
+      doc.setTextColor(40, 100, 40);
+      doc.text(`Lista de Compras - ${shoppingList.name}`, 105, 15, { align: "center" });
+
+      // Informações
+      doc.setFontSize(10);
+      doc.setTextColor(0, 0, 0);
+      doc.text(`Data de emissão: ${new Date().toLocaleDateString("pt-BR")}`, 15, 25);
+      doc.text(`Criada em: ${new Date(shoppingList.createdAt).toLocaleDateString("pt-BR")}`, 15, 30);
+
+      if (shoppingList.description) {
+        doc.text(`Descrição: ${shoppingList.description}`, 15, 35);
+      }
+
+      // Contadores de status (apenas dos itens incluídos)
+      const statusCounts = {
+        PENDING: itemsToInclude.filter((item: any) => item.status === "PENDING").length,
+        PURCHASED: itemsToInclude.filter((item: any) => item.status === "PURCHASED").length,
+        RECEIVED: itemsToInclude.filter((item: any) => item.status === "RECEIVED").length,
+      };
+
+      doc.text(
+        `Aguardando: ${statusCounts.PENDING} | Comprados: ${statusCounts.PURCHASED} | Recebidos: ${statusCounts.RECEIVED}`,
+        15,
+        40
       );
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.URL.revokeObjectURL(url);
+
+      // Indicar se é seleção parcial
+      if (selectedItems && selectedItems.length < shoppingList.shoppingListItems.length) {
+        doc.text(`Itens selecionados: ${selectedItems.length} de ${shoppingList.shoppingListItems.length}`, 15, 45);
+      }
+
+      // Mapear status para português
+      const statusMap = {
+        PENDING: "Aguardando",
+        PURCHASED: "Comprado",
+        RECEIVED: "Recebido",
+      };
+
+      // Preparar dados da tabela (apenas itens selecionados)
+      const tableData = itemsToInclude.map((item: any) => [
+        `${item.product.name} (${item.product.code})`,
+        item.quantity.toString(),
+        item.receivedQuantity.toString(),
+        item.defectiveQuantity.toString(),
+        item.finalQuantity.toString(),
+        (item.quantity - item.receivedQuantity + item.returnedQuantity).toString(),
+        statusMap[item.status as keyof typeof statusMap] || item.status,
+      ]);
+
+      // Tabela usando autoTable
+      const { autoTable } = await import("jspdf-autotable");
+      autoTable(doc, {
+        head: [["PRODUTO", "PEDIDO", "RECEBIDO", "DEFEITO", "FINAL", "A RECEBER", "STATUS"]],
+        body: tableData,
+        startY: selectedItems ? 55 : 50,
+        styles: {
+          fontSize: 7,
+          cellPadding: 1,
+          halign: "left",
+        },
+        headStyles: {
+          fillColor: [229, 231, 235],
+          textColor: 0,
+          fontStyle: "bold",
+          fontSize: 8,
+          cellPadding: 2,
+        },
+        alternateRowStyles: {
+          fillColor: [240, 249, 255],
+        },
+        columnStyles: {
+          0: { halign: "left", cellWidth: 50 },
+          1: { halign: "center", cellWidth: 10 },
+          2: { halign: "center", cellWidth: 10 },
+          3: { halign: "center", cellWidth: 10 },
+          4: { halign: "center", cellWidth: 10 },
+          5: { halign: "center", cellWidth: 10 },
+          6: { halign: "center", cellWidth: 12 },
+        },
+        margin: { left: 10, right: 10 },
+        tableWidth: "wrap",
+      });
+
+      // Salvar PDF
+      const fileName = `${listName.replace(/[^a-zA-Z0-9]/g, "_")}_${new Date().toISOString().split("T")[0]}.pdf`;
+      doc.save(fileName);
 
       setOpenNotification({
         type: "success",
