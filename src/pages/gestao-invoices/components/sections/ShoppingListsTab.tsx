@@ -515,31 +515,39 @@ export function ShoppingListsTab() {
         body: tableData,
         startY: selectedItems ? 55 : 50,
         styles: {
-          fontSize: 7,
-          cellPadding: 1,
+          fontSize: 9,
+          cellPadding: 4,
           halign: "left",
+          overflow: "linebreak",
         },
         headStyles: {
           fillColor: [229, 231, 235],
           textColor: 0,
           fontStyle: "bold",
-          fontSize: 8,
-          cellPadding: 2,
+          fontSize: 10,
+          cellPadding: 5,
         },
         alternateRowStyles: {
           fillColor: [240, 249, 255],
         },
         columnStyles: {
-          0: { halign: "left", cellWidth: 50 },
-          1: { halign: "center", cellWidth: 10 },
-          2: { halign: "center", cellWidth: 10 },
-          3: { halign: "center", cellWidth: 10 },
-          4: { halign: "center", cellWidth: 10 },
-          5: { halign: "center", cellWidth: 10 },
-          6: { halign: "center", cellWidth: 12 },
+          0: { halign: "left", cellWidth: 70 },
+          1: { halign: "center", cellWidth: 18 },
+          2: { halign: "center", cellWidth: 18 },
+          3: { halign: "center", cellWidth: 18 },
+          4: { halign: "center", cellWidth: 18 },
+          5: { halign: "center", cellWidth: 18 },
+          6: { halign: "center", cellWidth: 25 },
         },
-        margin: { left: 10, right: 10 },
-        tableWidth: "wrap",
+        margin: { left: 3, right: 3 },
+        tableWidth: "auto",
+        showHead: "everyPage",
+        didParseCell: (data: any) => {
+          // Garantir que cabeçalhos não quebrem linha
+          if (data.section === "head") {
+            data.cell.text = data.cell.text.map((text: string) => text.replace(/\s+/g, ""));
+          }
+        },
       });
 
       // Salvar PDF
