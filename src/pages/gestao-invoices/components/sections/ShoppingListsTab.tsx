@@ -392,15 +392,17 @@ export function ShoppingListsTab() {
     }
   };
 
-  // Componente de Tooltip
+  // Componente de Tooltip Melhorado
   const Tooltip = ({
     children,
     content,
     position = "top",
+    maxWidth = "200px",
   }: {
     children: React.ReactNode;
     content: string;
     position?: "top" | "bottom" | "left" | "right";
+    maxWidth?: string;
   }) => {
     const [isVisible, setIsVisible] = useState(false);
 
@@ -409,6 +411,15 @@ export function ShoppingListsTab() {
       bottom: "top-full left-1/2 transform -translate-x-1/2 mt-2",
       left: "right-full top-1/2 transform -translate-y-1/2 mr-2",
       right: "left-full top-1/2 transform -translate-y-1/2 ml-2",
+    };
+
+    const arrowClasses = {
+      top: "top-full left-1/2 transform -translate-x-1/2 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900",
+      bottom:
+        "bottom-full left-1/2 transform -translate-x-1/2 border-l-4 border-r-4 border-b-4 border-transparent border-b-gray-900",
+      left: "left-full top-1/2 transform -translate-y-1/2 border-t-4 border-b-4 border-l-4 border-transparent border-l-gray-900",
+      right:
+        "right-full top-1/2 transform -translate-y-1/2 border-t-4 border-b-4 border-r-4 border-transparent border-r-gray-900",
     };
 
     return (
@@ -420,20 +431,11 @@ export function ShoppingListsTab() {
         {children}
         {isVisible && (
           <div
-            className={`absolute z-50 px-3 py-2 text-sm text-white bg-gray-900 rounded-lg shadow-lg whitespace-nowrap ${positionClasses[position]}`}
+            className={`absolute z-50 px-3 py-2 text-sm text-white bg-gray-900 rounded-lg shadow-xl ${positionClasses[position]}`}
+            style={{ maxWidth, whiteSpace: "normal", wordWrap: "break-word" }}
           >
-            {content}
-            <div
-              className={`absolute w-0 h-0 ${
-                position === "top"
-                  ? "top-full left-1/2 transform -translate-x-1/2 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"
-                  : position === "bottom"
-                  ? "bottom-full left-1/2 transform -translate-x-1/2 border-l-4 border-r-4 border-b-4 border-transparent border-b-gray-900"
-                  : position === "left"
-                  ? "left-full top-1/2 transform -translate-y-1/2 border-t-4 border-b-4 border-l-4 border-transparent border-l-gray-900"
-                  : "right-full top-1/2 transform -translate-y-1/2 border-t-4 border-b-4 border-r-4 border-transparent border-r-gray-900"
-              }`}
-            ></div>
+            <div className="text-center leading-relaxed">{content}</div>
+            <div className={`absolute w-0 h-0 ${arrowClasses[position]}`}></div>
           </div>
         )}
       </div>
@@ -457,11 +459,11 @@ export function ShoppingListsTab() {
         <h2 className="text-xl font-semibold text-blue-700 border-b pb-2">
           <ShoppingCart className="mr-2 inline" size={18} />
           Listas de Compras
-          <Tooltip content="Sistema completo de listas de compras com controle de status e quantidades dinâmicas">
+          <Tooltip content="Sistema completo com controle de status e quantidades" position="bottom" maxWidth="180px">
             <HelpCircle className="ml-2 inline cursor-help text-blue-500 hover:text-blue-700" size={16} />
           </Tooltip>
         </h2>
-        <Tooltip content="Criar uma nova lista de compras com produtos">
+        <Tooltip content="Criar nova lista de compras" position="bottom" maxWidth="150px">
           <button
             onClick={() => setIsEditing("new")}
             className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded flex items-center"
@@ -602,7 +604,7 @@ export function ShoppingListsTab() {
                   </p>
                 </div>
                 <div className="flex gap-2">
-                  <Tooltip content="Editar lista: adicionar/remover produtos, alterar quantidades">
+                  <Tooltip content="Editar lista: adicionar/remover produtos" position="bottom" maxWidth="160px">
                     <button
                       onClick={() => handleEditList(list)}
                       className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-sm flex items-center"
@@ -611,7 +613,7 @@ export function ShoppingListsTab() {
                       Editar
                     </button>
                   </Tooltip>
-                  <Tooltip content="Deletar lista permanentemente">
+                  <Tooltip content="Deletar lista permanentemente" position="bottom" maxWidth="140px">
                     <button
                       onClick={() => handleDeleteList(list.id)}
                       className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm flex items-center"
@@ -638,7 +640,11 @@ export function ShoppingListsTab() {
                       }`}
                     >
                       {/* Status Badge */}
-                      <Tooltip content={`Status: ${statusInfo.label}. Clique nos botões para alterar o status do item`}>
+                      <Tooltip
+                        content={`Status: ${statusInfo.label}. Use os botões para alterar`}
+                        position="bottom"
+                        maxWidth="140px"
+                      >
                         <div className={`px-2 py-1 rounded-full text-xs font-medium border ${statusInfo.color}`}>
                           {statusInfo.icon} {statusInfo.label}
                         </div>
@@ -684,7 +690,7 @@ export function ShoppingListsTab() {
                       {/* Botões de Ação */}
                       <div className="flex gap-1">
                         {item.status === "PENDING" && (
-                          <Tooltip content="Marcar item como comprado">
+                          <Tooltip content="Marcar como comprado" position="left" maxWidth="120px">
                             <button
                               onClick={() => handleUpdateItemStatus(item.id, "PURCHASED")}
                               className="bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded text-xs"
@@ -694,7 +700,7 @@ export function ShoppingListsTab() {
                           </Tooltip>
                         )}
                         {(item.status === "PURCHASED" || item.status === "RECEIVED") && (
-                          <Tooltip content="Gerenciar quantidades: recebido, defeito, devolvido e final">
+                          <Tooltip content="Gerenciar quantidades detalhadas" position="left" maxWidth="140px">
                             <button
                               onClick={() => openQuantityModal(item)}
                               className="bg-purple-500 hover:bg-purple-600 text-white px-2 py-1 rounded text-xs"
@@ -704,7 +710,7 @@ export function ShoppingListsTab() {
                           </Tooltip>
                         )}
                         {item.status === "RECEIVED" && (
-                          <Tooltip content="Reverter item para aguardando">
+                          <Tooltip content="Reverter para aguardando" position="left" maxWidth="120px">
                             <button
                               onClick={() => handleUpdateItemStatus(item.id, "PENDING")}
                               className="bg-gray-500 hover:bg-gray-600 text-white px-2 py-1 rounded text-xs"
