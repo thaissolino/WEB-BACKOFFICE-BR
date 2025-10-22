@@ -820,11 +820,11 @@ export function ShoppingListsTab() {
                             {item.receivedQuantity > 0 && (
                               <span className="text-green-600"> / Recebido: {item.receivedQuantity}</span>
                             )}
-                            {/* CORREÇÃO: A Receber = Pedido - Recebido (devolvido não conta) */}
-                            {item.receivedQuantity < item.quantity && (
+                            {/* CORREÇÃO: A Receber = Pedido - Recebido + Devolvido */}
+                            {(item.receivedQuantity < item.quantity || item.returnedQuantity > 0) && (
                               <span className="text-yellow-600">
                                 {" "}
-                                / A Receber: {item.quantity - item.receivedQuantity}
+                                / A Receber: {item.quantity - item.receivedQuantity + item.returnedQuantity}
                               </span>
                             )}
                             {item.defectiveQuantity > 0 && (
