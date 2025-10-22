@@ -56,7 +56,7 @@ export function serviceError(err: any): ResponseError {
 
 export const service = axios.create({
   // baseURL: 'https://vfbank-api.stric.com.br'
-  baseURL: process.env.REACT_APP_API_URL,
+  baseURL: process.env.REACT_APP_API_URL || "http://localhost:3333",
   headers: {
     Authorization: `Bearer ${localStorage.getItem("@stricv2:token")}`,
   },

@@ -31,6 +31,7 @@
     "@types/styled-components": "^5.1.34",
     "antd": "^5.24.7",
     "axios": "^1.7.9",
+    "caniuse-lite": "^1.0.30001751",
     "chart.js": "^3.9.1",
     "dayjs": "^1.11.13",
     "formik": "^2.2.9",
