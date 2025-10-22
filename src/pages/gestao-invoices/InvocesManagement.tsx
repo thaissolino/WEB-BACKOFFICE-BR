@@ -10,6 +10,7 @@ import CaixasTab from "./components/sections/Caixas";
 import { OtherPartnersTab } from "./components/sections/OtherPartners";
 import { Invoice } from "./components/types/invoice";
 import CaixasTabBrl from "./components/sections/CaixasBrl";
+import { ShoppingListsTab } from "./components/sections/ShoppingListsTab";
 import { usePermissionStore } from "../../store/permissionsStore";
 
 export type TabType =
@@ -21,7 +22,9 @@ export type TabType =
   | "relatorios"
   | "caixas"
   | "others"
-  | "caixas-brl" | "";
+  | "caixas-brl"
+  | "shopping-lists"
+  | "";
 
 export const permissionTabMap: Record<string, TabType> = {
   INVOICES: "invoices",
@@ -35,14 +38,13 @@ export const permissionTabMap: Record<string, TabType> = {
   CAIXAS_BR_PERMITIDOS: "caixas-brl",
 };
 
-
 export default function InvocesManagement() {
   const [activeTab, setActiveTab] = useState<TabType>("");
-  const {getPermissions, permissions, user} = usePermissionStore()
+  const { getPermissions, permissions, user } = usePermissionStore();
   const [currentInvoice, setCurrentInvoice] = useState<Invoice>({
     id: null,
     number: `INV-${Date.now()}`,
-    date: new Date().toLocaleDateString('en-CA'),
+    date: new Date().toLocaleDateString("en-CA"),
     supplierId: "",
     products: [],
     amountTaxcarrier: 0,
@@ -60,13 +62,11 @@ export default function InvocesManagement() {
     subAmount: 0,
   });
 
-  
-
   useEffect(() => {
     getPermissions();
   }, []);
 
-    useEffect(() => {
+  useEffect(() => {
     if (!permissions?.GERENCIAR_INVOICES) return;
 
     for (const [permKey, tab] of Object.entries(permissionTabMap)) {
@@ -79,7 +79,7 @@ export default function InvocesManagement() {
     }
   }, []);
 
-    const canShowTab = (key: string): boolean => {
+  const canShowTab = (key: string): boolean => {
     if (user?.role === "MASTER") return true;
 
     const perms = permissions?.GERENCIAR_INVOICES;
@@ -92,7 +92,6 @@ export default function InvocesManagement() {
     return perms[key as keyof typeof perms] === true;
   };
 
-
   return (
     <div className="bg-gray-50 min-h-screen">
       <div className="container mx-auto px-4 py-8">
@@ -104,7 +103,7 @@ export default function InvocesManagement() {
         <Tabs activeTab={activeTab} setActiveTab={setActiveTab} />
 
         <div className="mt-6">
-                   {activeTab === "invoices" && canShowTab("INVOICES") && (
+          {activeTab === "invoices" && canShowTab("INVOICES") && (
             <InvoicesTab currentInvoice={currentInvoice} setCurrentInvoice={setCurrentInvoice} />
           )}
           {activeTab === "products" && canShowTab("PRODUTOS") && <ProductsTab />}
@@ -115,8 +114,8 @@ export default function InvocesManagement() {
           {activeTab === "relatorios" && canShowTab("RELATORIOS") && <ReportsTab />}
           {activeTab === "caixas" && canShowTab("CAIXAS_PERMITIDOS") && <CaixasTab />}
           {activeTab === "caixas-brl" && canShowTab("CAIXAS_BR_PERMITIDOS") && <CaixasTabBrl />}
+          {activeTab === "shopping-lists" && <ShoppingListsTab />}
         </div>
-
       </div>
     </div>
   );
