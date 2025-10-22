@@ -9,7 +9,7 @@ import TrafficIcon from "@mui/icons-material/Traffic";
 import Header from "../../components/Header";
 import StatBox from "../../components/StatBox";
 import PersonIcon from "@mui/icons-material/Person";
-import Groups2Icon from "@mui/icons-material/Groups2";
+import Groups2Icon from "@mui/icons-material/Groups2"; 
 import { useEffect, useState } from "react";
 import { api } from "../../services/api";
 import { useAuthBackoffice } from "../../hooks/authBackoffice";

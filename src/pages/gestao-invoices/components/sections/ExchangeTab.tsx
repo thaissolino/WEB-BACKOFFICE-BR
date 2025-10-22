@@ -40,12 +40,13 @@ export function ExchangeTab() {
   const [historyPaymentBuy, setHistoryPaymentBuy] = useState<FinancialTransaction[] | undefined>(undefined);
   const [currentPage, setCurrentPage] = useState(0);
   const itemsPerPage = 10;
+  const [selectedTransactions, setSelectedTransactions] = useState<string[]>([]);
   const [valorRaw, setValorRaw] = useState("");
   const [valorRaw2, setValorRaw2] = useState("");
 
   const [dataPayment, setDataUpdated] = useState({
     invoiceId: "",
-    date: new Date().toLocaleDateString('en-CA'),
+    date: new Date().toLocaleDateString("en-CA"),
     usd: 0,
   });
   const { setOpenNotification } = useNotification();
@@ -59,7 +60,7 @@ export function ExchangeTab() {
     rate: string | number;
     description: string;
   }>({
-    date: new Date().toLocaleDateString('en-CA'),
+    date: new Date().toLocaleDateString("en-CA"),
     usd: "", // sempre resultará em "", mas mostra a estrutura
     rate: "", // sempre resultará em "", mas mostra a estrutura
     type: "BUY",
@@ -172,14 +173,14 @@ export function ExchangeTab() {
       //   },
       // });
       setOpenNotification({
-        type: 'success',
-        title: 'Sucesso!',
-        notification: 'Saldo adicionado com sucesso!'
+        type: "success",
+        title: "Sucesso!",
+        notification: "Saldo adicionado com sucesso!",
       });
-      setValorRaw("")
-      setValorRaw2("")
+      setValorRaw("");
+      setValorRaw2("");
       setAddBalance({
-        date: new Date().toLocaleDateString('en-CA'),
+        date: new Date().toLocaleDateString("en-CA"),
         rate: "",
         usd: "",
         type: "BUY",
@@ -280,14 +281,14 @@ export function ExchangeTab() {
       //   },
       // });
       setOpenNotification({
-        type: 'success',
-        title: 'Sucesso!',
-        notification: 'Pagamento realizado com sucesso!'
+        type: "success",
+        title: "Sucesso!",
+        notification: "Pagamento realizado com sucesso!",
       });
-      setValorRaw3("")
+      setValorRaw3("");
       setDataUpdated({
         invoiceId: "",
-        date: new Date().toLocaleDateString('en-CA'),
+        date: new Date().toLocaleDateString("en-CA"),
         usd: 0,
       });
 
@@ -309,11 +310,120 @@ export function ExchangeTab() {
     }
   };
 
+  const handleSelectTransaction = (transactionId: string) => {
+    setSelectedTransactions((prev) =>
+      prev.includes(transactionId) ? prev.filter((id) => id !== transactionId) : [...prev, transactionId]
+    );
+  };
+
+  const handleSelectAll = () => {
+    if (selectedTransactions.length === (historyPaymentBuy?.length || 0)) {
+      setSelectedTransactions([]);
+    } else {
+      setSelectedTransactions(historyPaymentBuy?.map((t) => t.id) || []);
+    }
+  };
+
+  const deleteSelectedTransactions = async () => {
+    if (selectedTransactions.length === 0) return;
+
+    try {
+      const result = await Swal.fire({
+        title: "Confirmar Exclusão em Massa",
+        text: `Tem certeza que deseja deletar ${selectedTransactions.length} transação(ões)? O saldo será recalculado automaticamente.`,
+        icon: "warning",
+        showCancelButton: true,
+        confirmButtonColor: "#dc2626",
+        cancelButtonColor: "#6b7280",
+        confirmButtonText: "Sim, deletar todas!",
+        cancelButtonText: "Cancelar",
+        buttonsStyling: false,
+        customClass: {
+          confirmButton: "bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded font-semibold mx-2",
+          cancelButton: "bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded font-semibold mx-2",
+        },
+      });
+
+      if (result.isConfirmed) {
+        setLoading(true);
+
+        // Deletar todas as transações selecionadas
+        await Promise.all(selectedTransactions.map((id) => api.delete(`/invoice/exchange-records/${id}/recalculate`)));
+
+        // Limpar seleção
+        setSelectedTransactions([]);
+
+        // Recarregar dados
+        await Promise.all([getBalance(), fetchData()]);
+
+        setOpenNotification({
+          type: "success",
+          title: "Sucesso!",
+          notification: `${selectedTransactions.length} transação(ões) deletada(s) e saldo recalculado!`,
+        });
+      }
+    } catch (error) {
+      console.error("Erro ao deletar transações:", error);
+      setOpenNotification({
+        type: "error",
+        title: "Erro!",
+        notification: "Erro ao deletar transações em massa",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const deleteTransaction = async (transactionId: string) => {
+    try {
+      const result = await Swal.fire({
+        title: "Confirmar Exclusão",
+        text: "Tem certeza que deseja deletar esta transação? O saldo será recalculado automaticamente.",
+        icon: "warning",
+        showCancelButton: true,
+        confirmButtonColor: "#dc2626",
+        cancelButtonColor: "#6b7280",
+        confirmButtonText: "Sim, deletar!",
+        cancelButtonText: "Cancelar",
+        buttonsStyling: false,
+        customClass: {
+          confirmButton: "bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded font-semibold mx-2",
+          cancelButton: "bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded font-semibold mx-2",
+        },
+      });
+
+      if (result.isConfirmed) {
+        setLoading(true);
+
+        // Chamar a API de deleção inteligente
+        await api.delete(`/invoice/exchange-records/${transactionId}/recalculate`);
+
+        // Recarregar dados
+        await Promise.all([getBalance(), fetchData()]);
+
+        setOpenNotification({
+          type: "success",
+          title: "Sucesso!",
+          notification: "Transação deletada e saldo recalculado com sucesso!",
+        });
+      }
+    } catch (error) {
+      console.error("Erro ao deletar transação:", error);
+      setOpenNotification({
+        type: "error",
+        title: "Erro!",
+        notification: "Erro ao deletar transação",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="bg-white p-6 rounded-lg shadow">
       <h2 className="text-xl font-semibold mb-6 text-blue-700 border-b pb-2">
         <DollarSign className="mr-2 inline" size={18} />
-        Média Dólar 
+        Média Dólar
       </h2>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
@@ -338,56 +448,58 @@ export function ExchangeTab() {
                 step="0.01"
                 name="usd"
                 value={valorRaw2}
-                placeholder="$0.00"
+                placeholder="$0.00 ou $0,00"
                 onChange={(e) => {
-                // Permite números, ponto decimal e sinal negativo
-                const cleanedValue = e.target.value.replace(/[^0-9.-]/g, "");
+                  // Permite números, ponto decimal, vírgula e sinal negativo
+                  let cleanedValue = e.target.value.replace(/[^0-9.,-]/g, "");
 
-                // Garante que há apenas um sinal negativo no início
-                let newValue = cleanedValue;
-                if ((cleanedValue.match(/-/g) || []).length > 1) {
-                  newValue = cleanedValue.replace(/-/g, "");
-                }
+                  // Converte vírgula para ponto (padrão internacional)
+                  cleanedValue = cleanedValue.replace(/,/g, ".");
 
-                // Garante que há apenas um ponto decimal
-                if ((cleanedValue.match(/\./g) || []).length > 1) {
-                  const parts = cleanedValue.split(".");
-                  newValue = parts[0] + "." + parts.slice(1).join("");
-                }
-
-                setValorRaw2(newValue);
-
-                // Converte para número para o estado do pagamento
-                const numericValue = parseFloat(newValue) || 0;
-                setAddBalance({...addBalance, usd: newValue});
-              }}
-
-              onBlur={(e) => {
-                // Formata apenas se houver valor
-                if (valorRaw2) {
-                  const numericValue = parseFloat(valorRaw2);
-                  if (!isNaN(numericValue)) {
-                    // Formata mantendo o sinal negativo se existir
-                    const formattedValue = numericValue.toLocaleString("en-US", {
-                      style: "currency",
-                      currency: "USD",
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2,
-                    });
-                    setValorRaw2(formattedValue);
-                    setAddBalance({...addBalance, usd: numericValue.toString()});
+                  // Garante que há apenas um sinal negativo no início
+                  let newValue = cleanedValue;
+                  if ((cleanedValue.match(/-/g) || []).length > 1) {
+                    newValue = cleanedValue.replace(/-/g, "");
                   }
-                }
-              }}
-              onFocus={(e) => {
-                // Remove formatação quando o input recebe foco
-                if (valorRaw2) {
-                  const numericValue = parseFloat(valorRaw2.replace(/[^0-9.-]/g, ""));
-                  if (!isNaN(numericValue)) {
-                    setValorRaw2(numericValue.toString());
+
+                  // Garante que há apenas um ponto decimal
+                  if ((cleanedValue.match(/\./g) || []).length > 1) {
+                    const parts = cleanedValue.split(".");
+                    newValue = parts[0] + "." + parts.slice(1).join("");
                   }
-                }
-              }}
+
+                  setValorRaw2(newValue);
+
+                  // Converte para número para o estado do pagamento
+                  const numericValue = parseFloat(newValue) || 0;
+                  setAddBalance({ ...addBalance, usd: newValue });
+                }}
+                onBlur={(e) => {
+                  // Formata apenas se houver valor
+                  if (valorRaw2) {
+                    const numericValue = parseFloat(valorRaw2);
+                    if (!isNaN(numericValue)) {
+                      // Formata mantendo o sinal negativo se existir
+                      const formattedValue = numericValue.toLocaleString("en-US", {
+                        style: "currency",
+                        currency: "USD",
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      });
+                      setValorRaw2(formattedValue);
+                      setAddBalance({ ...addBalance, usd: numericValue.toString() });
+                    }
+                  }
+                }}
+                onFocus={(e) => {
+                  // Remove formatação quando o input recebe foco
+                  if (valorRaw2) {
+                    const numericValue = parseFloat(valorRaw2.replace(/[^0-9.-]/g, ""));
+                    if (!isNaN(numericValue)) {
+                      setValorRaw2(numericValue.toString());
+                    }
+                  }
+                }}
                 className="mt-1 block w-full border border-gray-300 rounded-md p-2"
               />
             </div>
@@ -398,56 +510,58 @@ export function ExchangeTab() {
                 step="0.0001"
                 name="rate"
                 value={valorRaw}
-                placeholder="$0.0000"
+                placeholder="$0.0000 ou $0,0000"
                 onChange={(e) => {
-                // Permite números, ponto decimal e sinal negativo
-                const cleanedValue = e.target.value.replace(/[^0-9.-]/g, "");
+                  // Permite números, ponto decimal, vírgula e sinal negativo
+                  let cleanedValue = e.target.value.replace(/[^0-9.,-]/g, "");
 
-                // Garante que há apenas um sinal negativo no início
-                let newValue = cleanedValue;
-                if ((cleanedValue.match(/-/g) || []).length > 1) {
-                  newValue = cleanedValue.replace(/-/g, "");
-                }
+                  // Converte vírgula para ponto (padrão internacional)
+                  cleanedValue = cleanedValue.replace(/,/g, ".");
 
-                // Garante que há apenas um ponto decimal
-                if ((cleanedValue.match(/\./g) || []).length > 1) {
-                  const parts = cleanedValue.split(".");
-                  newValue = parts[0] + "." + parts.slice(1).join("");
-                }
-
-                setValorRaw(newValue);
-
-                // Converte para número para o estado do pagamento
-                const numericValue = parseFloat(newValue) || 0;
-                setAddBalance({...addBalance, rate: newValue});
-              }}
-
-              onBlur={(e) => {
-                // Formata apenas se houver valor
-                if (valorRaw) {
-                  const numericValue = parseFloat(valorRaw);
-                  if (!isNaN(numericValue)) {
-                    // Formata mantendo o sinal negativo se existir
-                    const formattedValue = numericValue.toLocaleString("en-US", {
-                      style: "currency",
-                      currency: "USD",
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 4,
-                    });
-                    setValorRaw(formattedValue);
-                    setAddBalance({...addBalance, rate: numericValue.toString()});
+                  // Garante que há apenas um sinal negativo no início
+                  let newValue = cleanedValue;
+                  if ((cleanedValue.match(/-/g) || []).length > 1) {
+                    newValue = cleanedValue.replace(/-/g, "");
                   }
-                }
-              }}
-              onFocus={(e) => {
-                // Remove formatação quando o input recebe foco
-                if (valorRaw) {
-                  const numericValue = parseFloat(valorRaw.replace(/[^0-9.-]/g, ""));
-                  if (!isNaN(numericValue)) {
-                    setValorRaw(numericValue.toString());
+
+                  // Garante que há apenas um ponto decimal
+                  if ((cleanedValue.match(/\./g) || []).length > 1) {
+                    const parts = cleanedValue.split(".");
+                    newValue = parts[0] + "." + parts.slice(1).join("");
                   }
-                }
-              }}
+
+                  setValorRaw(newValue);
+
+                  // Converte para número para o estado do pagamento
+                  const numericValue = parseFloat(newValue) || 0;
+                  setAddBalance({ ...addBalance, rate: newValue });
+                }}
+                onBlur={(e) => {
+                  // Formata apenas se houver valor
+                  if (valorRaw) {
+                    const numericValue = parseFloat(valorRaw);
+                    if (!isNaN(numericValue)) {
+                      // Formata mantendo o sinal negativo se existir
+                      const formattedValue = numericValue.toLocaleString("en-US", {
+                        style: "currency",
+                        currency: "USD",
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 4,
+                      });
+                      setValorRaw(formattedValue);
+                      setAddBalance({ ...addBalance, rate: numericValue.toString() });
+                    }
+                  }
+                }}
+                onFocus={(e) => {
+                  // Remove formatação quando o input recebe foco
+                  if (valorRaw) {
+                    const numericValue = parseFloat(valorRaw.replace(/[^0-9.-]/g, ""));
+                    if (!isNaN(numericValue)) {
+                      setValorRaw(numericValue.toString());
+                    }
+                  }
+                }}
                 // onChange={handleInputBalance}
                 className="mt-1 block w-full border border-gray-300 rounded-md p-2"
               />
@@ -481,7 +595,11 @@ export function ExchangeTab() {
             <div className="flex justify-between">
               <span className="text-gray-700">Custo Médio:</span>
               <span className="font-bold">
-                {loading ? "Carregando..." : balance?.balance === 0 ? formatCurrency( 0, 4) : formatCurrency(balance?.averageRate ?? 0, 4)}
+                {loading
+                  ? "Carregando..."
+                  : balance?.balance === 0
+                  ? formatCurrency(0, 4)
+                  : formatCurrency(balance?.averageRate ?? 0, 4)}
               </span>
             </div>
           </div>
@@ -499,7 +617,7 @@ export function ExchangeTab() {
               onChange={(e) => {
                 const invoiceId = e.target.value;
                 if (!invoiceId)
-                  return setDataUpdated({ invoiceId: "", date: new Date().toLocaleDateString('en-CA'), usd: 0 });
+                  return setDataUpdated({ invoiceId: "", date: new Date().toLocaleDateString("en-CA"), usd: 0 });
                 const valueInvoice = invoices.find((item) => item.id === invoiceId);
                 setValorRaw3(
                   valueInvoice && valueInvoice.subAmount !== undefined
@@ -510,7 +628,7 @@ export function ExchangeTab() {
                         maximumFractionDigits: 2,
                       })
                     : ""
-                )
+                );
                 setDataUpdated((prev) => ({
                   ...prev,
                   invoiceId: invoiceId,
@@ -530,7 +648,8 @@ export function ExchangeTab() {
                     .filter((item) => !item.completed && !item.paid)
                     .map((invoice) => (
                       <option key={invoice.id} value={invoice.id}>
-                        {invoice.number.toUpperCase()} - {invoice.supplier.name.toUpperCase()} ({formatCurrency(invoice.subAmount)})
+                        {invoice.number.toUpperCase()} - {invoice.supplier.name.toUpperCase()} (
+                        {formatCurrency(invoice.subAmount)})
                       </option>
                     ))}
                 </>
@@ -581,22 +700,44 @@ export function ExchangeTab() {
 
       {/* Histórico de Transações */}
       <div className="mt-6 p-4 bg-gray-50 rounded">
-        <h3 className="font-medium mb-2">Histórico de Transações</h3>
+        <div className="flex justify-between items-center mb-2">
+          <h3 className="font-medium">Histórico de Transações</h3>
+          {selectedTransactions.length > 0 && (
+            <button
+              onClick={deleteSelectedTransactions}
+              className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded font-semibold flex items-center"
+            >
+              🗑️ Deletar Selecionadas ({selectedTransactions.length})
+            </button>
+          )}
+        </div>
         <div className="overflow-x-auto">
           <table className="min-w-full bg-white">
             <thead>
               <tr className="bg-gray-200">
+                <th className="py-2 px-4 border">
+                  <input
+                    type="checkbox"
+                    checked={
+                      selectedTransactions.length === (historyPaymentBuy?.length || 0) &&
+                      (historyPaymentBuy?.length || 0) > 0
+                    }
+                    onChange={handleSelectAll}
+                    className="rounded"
+                  />
+                </th>
                 <th className="py-2 px-4 border">Data</th>
                 <th className="py-2 px-4 border">Tipo</th>
                 <th className="py-2 px-4 border">USD</th>
                 <th className="py-2 px-4 border">Taxa</th>
                 <th className="py-2 px-4 border">Descrição</th>
+                <th className="py-2 px-4 border">Ações</th>
               </tr>
             </thead>
             <tbody>
               {historyPaymentBuy && historyPaymentBuy.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="py-4 text-center text-gray-500">
+                  <td colSpan={7} className="py-4 text-center text-gray-500">
                     Nenhuma transação registrada
                   </td>
                 </tr>
@@ -611,6 +752,14 @@ export function ExchangeTab() {
 
                   return (
                     <tr key={transacao.id} className="hover:bg-gray-50">
+                      <td className={`py-2 px-4 border ${rowClass} text-center`}>
+                        <input
+                          type="checkbox"
+                          checked={selectedTransactions.includes(transacao.id)}
+                          onChange={() => handleSelectTransaction(transacao.id)}
+                          className="rounded"
+                        />
+                      </td>
                       <td className={`py-2 px-2 border ${rowClass} text-center`}>
                         <i className="fas fa-clock text-green-500 mr-2"></i>
 
@@ -626,7 +775,18 @@ export function ExchangeTab() {
                       <td className={`py-2 px-4 border ${rowClass} text-center font-mono`}>
                         {formatCurrency(transacao.rate, 4) || "-"}
                       </td>
-                      <td className={`py-2 px-4 border ${rowClass} text-center`}>{transacao.description.toUpperCase()}</td>
+                      <td className={`py-2 px-4 border ${rowClass} text-center`}>
+                        {transacao.description.toUpperCase()}
+                      </td>
+                      <td className={`py-2 px-4 border ${rowClass} text-center`}>
+                        <button
+                          onClick={() => deleteTransaction(transacao.id)}
+                          className="bg-red-600 hover:bg-red-800 text-white px-3 py-1 rounded text-sm font-semibold transition-colors duration-200"
+                          title="Deletar transação e recalcular saldo"
+                        >
+                          🗑️
+                        </button>
+                      </td>
                     </tr>
                   );
                 })
