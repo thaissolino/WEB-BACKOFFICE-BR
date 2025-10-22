@@ -663,6 +663,13 @@ export function ShoppingListsTab() {
                             {item.receivedQuantity > 0 && (
                               <span className="text-green-600"> / Recebido: {item.receivedQuantity}</span>
                             )}
+                            {/* NOVO: Mostrar quantidade a receber (incluindo devolvidos) */}
+                            {(item.receivedQuantity < item.quantity || item.returnedQuantity > 0) && (
+                              <span className="text-yellow-600">
+                                {" "}
+                                / A Receber: {item.quantity - item.receivedQuantity + item.returnedQuantity}
+                              </span>
+                            )}
                             {item.defectiveQuantity > 0 && (
                               <span className="text-red-600"> / Defeito: {item.defectiveQuantity}</span>
                             )}
@@ -792,7 +799,7 @@ export function ShoppingListsTab() {
                     setQuantityDetails((prev) => ({
                       ...prev,
                       defective,
-                      final: prev.received - defective - prev.returned,
+                      final: prev.received - defective, // CORREÇÃO: Devolvido não diminui
                     }));
                   }}
                   className="w-full border border-gray-300 rounded-md p-2"
@@ -811,7 +818,8 @@ export function ShoppingListsTab() {
                     setQuantityDetails((prev) => ({
                       ...prev,
                       returned,
-                      final: prev.received - prev.defective - returned,
+                      // CORREÇÃO: Devolvido não afeta o cálculo final
+                      final: prev.received - prev.defective,
                     }));
                   }}
                   className="w-full border border-gray-300 rounded-md p-2"
@@ -828,7 +836,9 @@ export function ShoppingListsTab() {
                   disabled
                   className="w-full border border-gray-300 rounded-md p-2 bg-green-100 font-semibold"
                 />
-                <p className="text-xs text-gray-500 mt-1">Calculado automaticamente: Recebido - Defeito - Devolvido</p>
+                <p className="text-xs text-gray-500 mt-1">
+                  Calculado automaticamente: Recebido - Defeito (Devolvido volta para "A Receber")
+                </p>
               </div>
             </div>
 
