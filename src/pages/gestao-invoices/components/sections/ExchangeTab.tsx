@@ -448,10 +448,13 @@ export function ExchangeTab() {
                 step="0.01"
                 name="usd"
                 value={valorRaw2}
-                placeholder="$0.00"
+                placeholder="$0.00 ou $0,00"
                 onChange={(e) => {
-                  // Permite números, ponto decimal e sinal negativo
-                  const cleanedValue = e.target.value.replace(/[^0-9.-]/g, "");
+                  // Permite números, ponto decimal, vírgula e sinal negativo
+                  let cleanedValue = e.target.value.replace(/[^0-9.,-]/g, "");
+
+                  // Converte vírgula para ponto (padrão internacional)
+                  cleanedValue = cleanedValue.replace(/,/g, ".");
 
                   // Garante que há apenas um sinal negativo no início
                   let newValue = cleanedValue;
@@ -507,10 +510,13 @@ export function ExchangeTab() {
                 step="0.0001"
                 name="rate"
                 value={valorRaw}
-                placeholder="$0.0000"
+                placeholder="$0.0000 ou $0,0000"
                 onChange={(e) => {
-                  // Permite números, ponto decimal e sinal negativo
-                  const cleanedValue = e.target.value.replace(/[^0-9.-]/g, "");
+                  // Permite números, ponto decimal, vírgula e sinal negativo
+                  let cleanedValue = e.target.value.replace(/[^0-9.,-]/g, "");
+
+                  // Converte vírgula para ponto (padrão internacional)
+                  cleanedValue = cleanedValue.replace(/,/g, ".");
 
                   // Garante que há apenas um sinal negativo no início
                   let newValue = cleanedValue;
