@@ -61,7 +61,13 @@ export function ShoppingListsTab() {
   const [isEditing, setIsEditing] = useState<string | null>(null);
   const [editingList, setEditingList] = useState<ShoppingList | null>(null);
   const [showQuantityModal, setShowQuantityModal] = useState(false);
+  const [showPurchaseModal, setShowPurchaseModal] = useState(false);
+  const [showTransferModal, setShowTransferModal] = useState(false);
+  const [showPdfModal, setShowPdfModal] = useState(false);
+  const [pdfContent, setPdfContent] = useState<string>("");
+  const [showOnlyPending, setShowOnlyPending] = useState(false);
   const [selectedItem, setSelectedItem] = useState<ShoppingListItem | null>(null);
+  const [purchasedQuantity, setPurchasedQuantity] = useState(0);
   const [quantityDetails, setQuantityDetails] = useState({
     ordered: 0,
     received: 0,
@@ -69,6 +75,10 @@ export function ShoppingListsTab() {
     returned: 0,
     final: 0,
   });
+  const [productSearchTerm, setProductSearchTerm] = useState("");
+  const [selectedProductForAdd, setSelectedProductForAdd] = useState<{ productId: string; quantity: number } | null>(
+    null
+  );
   const { setOpenNotification } = useNotification();
 
   const [newList, setNewList] = useState({
@@ -105,7 +115,26 @@ export function ShoppingListsTab() {
 
   useEffect(() => {
     fetchData();
+    // Restaurar lista em construção do localStorage
+    const savedList = localStorage.getItem("shopping-list-draft");
+    if (savedList) {
+      try {
+        const parsed = JSON.parse(savedList);
+        setNewList(parsed);
+      } catch (error) {
+        console.error("Erro ao restaurar lista do localStorage:", error);
+      }
+    }
   }, []);
+
+  // Salvar lista em construção no localStorage sempre que mudar
+  useEffect(() => {
+    if (newList.name || newList.items.length > 0) {
+      localStorage.setItem("shopping-list-draft", JSON.stringify(newList));
+    } else {
+      localStorage.removeItem("shopping-list-draft");
+    }
+  }, [newList]);
 
   const handleCreateList = async () => {
     if (!newList.name.trim()) {
@@ -113,6 +142,21 @@ export function ShoppingListsTab() {
         icon: "warning",
         title: "Atenção",
         text: "Nome da lista é obrigatório!",
+        confirmButtonText: "Ok",
+        buttonsStyling: false,
+        customClass: {
+          confirmButton: "bg-blue-600 text-white hover:bg-blue-700 px-4 py-2 rounded font-semibold",
+        },
+      });
+      return;
+    }
+
+    // Validar que tenha pelo menos um produto
+    if (newList.items.length === 0 || newList.items.every((item) => !item.productId)) {
+      Swal.fire({
+        icon: "warning",
+        title: "Atenção",
+        text: "A lista deve conter pelo menos um produto!",
         confirmButtonText: "Ok",
         buttonsStyling: false,
         customClass: {
@@ -140,6 +184,7 @@ export function ShoppingListsTab() {
         description: "",
         items: [],
       });
+      localStorage.removeItem("shopping-list-draft");
 
       await fetchData();
     } catch (error) {
@@ -188,6 +233,72 @@ export function ShoppingListsTab() {
           notification: "Erro ao deletar lista",
         });
       }
+    }
+  };
+
+  const handleOpenPurchaseModal = (item: ShoppingListItem) => {
+    setSelectedItem(item);
+    setPurchasedQuantity(item.receivedQuantity || 0);
+    setShowPurchaseModal(true);
+  };
+
+  const handleSavePurchasedQuantity = async (allowLess: boolean = false) => {
+    if (!selectedItem) return;
+
+    if (purchasedQuantity < 0) {
+      setOpenNotification({
+        type: "error",
+        title: "Erro!",
+        notification: "Quantidade comprada não pode ser negativa!",
+      });
+      return;
+    }
+
+    // Permitir quantidade maior que pedida ou menor (se allowLess for true)
+    if (!allowLess && purchasedQuantity < selectedItem.quantity) {
+      const result = await Swal.fire({
+        title: "Quantidade Menor que Pedida",
+        text: `Você está comprando ${purchasedQuantity} mas pediu ${selectedItem.quantity}. Deseja continuar mesmo assim?`,
+        icon: "question",
+        showCancelButton: true,
+        confirmButtonText: "Sim, confirmar",
+        cancelButtonText: "Cancelar",
+        buttonsStyling: false,
+        customClass: {
+          confirmButton: "bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded font-semibold mx-2",
+          cancelButton: "bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded font-semibold mx-2",
+        },
+      });
+
+      if (!result.isConfirmed) {
+        return;
+      }
+    }
+
+    try {
+      await api.patch("/invoice/shopping-lists/update-purchased-quantity", {
+        itemId: selectedItem.id,
+        purchasedQuantity,
+      });
+
+      setOpenNotification({
+        type: "success",
+        title: "Sucesso!",
+        notification:
+          purchasedQuantity > selectedItem.quantity
+            ? `Quantidade atualizada! Comprado ${purchasedQuantity} (maior que pedido de ${selectedItem.quantity})`
+            : "Quantidade comprada atualizada com sucesso!",
+      });
+
+      setShowPurchaseModal(false);
+      await fetchData();
+    } catch (error) {
+      console.error("Erro ao atualizar quantidade comprada:", error);
+      setOpenNotification({
+        type: "error",
+        title: "Erro!",
+        notification: "Erro ao atualizar quantidade comprada",
+      });
     }
   };
 
@@ -352,16 +463,200 @@ export function ShoppingListsTab() {
   const handleEditList = (list: ShoppingList) => {
     setEditingList(list);
     setIsEditing(list.id);
+    // Manter apenas itens pendentes (não comprados) ao editar
+    const pendingItems = list.shoppingListItems?.filter((item) => item.status === "PENDING") || [];
+
     setNewList({
       name: list.name,
       description: list.description || "",
-      items:
-        list.shoppingListItems?.map((item) => ({
-          productId: item.productId,
-          quantity: item.quantity,
-          notes: item.notes || "",
-        })) || [],
+      items: pendingItems.map((item) => ({
+        productId: item.productId,
+        quantity: item.quantity,
+        notes: item.notes || "",
+      })),
     });
+  };
+
+  const handleTransferItem = async (item: ShoppingListItem, targetListId: string) => {
+    try {
+      // Buscar lista destino
+      const targetListResponse = await api.get(`/invoice/shopping-lists/${targetListId}`);
+      const targetList = targetListResponse.data;
+
+      // Adicionar item à lista destino
+      const currentItems =
+        targetList.shoppingListItems?.map((i: ShoppingListItem) => ({
+          productId: i.productId,
+          quantity: i.quantity,
+          notes: i.notes || "",
+        })) || [];
+
+      currentItems.push({
+        productId: item.productId,
+        quantity: item.quantity,
+        notes: item.notes || "",
+      });
+
+      await api.put(`/invoice/shopping-lists/${targetListId}`, {
+        name: targetList.name,
+        description: targetList.description,
+        items: currentItems,
+      });
+
+      // Remover da lista origem - buscar lista atualizada
+      const allListsResponse = await api.get("/invoice/shopping-lists");
+      const allLists = allListsResponse.data;
+      const sourceList = allLists.find((l: ShoppingList) => l.shoppingListItems?.some((i) => i.id === item.id));
+
+      if (sourceList) {
+        // Manter itens comprados e remover apenas o item transferido
+        const remainingItems =
+          sourceList.shoppingListItems
+            ?.filter((i: ShoppingListItem) => i.id !== item.id)
+            .map((i: ShoppingListItem) => ({
+              productId: i.productId,
+              quantity: i.quantity,
+              notes: i.notes || "",
+            })) || [];
+
+        await api.put(`/invoice/shopping-lists/${sourceList.id}`, {
+          name: sourceList.name,
+          description: sourceList.description,
+          items: remainingItems,
+        });
+      }
+
+      setOpenNotification({
+        type: "success",
+        title: "Sucesso!",
+        notification: "Item transferido com sucesso!",
+      });
+
+      setShowTransferModal(false);
+      await fetchData();
+    } catch (error) {
+      console.error("Erro ao transferir item:", error);
+      setOpenNotification({
+        type: "error",
+        title: "Erro!",
+        notification: "Erro ao transferir item",
+      });
+    }
+  };
+
+  const handleViewPDF = async (listId: string, listName: string, onlyPending: boolean = false) => {
+    try {
+      const response = await api.get(`/invoice/shopping-lists/${listId}`);
+      const shoppingList = response.data;
+
+      let itemsToInclude = shoppingList.shoppingListItems || [];
+      if (onlyPending) {
+        itemsToInclude = itemsToInclude.filter((item: any) => item.status === "PENDING");
+      }
+
+      // Gerar HTML do PDF
+      const { jsPDF } = await import("jspdf");
+      const doc = new jsPDF({
+        orientation: "portrait",
+        unit: "mm",
+        format: "a4",
+      });
+
+      doc.setFontSize(16);
+      doc.setTextColor(40, 100, 40);
+      doc.text(`Lista de Compras - ${shoppingList.name}${onlyPending ? " (Pendentes)" : ""}`, 105, 15, {
+        align: "center",
+        maxWidth: 180,
+      });
+
+      doc.setFontSize(9);
+      doc.setTextColor(0, 0, 0);
+      doc.text(`Data emissão: ${new Date().toLocaleDateString("pt-BR")}`, 15, 25);
+      doc.text(`Criada em: ${new Date(shoppingList.createdAt).toLocaleDateString("pt-BR")}`, 15, 30);
+
+      const statusCounts = {
+        PENDING: itemsToInclude.filter((item: any) => item.status === "PENDING").length,
+        PURCHASED: itemsToInclude.filter((item: any) => item.status === "PURCHASED").length,
+        RECEIVED: itemsToInclude.filter((item: any) => item.status === "RECEIVED").length,
+      };
+
+      const statusText = `Pendentes: ${statusCounts.PENDING} | Comprados: ${
+        statusCounts.PURCHASED + statusCounts.RECEIVED
+      }`;
+      doc.text(statusText, 195, 25, { align: "right" });
+
+      if (shoppingList.description) {
+        doc.text(`Descrição: ${shoppingList.description}`, 105, 35, { align: "center" });
+      }
+
+      const statusMap = {
+        PENDING: "Pendente",
+        PURCHASED: "Comprado",
+        RECEIVED: "Comprado",
+      };
+
+      const truncateText = (text: string, maxLength: number) => {
+        if (text.length > maxLength) {
+          return text.substring(0, maxLength - 3) + "...";
+        }
+        return text;
+      };
+
+      const tableData = itemsToInclude.map((item: any) => [
+        truncateText(`${item.product.name} (${item.product.code})`, 35),
+        item.quantity.toString(),
+        item.receivedQuantity.toString(),
+        truncateText(statusMap[item.status as keyof typeof statusMap] || item.status, 12),
+      ]);
+
+      const { autoTable } = await import("jspdf-autotable");
+      autoTable(doc, {
+        head: [["PRODUTO", "PEDIDO", "COMPRADO", "STATUS"]],
+        body: tableData,
+        startY: 45,
+        styles: {
+          fontSize: 8,
+          cellPadding: 3,
+          halign: "center",
+        },
+        headStyles: {
+          fillColor: [229, 231, 235],
+          textColor: 0,
+          fontStyle: "bold",
+          fontSize: 9,
+          cellPadding: 4,
+          halign: "center",
+        },
+        alternateRowStyles: {
+          fillColor: [240, 249, 255],
+        },
+        columnStyles: {
+          0: { halign: "left", cellWidth: 60, fontStyle: "bold" },
+          1: { halign: "center", cellWidth: 30 },
+          2: { halign: "center", cellWidth: 30 },
+          3: { halign: "center", cellWidth: 30 },
+        },
+        margin: { left: 10, right: 10 },
+      });
+
+      // Converter para base64 para visualizar
+      const pdfBlob = doc.output("blob");
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64data = reader.result as string;
+        setPdfContent(base64data);
+        setShowPdfModal(true);
+        setShowOnlyPending(onlyPending);
+      };
+      reader.readAsDataURL(pdfBlob);
+    } catch (error) {
+      console.error("Erro ao gerar PDF:", error);
+      setOpenNotification({
+        type: "error",
+        title: "Erro!",
+        notification: "Erro ao gerar PDF",
+      });
+    }
   };
 
   const handleSaveEdit = async () => {
@@ -381,10 +676,28 @@ export function ShoppingListsTab() {
 
     try {
       setIsCreating(true);
+
+      // Buscar lista atualizada para pegar itens comprados
+      const currentListResponse = await api.get(`/invoice/shopping-lists/${editingList.id}`);
+      const currentList = currentListResponse.data;
+
+      // Manter itens comprados (PURCHASED e RECEIVED)
+      const purchasedItems =
+        currentList.shoppingListItems
+          ?.filter((item: ShoppingListItem) => item.status === "PURCHASED" || item.status === "RECEIVED")
+          .map((item: ShoppingListItem) => ({
+            productId: item.productId,
+            quantity: item.quantity,
+            notes: item.notes || "",
+          })) || [];
+
+      // Combinar itens pendentes editados com itens comprados mantidos
+      const allItems = [...newList.items, ...purchasedItems];
+
       await api.put(`/invoice/shopping-lists/${editingList.id}`, {
         name: newList.name,
         description: newList.description,
-        items: newList.items,
+        items: allItems,
       });
 
       setOpenNotification({
@@ -415,10 +728,32 @@ export function ShoppingListsTab() {
   };
 
   const addProductToList = () => {
+    if (!selectedProductForAdd || !selectedProductForAdd.productId) {
+      Swal.fire({
+        icon: "warning",
+        title: "Atenção",
+        text: "Selecione um produto primeiro!",
+        confirmButtonText: "Ok",
+        buttonsStyling: false,
+        customClass: {
+          confirmButton: "bg-blue-600 text-white hover:bg-blue-700 px-4 py-2 rounded font-semibold",
+        },
+      });
+      return;
+    }
+
+    // Adicionar no início da lista (unshift)
     setNewList((prev) => ({
       ...prev,
-      items: [...prev.items, { productId: "", quantity: 1, notes: "" }],
+      items: [
+        { productId: selectedProductForAdd.productId, quantity: selectedProductForAdd.quantity || 1, notes: "" },
+        ...prev.items,
+      ],
     }));
+
+    // Limpar seleção
+    setSelectedProductForAdd(null);
+    setProductSearchTerm("");
   };
 
   const removeProductFromList = (index: number) => {
@@ -480,7 +815,9 @@ export function ShoppingListsTab() {
         RECEIVED: itemsToInclude.filter((item: any) => item.status === "RECEIVED").length,
       };
 
-      const statusText = `Aguardando: ${statusCounts.PENDING} | Comprados: ${statusCounts.PURCHASED} | Recebidos: ${statusCounts.RECEIVED}`;
+      const statusText = `Pendentes: ${statusCounts.PENDING} | Comprados: ${
+        statusCounts.PURCHASED + statusCounts.RECEIVED
+      }`;
       doc.text(statusText, 195, 25, { align: "right" });
 
       // Descrição centralizada
@@ -497,9 +834,9 @@ export function ShoppingListsTab() {
 
       // Mapear status
       const statusMap = {
-        PENDING: "Aguardando",
+        PENDING: "Pendente",
         PURCHASED: "Comprado",
-        RECEIVED: "Recebido",
+        RECEIVED: "Comprado",
       };
 
       // Função para truncar textos
@@ -621,7 +958,7 @@ export function ShoppingListsTab() {
         return {
           color: "bg-yellow-100 text-yellow-800 border-yellow-200",
           icon: "⏳",
-          label: "Aguardando",
+          label: "Pendente",
         };
       case "PURCHASED":
         return {
@@ -643,6 +980,13 @@ export function ShoppingListsTab() {
         };
     }
   };
+
+  // Filtrar produtos para busca
+  const filteredProducts = products.filter(
+    (product) =>
+      product.name.toLowerCase().includes(productSearchTerm.toLowerCase()) ||
+      product.code.toLowerCase().includes(productSearchTerm.toLowerCase())
+  );
 
   // Componente de Tooltip Melhorado
   const Tooltip = ({
@@ -758,54 +1102,101 @@ export function ShoppingListsTab() {
 
           {/* Produtos */}
           <div className="mb-4">
-            <div className="flex justify-between items-center mb-2">
-              <label className="block text-sm font-medium text-gray-700">Produtos</label>
-              <button
-                onClick={addProductToList}
-                className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm flex items-center"
-              >
-                <Plus size={14} className="mr-1" />
-                Adicionar Produto
-              </button>
-            </div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Adicionar Produto</label>
 
-            {newList.items.map((item, index) => (
-              <div key={index} className="flex gap-2 mb-2 p-2 bg-white rounded border">
+            {/* Campo de busca e seleção de produto */}
+            <div className="mb-3 p-3 bg-white rounded border">
+              <div className="mb-2">
+                <input
+                  type="text"
+                  value={productSearchTerm}
+                  onChange={(e) => setProductSearchTerm(e.target.value)}
+                  className="w-full border border-gray-300 rounded p-2"
+                  placeholder="Buscar produto por nome ou código..."
+                />
+              </div>
+              <div className="mb-2">
                 <select
-                  value={item.productId}
-                  onChange={(e) => updateProductInList(index, "productId", e.target.value)}
-                  className="flex-1 border border-gray-300 rounded p-2"
+                  value={selectedProductForAdd?.productId || ""}
+                  onChange={(e) => {
+                    const product = products.find((p) => p.id === e.target.value);
+                    if (product) {
+                      setSelectedProductForAdd({ productId: product.id, quantity: 1 });
+                    } else {
+                      setSelectedProductForAdd(null);
+                    }
+                  }}
+                  className="w-full border border-gray-300 rounded p-2"
                 >
                   <option value="">Selecione um produto</option>
-                  {products.map((product) => (
+                  {filteredProducts.map((product) => (
                     <option key={product.id} value={product.id}>
                       {product.name} ({product.code})
                     </option>
                   ))}
                 </select>
+              </div>
+              <div className="flex gap-2 items-center">
                 <input
                   type="number"
-                  value={item.quantity}
-                  onChange={(e) => updateProductInList(index, "quantity", parseFloat(e.target.value) || 1)}
-                  className="w-20 border border-gray-300 rounded p-2"
+                  value={selectedProductForAdd?.quantity || 1}
+                  onChange={(e) => {
+                    if (selectedProductForAdd) {
+                      setSelectedProductForAdd({ ...selectedProductForAdd, quantity: parseFloat(e.target.value) || 1 });
+                    }
+                  }}
+                  className="w-24 border border-gray-300 rounded p-2"
                   min="1"
                   step="0.1"
-                />
-                <input
-                  type="text"
-                  value={item.notes || ""}
-                  onChange={(e) => updateProductInList(index, "notes", e.target.value)}
-                  className="flex-1 border border-gray-300 rounded p-2"
-                  placeholder="Observações"
+                  placeholder="Qtd"
                 />
                 <button
-                  onClick={() => removeProductFromList(index)}
-                  className="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded"
+                  onClick={addProductToList}
+                  className="bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded flex items-center"
                 >
-                  <X size={14} />
+                  <Plus size={14} className="mr-1" />
+                  Adicionar
                 </button>
+                {selectedProductForAdd && (
+                  <button
+                    onClick={() => {
+                      setSelectedProductForAdd(null);
+                      setProductSearchTerm("");
+                    }}
+                    className="bg-red-500 hover:bg-red-600 text-white px-3 py-2 rounded flex items-center"
+                  >
+                    <X size={14} className="mr-1" />
+                    Limpar
+                  </button>
+                )}
               </div>
-            ))}
+            </div>
+
+            {/* Lista de produtos adicionados */}
+            {newList.items.length > 0 && (
+              <div className="mb-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Produtos na Lista</label>
+                {newList.items.map((item, index) => {
+                  const product = products.find((p) => p.id === item.productId);
+                  return (
+                    <div key={index} className="flex gap-2 mb-2 p-2 bg-white rounded border items-center">
+                      <div className="flex-1">
+                        <span className="font-medium">{product?.name || "Produto não encontrado"}</span>
+                        {product && <span className="text-sm text-gray-500 ml-2">({product.code})</span>}
+                        <span className="text-sm text-blue-600 ml-2">Qtd: {item.quantity}</span>
+                        {item.notes && <span className="text-sm text-gray-600 ml-2">- {item.notes}</span>}
+                      </div>
+                      <button
+                        onClick={() => removeProductFromList(index)}
+                        className="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded"
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           <div className="flex gap-2">
@@ -827,6 +1218,7 @@ export function ShoppingListsTab() {
                 setIsEditing(null);
                 setEditingList(null);
                 setNewList({ name: "", description: "", items: [] });
+                localStorage.removeItem("shopping-list-draft");
               }}
               className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded"
             >
@@ -865,13 +1257,31 @@ export function ShoppingListsTab() {
                       Editar
                     </button>
                   </Tooltip>
+                  <Tooltip content="Visualizar PDF na tela" position="bottom" maxWidth="140px">
+                    <button
+                      onClick={() => handleViewPDF(list.id, list.name, false)}
+                      className="bg-purple-500 hover:bg-purple-600 text-white px-3 py-1 rounded text-sm flex items-center"
+                    >
+                      <FileText size={14} className="mr-1" />
+                      Ver PDF
+                    </button>
+                  </Tooltip>
+                  <Tooltip content="Visualizar apenas pendentes" position="bottom" maxWidth="160px">
+                    <button
+                      onClick={() => handleViewPDF(list.id, list.name, true)}
+                      className="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded text-sm flex items-center"
+                    >
+                      <FileText size={14} className="mr-1" />
+                      Ver Pendentes
+                    </button>
+                  </Tooltip>
                   <Tooltip content="Baixar lista em PDF" position="bottom" maxWidth="120px">
                     <button
                       onClick={() => handleDownloadPDF(list.id, list.name)}
                       className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm flex items-center"
                     >
-                      <FileText size={14} className="mr-1" />
-                      PDF
+                      <Download size={14} className="mr-1" />
+                      Baixar
                     </button>
                   </Tooltip>
                   <Tooltip content="Baixar lista em CSV" position="bottom" maxWidth="120px">
@@ -896,110 +1306,313 @@ export function ShoppingListsTab() {
               </div>
 
               <div className="space-y-2">
-                {list.shoppingListItems?.map((item) => {
-                  const statusInfo = getStatusInfo(item.status);
-                  return (
-                    <div
-                      key={item.id}
-                      className={`flex items-center gap-3 p-3 rounded border ${
-                        item.status === "RECEIVED"
-                          ? "bg-green-50 border-green-200"
-                          : item.status === "PURCHASED"
-                          ? "bg-blue-50 border-blue-200"
-                          : "bg-gray-50 border-gray-200"
-                      }`}
-                    >
-                      {/* Status Badge */}
-                      <Tooltip
-                        content={`Status: ${statusInfo.label}. Use os botões para alterar`}
-                        position="bottom"
-                        maxWidth="140px"
+                {/* Itens Pendentes (em cima) */}
+                {list.shoppingListItems
+                  ?.filter((item) => item.status === "PENDING")
+                  .map((item) => {
+                    const statusInfo = getStatusInfo(item.status);
+                    return (
+                      <div
+                        key={item.id}
+                        className={`flex items-center gap-3 p-3 rounded border ${
+                          item.status === "RECEIVED"
+                            ? "bg-green-50 border-green-200"
+                            : item.status === "PURCHASED"
+                            ? "bg-blue-50 border-blue-200"
+                            : "bg-gray-50 border-gray-200"
+                        }`}
                       >
-                        <div className={`px-2 py-1 rounded-full text-xs font-medium border ${statusInfo.color}`}>
-                          {statusInfo.icon} {statusInfo.label}
-                        </div>
-                      </Tooltip>
+                        {/* Status Badge */}
+                        <Tooltip
+                          content={`Status: ${statusInfo.label}. Use os botões para alterar`}
+                          position="bottom"
+                          maxWidth="140px"
+                        >
+                          <div className={`px-2 py-1 rounded-full text-xs font-medium border ${statusInfo.color}`}>
+                            {statusInfo.icon} {statusInfo.label}
+                          </div>
+                        </Tooltip>
 
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <span
-                            className={`font-medium ${item.status === "RECEIVED" ? "line-through text-gray-500" : ""}`}
-                          >
-                            {item.product.name}
-                          </span>
-                          <span className="text-sm text-gray-500">({item.product.code})</span>
-                          <span className="text-sm font-semibold text-blue-600">
-                            Pedido: {item.quantity}
-                            {item.receivedQuantity > 0 && (
-                              <span className="text-green-600"> / Recebido: {item.receivedQuantity}</span>
-                            )}
-                            {/* CORREÇÃO: A Receber = Pedido - Recebido + Devolvido */}
-                            {(item.receivedQuantity < item.quantity || item.returnedQuantity > 0) && (
-                              <span className="text-yellow-600">
-                                {" "}
-                                / A Receber: {item.quantity - item.receivedQuantity + item.returnedQuantity}
-                              </span>
-                            )}
-                            {item.defectiveQuantity > 0 && (
-                              <span className="text-red-600"> / Defeito: {item.defectiveQuantity}</span>
-                            )}
-                            {item.returnedQuantity > 0 && (
-                              <span className="text-orange-600"> / Devolvido: {item.returnedQuantity}</span>
-                            )}
-                            {item.finalQuantity > 0 && (
-                              <span className="text-purple-600"> / Final: {item.finalQuantity}</span>
-                            )}
-                          </span>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium">{item.product.name}</span>
+                            <span className="text-sm text-gray-500">({item.product.code})</span>
+                            <span className="text-sm font-semibold text-blue-600">
+                              Pedido: {item.quantity}
+                              {item.receivedQuantity > 0 && (
+                                <span className="text-green-600"> / Comprado: {item.receivedQuantity}</span>
+                              )}
+                            </span>
+                          </div>
+                          {item.notes && <p className="text-sm text-gray-600 mt-1">{item.notes}</p>}
                         </div>
-                        {item.notes && <p className="text-sm text-gray-600 mt-1">{item.notes}</p>}
 
-                        {/* Datas */}
-                        <div className="flex gap-4 text-xs text-gray-500 mt-1">
-                          {item.purchasedAt && (
-                            <span>🛒 Comprado: {new Date(item.purchasedAt).toLocaleDateString("pt-BR")}</span>
+                        {/* Botões de Ação */}
+                        <div className="flex gap-1">
+                          {item.status === "PENDING" && (
+                            <>
+                              <Tooltip content="Informar quantidade comprada" position="left" maxWidth="140px">
+                                <button
+                                  onClick={() => handleOpenPurchaseModal(item)}
+                                  className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-xs flex items-center"
+                                >
+                                  🛒 Comprar
+                                </button>
+                              </Tooltip>
+                              <Tooltip content="Transferir para outra lista" position="left" maxWidth="140px">
+                                <button
+                                  onClick={() => {
+                                    setSelectedItem(item);
+                                    setShowTransferModal(true);
+                                  }}
+                                  className="bg-purple-500 hover:bg-purple-600 text-white px-2 py-1 rounded text-xs flex items-center"
+                                >
+                                  📦 Transferir
+                                </button>
+                              </Tooltip>
+                              <Tooltip content="Excluir item da lista" position="left" maxWidth="120px">
+                                <button
+                                  onClick={async () => {
+                                    const result = await Swal.fire({
+                                      title: "Confirmar Exclusão",
+                                      text: "Tem certeza que deseja excluir este item da lista?",
+                                      icon: "warning",
+                                      showCancelButton: true,
+                                      confirmButtonColor: "#dc2626",
+                                      cancelButtonColor: "#6b7280",
+                                      confirmButtonText: "Sim, excluir!",
+                                      cancelButtonText: "Cancelar",
+                                      buttonsStyling: false,
+                                      customClass: {
+                                        confirmButton:
+                                          "bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded font-semibold mx-2",
+                                        cancelButton:
+                                          "bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded font-semibold mx-2",
+                                      },
+                                    });
+
+                                    if (result.isConfirmed) {
+                                      try {
+                                        // Remover item da lista editando a lista
+                                        const currentItems =
+                                          list.shoppingListItems?.filter((i) => i.id !== item.id) || [];
+                                        await api.put(`/invoice/shopping-lists/${list.id}`, {
+                                          name: list.name,
+                                          description: list.description,
+                                          items: currentItems.map((i) => ({
+                                            productId: i.productId,
+                                            quantity: i.quantity,
+                                            notes: i.notes,
+                                          })),
+                                        });
+                                        setOpenNotification({
+                                          type: "success",
+                                          title: "Sucesso!",
+                                          notification: "Item excluído da lista!",
+                                        });
+                                        await fetchData();
+                                      } catch (error) {
+                                        console.error("Erro ao excluir item:", error);
+                                        setOpenNotification({
+                                          type: "error",
+                                          title: "Erro!",
+                                          notification: "Erro ao excluir item",
+                                        });
+                                      }
+                                    }
+                                  }}
+                                  className="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-xs flex items-center"
+                                >
+                                  <Trash2 size={14} />
+                                </button>
+                              </Tooltip>
+                            </>
                           )}
-                          {item.receivedAt && (
-                            <span>✅ Recebido: {new Date(item.receivedAt).toLocaleDateString("pt-BR")}</span>
+                          {(item.status === "PURCHASED" || item.status === "RECEIVED") && (
+                            <>
+                              <Tooltip content="Atualizar quantidade comprada" position="left" maxWidth="160px">
+                                <button
+                                  onClick={() => handleOpenPurchaseModal(item)}
+                                  className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-xs flex items-center"
+                                >
+                                  🛒 Comprar
+                                </button>
+                              </Tooltip>
+                              <Tooltip content="Excluir item da lista" position="left" maxWidth="120px">
+                                <button
+                                  onClick={async () => {
+                                    const result = await Swal.fire({
+                                      title: "Confirmar Exclusão",
+                                      text: "Tem certeza que deseja excluir este item da lista?",
+                                      icon: "warning",
+                                      showCancelButton: true,
+                                      confirmButtonColor: "#dc2626",
+                                      cancelButtonColor: "#6b7280",
+                                      confirmButtonText: "Sim, excluir!",
+                                      cancelButtonText: "Cancelar",
+                                      buttonsStyling: false,
+                                      customClass: {
+                                        confirmButton:
+                                          "bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded font-semibold mx-2",
+                                        cancelButton:
+                                          "bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded font-semibold mx-2",
+                                      },
+                                    });
+
+                                    if (result.isConfirmed) {
+                                      try {
+                                        // Remover item da lista editando a lista
+                                        const currentItems =
+                                          list.shoppingListItems?.filter((i) => i.id !== item.id) || [];
+                                        await api.put(`/invoice/shopping-lists/${list.id}`, {
+                                          name: list.name,
+                                          description: list.description,
+                                          items: currentItems.map((i) => ({
+                                            productId: i.productId,
+                                            quantity: i.quantity,
+                                            notes: i.notes,
+                                          })),
+                                        });
+                                        setOpenNotification({
+                                          type: "success",
+                                          title: "Sucesso!",
+                                          notification: "Item excluído da lista!",
+                                        });
+                                        await fetchData();
+                                      } catch (error) {
+                                        console.error("Erro ao excluir item:", error);
+                                        setOpenNotification({
+                                          type: "error",
+                                          title: "Erro!",
+                                          notification: "Erro ao excluir item",
+                                        });
+                                      }
+                                    }
+                                  }}
+                                  className="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-xs flex items-center"
+                                >
+                                  <Trash2 size={14} />
+                                </button>
+                              </Tooltip>
+                            </>
                           )}
                         </div>
                       </div>
+                    );
+                  })}
 
-                      {/* Botões de Ação */}
-                      <div className="flex gap-1">
-                        {item.status === "PENDING" && (
-                          <Tooltip content="Marcar como comprado" position="left" maxWidth="120px">
+                {/* Itens Comprados (embaixo) */}
+                {list.shoppingListItems
+                  ?.filter((item) => item.status === "PURCHASED" || item.status === "RECEIVED")
+                  .map((item) => {
+                    const statusInfo = getStatusInfo(item.status);
+                    return (
+                      <div
+                        key={item.id}
+                        className={`flex items-center gap-3 p-3 rounded border ${
+                          item.status === "RECEIVED"
+                            ? "bg-green-50 border-green-200"
+                            : item.status === "PURCHASED"
+                            ? "bg-blue-50 border-blue-200"
+                            : "bg-gray-50 border-gray-200"
+                        }`}
+                      >
+                        {/* Status Badge */}
+                        <Tooltip
+                          content={`Status: ${statusInfo.label}. Use os botões para alterar`}
+                          position="bottom"
+                          maxWidth="140px"
+                        >
+                          <div className={`px-2 py-1 rounded-full text-xs font-medium border ${statusInfo.color}`}>
+                            {statusInfo.icon} {statusInfo.label}
+                          </div>
+                        </Tooltip>
+
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium">{item.product.name}</span>
+                            <span className="text-sm text-gray-500">({item.product.code})</span>
+                            <span className="text-sm font-semibold text-blue-600">
+                              Pedido: {item.quantity}
+                              {item.receivedQuantity > 0 && (
+                                <span className="text-green-600"> / Comprado: {item.receivedQuantity}</span>
+                              )}
+                              {item.receivedQuantity > item.quantity && (
+                                <span className="text-purple-600"> ⚠️ (maior que pedido)</span>
+                              )}
+                            </span>
+                          </div>
+                          {item.notes && <p className="text-sm text-gray-600 mt-1">{item.notes}</p>}
+                        </div>
+
+                        {/* Botões de Ação */}
+                        <div className="flex gap-1">
+                          <Tooltip content="Atualizar quantidade comprada" position="left" maxWidth="160px">
                             <button
-                              onClick={() => handleUpdateItemStatus(item.id, "PURCHASED")}
-                              className="bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded text-xs"
+                              onClick={() => handleOpenPurchaseModal(item)}
+                              className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-xs flex items-center"
                             >
                               🛒 Comprar
                             </button>
                           </Tooltip>
-                        )}
-                        {(item.status === "PURCHASED" || item.status === "RECEIVED") && (
-                          <Tooltip content="Gerenciar quantidades detalhadas" position="left" maxWidth="140px">
+                          <Tooltip content="Excluir item da lista" position="left" maxWidth="120px">
                             <button
-                              onClick={() => openQuantityModal(item)}
-                              className="bg-purple-500 hover:bg-purple-600 text-white px-2 py-1 rounded text-xs"
+                              onClick={async () => {
+                                const result = await Swal.fire({
+                                  title: "Confirmar Exclusão",
+                                  text: "Tem certeza que deseja excluir este item da lista?",
+                                  icon: "warning",
+                                  showCancelButton: true,
+                                  confirmButtonColor: "#dc2626",
+                                  cancelButtonColor: "#6b7280",
+                                  confirmButtonText: "Sim, excluir!",
+                                  cancelButtonText: "Cancelar",
+                                  buttonsStyling: false,
+                                  customClass: {
+                                    confirmButton:
+                                      "bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded font-semibold mx-2",
+                                    cancelButton:
+                                      "bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded font-semibold mx-2",
+                                  },
+                                });
+
+                                if (result.isConfirmed) {
+                                  try {
+                                    const currentItems = list.shoppingListItems?.filter((i) => i.id !== item.id) || [];
+                                    await api.put(`/invoice/shopping-lists/${list.id}`, {
+                                      name: list.name,
+                                      description: list.description,
+                                      items: currentItems.map((i) => ({
+                                        productId: i.productId,
+                                        quantity: i.quantity,
+                                        notes: i.notes,
+                                      })),
+                                    });
+                                    setOpenNotification({
+                                      type: "success",
+                                      title: "Sucesso!",
+                                      notification: "Item excluído da lista!",
+                                    });
+                                    await fetchData();
+                                  } catch (error) {
+                                    console.error("Erro ao excluir item:", error);
+                                    setOpenNotification({
+                                      type: "error",
+                                      title: "Erro!",
+                                      notification: "Erro ao excluir item",
+                                    });
+                                  }
+                                }
+                              }}
+                              className="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-xs flex items-center"
                             >
-                              📊 Quantidades
+                              <Trash2 size={14} />
                             </button>
                           </Tooltip>
-                        )}
-                        {item.status === "RECEIVED" && (
-                          <Tooltip content="Reverter para aguardando" position="left" maxWidth="120px">
-                            <button
-                              onClick={() => handleUpdateItemStatus(item.id, "PENDING")}
-                              className="bg-gray-500 hover:bg-gray-600 text-white px-2 py-1 rounded text-xs"
-                            >
-                              🔄 Reverter
-                            </button>
-                          </Tooltip>
-                        )}
+                        </div>
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
               </div>
 
               <div className="mt-3 pt-3 border-t border-gray-200">
@@ -1007,13 +1620,13 @@ export function ShoppingListsTab() {
                   <span>Total de itens: {list.shoppingListItems?.length || 0}</span>
                   <div className="flex gap-4">
                     <span className="text-yellow-600">
-                      ⏳ Aguardando: {list.shoppingListItems?.filter((item) => item.status === "PENDING").length || 0}
+                      ⏳ Pendentes: {list.shoppingListItems?.filter((item) => item.status === "PENDING").length || 0}
                     </span>
                     <span className="text-blue-600">
-                      🛒 Comprados: {list.shoppingListItems?.filter((item) => item.status === "PURCHASED").length || 0}
-                    </span>
-                    <span className="text-green-600">
-                      ✅ Recebidos: {list.shoppingListItems?.filter((item) => item.status === "RECEIVED").length || 0}
+                      🛒 Comprados:{" "}
+                      {list.shoppingListItems?.filter(
+                        (item) => item.status === "PURCHASED" || item.status === "RECEIVED"
+                      ).length || 0}
                     </span>
                   </div>
                 </div>
@@ -1022,6 +1635,176 @@ export function ShoppingListsTab() {
           ))
         )}
       </div>
+
+      {/* Modal Simplificado de Quantidade Comprada */}
+      {showPurchaseModal && selectedItem && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-lg shadow-xl max-w-md w-full mx-4">
+            <h3 className="text-lg font-semibold mb-4">
+              🛒 Informar Quantidade Comprada - {selectedItem.product.name}
+            </h3>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">📦 Quantidade Pedida</label>
+                <input
+                  type="number"
+                  value={selectedItem.quantity}
+                  disabled
+                  className="w-full border border-gray-300 rounded-md p-2 bg-gray-100"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  ✅ Quantidade que Conseguimos Comprar
+                </label>
+                <input
+                  type="number"
+                  value={purchasedQuantity}
+                  onChange={(e) => {
+                    const value = e.target.value.replace(/[^0-9.]/g, "");
+                    const qty = parseFloat(value) || 0;
+                    setPurchasedQuantity(qty);
+                  }}
+                  onKeyDown={(e) => {
+                    // Prevenir backspace e delete quando o campo está vazio ou tem apenas um caractere
+                    const currentValue = purchasedQuantity.toString();
+                    if (
+                      (e.key === "Backspace" || e.key === "Delete") &&
+                      (currentValue === "0" || currentValue === "" || currentValue.length <= 1)
+                    ) {
+                      // Permitir apenas se o usuário selecionou todo o texto
+                      const input = e.target as HTMLInputElement;
+                      if (input.selectionStart !== 0 || input.selectionEnd !== currentValue.length) {
+                        e.preventDefault();
+                      }
+                    }
+                  }}
+                  onFocus={(e) => {
+                    // Selecionar todo o texto ao focar para facilitar substituição
+                    e.target.select();
+                  }}
+                  className="w-full border border-gray-300 rounded-md p-2"
+                  min="0"
+                  placeholder="Digite a quantidade comprada"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Pedido: {selectedItem.quantity} | Você pode comprar mais ou menos que o pedido
+                </p>
+              </div>
+            </div>
+
+            <div className="flex gap-2 mt-6">
+              <button
+                onClick={() => handleSavePurchasedQuantity(false)}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded flex-1"
+              >
+                💾 Salvar
+              </button>
+              {purchasedQuantity < selectedItem.quantity && (
+                <button
+                  onClick={() => handleSavePurchasedQuantity(true)}
+                  className="bg-yellow-600 hover:bg-yellow-700 text-white px-4 py-2 rounded"
+                  title="Confirmar mesmo com quantidade menor"
+                >
+                  ✅ OK Menor
+                </button>
+              )}
+              <button
+                onClick={() => {
+                  setShowPurchaseModal(false);
+                  setPurchasedQuantity(0);
+                }}
+                className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded"
+              >
+                ❌ Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Transferência */}
+      {showTransferModal && selectedItem && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-lg shadow-xl max-w-md w-full mx-4">
+            <h3 className="text-lg font-semibold mb-4">📦 Transferir Item - {selectedItem.product.name}</h3>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Selecione a lista destino</label>
+                <select
+                  onChange={(e) => {
+                    if (e.target.value) {
+                      handleTransferItem(selectedItem, e.target.value);
+                    }
+                  }}
+                  className="w-full border border-gray-300 rounded-md p-2"
+                >
+                  <option value="">Selecione uma lista...</option>
+                  {shoppingLists
+                    .filter((list) => list.id !== editingList?.id)
+                    .map((list) => (
+                      <option key={list.id} value={list.id}>
+                        {list.name}
+                      </option>
+                    ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="flex gap-2 mt-6">
+              <button
+                onClick={() => {
+                  setShowTransferModal(false);
+                  setSelectedItem(null);
+                }}
+                className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded flex-1"
+              >
+                ❌ Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Visualização de PDF */}
+      {showPdfModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-lg shadow-xl max-w-4xl w-full mx-4 max-h-[90vh] overflow-auto">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold">
+                📄 Visualização de PDF {showOnlyPending && "(Apenas Pendentes)"}
+              </h3>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => {
+                    const link = document.createElement("a");
+                    link.href = pdfContent;
+                    link.download = `lista_${Date.now()}.pdf`;
+                    link.click();
+                  }}
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm"
+                >
+                  <Download size={14} className="inline mr-1" />
+                  Baixar
+                </button>
+                <button
+                  onClick={() => {
+                    setShowPdfModal(false);
+                    setPdfContent("");
+                  }}
+                  className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded text-sm"
+                >
+                  ❌ Fechar
+                </button>
+              </div>
+            </div>
+            <iframe src={pdfContent} className="w-full h-[70vh] border border-gray-300 rounded" title="PDF Viewer" />
+          </div>
+        </div>
+      )}
 
       {/* Modal de Quantidades */}
       {showQuantityModal && selectedItem && (
