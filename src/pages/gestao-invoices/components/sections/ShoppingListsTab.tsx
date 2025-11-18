@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import {
   Plus,
+  Minus,
   Edit,
   Trash2,
   Check,
@@ -79,6 +80,7 @@ export function ShoppingListsTab() {
   const [selectedProductForAdd, setSelectedProductForAdd] = useState<{ productId: string; quantity: number } | null>(
     null
   );
+  const [quantityInputValue, setQuantityInputValue] = useState<string>("0");
   const { setOpenNotification } = useNotification();
 
   const [newList, setNewList] = useState({
@@ -236,10 +238,43 @@ export function ShoppingListsTab() {
     }
   };
 
-  const handleOpenPurchaseModal = (item: ShoppingListItem) => {
-    setSelectedItem(item);
-    setPurchasedQuantity(item.receivedQuantity || 0);
-    setShowPurchaseModal(true);
+  const handleOpenPurchaseModal = async (item: ShoppingListItem, listId?: string) => {
+    try {
+      // Encontrar a lista que contém este item
+      const foundListId =
+        listId || shoppingLists.find((l) => l.shoppingListItems?.some((i) => i.id === item.id))?.id || editingList?.id;
+
+      if (foundListId) {
+        // Buscar o item atualizado da lista para garantir que temos o ID correto
+        const listResponse = await api.get(`/invoice/shopping-lists/${foundListId}`);
+        const updatedList = listResponse.data;
+
+        // Encontrar o item atualizado pelo productId (mais confiável que ID)
+        const updatedItem = updatedList.shoppingListItems?.find(
+          (i: ShoppingListItem) => i.productId === item.productId
+        );
+
+        if (updatedItem) {
+          console.log("Item atualizado encontrado:", updatedItem.id, "ID original:", item.id);
+          setSelectedItem(updatedItem);
+          setPurchasedQuantity(updatedItem.receivedQuantity || 0);
+          setShowPurchaseModal(true);
+          return;
+        }
+      }
+
+      // Se não encontrou ou não tem listId, usar o item original
+      console.log("Usando item original:", item.id);
+      setSelectedItem(item);
+      setPurchasedQuantity(item.receivedQuantity || 0);
+      setShowPurchaseModal(true);
+    } catch (error) {
+      console.error("Erro ao buscar item atualizado:", error);
+      // Em caso de erro, usar o item original
+      setSelectedItem(item);
+      setPurchasedQuantity(item.receivedQuantity || 0);
+      setShowPurchaseModal(true);
+    }
   };
 
   const handleSavePurchasedQuantity = async (allowLess: boolean = false) => {
@@ -254,7 +289,28 @@ export function ShoppingListsTab() {
       return;
     }
 
-    // Permitir quantidade maior que pedida ou menor (se allowLess for true)
+    // Aviso se quantidade maior que pedida
+    if (purchasedQuantity > selectedItem.quantity) {
+      const result = await Swal.fire({
+        title: "Quantidade Maior que Pedida",
+        text: `Você pediu ${selectedItem.quantity} mas está comprando ${purchasedQuantity}. Deseja confirmar mesmo assim?`,
+        icon: "question",
+        showCancelButton: true,
+        confirmButtonText: "Sim, confirmar",
+        cancelButtonText: "Cancelar",
+        buttonsStyling: false,
+        customClass: {
+          confirmButton: "bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded font-semibold mx-2",
+          cancelButton: "bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded font-semibold mx-2",
+        },
+      });
+
+      if (!result.isConfirmed) {
+        return;
+      }
+    }
+
+    // Permitir quantidade menor que pedida (se allowLess for true)
     if (!allowLess && purchasedQuantity < selectedItem.quantity) {
       const result = await Swal.fire({
         title: "Quantidade Menor que Pedida",
@@ -276,28 +332,48 @@ export function ShoppingListsTab() {
     }
 
     try {
+      // Garantir que purchasedQuantity seja um número
+      const quantityToSend = Number(purchasedQuantity);
+
+      if (isNaN(quantityToSend)) {
+        setOpenNotification({
+          type: "error",
+          title: "Erro!",
+          notification: "Quantidade inválida!",
+        });
+        return;
+      }
+
+      console.log("Enviando para API:", {
+        itemId: selectedItem.id,
+        purchasedQuantity: quantityToSend,
+        selectedItem: selectedItem,
+      });
+
       await api.patch("/invoice/shopping-lists/update-purchased-quantity", {
         itemId: selectedItem.id,
-        purchasedQuantity,
+        purchasedQuantity: quantityToSend,
       });
 
       setOpenNotification({
         type: "success",
         title: "Sucesso!",
         notification:
-          purchasedQuantity > selectedItem.quantity
-            ? `Quantidade atualizada! Comprado ${purchasedQuantity} (maior que pedido de ${selectedItem.quantity})`
+          quantityToSend > selectedItem.quantity
+            ? `Quantidade atualizada! Comprado ${quantityToSend} (maior que pedido de ${selectedItem.quantity})`
             : "Quantidade comprada atualizada com sucesso!",
       });
 
       setShowPurchaseModal(false);
+      setPurchasedQuantity(0);
       await fetchData();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Erro ao atualizar quantidade comprada:", error);
+      const errorMessage = error?.response?.data?.message || error?.message || "Erro ao atualizar quantidade comprada";
       setOpenNotification({
         type: "error",
         title: "Erro!",
-        notification: "Erro ao atualizar quantidade comprada",
+        notification: errorMessage,
       });
     }
   };
@@ -687,16 +763,79 @@ export function ShoppingListsTab() {
           ?.filter((item: ShoppingListItem) => item.status === "PURCHASED" || item.status === "RECEIVED")
           .map((item: ShoppingListItem) => ({
             productId: item.productId,
-            quantity: item.quantity,
+            quantity: Number(item.quantity) || 0,
             notes: item.notes || "",
           })) || [];
 
-      // Combinar itens pendentes editados com itens comprados mantidos
-      const allItems = [...newList.items, ...purchasedItems];
+      // Garantir que todos os itens tenham quantity como número
+      const validatedNewItems = newList.items.map((item) => ({
+        productId: item.productId,
+        quantity: Number(item.quantity) || 0,
+        notes: item.notes || "",
+      }));
+
+      // Mesclar produtos duplicados nos novos itens, SOMANDO as quantidades
+      const mergedNewItemsMap = new Map<string, { productId: string; quantity: number; notes: string }>();
+      validatedNewItems.forEach((item) => {
+        const existing = mergedNewItemsMap.get(item.productId);
+        if (existing) {
+          // Se já existe, SOMAR as quantidades
+          mergedNewItemsMap.set(item.productId, {
+            productId: item.productId,
+            quantity: existing.quantity + item.quantity,
+            notes: existing.notes || item.notes || "",
+          });
+        } else {
+          mergedNewItemsMap.set(item.productId, {
+            productId: item.productId,
+            quantity: item.quantity,
+            notes: item.notes || "",
+          });
+        }
+      });
+      const mergedNewItems = Array.from(mergedNewItemsMap.values());
+
+      // Remover produtos dos novos itens que já estão comprados (mesclar)
+      // Se um produto já foi comprado, mantemos apenas o comprado e removemos o pendente
+      const purchasedProductIds = purchasedItems.map(
+        (item: { productId: string; quantity: number; notes?: string }) => item.productId
+      );
+
+      // Filtrar novos itens removendo os que já estão comprados
+      const newItemsWithoutPurchased = mergedNewItems.filter(
+        (item: { productId: string; quantity: number; notes?: string }) => !purchasedProductIds.includes(item.productId)
+      );
+
+      // Combinar itens pendentes editados (sem os já comprados) com itens comprados mantidos
+      const allItems = [...newItemsWithoutPurchased, ...purchasedItems];
+
+      // Validar que há pelo menos um item
+      if (allItems.length === 0) {
+        Swal.fire({
+          icon: "warning",
+          title: "Atenção",
+          text: "A lista deve conter pelo menos um produto!",
+          confirmButtonText: "Ok",
+          buttonsStyling: false,
+          customClass: {
+            confirmButton: "bg-blue-600 text-white hover:bg-blue-700 px-4 py-2 rounded font-semibold",
+          },
+        });
+        setIsCreating(false);
+        return;
+      }
+
+      console.log("Enviando atualização da lista:", {
+        id: editingList.id,
+        name: newList.name,
+        description: newList.description,
+        itemsCount: allItems.length,
+        items: allItems,
+      });
 
       await api.put(`/invoice/shopping-lists/${editingList.id}`, {
         name: newList.name,
-        description: newList.description,
+        description: newList.description || "",
         items: allItems,
       });
 
@@ -715,12 +854,13 @@ export function ShoppingListsTab() {
       setIsEditing(null);
 
       await fetchData();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Erro ao atualizar lista:", error);
+      const errorMessage = error?.response?.data?.message || error?.message || "Erro ao atualizar lista de compras";
       setOpenNotification({
         type: "error",
         title: "Erro!",
-        notification: "Erro ao atualizar lista de compras",
+        notification: errorMessage,
       });
     } finally {
       setIsCreating(false);
@@ -742,17 +882,31 @@ export function ShoppingListsTab() {
       return;
     }
 
+    const quantityToAdd = selectedProductForAdd.quantity || 0;
+
+    if (quantityToAdd <= 0) {
+      Swal.fire({
+        icon: "warning",
+        title: "Atenção",
+        text: "A quantidade deve ser maior que zero!",
+        confirmButtonText: "Ok",
+        buttonsStyling: false,
+        customClass: {
+          confirmButton: "bg-blue-600 text-white hover:bg-blue-700 px-4 py-2 rounded font-semibold",
+        },
+      });
+      return;
+    }
+
     // Adicionar no início da lista (unshift)
     setNewList((prev) => ({
       ...prev,
-      items: [
-        { productId: selectedProductForAdd.productId, quantity: selectedProductForAdd.quantity || 1, notes: "" },
-        ...prev.items,
-      ],
+      items: [{ productId: selectedProductForAdd.productId, quantity: quantityToAdd, notes: "" }, ...prev.items],
     }));
 
     // Limpar seleção
     setSelectedProductForAdd(null);
+    setQuantityInputValue("0");
   };
 
   const removeProductFromList = (index: number) => {
@@ -766,6 +920,26 @@ export function ShoppingListsTab() {
     setNewList((prev) => ({
       ...prev,
       items: prev.items.map((item, i) => (i === index ? { ...item, [field]: value } : item)),
+    }));
+  };
+
+  const increaseQuantity = (index: number) => {
+    setNewList((prev) => ({
+      ...prev,
+      items: prev.items.map((item, i) => (i === index ? { ...item, quantity: (item.quantity || 0) + 1 } : item)),
+    }));
+  };
+
+  const decreaseQuantity = (index: number) => {
+    setNewList((prev) => ({
+      ...prev,
+      items: prev.items.map((item, i) => {
+        if (i === index) {
+          const newQuantity = Math.max(0, (item.quantity || 0) - 1);
+          return { ...item, quantity: newQuantity };
+        }
+        return item;
+      }),
     }));
   };
 
@@ -1108,9 +1282,11 @@ export function ShoppingListsTab() {
                       value={selectedProductForAdd?.productId || ""}
                       onChange={(productId: string) => {
                         if (productId) {
-                          setSelectedProductForAdd({ productId, quantity: 1 });
+                          setSelectedProductForAdd({ productId, quantity: 0 });
+                          setQuantityInputValue("0");
                         } else {
                           setSelectedProductForAdd(null);
+                          setQuantityInputValue("0");
                         }
                       }}
                       inline={true}
@@ -1120,20 +1296,27 @@ export function ShoppingListsTab() {
                 <div className="flex flex-col">
                   <label className="block text-sm font-medium text-gray-700 mb-1">Qtd</label>
                   <input
-                    type="number"
-                    value={selectedProductForAdd?.quantity || 1}
+                    type="text"
+                    value={quantityInputValue}
                     onChange={(e) => {
+                      // Permite apenas números e ponto decimal
+                      const value = e.target.value.replace(/[^0-9.]/g, "");
+                      setQuantityInputValue(value);
+
                       if (selectedProductForAdd) {
+                        const numValue = parseFloat(value) || 0;
                         setSelectedProductForAdd({
                           ...selectedProductForAdd,
-                          quantity: parseFloat(e.target.value) || 1,
+                          quantity: numValue,
                         });
                       }
                     }}
+                    onFocus={(e) => {
+                      // Seleciona todo o texto ao focar para facilitar substituição
+                      e.target.select();
+                    }}
                     className="w-24 border border-gray-300 rounded p-2"
-                    min="1"
-                    step="0.1"
-                    placeholder="Qtd"
+                    placeholder="0"
                   />
                 </div>
                 <div className="flex flex-col">
@@ -1152,6 +1335,7 @@ export function ShoppingListsTab() {
                     <button
                       onClick={() => {
                         setSelectedProductForAdd(null);
+                        setQuantityInputValue("0");
                       }}
                       className="bg-red-500 hover:bg-red-600 text-white px-3 py-2 rounded flex items-center"
                     >
@@ -1174,15 +1358,33 @@ export function ShoppingListsTab() {
                       <div className="flex-1">
                         <span className="font-medium">{product?.name || "Produto não encontrado"}</span>
                         {product && <span className="text-sm text-gray-500 ml-2">({product.code})</span>}
-                        <span className="text-sm text-blue-600 ml-2">Qtd: {item.quantity}</span>
-                        {item.notes && <span className="text-sm text-gray-600 ml-2">- {item.notes}</span>}
                       </div>
-                      <button
-                        onClick={() => removeProductFromList(index)}
-                        className="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded"
-                      >
-                        <X size={14} />
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => decreaseQuantity(index)}
+                          className="bg-gray-500 hover:bg-gray-600 text-white px-2 py-1 rounded flex items-center justify-center"
+                          title="Diminuir quantidade"
+                        >
+                          <Minus size={14} />
+                        </button>
+                        <span className="text-sm font-semibold text-blue-600 min-w-[3rem] text-center">
+                          {item.quantity}
+                        </span>
+                        <button
+                          onClick={() => increaseQuantity(index)}
+                          className="bg-green-500 hover:bg-green-600 text-white px-2 py-1 rounded flex items-center justify-center"
+                          title="Aumentar quantidade"
+                        >
+                          <Plus size={14} />
+                        </button>
+                        <button
+                          onClick={() => removeProductFromList(index)}
+                          className="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded flex items-center justify-center"
+                          title="Remover produto"
+                        >
+                          <X size={14} />
+                        </button>
+                      </div>
                     </div>
                   );
                 })}
@@ -1209,6 +1411,8 @@ export function ShoppingListsTab() {
                 setIsEditing(null);
                 setEditingList(null);
                 setNewList({ name: "", description: "", items: [] });
+                setSelectedProductForAdd(null);
+                setQuantityInputValue("0");
                 localStorage.removeItem("shopping-list-draft");
               }}
               className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded"
@@ -1344,7 +1548,7 @@ export function ShoppingListsTab() {
                             <>
                               <Tooltip content="Informar quantidade comprada" position="left" maxWidth="140px">
                                 <button
-                                  onClick={() => handleOpenPurchaseModal(item)}
+                                  onClick={() => handleOpenPurchaseModal(item, list.id)}
                                   className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-xs flex items-center"
                                 >
                                   🛒 Comprar
@@ -1423,7 +1627,7 @@ export function ShoppingListsTab() {
                             <>
                               <Tooltip content="Atualizar quantidade comprada" position="left" maxWidth="160px">
                                 <button
-                                  onClick={() => handleOpenPurchaseModal(item)}
+                                  onClick={() => handleOpenPurchaseModal(item, list.id)}
                                   className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-xs flex items-center"
                                 >
                                   🛒 Comprar
@@ -1540,7 +1744,7 @@ export function ShoppingListsTab() {
                         <div className="flex gap-1">
                           <Tooltip content="Atualizar quantidade comprada" position="left" maxWidth="160px">
                             <button
-                              onClick={() => handleOpenPurchaseModal(item)}
+                              onClick={() => handleOpenPurchaseModal(item, list.id)}
                               className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-xs flex items-center"
                             >
                               🛒 Comprar
