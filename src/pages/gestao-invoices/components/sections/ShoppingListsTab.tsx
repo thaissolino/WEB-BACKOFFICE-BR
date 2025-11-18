@@ -15,6 +15,7 @@ import {
 import { api } from "../../../../services/api";
 import Swal from "sweetalert2";
 import { useNotification } from "../../../../hooks/notification";
+import { ProductSearchSelect } from "./SupplierSearchSelect";
 
 interface Product {
   id: string;
@@ -75,7 +76,6 @@ export function ShoppingListsTab() {
     returned: 0,
     final: 0,
   });
-  const [productSearchTerm, setProductSearchTerm] = useState("");
   const [selectedProductForAdd, setSelectedProductForAdd] = useState<{ productId: string; quantity: number } | null>(
     null
   );
@@ -753,7 +753,6 @@ export function ShoppingListsTab() {
 
     // Limpar seleção
     setSelectedProductForAdd(null);
-    setProductSearchTerm("");
   };
 
   const removeProductFromList = (index: number) => {
@@ -982,11 +981,6 @@ export function ShoppingListsTab() {
   };
 
   // Filtrar produtos para busca
-  const filteredProducts = products.filter(
-    (product) =>
-      product.name.toLowerCase().includes(productSearchTerm.toLowerCase()) ||
-      product.code.toLowerCase().includes(productSearchTerm.toLowerCase())
-  );
 
   // Componente de Tooltip Melhorado
   const Tooltip = ({
@@ -1104,70 +1098,67 @@ export function ShoppingListsTab() {
           <div className="mb-4">
             <label className="block text-sm font-medium text-gray-700 mb-2">Adicionar Produto</label>
 
-            {/* Campo de busca e seleção de produto */}
+            {/* Campo de seleção de produto usando ProductSearchSelect - Tudo na mesma linha */}
             <div className="mb-3 p-3 bg-white rounded border">
-              <div className="mb-2">
-                <input
-                  type="text"
-                  value={productSearchTerm}
-                  onChange={(e) => setProductSearchTerm(e.target.value)}
-                  className="w-full border border-gray-300 rounded p-2"
-                  placeholder="Buscar produto por nome ou código..."
-                />
-              </div>
-              <div className="mb-2">
-                <select
-                  value={selectedProductForAdd?.productId || ""}
-                  onChange={(e) => {
-                    const product = products.find((p) => p.id === e.target.value);
-                    if (product) {
-                      setSelectedProductForAdd({ productId: product.id, quantity: 1 });
-                    } else {
-                      setSelectedProductForAdd(null);
-                    }
-                  }}
-                  className="w-full border border-gray-300 rounded p-2"
-                >
-                  <option value="">Selecione um produto</option>
-                  {filteredProducts.map((product) => (
-                    <option key={product.id} value={product.id}>
-                      {product.name} ({product.code})
-                    </option>
-                  ))}
-                </select>
-              </div>
               <div className="flex gap-2 items-center">
-                <input
-                  type="number"
-                  value={selectedProductForAdd?.quantity || 1}
-                  onChange={(e) => {
-                    if (selectedProductForAdd) {
-                      setSelectedProductForAdd({ ...selectedProductForAdd, quantity: parseFloat(e.target.value) || 1 });
-                    }
-                  }}
-                  className="w-24 border border-gray-300 rounded p-2"
-                  min="1"
-                  step="0.1"
-                  placeholder="Qtd"
-                />
-                <button
-                  onClick={addProductToList}
-                  className="bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded flex items-center"
-                >
-                  <Plus size={14} className="mr-1" />
-                  Adicionar
-                </button>
-                {selectedProductForAdd && (
-                  <button
-                    onClick={() => {
-                      setSelectedProductForAdd(null);
-                      setProductSearchTerm("");
+                <div className="flex-1">
+                  <div className="relative">
+                    <ProductSearchSelect
+                      products={products}
+                      value={selectedProductForAdd?.productId || ""}
+                      onChange={(productId: string) => {
+                        if (productId) {
+                          setSelectedProductForAdd({ productId, quantity: 1 });
+                        } else {
+                          setSelectedProductForAdd(null);
+                        }
+                      }}
+                      inline={true}
+                    />
+                  </div>
+                </div>
+                <div className="flex flex-col">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Qtd</label>
+                  <input
+                    type="number"
+                    value={selectedProductForAdd?.quantity || 1}
+                    onChange={(e) => {
+                      if (selectedProductForAdd) {
+                        setSelectedProductForAdd({
+                          ...selectedProductForAdd,
+                          quantity: parseFloat(e.target.value) || 1,
+                        });
+                      }
                     }}
-                    className="bg-red-500 hover:bg-red-600 text-white px-3 py-2 rounded flex items-center"
+                    className="w-24 border border-gray-300 rounded p-2"
+                    min="1"
+                    step="0.1"
+                    placeholder="Qtd"
+                  />
+                </div>
+                <div className="flex flex-col">
+                  <label className="block text-sm font-medium text-gray-700 mb-1 opacity-0">A</label>
+                  <button
+                    onClick={addProductToList}
+                    className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded flex items-center"
                   >
-                    <X size={14} className="mr-1" />
-                    Limpar
+                    <Plus size={14} className="mr-1" />
+                    Adicionar
                   </button>
+                </div>
+                {selectedProductForAdd && (
+                  <div className="flex flex-col">
+                    <label className="block text-sm font-medium text-gray-700 mb-1 opacity-0">A</label>
+                    <button
+                      onClick={() => {
+                        setSelectedProductForAdd(null);
+                      }}
+                      className="bg-red-500 hover:bg-red-600 text-white px-3 py-2 rounded flex items-center"
+                    >
+                      <X size={14} className="mr-1" />
+                      Limpar
+                    </button>
+                  </div>
                 )}
               </div>
             </div>
