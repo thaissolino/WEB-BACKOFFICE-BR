@@ -56,6 +56,7 @@ interface ShoppingList {
   createdBy: string;
   completed?: boolean; // Calculado: true se todos os itens estão comprados
   completedAt?: string | null;
+  status?: "pendente" | "comprando" | "concluida"; // Status calculado
 }
 
 export function ShoppingListsTab() {
@@ -66,7 +67,7 @@ export function ShoppingListsTab() {
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
   const [itemsPerPage] = useState(10);
-  const [filterStatus, setFilterStatus] = useState<"all" | "completed" | "pending">("all");
+  const [filterStatus, setFilterStatus] = useState<"all" | "pendente" | "comprando" | "concluida">("all");
   const [searchTerm, setSearchTerm] = useState("");
   const [searchInput, setSearchInput] = useState(""); // Valor do input (sem debounce)
   const [isCreating, setIsCreating] = useState(false);
@@ -1581,7 +1582,7 @@ export function ShoppingListsTab() {
                 setSearchInput(e.target.value); // Atualiza apenas o input, sem buscar imediatamente
               }}
               placeholder="Buscar por nome ou descrição..."
-              className="w-full border border-gray-300 rounded-md p-2"
+              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
             />
           </div>
           <div className="w-full md:w-48">
@@ -1589,14 +1590,21 @@ export function ShoppingListsTab() {
             <select
               value={filterStatus}
               onChange={(e) => {
-                setFilterStatus(e.target.value as "all" | "completed" | "pending");
+                setFilterStatus(e.target.value as "all" | "pendente" | "comprando" | "concluida");
                 setCurrentPage(1); // Reset para primeira página ao filtrar
               }}
-              className="w-full border border-gray-300 rounded-md p-2"
+              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all appearance-none cursor-pointer"
+              style={{
+                backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23333' d='M6 9L1 4h10z'/%3E%3C/svg%3E")`,
+                backgroundRepeat: "no-repeat",
+                backgroundPosition: "right 0.75rem center",
+                paddingRight: "2.5rem",
+              }}
             >
               <option value="all">Todas</option>
-              <option value="pending">Pendentes</option>
-              <option value="completed">Concluídas</option>
+              <option value="pendente">Pendente</option>
+              <option value="comprando">Comprando</option>
+              <option value="concluida">Concluída</option>
             </select>
           </div>
         </div>
@@ -1618,15 +1626,31 @@ export function ShoppingListsTab() {
           shoppingLists.map((list) => (
             <div
               key={list.id}
-              className={`border rounded-lg p-4 ${list.completed ? "bg-green-50 border-green-200" : "border-gray-200"}`}
+              className={`border rounded-lg p-4 ${
+                list.status === "concluida"
+                  ? "bg-green-50 border-green-200"
+                  : list.status === "comprando"
+                  ? "bg-yellow-50 border-yellow-200"
+                  : "border-gray-200"
+              }`}
             >
               <div className="flex justify-between items-start mb-3">
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
                     <h3 className="text-lg font-semibold text-gray-800">{list.name}</h3>
-                    {list.completed && (
+                    {list.status === "concluida" && (
                       <span className="px-2 py-1 bg-green-500 text-white text-xs font-semibold rounded-full">
                         ✅ Concluída
+                      </span>
+                    )}
+                    {list.status === "comprando" && (
+                      <span className="px-2 py-1 bg-yellow-500 text-white text-xs font-semibold rounded-full">
+                        🛒 Comprando
+                      </span>
+                    )}
+                    {list.status === "pendente" && (
+                      <span className="px-2 py-1 bg-gray-400 text-white text-xs font-semibold rounded-full">
+                        ⏳ Pendente
                       </span>
                     )}
                   </div>
