@@ -9,9 +9,10 @@ interface Props {
   products: Product[];
   value: string;
   onChange: (value: string) => void;
+  inline?: boolean; // Prop para usar em layout inline
 }
 
-export function ProductSearchSelect({ products, value, onChange }: Props) {
+export function ProductSearchSelect({ products, value, onChange, inline = false }: Props) {
   const [searchTerm, setSearchTerm] = useState("");
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -44,7 +45,7 @@ export function ProductSearchSelect({ products, value, onChange }: Props) {
   }, []);
 
   return (
-    <div ref={dropdownRef} className="relative mb-4">
+    <div ref={dropdownRef} className={`relative ${inline ? 'mb-0' : 'mb-4'}`}>
       <label className="block text-sm font-medium text-gray-700 mb-1">Produto</label>
 
       <div
