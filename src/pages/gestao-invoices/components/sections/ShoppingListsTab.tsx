@@ -351,15 +351,6 @@ export function ShoppingListsTab() {
     // Calcular quantidade total (já comprada + adicional)
     const totalQuantity = purchasedQuantity + additionalQuantity;
 
-    if (additionalQuantity < 0) {
-      setOpenNotification({
-        type: "error",
-        title: "Erro!",
-        notification: "Quantidade adicional não pode ser negativa!",
-      });
-      return;
-    }
-
     if (totalQuantity < 0) {
       setOpenNotification({
         type: "error",
@@ -763,6 +754,10 @@ export function ShoppingListsTab() {
 
   const handleTransferItem = async (item: ShoppingListItem, targetListId: string) => {
     try {
+      // Guardar informações do item original (status e quantidade comprada)
+      const wasPurchased = item.status === "PURCHASED" || item.status === "RECEIVED";
+      const purchasedQuantity = item.receivedQuantity || 0;
+
       // Buscar lista destino
       const targetListResponse = await api.get(`/invoice/shopping-lists/${targetListId}`);
       const targetList = targetListResponse.data;
@@ -786,6 +781,26 @@ export function ShoppingListsTab() {
         description: targetList.description,
         items: currentItems,
       });
+
+      // Se o item estava comprado, atualizar o status na lista destino
+      if (wasPurchased && purchasedQuantity > 0) {
+        // Buscar a lista atualizada para encontrar o item recém-criado
+        const updatedTargetListResponse = await api.get(`/invoice/shopping-lists/${targetListId}`);
+        const updatedTargetList = updatedTargetListResponse.data;
+
+        // Encontrar o item recém-criado pelo productId
+        const transferredItem = updatedTargetList.shoppingListItems?.find(
+          (i: ShoppingListItem) => i.productId === item.productId && i.status === "PENDING"
+        );
+
+        if (transferredItem) {
+          // Atualizar o item para manter o status de comprado
+          await api.patch("/invoice/shopping-lists/update-purchased-quantity", {
+            itemId: transferredItem.id,
+            purchasedQuantity: purchasedQuantity,
+          });
+        }
+      }
 
       // Remover da lista origem - buscar lista atualizada
       const allListsResponse = await api.get("/invoice/shopping-lists");
@@ -813,7 +828,9 @@ export function ShoppingListsTab() {
       setOpenNotification({
         type: "success",
         title: "Sucesso!",
-        notification: "Item transferido com sucesso!",
+        notification: wasPurchased
+          ? "Item transferido com sucesso! Status de comprado mantido."
+          : "Item transferido com sucesso!",
       });
 
       setShowTransferModal(false);
@@ -1228,21 +1245,18 @@ export function ShoppingListsTab() {
         return text;
       };
 
-      // Preparar dados com truncagem
+      // Preparar dados com truncagem - apenas Pedido e Comprado
       const tableData = itemsToInclude.map((item: any) => [
-        truncateText(`${item.product.name} (${item.product.code})`, 35),
+        truncateText(`${item.product.name} (${item.product.code})`, 50),
         item.quantity.toString(),
-        item.receivedQuantity.toString(),
-        item.defectiveQuantity.toString(),
-        item.finalQuantity.toString(),
-        (item.quantity - item.receivedQuantity).toString(),
+        (item.receivedQuantity || 0).toString(),
         truncateText(statusMap[item.status as keyof typeof statusMap] || item.status, 12),
       ]);
 
-      // Tabela com cabeçalho em UMA LINHA
+      // Tabela simplificada - apenas Pedido e Comprado
       const { autoTable } = await import("jspdf-autotable");
       autoTable(doc, {
-        head: [["PRODUTO", "PEDIDO", "RECEBIDO", "DEFEITO", "FINAL", "A RECEBER", "STATUS"]],
+        head: [["PRODUTO", "PEDIDO", "COMPRADO", "STATUS"]],
         body: tableData,
         startY: 45,
         styles: {
@@ -1265,15 +1279,12 @@ export function ShoppingListsTab() {
         columnStyles: {
           0: {
             halign: "left",
-            cellWidth: 40,
+            cellWidth: 70,
             fontStyle: "bold",
           },
-          1: { halign: "center", cellWidth: 25 },
-          2: { halign: "center", cellWidth: 25 },
-          3: { halign: "center", cellWidth: 25 },
-          4: { halign: "center", cellWidth: 18 },
-          5: { halign: "center", cellWidth: 28 },
-          6: { halign: "center", cellWidth: 25 },
+          1: { halign: "center", cellWidth: 30 },
+          2: { halign: "center", cellWidth: 30 },
+          3: { halign: "center", cellWidth: 30 },
         },
         margin: { left: 10, right: 10 },
 
@@ -2243,6 +2254,17 @@ export function ShoppingListsTab() {
                                   Desfazer
                                 </button>
                               </Tooltip>
+                              <Tooltip content="Transferir para outra lista" position="left" maxWidth="140px">
+                                <button
+                                  onClick={() => {
+                                    setSelectedItem(item);
+                                    setShowTransferModal(true);
+                                  }}
+                                  className="bg-purple-500 hover:bg-purple-600 text-white px-2 py-1 rounded text-xs flex items-center"
+                                >
+                                  📦 Transferir
+                                </button>
+                              </Tooltip>
                               <Tooltip content="Excluir item da lista" position="left" maxWidth="120px">
                                 <button
                                   onClick={async () => {
@@ -2306,17 +2328,22 @@ export function ShoppingListsTab() {
                     {/* Resumo */}
                     <div className="mt-3 pt-3 border-t border-gray-200">
                       <div className="flex justify-between text-sm text-gray-600">
-                        <span>Total de itens: {list.shoppingListItems?.length || 0}</span>
+                        <span>
+                          Total de produtos:{" "}
+                          {list.shoppingListItems?.reduce((sum, item) => sum + item.quantity, 0) || 0}
+                        </span>
                         <div className="flex gap-4">
                           <span className="text-yellow-600">
                             ⏳ Pendentes:{" "}
-                            {list.shoppingListItems?.filter((item) => item.status === "PENDING").length || 0}
+                            {list.shoppingListItems
+                              ?.filter((item) => item.status === "PENDING")
+                              .reduce((sum, item) => sum + item.quantity, 0) || 0}
                           </span>
                           <span className="text-blue-600">
                             🛒 Comprados:{" "}
-                            {list.shoppingListItems?.filter(
-                              (item) => item.status === "PURCHASED" || item.status === "RECEIVED"
-                            ).length || 0}
+                            {list.shoppingListItems
+                              ?.filter((item) => item.status === "PURCHASED" || item.status === "RECEIVED")
+                              .reduce((sum, item) => sum + (item.receivedQuantity || 0), 0) || 0}
                           </span>
                         </div>
                       </div>
@@ -2410,40 +2437,18 @@ export function ShoppingListsTab() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">✅ Quantidade Já Comprada</label>
-                <input
-                  type="number"
-                  value={purchasedQuantity}
-                  disabled
-                  className="w-full border border-gray-300 rounded-md p-2 bg-gray-100"
-                />
-              </div>
-
-              <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  ➕ Quantidade Adicional a Comprar
+                  ✅ Quantidade que Conseguimos Comprar
                 </label>
                 <input
                   type="number"
-                  value={additionalQuantity}
+                  value={purchasedQuantity + additionalQuantity}
                   onChange={(e) => {
                     const value = e.target.value.replace(/[^0-9.]/g, "");
-                    const qty = parseFloat(value) || 0;
-                    setAdditionalQuantity(qty);
-                  }}
-                  onKeyDown={(e) => {
-                    // Prevenir backspace e delete quando o campo está vazio ou tem apenas um caractere
-                    const currentValue = additionalQuantity.toString();
-                    if (
-                      (e.key === "Backspace" || e.key === "Delete") &&
-                      (currentValue === "0" || currentValue === "" || currentValue.length <= 1)
-                    ) {
-                      // Permitir apenas se o usuário selecionou todo o texto
-                      const input = e.target as HTMLInputElement;
-                      if (input.selectionStart !== 0 || input.selectionEnd !== currentValue.length) {
-                        e.preventDefault();
-                      }
-                    }
+                    const totalQty = parseFloat(value) || 0;
+                    // Calcular quantidade adicional (pode ser negativa se o usuário quiser corrigir)
+                    const newAdditional = totalQty - purchasedQuantity;
+                    setAdditionalQuantity(newAdditional);
                   }}
                   onFocus={(e) => {
                     // Selecionar todo o texto ao focar para facilitar substituição
@@ -2451,8 +2456,11 @@ export function ShoppingListsTab() {
                   }}
                   className="w-full border border-gray-300 rounded-md p-2"
                   min="0"
-                  placeholder="Digite a quantidade adicional"
+                  placeholder="Digite a quantidade total comprada"
                 />
+                <p className="text-xs text-gray-500 mt-1">
+                  Você pode colocar uma quantidade maior ou menor que a pedida. Digite o valor total que foi comprado.
+                </p>
               </div>
 
               <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
