@@ -12,6 +12,7 @@ import {
   Download,
   FileText,
   FileSpreadsheet,
+  RotateCcw,
 } from "lucide-react";
 import { api } from "../../../../services/api";
 import Swal from "sweetalert2";
@@ -70,6 +71,7 @@ export function ShoppingListsTab() {
   const [showOnlyPending, setShowOnlyPending] = useState(false);
   const [selectedItem, setSelectedItem] = useState<ShoppingListItem | null>(null);
   const [purchasedQuantity, setPurchasedQuantity] = useState(0);
+  const [additionalQuantity, setAdditionalQuantity] = useState(0);
   const [quantityDetails, setQuantityDetails] = useState({
     ordered: 0,
     received: 0,
@@ -258,6 +260,7 @@ export function ShoppingListsTab() {
           console.log("Item atualizado encontrado:", updatedItem.id, "ID original:", item.id);
           setSelectedItem(updatedItem);
           setPurchasedQuantity(updatedItem.receivedQuantity || 0);
+          setAdditionalQuantity(0); // Reset quantidade adicional
           setShowPurchaseModal(true);
           return;
         }
@@ -267,12 +270,14 @@ export function ShoppingListsTab() {
       console.log("Usando item original:", item.id);
       setSelectedItem(item);
       setPurchasedQuantity(item.receivedQuantity || 0);
+      setAdditionalQuantity(0); // Reset quantidade adicional
       setShowPurchaseModal(true);
     } catch (error) {
       console.error("Erro ao buscar item atualizado:", error);
       // Em caso de erro, usar o item original
       setSelectedItem(item);
       setPurchasedQuantity(item.receivedQuantity || 0);
+      setAdditionalQuantity(0); // Reset quantidade adicional
       setShowPurchaseModal(true);
     }
   };
@@ -280,20 +285,32 @@ export function ShoppingListsTab() {
   const handleSavePurchasedQuantity = async (allowLess: boolean = false) => {
     if (!selectedItem) return;
 
-    if (purchasedQuantity < 0) {
+    // Calcular quantidade total (já comprada + adicional)
+    const totalQuantity = purchasedQuantity + additionalQuantity;
+
+    if (additionalQuantity < 0) {
       setOpenNotification({
         type: "error",
         title: "Erro!",
-        notification: "Quantidade comprada não pode ser negativa!",
+        notification: "Quantidade adicional não pode ser negativa!",
       });
       return;
     }
 
-    // Aviso se quantidade maior que pedida
-    if (purchasedQuantity > selectedItem.quantity) {
+    if (totalQuantity < 0) {
+      setOpenNotification({
+        type: "error",
+        title: "Erro!",
+        notification: "Quantidade total não pode ser negativa!",
+      });
+      return;
+    }
+
+    // Aviso se quantidade total maior que pedida
+    if (totalQuantity > selectedItem.quantity) {
       const result = await Swal.fire({
         title: "Quantidade Maior que Pedida",
-        text: `Você pediu ${selectedItem.quantity} mas está comprando ${purchasedQuantity}. Deseja confirmar mesmo assim?`,
+        text: `Você pediu ${selectedItem.quantity} mas o total comprado será ${totalQuantity}. Deseja confirmar mesmo assim?`,
         icon: "question",
         showCancelButton: true,
         confirmButtonText: "Sim, confirmar",
@@ -310,11 +327,16 @@ export function ShoppingListsTab() {
       }
     }
 
-    // Permitir quantidade menor que pedida (se allowLess for true)
-    if (!allowLess && purchasedQuantity < selectedItem.quantity) {
+    // Só mostrar confirmação se quantidade total ainda ficar menor que pedida
+    // E só mostrar se realmente está comprando menos (não quando já tem mais comprado)
+    // E só mostrar ocasionalmente (quando a diferença for significativa, ex: mais de 20% menor)
+    const difference = selectedItem.quantity - totalQuantity;
+    const percentageDifference = (difference / selectedItem.quantity) * 100;
+
+    if (!allowLess && totalQuantity < selectedItem.quantity && additionalQuantity > 0 && percentageDifference > 20) {
       const result = await Swal.fire({
         title: "Quantidade Menor que Pedida",
-        text: `Você está comprando ${purchasedQuantity} mas pediu ${selectedItem.quantity}. Deseja continuar mesmo assim?`,
+        text: `Você pediu ${selectedItem.quantity} mas o total comprado será ${totalQuantity} (${difference} unidades a menos). Deseja continuar mesmo assim?`,
         icon: "question",
         showCancelButton: true,
         confirmButtonText: "Sim, confirmar",
@@ -332,8 +354,8 @@ export function ShoppingListsTab() {
     }
 
     try {
-      // Garantir que purchasedQuantity seja um número
-      const quantityToSend = Number(purchasedQuantity);
+      // Garantir que totalQuantity seja um número
+      const quantityToSend = Number(totalQuantity);
 
       if (isNaN(quantityToSend)) {
         setOpenNotification({
@@ -347,6 +369,8 @@ export function ShoppingListsTab() {
       console.log("Enviando para API:", {
         itemId: selectedItem.id,
         purchasedQuantity: quantityToSend,
+        currentPurchased: purchasedQuantity,
+        additional: additionalQuantity,
         selectedItem: selectedItem,
       });
 
@@ -361,15 +385,79 @@ export function ShoppingListsTab() {
         notification:
           quantityToSend > selectedItem.quantity
             ? `Quantidade atualizada! Comprado ${quantityToSend} (maior que pedido de ${selectedItem.quantity})`
-            : "Quantidade comprada atualizada com sucesso!",
+            : `Quantidade atualizada! Total comprado: ${quantityToSend}`,
       });
 
       setShowPurchaseModal(false);
       setPurchasedQuantity(0);
+      setAdditionalQuantity(0);
       await fetchData();
     } catch (error: any) {
       console.error("Erro ao atualizar quantidade comprada:", error);
       const errorMessage = error?.response?.data?.message || error?.message || "Erro ao atualizar quantidade comprada";
+      setOpenNotification({
+        type: "error",
+        title: "Erro!",
+        notification: errorMessage,
+      });
+    }
+  };
+
+  const handleUndoPurchase = async (item: ShoppingListItem, listId?: string) => {
+    try {
+      const result = await Swal.fire({
+        title: "Desfazer Compra",
+        text: `Deseja desfazer a compra deste item? Ele voltará para o status "Pendente".`,
+        icon: "question",
+        showCancelButton: true,
+        confirmButtonText: "Sim, desfazer",
+        cancelButtonText: "Cancelar",
+        buttonsStyling: false,
+        customClass: {
+          confirmButton: "bg-orange-600 hover:bg-orange-700 text-white px-6 py-2 rounded font-semibold mx-2",
+          cancelButton: "bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded font-semibold mx-2",
+        },
+      });
+
+      if (!result.isConfirmed) {
+        return;
+      }
+
+      // Encontrar a lista que contém este item
+      const foundListId =
+        listId || shoppingLists.find((l) => l.shoppingListItems?.some((i) => i.id === item.id))?.id || editingList?.id;
+
+      if (foundListId) {
+        // Buscar o item atualizado da lista para garantir que temos o ID correto
+        const listResponse = await api.get(`/invoice/shopping-lists/${foundListId}`);
+        const updatedList = listResponse.data;
+
+        // Encontrar o item atualizado pelo productId
+        const updatedItem = updatedList.shoppingListItems?.find(
+          (i: ShoppingListItem) => i.productId === item.productId
+        );
+
+        if (updatedItem) {
+          await api.patch("/invoice/shopping-lists/undo-purchase", {
+            itemId: updatedItem.id,
+          });
+
+          setOpenNotification({
+            type: "success",
+            title: "Sucesso!",
+            notification: "Compra desfeita! O item voltou para pendente.",
+          });
+
+          await fetchData();
+        } else {
+          throw new Error("Item não encontrado na lista");
+        }
+      } else {
+        throw new Error("Lista não encontrada");
+      }
+    } catch (error: any) {
+      console.error("Erro ao desfazer compra:", error);
+      const errorMessage = error?.response?.data?.message || error?.message || "Erro ao desfazer compra";
       setOpenNotification({
         type: "error",
         title: "Erro!",
@@ -1633,6 +1721,19 @@ export function ShoppingListsTab() {
                                   🛒 Comprar
                                 </button>
                               </Tooltip>
+                              <Tooltip
+                                content="Desfazer compra e voltar para pendente"
+                                position="left"
+                                maxWidth="180px"
+                              >
+                                <button
+                                  onClick={() => handleUndoPurchase(item, list.id)}
+                                  className="bg-orange-500 hover:bg-orange-600 text-white px-3 py-1 rounded text-xs flex items-center"
+                                >
+                                  <RotateCcw size={14} className="mr-1" />
+                                  Desfazer
+                                </button>
+                              </Tooltip>
                               <Tooltip content="Excluir item da lista" position="left" maxWidth="120px">
                                 <button
                                   onClick={async () => {
@@ -1750,6 +1851,15 @@ export function ShoppingListsTab() {
                               🛒 Comprar
                             </button>
                           </Tooltip>
+                          <Tooltip content="Desfazer compra e voltar para pendente" position="left" maxWidth="180px">
+                            <button
+                              onClick={() => handleUndoPurchase(item, list.id)}
+                              className="bg-orange-500 hover:bg-orange-600 text-white px-3 py-1 rounded text-xs flex items-center"
+                            >
+                              <RotateCcw size={14} className="mr-1" />
+                              Desfazer
+                            </button>
+                          </Tooltip>
                           <Tooltip content="Excluir item da lista" position="left" maxWidth="120px">
                             <button
                               onClick={async () => {
@@ -1851,20 +1961,30 @@ export function ShoppingListsTab() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  ✅ Quantidade que Conseguimos Comprar
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">✅ Quantidade Já Comprada</label>
                 <input
                   type="number"
                   value={purchasedQuantity}
+                  disabled
+                  className="w-full border border-gray-300 rounded-md p-2 bg-gray-100"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  ➕ Quantidade Adicional a Comprar
+                </label>
+                <input
+                  type="number"
+                  value={additionalQuantity}
                   onChange={(e) => {
                     const value = e.target.value.replace(/[^0-9.]/g, "");
                     const qty = parseFloat(value) || 0;
-                    setPurchasedQuantity(qty);
+                    setAdditionalQuantity(qty);
                   }}
                   onKeyDown={(e) => {
                     // Prevenir backspace e delete quando o campo está vazio ou tem apenas um caractere
-                    const currentValue = purchasedQuantity.toString();
+                    const currentValue = additionalQuantity.toString();
                     if (
                       (e.key === "Backspace" || e.key === "Delete") &&
                       (currentValue === "0" || currentValue === "" || currentValue.length <= 1)
@@ -1882,11 +2002,26 @@ export function ShoppingListsTab() {
                   }}
                   className="w-full border border-gray-300 rounded-md p-2"
                   min="0"
-                  placeholder="Digite a quantidade comprada"
+                  placeholder="Digite a quantidade adicional"
                 />
-                <p className="text-xs text-gray-500 mt-1">
-                  Pedido: {selectedItem.quantity} | Você pode comprar mais ou menos que o pedido
-                </p>
+              </div>
+
+              <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-medium text-gray-700">📊 Total que será comprado:</span>
+                  <span className="text-lg font-bold text-blue-600">{purchasedQuantity + additionalQuantity}</span>
+                </div>
+                {purchasedQuantity + additionalQuantity < selectedItem.quantity && (
+                  <p className="text-xs text-yellow-600 mt-1">
+                    ⚠️ Ainda faltam {selectedItem.quantity - (purchasedQuantity + additionalQuantity)} unidades
+                  </p>
+                )}
+                {purchasedQuantity + additionalQuantity > selectedItem.quantity && (
+                  <p className="text-xs text-purple-600 mt-1">
+                    ⚠️ Será comprado {purchasedQuantity + additionalQuantity - selectedItem.quantity} a mais que o
+                    pedido
+                  </p>
+                )}
               </div>
             </div>
 
@@ -1897,19 +2032,11 @@ export function ShoppingListsTab() {
               >
                 💾 Salvar
               </button>
-              {purchasedQuantity < selectedItem.quantity && (
-                <button
-                  onClick={() => handleSavePurchasedQuantity(true)}
-                  className="bg-yellow-600 hover:bg-yellow-700 text-white px-4 py-2 rounded"
-                  title="Confirmar mesmo com quantidade menor"
-                >
-                  ✅ OK Menor
-                </button>
-              )}
               <button
                 onClick={() => {
                   setShowPurchaseModal(false);
                   setPurchasedQuantity(0);
+                  setAdditionalQuantity(0);
                 }}
                 className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded"
               >
