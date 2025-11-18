@@ -429,16 +429,53 @@ export function ShoppingListsTab() {
         return;
       }
 
+      // Buscar o item atualizado antes de enviar para garantir que o ID está correto
+      // Isso evita 404 quando a lista foi editada e os itens foram recriados
+      let currentItemId = selectedItem.id;
+      let currentItem = selectedItem;
+
+      try {
+        // Tentar encontrar a lista que contém este item
+        const listId =
+          shoppingLists.find((l) =>
+            l.shoppingListItems?.some((i) => i.id === selectedItem.id || i.productId === selectedItem.productId)
+          )?.id || editingList?.id;
+
+        if (listId) {
+          const listResponse = await api.get(`/invoice/shopping-lists/${listId}`);
+          const updatedList = listResponse.data;
+
+          // Buscar pelo productId (mais confiável que ID)
+          const updatedItem = updatedList.shoppingListItems?.find(
+            (i: ShoppingListItem) => i.productId === selectedItem.productId
+          );
+
+          if (updatedItem) {
+            currentItemId = updatedItem.id;
+            currentItem = updatedItem;
+            console.log("Item atualizado encontrado antes de salvar:", {
+              oldId: selectedItem.id,
+              newId: currentItemId,
+              productId: selectedItem.productId,
+            });
+          }
+        }
+      } catch (refreshError) {
+        console.warn("Erro ao buscar item atualizado antes de salvar, usando ID original:", refreshError);
+        // Continuar com o ID original se não conseguir atualizar
+      }
+
       console.log("Enviando para API:", {
-        itemId: selectedItem.id,
+        itemId: currentItemId,
         purchasedQuantity: quantityToSend,
         currentPurchased: purchasedQuantity,
         additional: additionalQuantity,
-        selectedItem: selectedItem,
+        productId: currentItem.productId,
+        productName: currentItem.product?.name,
       });
 
       await api.patch("/invoice/shopping-lists/update-purchased-quantity", {
-        itemId: selectedItem.id,
+        itemId: currentItemId,
         purchasedQuantity: quantityToSend,
       });
 
@@ -446,8 +483,8 @@ export function ShoppingListsTab() {
         type: "success",
         title: "Sucesso!",
         notification:
-          quantityToSend > selectedItem.quantity
-            ? `Quantidade atualizada! Comprado ${quantityToSend} (maior que pedido de ${selectedItem.quantity})`
+          quantityToSend > currentItem.quantity
+            ? `Quantidade atualizada! Comprado ${quantityToSend} (maior que pedido de ${currentItem.quantity})`
             : `Quantidade atualizada! Total comprado: ${quantityToSend}`,
       });
 
@@ -456,7 +493,27 @@ export function ShoppingListsTab() {
       setAdditionalQuantity(0);
       await fetchData();
     } catch (error: any) {
-      console.error("Erro ao atualizar quantidade comprada:", error);
+      console.error("Erro ao atualizar quantidade comprada:", {
+        error,
+        response: error?.response?.data,
+        status: error?.response?.status,
+        itemId: selectedItem.id,
+        productId: selectedItem.productId,
+      });
+
+      // Tratamento específico para 404
+      if (error?.response?.status === 404) {
+        setOpenNotification({
+          type: "error",
+          title: "Item não encontrado!",
+          notification: "O item pode ter sido removido ou a lista foi editada. Recarregando dados...",
+        });
+        // Recarregar dados e fechar modal
+        await fetchData();
+        setShowPurchaseModal(false);
+        return;
+      }
+
       const errorMessage = error?.response?.data?.message || error?.message || "Erro ao atualizar quantidade comprada";
       setOpenNotification({
         type: "error",
