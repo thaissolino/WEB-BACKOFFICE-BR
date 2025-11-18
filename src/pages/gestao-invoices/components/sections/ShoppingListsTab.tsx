@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import {
   Plus,
   Minus,
@@ -54,12 +54,21 @@ interface ShoppingList {
   createdAt: string;
   updatedAt: string;
   createdBy: string;
+  completed?: boolean; // Calculado: true se todos os itens estão comprados
+  completedAt?: string | null;
 }
 
 export function ShoppingListsTab() {
   const [shoppingLists, setShoppingLists] = useState<ShoppingList[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
+  const [itemsPerPage] = useState(10);
+  const [filterStatus, setFilterStatus] = useState<"all" | "completed" | "pending">("all");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [searchInput, setSearchInput] = useState(""); // Valor do input (sem debounce)
   const [isCreating, setIsCreating] = useState(false);
   const [isEditing, setIsEditing] = useState<string | null>(null);
   const [editingList, setEditingList] = useState<ShoppingList | null>(null);
@@ -95,15 +104,35 @@ export function ShoppingListsTab() {
     }>,
   });
 
-  const fetchData = async () => {
+  const fetchData = async (showLoading: boolean = false) => {
     try {
-      setLoading(true);
+      // Só mostra loading se for carregamento inicial
+      if (showLoading) {
+        setLoading(true);
+      }
+      // Para buscas, não mostra loading - atualização silenciosa
+
       const [listsResponse, productsResponse] = await Promise.all([
-        api.get("/invoice/shopping-lists"),
+        api.get("/invoice/shopping-lists", {
+          params: {
+            page: currentPage,
+            limit: itemsPerPage,
+            status: filterStatus,
+            search: searchTerm || undefined,
+          },
+        }),
         api.get("/invoice/product"),
       ]);
 
-      setShoppingLists(listsResponse.data);
+      // Backend retorna { data: [...], pagination: {...} }
+      if (listsResponse.data?.data) {
+        setShoppingLists(listsResponse.data.data);
+        setTotalPages(listsResponse.data.pagination?.totalPages || 1);
+        setTotalItems(listsResponse.data.pagination?.total || 0);
+      } else {
+        // Fallback para formato antigo
+        setShoppingLists(listsResponse.data);
+      }
       setProducts(productsResponse.data);
     } catch (error) {
       console.error("Erro ao buscar dados:", error);
@@ -117,8 +146,37 @@ export function ShoppingListsTab() {
     }
   };
 
+  // Carregamento inicial com loading
   useEffect(() => {
-    fetchData();
+    fetchData(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Busca e filtros sem loading (atualização silenciosa)
+  // Usa useRef para evitar loop infinito
+  const isInitialMount = useRef(true);
+
+  useEffect(() => {
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
+    // Só busca se já carregou inicialmente (não é o primeiro render)
+    fetchData(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentPage, filterStatus, searchTerm]);
+
+  // Debounce para busca: aguarda 500ms após parar de digitar antes de buscar
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setSearchTerm(searchInput);
+      setCurrentPage(1); // Reset para primeira página ao buscar
+    }, 500); // Aguarda 500ms após parar de digitar
+
+    return () => clearTimeout(timer); // Limpa o timer se o usuário continuar digitando
+  }, [searchInput]);
+
+  useEffect(() => {
     // Restaurar lista em construção do localStorage
     const savedList = localStorage.getItem("shopping-list-draft");
     if (savedList) {
@@ -1511,23 +1569,75 @@ export function ShoppingListsTab() {
         </div>
       )}
 
+      {/* Filtros e Busca */}
+      <div className="mb-4 bg-white p-4 rounded-lg border border-gray-200">
+        <div className="flex flex-col md:flex-row gap-4">
+          <div className="flex-1">
+            <label className="block text-sm font-medium text-gray-700 mb-1">🔍 Buscar</label>
+            <input
+              type="text"
+              value={searchInput}
+              onChange={(e) => {
+                setSearchInput(e.target.value); // Atualiza apenas o input, sem buscar imediatamente
+              }}
+              placeholder="Buscar por nome ou descrição..."
+              className="w-full border border-gray-300 rounded-md p-2"
+            />
+          </div>
+          <div className="w-full md:w-48">
+            <label className="block text-sm font-medium text-gray-700 mb-1">📊 Status</label>
+            <select
+              value={filterStatus}
+              onChange={(e) => {
+                setFilterStatus(e.target.value as "all" | "completed" | "pending");
+                setCurrentPage(1); // Reset para primeira página ao filtrar
+              }}
+              className="w-full border border-gray-300 rounded-md p-2"
+            >
+              <option value="all">Todas</option>
+              <option value="pending">Pendentes</option>
+              <option value="completed">Concluídas</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
       {/* Lista de Listas */}
       <div className="space-y-4">
         {shoppingLists.length === 0 ? (
           <div className="text-center py-8 text-gray-500">
             <Package className="mx-auto mb-4" size={48} />
-            <p>Nenhuma lista de compras criada ainda.</p>
-            <p className="text-sm">Clique em "Nova Lista" para começar!</p>
+            <p>Nenhuma lista de compras encontrada.</p>
+            <p className="text-sm">
+              {searchTerm || filterStatus !== "all"
+                ? "Tente ajustar os filtros de busca."
+                : 'Clique em "Nova Lista" para começar!'}
+            </p>
           </div>
         ) : (
           shoppingLists.map((list) => (
-            <div key={list.id} className="border border-gray-200 rounded-lg p-4">
+            <div
+              key={list.id}
+              className={`border rounded-lg p-4 ${list.completed ? "bg-green-50 border-green-200" : "border-gray-200"}`}
+            >
               <div className="flex justify-between items-start mb-3">
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-800">{list.name}</h3>
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-lg font-semibold text-gray-800">{list.name}</h3>
+                    {list.completed && (
+                      <span className="px-2 py-1 bg-green-500 text-white text-xs font-semibold rounded-full">
+                        ✅ Concluída
+                      </span>
+                    )}
+                  </div>
                   {list.description && <p className="text-gray-600 text-sm">{list.description}</p>}
                   <p className="text-xs text-gray-500">
                     Criada em: {new Date(list.createdAt).toLocaleDateString("pt-BR")}
+                    {list.completedAt && (
+                      <span className="ml-2 text-green-600">
+                        • Concluída em: {new Date(list.completedAt).toLocaleDateString("pt-BR")}
+                      </span>
+                    )}
                   </p>
                 </div>
                 <div className="flex gap-2">
@@ -1939,6 +2049,67 @@ export function ShoppingListsTab() {
             </div>
           ))
         )}
+
+        {/* Paginação */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between mt-6 bg-white p-4 rounded-lg border border-gray-200">
+            <div className="text-sm text-gray-700">
+              Mostrando {(currentPage - 1) * itemsPerPage + 1} a {Math.min(currentPage * itemsPerPage, totalItems)} de{" "}
+              {totalItems} listas
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                disabled={currentPage === 1}
+                className={`px-4 py-2 rounded ${
+                  currentPage === 1
+                    ? "bg-gray-200 text-gray-400 cursor-not-allowed"
+                    : "bg-blue-500 hover:bg-blue-600 text-white"
+                }`}
+              >
+                Anterior
+              </button>
+              <div className="flex gap-1">
+                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                  let pageNum;
+                  if (totalPages <= 5) {
+                    pageNum = i + 1;
+                  } else if (currentPage <= 3) {
+                    pageNum = i + 1;
+                  } else if (currentPage >= totalPages - 2) {
+                    pageNum = totalPages - 4 + i;
+                  } else {
+                    pageNum = currentPage - 2 + i;
+                  }
+                  return (
+                    <button
+                      key={pageNum}
+                      onClick={() => setCurrentPage(pageNum)}
+                      className={`px-3 py-2 rounded ${
+                        currentPage === pageNum
+                          ? "bg-blue-600 text-white"
+                          : "bg-gray-200 hover:bg-gray-300 text-gray-700"
+                      }`}
+                    >
+                      {pageNum}
+                    </button>
+                  );
+                })}
+              </div>
+              <button
+                onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                disabled={currentPage === totalPages}
+                className={`px-4 py-2 rounded ${
+                  currentPage === totalPages
+                    ? "bg-gray-200 text-gray-400 cursor-not-allowed"
+                    : "bg-blue-500 hover:bg-blue-600 text-white"
+                }`}
+              >
+                Próxima
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Modal Simplificado de Quantidade Comprada */}
@@ -2066,7 +2237,7 @@ export function ShoppingListsTab() {
                 >
                   <option value="">Selecione uma lista...</option>
                   {shoppingLists
-                    .filter((list) => list.id !== editingList?.id)
+                    .filter((list) => list.id !== editingList?.id && !list.completed)
                     .map((list) => (
                       <option key={list.id} value={list.id}>
                         {list.name}
