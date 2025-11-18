@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from "react";
+import { createPortal } from "react-dom";
 import {
   Plus,
   Minus,
@@ -1306,7 +1307,7 @@ export function ShoppingListsTab() {
 
   // Filtrar produtos para busca
 
-  // Componente de Tooltip Melhorado
+  // Componente de Tooltip Soberano (renderizado via Portal)
   const Tooltip = ({
     children,
     content,
@@ -1319,40 +1320,183 @@ export function ShoppingListsTab() {
     maxWidth?: string;
   }) => {
     const [isVisible, setIsVisible] = useState(false);
+    const [tooltipPosition, setTooltipPosition] = useState({ top: 0, left: 0 });
+    const elementRef = useRef<HTMLDivElement>(null);
 
-    const positionClasses = {
-      top: "bottom-full left-1/2 transform -translate-x-1/2 mb-2",
-      bottom: "top-full left-1/2 transform -translate-x-1/2 mt-2",
-      left: "right-full top-1/2 transform -translate-y-1/2 mr-2",
-      right: "left-full top-1/2 transform -translate-y-1/2 ml-2",
+    const updateTooltipPosition = () => {
+      if (elementRef.current) {
+        const rect = elementRef.current.getBoundingClientRect();
+        const scrollX = window.scrollX || window.pageXOffset;
+        const scrollY = window.scrollY || window.pageYOffset;
+
+        let top = 0;
+        let left = 0;
+
+        switch (position) {
+          case "top":
+            top = rect.top + scrollY - 8;
+            left = rect.left + scrollX + rect.width / 2;
+            break;
+          case "bottom":
+            top = rect.bottom + scrollY + 8;
+            left = rect.left + scrollX + rect.width / 2;
+            break;
+          case "left":
+            top = rect.top + scrollY + rect.height / 2;
+            left = rect.left + scrollX - 8;
+            break;
+          case "right":
+            top = rect.top + scrollY + rect.height / 2;
+            left = rect.right + scrollX + 8;
+            break;
+        }
+
+        setTooltipPosition({ top, left });
+      }
     };
 
-    const arrowClasses = {
-      top: "top-full left-1/2 transform -translate-x-1/2 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900",
-      bottom:
-        "bottom-full left-1/2 transform -translate-x-1/2 border-l-4 border-r-4 border-b-4 border-transparent border-b-gray-900",
-      left: "left-full top-1/2 transform -translate-y-1/2 border-t-4 border-b-4 border-l-4 border-transparent border-l-gray-900",
-      right:
-        "right-full top-1/2 transform -translate-y-1/2 border-t-4 border-b-4 border-r-4 border-transparent border-r-gray-900",
+    const handleMouseEnter = () => {
+      setIsVisible(true);
+      updateTooltipPosition();
+    };
+
+    const handleMouseLeave = () => {
+      setIsVisible(false);
+    };
+
+    useEffect(() => {
+      if (isVisible) {
+        updateTooltipPosition();
+        const handleScroll = () => updateTooltipPosition();
+        const handleResize = () => updateTooltipPosition();
+
+        window.addEventListener("scroll", handleScroll, true);
+        window.addEventListener("resize", handleResize);
+
+        return () => {
+          window.removeEventListener("scroll", handleScroll, true);
+          window.removeEventListener("resize", handleResize);
+        };
+      }
+    }, [isVisible, position]);
+
+    const getTooltipStyle = (): React.CSSProperties => {
+      const baseStyle: React.CSSProperties = {
+        position: "fixed",
+        zIndex: 99999,
+        maxWidth,
+        whiteSpace: "normal",
+        wordWrap: "break-word",
+        pointerEvents: "none",
+        transform: "translateX(-50%)",
+      };
+
+      switch (position) {
+        case "top":
+          return {
+            ...baseStyle,
+            top: `${tooltipPosition.top}px`,
+            left: `${tooltipPosition.left}px`,
+            transform: "translate(-50%, -100%)",
+            marginTop: "-8px",
+          };
+        case "bottom":
+          return {
+            ...baseStyle,
+            top: `${tooltipPosition.top}px`,
+            left: `${tooltipPosition.left}px`,
+            transform: "translateX(-50%)",
+            marginTop: "8px",
+          };
+        case "left":
+          return {
+            ...baseStyle,
+            top: `${tooltipPosition.top}px`,
+            left: `${tooltipPosition.left}px`,
+            transform: "translate(-100%, -50%)",
+            marginLeft: "-8px",
+          };
+        case "right":
+          return {
+            ...baseStyle,
+            top: `${tooltipPosition.top}px`,
+            left: `${tooltipPosition.left}px`,
+            transform: "translateY(-50%)",
+            marginLeft: "8px",
+          };
+        default:
+          return baseStyle;
+      }
+    };
+
+    const getArrowStyle = (): React.CSSProperties => {
+      const baseStyle: React.CSSProperties = {
+        position: "absolute",
+        width: 0,
+        height: 0,
+      };
+
+      switch (position) {
+        case "top":
+          return {
+            ...baseStyle,
+            bottom: "-6px",
+            left: "50%",
+            transform: "translateX(-50%)",
+            borderLeft: "6px solid transparent",
+            borderRight: "6px solid transparent",
+            borderTop: "6px solid #111827",
+          };
+        case "bottom":
+          return {
+            ...baseStyle,
+            top: "-6px",
+            left: "50%",
+            transform: "translateX(-50%)",
+            borderLeft: "6px solid transparent",
+            borderRight: "6px solid transparent",
+            borderBottom: "6px solid #111827",
+          };
+        case "left":
+          return {
+            ...baseStyle,
+            right: "-6px",
+            top: "50%",
+            transform: "translateY(-50%)",
+            borderTop: "6px solid transparent",
+            borderBottom: "6px solid transparent",
+            borderLeft: "6px solid #111827",
+          };
+        case "right":
+          return {
+            ...baseStyle,
+            left: "-6px",
+            top: "50%",
+            transform: "translateY(-50%)",
+            borderTop: "6px solid transparent",
+            borderBottom: "6px solid transparent",
+            borderRight: "6px solid #111827",
+          };
+        default:
+          return baseStyle;
+      }
     };
 
     return (
-      <div
-        className="relative inline-block"
-        onMouseEnter={() => setIsVisible(true)}
-        onMouseLeave={() => setIsVisible(false)}
-      >
-        {children}
-        {isVisible && (
-          <div
-            className={`absolute z-50 px-3 py-2 text-sm text-white bg-gray-900 rounded-lg shadow-xl ${positionClasses[position]}`}
-            style={{ maxWidth, whiteSpace: "normal", wordWrap: "break-word" }}
-          >
-            <div className="text-center leading-relaxed">{content}</div>
-            <div className={`absolute w-0 h-0 ${arrowClasses[position]}`}></div>
-          </div>
-        )}
-      </div>
+      <>
+        <div ref={elementRef} className="inline-block" onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
+          {children}
+        </div>
+        {isVisible &&
+          typeof document !== "undefined" &&
+          createPortal(
+            <div className="px-3 py-2 text-sm text-white bg-gray-900 rounded-lg shadow-xl" style={getTooltipStyle()}>
+              <div className="text-center leading-relaxed">{content}</div>
+              <div style={getArrowStyle()}></div>
+            </div>,
+            document.body
+          )}
+      </>
     );
   };
 
