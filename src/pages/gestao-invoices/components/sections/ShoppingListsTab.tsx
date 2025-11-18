@@ -13,6 +13,8 @@ import {
   FileText,
   FileSpreadsheet,
   RotateCcw,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import { api } from "../../../../services/api";
 import Swal from "sweetalert2";
@@ -70,6 +72,7 @@ export function ShoppingListsTab() {
   const [filterStatus, setFilterStatus] = useState<"all" | "pendente" | "comprando" | "concluida">("all");
   const [searchTerm, setSearchTerm] = useState("");
   const [searchInput, setSearchInput] = useState(""); // Valor do input (sem debounce)
+  const [expandedLists, setExpandedLists] = useState<Set<string>>(new Set()); // IDs das listas expandidas
   const [isCreating, setIsCreating] = useState(false);
   const [isEditing, setIsEditing] = useState<string | null>(null);
   const [editingList, setEditingList] = useState<ShoppingList | null>(null);
@@ -1623,230 +1626,401 @@ export function ShoppingListsTab() {
             </p>
           </div>
         ) : (
-          shoppingLists.map((list) => (
-            <div
-              key={list.id}
-              className={`border rounded-lg p-4 ${
-                list.status === "concluida"
-                  ? "bg-green-50 border-green-200"
-                  : list.status === "comprando"
-                  ? "bg-yellow-50 border-yellow-200"
-                  : "border-gray-200"
-              }`}
-            >
-              <div className="flex justify-between items-start mb-3">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2">
-                    <h3 className="text-lg font-semibold text-gray-800">{list.name}</h3>
-                    {list.status === "concluida" && (
-                      <span className="px-2 py-1 bg-green-500 text-white text-xs font-semibold rounded-full">
-                        ✅ Concluída
-                      </span>
-                    )}
-                    {list.status === "comprando" && (
-                      <span className="px-2 py-1 bg-yellow-500 text-white text-xs font-semibold rounded-full">
-                        🛒 Comprando
-                      </span>
-                    )}
-                    {list.status === "pendente" && (
-                      <span className="px-2 py-1 bg-gray-400 text-white text-xs font-semibold rounded-full">
-                        ⏳ Pendente
-                      </span>
-                    )}
+          shoppingLists.map((list) => {
+            const isExpanded = expandedLists.has(list.id);
+            const toggleExpand = () => {
+              setExpandedLists((prev) => {
+                const newSet = new Set(prev);
+                if (newSet.has(list.id)) {
+                  newSet.delete(list.id);
+                } else {
+                  newSet.add(list.id);
+                }
+                return newSet;
+              });
+            };
+
+            return (
+              <div
+                key={list.id}
+                className={`border rounded-lg overflow-hidden transition-all duration-300 ${
+                  list.status === "concluida"
+                    ? "bg-green-50 border-green-200"
+                    : list.status === "comprando"
+                    ? "bg-yellow-50 border-yellow-200"
+                    : "bg-white border-gray-200"
+                }`}
+              >
+                {/* Header clicável */}
+                <div
+                  onClick={toggleExpand}
+                  className={`p-4 cursor-pointer transition-all duration-200 flex justify-between items-start ${
+                    isExpanded ? "bg-opacity-100" : "hover:bg-opacity-90"
+                  }`}
+                  style={{
+                    backgroundColor:
+                      list.status === "concluida"
+                        ? "rgba(34, 197, 94, 0.1)"
+                        : list.status === "comprando"
+                        ? "rgba(234, 179, 8, 0.1)"
+                        : "rgba(255, 255, 255, 0.5)",
+                  }}
+                >
+                  <div className="flex-1 flex items-start gap-3">
+                    <div className={`mt-1 transition-transform duration-300 ${isExpanded ? "rotate-0" : "-rotate-90"}`}>
+                      <ChevronDown className="text-gray-600" size={20} />
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-lg font-semibold text-gray-800">{list.name}</h3>
+                        {list.status === "concluida" && (
+                          <span className="px-2 py-1 bg-green-500 text-white text-xs font-semibold rounded-full">
+                            ✅ Concluída
+                          </span>
+                        )}
+                        {list.status === "comprando" && (
+                          <span className="px-2 py-1 bg-yellow-500 text-white text-xs font-semibold rounded-full">
+                            🛒 Comprando
+                          </span>
+                        )}
+                        {list.status === "pendente" && (
+                          <span className="px-2 py-1 bg-gray-400 text-white text-xs font-semibold rounded-full">
+                            ⏳ Pendente
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-gray-500 mt-1">
+                        Criada em: {new Date(list.createdAt).toLocaleDateString("pt-BR")}
+                        {list.description && (
+                          <span className="ml-2 text-gray-600">• Descrição: {list.description}</span>
+                        )}
+                        {list.completedAt && (
+                          <span className="ml-2 text-green-600">
+                            • Concluída em: {new Date(list.completedAt).toLocaleDateString("pt-BR")}
+                          </span>
+                        )}
+                      </p>
+                    </div>
                   </div>
-                  {list.description && <p className="text-gray-600 text-sm">{list.description}</p>}
-                  <p className="text-xs text-gray-500">
-                    Criada em: {new Date(list.createdAt).toLocaleDateString("pt-BR")}
-                    {list.completedAt && (
-                      <span className="ml-2 text-green-600">
-                        • Concluída em: {new Date(list.completedAt).toLocaleDateString("pt-BR")}
-                      </span>
-                    )}
-                  </p>
-                </div>
-                <div className="flex gap-2">
-                  <Tooltip content="Editar lista: adicionar/remover produtos" position="bottom" maxWidth="160px">
-                    <button
-                      onClick={() => handleEditList(list)}
-                      className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-sm flex items-center"
-                    >
-                      <Edit size={14} className="mr-1" />
-                      Editar
-                    </button>
-                  </Tooltip>
-                  <Tooltip content="Visualizar PDF na tela" position="bottom" maxWidth="140px">
-                    <button
-                      onClick={() => handleViewPDF(list.id, list.name, false)}
-                      className="bg-purple-500 hover:bg-purple-600 text-white px-3 py-1 rounded text-sm flex items-center"
-                    >
-                      <FileText size={14} className="mr-1" />
-                      Ver PDF
-                    </button>
-                  </Tooltip>
-                  <Tooltip content="Visualizar apenas pendentes" position="bottom" maxWidth="160px">
-                    <button
-                      onClick={() => handleViewPDF(list.id, list.name, true)}
-                      className="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded text-sm flex items-center"
-                    >
-                      <FileText size={14} className="mr-1" />
-                      Ver Pendentes
-                    </button>
-                  </Tooltip>
-                  <Tooltip content="Baixar lista em PDF" position="bottom" maxWidth="120px">
-                    <button
-                      onClick={() => handleDownloadPDF(list.id, list.name)}
-                      className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm flex items-center"
-                    >
-                      <Download size={14} className="mr-1" />
-                      Baixar
-                    </button>
-                  </Tooltip>
-                  <Tooltip content="Baixar lista em CSV" position="bottom" maxWidth="120px">
-                    <button
-                      onClick={() => handleDownloadExcel(list.id, list.name)}
-                      className="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded text-sm flex items-center"
-                    >
-                      <FileSpreadsheet size={14} className="mr-1" />
-                      CSV
-                    </button>
-                  </Tooltip>
-                  <Tooltip content="Deletar lista permanentemente" position="bottom" maxWidth="140px">
-                    <button
-                      onClick={() => handleDeleteList(list.id)}
-                      className="bg-gray-500 hover:bg-gray-600 text-white px-3 py-1 rounded text-sm flex items-center"
-                    >
-                      <Trash2 size={14} className="mr-1" />
-                      Deletar
-                    </button>
-                  </Tooltip>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                {/* Itens Pendentes (em cima) */}
-                {list.shoppingListItems
-                  ?.filter((item) => item.status === "PENDING")
-                  .map((item) => {
-                    const statusInfo = getStatusInfo(item.status);
-                    return (
-                      <div
-                        key={item.id}
-                        className={`flex items-center gap-3 p-3 rounded border ${
-                          item.status === "RECEIVED"
-                            ? "bg-green-50 border-green-200"
-                            : item.status === "PURCHASED"
-                            ? "bg-blue-50 border-blue-200"
-                            : "bg-gray-50 border-gray-200"
-                        }`}
+                  <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
+                    <Tooltip content="Editar lista: adicionar/remover produtos" position="bottom" maxWidth="160px">
+                      <button
+                        onClick={() => handleEditList(list)}
+                        className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-sm flex items-center"
                       >
-                        {/* Status Badge */}
-                        <Tooltip
-                          content={`Status: ${statusInfo.label}. Use os botões para alterar`}
-                          position="bottom"
-                          maxWidth="140px"
-                        >
-                          <div className={`px-2 py-1 rounded-full text-xs font-medium border ${statusInfo.color}`}>
-                            {statusInfo.icon} {statusInfo.label}
-                          </div>
-                        </Tooltip>
+                        <Edit size={14} className="mr-1" />
+                        Editar
+                      </button>
+                    </Tooltip>
+                    <Tooltip content="Visualizar PDF na tela" position="bottom" maxWidth="140px">
+                      <button
+                        onClick={() => handleViewPDF(list.id, list.name, false)}
+                        className="bg-purple-500 hover:bg-purple-600 text-white px-3 py-1 rounded text-sm flex items-center"
+                      >
+                        <FileText size={14} className="mr-1" />
+                        Ver PDF
+                      </button>
+                    </Tooltip>
+                    <Tooltip content="Visualizar apenas pendentes" position="bottom" maxWidth="160px">
+                      <button
+                        onClick={() => handleViewPDF(list.id, list.name, true)}
+                        className="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded text-sm flex items-center"
+                      >
+                        <FileText size={14} className="mr-1" />
+                        Ver Pendentes
+                      </button>
+                    </Tooltip>
+                    <Tooltip content="Baixar lista em PDF" position="bottom" maxWidth="120px">
+                      <button
+                        onClick={() => handleDownloadPDF(list.id, list.name)}
+                        className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm flex items-center"
+                      >
+                        <Download size={14} className="mr-1" />
+                        Baixar
+                      </button>
+                    </Tooltip>
+                    <Tooltip content="Baixar lista em CSV" position="bottom" maxWidth="120px">
+                      <button
+                        onClick={() => handleDownloadExcel(list.id, list.name)}
+                        className="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded text-sm flex items-center"
+                      >
+                        <FileSpreadsheet size={14} className="mr-1" />
+                        CSV
+                      </button>
+                    </Tooltip>
+                    <Tooltip content="Deletar lista permanentemente" position="bottom" maxWidth="140px">
+                      <button
+                        onClick={() => handleDeleteList(list.id)}
+                        className="bg-gray-500 hover:bg-gray-600 text-white px-3 py-1 rounded text-sm flex items-center"
+                      >
+                        <Trash2 size={14} className="mr-1" />
+                        Deletar
+                      </button>
+                    </Tooltip>
+                  </div>
+                </div>
 
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2">
-                            <span className="font-medium">{item.product.name}</span>
-                            <span className="text-sm text-gray-500">({item.product.code})</span>
-                            <span className="text-sm font-semibold text-blue-600">
-                              Pedido: {item.quantity}
-                              {item.receivedQuantity > 0 && (
-                                <span className="text-green-600"> / Comprado: {item.receivedQuantity}</span>
+                {/* Conteúdo colapsável */}
+                <div
+                  className={`overflow-hidden transition-all duration-300 ease-in-out ${
+                    isExpanded ? "max-h-[5000px] opacity-100" : "max-h-0 opacity-0"
+                  }`}
+                >
+                  <div className="px-4 pb-4 pt-0 space-y-2">
+                    {/* Itens Pendentes (em cima) */}
+                    {list.shoppingListItems
+                      ?.filter((item) => item.status === "PENDING")
+                      .map((item) => {
+                        const statusInfo = getStatusInfo(item.status);
+                        return (
+                          <div
+                            key={item.id}
+                            className={`flex items-center gap-3 p-3 rounded border ${
+                              item.status === "RECEIVED"
+                                ? "bg-green-50 border-green-200"
+                                : item.status === "PURCHASED"
+                                ? "bg-blue-50 border-blue-200"
+                                : "bg-gray-50 border-gray-200"
+                            }`}
+                          >
+                            {/* Status Badge */}
+                            <Tooltip
+                              content={`Status: ${statusInfo.label}. Use os botões para alterar`}
+                              position="bottom"
+                              maxWidth="140px"
+                            >
+                              <div className={`px-2 py-1 rounded-full text-xs font-medium border ${statusInfo.color}`}>
+                                {statusInfo.icon} {statusInfo.label}
+                              </div>
+                            </Tooltip>
+
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium">{item.product.name}</span>
+                                <span className="text-sm text-gray-500">({item.product.code})</span>
+                                <span className="text-sm font-semibold text-blue-600">
+                                  Pedido: {item.quantity}
+                                  {item.receivedQuantity > 0 && (
+                                    <span className="text-green-600"> / Comprado: {item.receivedQuantity}</span>
+                                  )}
+                                </span>
+                              </div>
+                              {item.notes && <p className="text-sm text-gray-600 mt-1">{item.notes}</p>}
+                            </div>
+
+                            {/* Botões de Ação */}
+                            <div className="flex gap-1">
+                              {item.status === "PENDING" && (
+                                <>
+                                  <Tooltip content="Informar quantidade comprada" position="left" maxWidth="140px">
+                                    <button
+                                      onClick={() => handleOpenPurchaseModal(item, list.id)}
+                                      className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-xs flex items-center"
+                                    >
+                                      🛒 Comprar
+                                    </button>
+                                  </Tooltip>
+                                  <Tooltip content="Transferir para outra lista" position="left" maxWidth="140px">
+                                    <button
+                                      onClick={() => {
+                                        setSelectedItem(item);
+                                        setShowTransferModal(true);
+                                      }}
+                                      className="bg-purple-500 hover:bg-purple-600 text-white px-2 py-1 rounded text-xs flex items-center"
+                                    >
+                                      📦 Transferir
+                                    </button>
+                                  </Tooltip>
+                                  <Tooltip content="Excluir item da lista" position="left" maxWidth="120px">
+                                    <button
+                                      onClick={async () => {
+                                        const result = await Swal.fire({
+                                          title: "Confirmar Exclusão",
+                                          text: "Tem certeza que deseja excluir este item da lista?",
+                                          icon: "warning",
+                                          showCancelButton: true,
+                                          confirmButtonColor: "#dc2626",
+                                          cancelButtonColor: "#6b7280",
+                                          confirmButtonText: "Sim, excluir!",
+                                          cancelButtonText: "Cancelar",
+                                          buttonsStyling: false,
+                                          customClass: {
+                                            confirmButton:
+                                              "bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded font-semibold mx-2",
+                                            cancelButton:
+                                              "bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded font-semibold mx-2",
+                                          },
+                                        });
+
+                                        if (result.isConfirmed) {
+                                          try {
+                                            // Remover item da lista editando a lista
+                                            const currentItems =
+                                              list.shoppingListItems?.filter((i) => i.id !== item.id) || [];
+                                            await api.put(`/invoice/shopping-lists/${list.id}`, {
+                                              name: list.name,
+                                              description: list.description,
+                                              items: currentItems.map((i) => ({
+                                                productId: i.productId,
+                                                quantity: i.quantity,
+                                                notes: i.notes,
+                                              })),
+                                            });
+                                            setOpenNotification({
+                                              type: "success",
+                                              title: "Sucesso!",
+                                              notification: "Item excluído da lista!",
+                                            });
+                                            await fetchData();
+                                          } catch (error) {
+                                            console.error("Erro ao excluir item:", error);
+                                            setOpenNotification({
+                                              type: "error",
+                                              title: "Erro!",
+                                              notification: "Erro ao excluir item",
+                                            });
+                                          }
+                                        }
+                                      }}
+                                      className="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-xs flex items-center"
+                                    >
+                                      <Trash2 size={14} />
+                                    </button>
+                                  </Tooltip>
+                                </>
                               )}
-                            </span>
+                              {(item.status === "PURCHASED" || item.status === "RECEIVED") && (
+                                <>
+                                  <Tooltip content="Atualizar quantidade comprada" position="left" maxWidth="160px">
+                                    <button
+                                      onClick={() => handleOpenPurchaseModal(item, list.id)}
+                                      className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-xs flex items-center"
+                                    >
+                                      🛒 Comprar
+                                    </button>
+                                  </Tooltip>
+                                  <Tooltip
+                                    content="Desfazer compra e voltar para pendente"
+                                    position="left"
+                                    maxWidth="180px"
+                                  >
+                                    <button
+                                      onClick={() => handleUndoPurchase(item, list.id)}
+                                      className="bg-orange-500 hover:bg-orange-600 text-white px-3 py-1 rounded text-xs flex items-center"
+                                    >
+                                      <RotateCcw size={14} className="mr-1" />
+                                      Desfazer
+                                    </button>
+                                  </Tooltip>
+                                  <Tooltip content="Excluir item da lista" position="left" maxWidth="120px">
+                                    <button
+                                      onClick={async () => {
+                                        const result = await Swal.fire({
+                                          title: "Confirmar Exclusão",
+                                          text: "Tem certeza que deseja excluir este item da lista?",
+                                          icon: "warning",
+                                          showCancelButton: true,
+                                          confirmButtonColor: "#dc2626",
+                                          cancelButtonColor: "#6b7280",
+                                          confirmButtonText: "Sim, excluir!",
+                                          cancelButtonText: "Cancelar",
+                                          buttonsStyling: false,
+                                          customClass: {
+                                            confirmButton:
+                                              "bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded font-semibold mx-2",
+                                            cancelButton:
+                                              "bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded font-semibold mx-2",
+                                          },
+                                        });
+
+                                        if (result.isConfirmed) {
+                                          try {
+                                            // Remover item da lista editando a lista
+                                            const currentItems =
+                                              list.shoppingListItems?.filter((i) => i.id !== item.id) || [];
+                                            await api.put(`/invoice/shopping-lists/${list.id}`, {
+                                              name: list.name,
+                                              description: list.description,
+                                              items: currentItems.map((i) => ({
+                                                productId: i.productId,
+                                                quantity: i.quantity,
+                                                notes: i.notes,
+                                              })),
+                                            });
+                                            setOpenNotification({
+                                              type: "success",
+                                              title: "Sucesso!",
+                                              notification: "Item excluído da lista!",
+                                            });
+                                            await fetchData();
+                                          } catch (error) {
+                                            console.error("Erro ao excluir item:", error);
+                                            setOpenNotification({
+                                              type: "error",
+                                              title: "Erro!",
+                                              notification: "Erro ao excluir item",
+                                            });
+                                          }
+                                        }
+                                      }}
+                                      className="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-xs flex items-center"
+                                    >
+                                      <Trash2 size={14} />
+                                    </button>
+                                  </Tooltip>
+                                </>
+                              )}
+                            </div>
                           </div>
-                          {item.notes && <p className="text-sm text-gray-600 mt-1">{item.notes}</p>}
-                        </div>
+                        );
+                      })}
 
-                        {/* Botões de Ação */}
-                        <div className="flex gap-1">
-                          {item.status === "PENDING" && (
-                            <>
-                              <Tooltip content="Informar quantidade comprada" position="left" maxWidth="140px">
-                                <button
-                                  onClick={() => handleOpenPurchaseModal(item, list.id)}
-                                  className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-xs flex items-center"
-                                >
-                                  🛒 Comprar
-                                </button>
-                              </Tooltip>
-                              <Tooltip content="Transferir para outra lista" position="left" maxWidth="140px">
-                                <button
-                                  onClick={() => {
-                                    setSelectedItem(item);
-                                    setShowTransferModal(true);
-                                  }}
-                                  className="bg-purple-500 hover:bg-purple-600 text-white px-2 py-1 rounded text-xs flex items-center"
-                                >
-                                  📦 Transferir
-                                </button>
-                              </Tooltip>
-                              <Tooltip content="Excluir item da lista" position="left" maxWidth="120px">
-                                <button
-                                  onClick={async () => {
-                                    const result = await Swal.fire({
-                                      title: "Confirmar Exclusão",
-                                      text: "Tem certeza que deseja excluir este item da lista?",
-                                      icon: "warning",
-                                      showCancelButton: true,
-                                      confirmButtonColor: "#dc2626",
-                                      cancelButtonColor: "#6b7280",
-                                      confirmButtonText: "Sim, excluir!",
-                                      cancelButtonText: "Cancelar",
-                                      buttonsStyling: false,
-                                      customClass: {
-                                        confirmButton:
-                                          "bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded font-semibold mx-2",
-                                        cancelButton:
-                                          "bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded font-semibold mx-2",
-                                      },
-                                    });
+                    {/* Itens Comprados (embaixo) */}
+                    {list.shoppingListItems
+                      ?.filter((item) => item.status === "PURCHASED" || item.status === "RECEIVED")
+                      .map((item) => {
+                        const statusInfo = getStatusInfo(item.status);
+                        return (
+                          <div
+                            key={item.id}
+                            className={`flex items-center gap-3 p-3 rounded border ${
+                              item.status === "RECEIVED"
+                                ? "bg-green-50 border-green-200"
+                                : item.status === "PURCHASED"
+                                ? "bg-blue-50 border-blue-200"
+                                : "bg-gray-50 border-gray-200"
+                            }`}
+                          >
+                            {/* Status Badge */}
+                            <Tooltip
+                              content={`Status: ${statusInfo.label}. Use os botões para alterar`}
+                              position="bottom"
+                              maxWidth="140px"
+                            >
+                              <div className={`px-2 py-1 rounded-full text-xs font-medium border ${statusInfo.color}`}>
+                                {statusInfo.icon} {statusInfo.label}
+                              </div>
+                            </Tooltip>
 
-                                    if (result.isConfirmed) {
-                                      try {
-                                        // Remover item da lista editando a lista
-                                        const currentItems =
-                                          list.shoppingListItems?.filter((i) => i.id !== item.id) || [];
-                                        await api.put(`/invoice/shopping-lists/${list.id}`, {
-                                          name: list.name,
-                                          description: list.description,
-                                          items: currentItems.map((i) => ({
-                                            productId: i.productId,
-                                            quantity: i.quantity,
-                                            notes: i.notes,
-                                          })),
-                                        });
-                                        setOpenNotification({
-                                          type: "success",
-                                          title: "Sucesso!",
-                                          notification: "Item excluído da lista!",
-                                        });
-                                        await fetchData();
-                                      } catch (error) {
-                                        console.error("Erro ao excluir item:", error);
-                                        setOpenNotification({
-                                          type: "error",
-                                          title: "Erro!",
-                                          notification: "Erro ao excluir item",
-                                        });
-                                      }
-                                    }
-                                  }}
-                                  className="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-xs flex items-center"
-                                >
-                                  <Trash2 size={14} />
-                                </button>
-                              </Tooltip>
-                            </>
-                          )}
-                          {(item.status === "PURCHASED" || item.status === "RECEIVED") && (
-                            <>
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium">{item.product.name}</span>
+                                <span className="text-sm text-gray-500">({item.product.code})</span>
+                                <span className="text-sm font-semibold text-blue-600">
+                                  Pedido: {item.quantity}
+                                  {item.receivedQuantity > 0 && (
+                                    <span className="text-green-600"> / Comprado: {item.receivedQuantity}</span>
+                                  )}
+                                  {item.receivedQuantity > item.quantity && (
+                                    <span className="text-purple-600"> ⚠️ (maior que pedido)</span>
+                                  )}
+                                </span>
+                              </div>
+                              {item.notes && <p className="text-sm text-gray-600 mt-1">{item.notes}</p>}
+                            </div>
+
+                            {/* Botões de Ação */}
+                            <div className="flex gap-1">
                               <Tooltip content="Atualizar quantidade comprada" position="left" maxWidth="160px">
                                 <button
                                   onClick={() => handleOpenPurchaseModal(item, list.id)}
@@ -1891,7 +2065,6 @@ export function ShoppingListsTab() {
 
                                     if (result.isConfirmed) {
                                       try {
-                                        // Remover item da lista editando a lista
                                         const currentItems =
                                           list.shoppingListItems?.filter((i) => i.id !== item.id) || [];
                                         await api.put(`/invoice/shopping-lists/${list.id}`, {
@@ -1924,154 +2097,34 @@ export function ShoppingListsTab() {
                                   <Trash2 size={14} />
                                 </button>
                               </Tooltip>
-                            </>
-                          )}
+                            </div>
+                          </div>
+                        );
+                      })}
+
+                    {/* Resumo */}
+                    <div className="mt-3 pt-3 border-t border-gray-200">
+                      <div className="flex justify-between text-sm text-gray-600">
+                        <span>Total de itens: {list.shoppingListItems?.length || 0}</span>
+                        <div className="flex gap-4">
+                          <span className="text-yellow-600">
+                            ⏳ Pendentes:{" "}
+                            {list.shoppingListItems?.filter((item) => item.status === "PENDING").length || 0}
+                          </span>
+                          <span className="text-blue-600">
+                            🛒 Comprados:{" "}
+                            {list.shoppingListItems?.filter(
+                              (item) => item.status === "PURCHASED" || item.status === "RECEIVED"
+                            ).length || 0}
+                          </span>
                         </div>
                       </div>
-                    );
-                  })}
-
-                {/* Itens Comprados (embaixo) */}
-                {list.shoppingListItems
-                  ?.filter((item) => item.status === "PURCHASED" || item.status === "RECEIVED")
-                  .map((item) => {
-                    const statusInfo = getStatusInfo(item.status);
-                    return (
-                      <div
-                        key={item.id}
-                        className={`flex items-center gap-3 p-3 rounded border ${
-                          item.status === "RECEIVED"
-                            ? "bg-green-50 border-green-200"
-                            : item.status === "PURCHASED"
-                            ? "bg-blue-50 border-blue-200"
-                            : "bg-gray-50 border-gray-200"
-                        }`}
-                      >
-                        {/* Status Badge */}
-                        <Tooltip
-                          content={`Status: ${statusInfo.label}. Use os botões para alterar`}
-                          position="bottom"
-                          maxWidth="140px"
-                        >
-                          <div className={`px-2 py-1 rounded-full text-xs font-medium border ${statusInfo.color}`}>
-                            {statusInfo.icon} {statusInfo.label}
-                          </div>
-                        </Tooltip>
-
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2">
-                            <span className="font-medium">{item.product.name}</span>
-                            <span className="text-sm text-gray-500">({item.product.code})</span>
-                            <span className="text-sm font-semibold text-blue-600">
-                              Pedido: {item.quantity}
-                              {item.receivedQuantity > 0 && (
-                                <span className="text-green-600"> / Comprado: {item.receivedQuantity}</span>
-                              )}
-                              {item.receivedQuantity > item.quantity && (
-                                <span className="text-purple-600"> ⚠️ (maior que pedido)</span>
-                              )}
-                            </span>
-                          </div>
-                          {item.notes && <p className="text-sm text-gray-600 mt-1">{item.notes}</p>}
-                        </div>
-
-                        {/* Botões de Ação */}
-                        <div className="flex gap-1">
-                          <Tooltip content="Atualizar quantidade comprada" position="left" maxWidth="160px">
-                            <button
-                              onClick={() => handleOpenPurchaseModal(item, list.id)}
-                              className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-xs flex items-center"
-                            >
-                              🛒 Comprar
-                            </button>
-                          </Tooltip>
-                          <Tooltip content="Desfazer compra e voltar para pendente" position="left" maxWidth="180px">
-                            <button
-                              onClick={() => handleUndoPurchase(item, list.id)}
-                              className="bg-orange-500 hover:bg-orange-600 text-white px-3 py-1 rounded text-xs flex items-center"
-                            >
-                              <RotateCcw size={14} className="mr-1" />
-                              Desfazer
-                            </button>
-                          </Tooltip>
-                          <Tooltip content="Excluir item da lista" position="left" maxWidth="120px">
-                            <button
-                              onClick={async () => {
-                                const result = await Swal.fire({
-                                  title: "Confirmar Exclusão",
-                                  text: "Tem certeza que deseja excluir este item da lista?",
-                                  icon: "warning",
-                                  showCancelButton: true,
-                                  confirmButtonColor: "#dc2626",
-                                  cancelButtonColor: "#6b7280",
-                                  confirmButtonText: "Sim, excluir!",
-                                  cancelButtonText: "Cancelar",
-                                  buttonsStyling: false,
-                                  customClass: {
-                                    confirmButton:
-                                      "bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded font-semibold mx-2",
-                                    cancelButton:
-                                      "bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded font-semibold mx-2",
-                                  },
-                                });
-
-                                if (result.isConfirmed) {
-                                  try {
-                                    const currentItems = list.shoppingListItems?.filter((i) => i.id !== item.id) || [];
-                                    await api.put(`/invoice/shopping-lists/${list.id}`, {
-                                      name: list.name,
-                                      description: list.description,
-                                      items: currentItems.map((i) => ({
-                                        productId: i.productId,
-                                        quantity: i.quantity,
-                                        notes: i.notes,
-                                      })),
-                                    });
-                                    setOpenNotification({
-                                      type: "success",
-                                      title: "Sucesso!",
-                                      notification: "Item excluído da lista!",
-                                    });
-                                    await fetchData();
-                                  } catch (error) {
-                                    console.error("Erro ao excluir item:", error);
-                                    setOpenNotification({
-                                      type: "error",
-                                      title: "Erro!",
-                                      notification: "Erro ao excluir item",
-                                    });
-                                  }
-                                }
-                              }}
-                              className="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-xs flex items-center"
-                            >
-                              <Trash2 size={14} />
-                            </button>
-                          </Tooltip>
-                        </div>
-                      </div>
-                    );
-                  })}
-              </div>
-
-              <div className="mt-3 pt-3 border-t border-gray-200">
-                <div className="flex justify-between text-sm text-gray-600">
-                  <span>Total de itens: {list.shoppingListItems?.length || 0}</span>
-                  <div className="flex gap-4">
-                    <span className="text-yellow-600">
-                      ⏳ Pendentes: {list.shoppingListItems?.filter((item) => item.status === "PENDING").length || 0}
-                    </span>
-                    <span className="text-blue-600">
-                      🛒 Comprados:{" "}
-                      {list.shoppingListItems?.filter(
-                        (item) => item.status === "PURCHASED" || item.status === "RECEIVED"
-                      ).length || 0}
-                    </span>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          ))
+            );
+          })
         )}
 
         {/* Paginação */}
