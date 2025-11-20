@@ -16,7 +16,11 @@ import AdminPanelSettingsOutlinedIcon from "@mui/icons-material/AdminPanelSettin
 import { useAuthBackoffice } from "../../hooks/authBackoffice";
 import { EnhancedModal } from "../../components/modals/harCodedModal";
 import DescriptionOutlinedIcon from "@mui/icons-material/DescriptionOutlined";
+import BackupIcon from "@mui/icons-material/Backup";
+import ListIcon from "@mui/icons-material/List";
+import DownloadIcon from "@mui/icons-material/Download";
 import { usePermissionStore } from "../../store/permissionsStore";
+import { api } from "../../services/api";
 
 interface SidebarProps {
   isSidebar?: boolean;
@@ -38,6 +42,16 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebar }) => {
   const [spreadsheetInput, setSpreadsheetInput] = useState("");
   const [showErrorToast, setShowErrorToast] = useState(false);
   const [pendingNavigation, setPendingNavigation] = useState<string | null>(null);
+  const [showSnapshotModal, setShowSnapshotModal] = useState(false);
+  const [snapshotDatabaseId, setSnapshotDatabaseId] = useState("");
+  const [snapshotEmail, setSnapshotEmail] = useState("");
+  const [snapshotLoading, setSnapshotLoading] = useState(false);
+  const [snapshotSuccessToast, setSnapshotSuccessToast] = useState(false);
+  const [snapshotErrorToast, setSnapshotErrorToast] = useState(false);
+  const [snapshotErrorMessage, setSnapshotErrorMessage] = useState("");
+  const [showSnapshotsList, setShowSnapshotsList] = useState(false);
+  const [snapshotsList, setSnapshotsList] = useState<any[]>([]);
+  const [snapshotsLoading, setSnapshotsLoading] = useState(false);
   const { getPermissions, permissions, user } = usePermissionStore();
   const location = useLocation();
 
@@ -125,6 +139,207 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebar }) => {
       console.error("Erro durante o logout:", error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleListSnapshots = async () => {
+    setSnapshotsLoading(true);
+    try {
+      const token = localStorage.getItem("@backoffice:token");
+      
+      if (!token) {
+        setSnapshotErrorMessage("Token de autenticação não encontrado. Por favor, faça login novamente.");
+        setSnapshotErrorToast(true);
+        setSnapshotsLoading(false);
+        return;
+      }
+      
+      console.log("🔑 Token encontrado para listar:", token ? `${token.substring(0, 20)}...` : "não encontrado");
+      
+      const params: { databaseId?: string } = {};
+      
+      // Só adiciona databaseId se foi preenchido
+      if (snapshotDatabaseId.trim()) {
+        params.databaseId = snapshotDatabaseId.trim();
+      }
+      
+      const response = await api.get(
+        "/backoffice/database/list-snapshots",
+        {
+          params,
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (response.data.success) {
+        setSnapshotsList(response.data.snapshots || []);
+        setShowSnapshotsList(true);
+      }
+    } catch (error: any) {
+      console.error("Erro ao listar snapshots:", error);
+      let errorMessage = "Erro ao listar snapshots";
+      
+      if (error.response) {
+        const status = error.response.status;
+        const data = error.response.data;
+        
+        if (status === 403) {
+          errorMessage = data?.message || "Acesso bloqueado pela Square Cloud";
+        } else if (data?.error) {
+          errorMessage = data.error;
+        }
+      }
+      
+      setSnapshotErrorMessage(errorMessage);
+      setSnapshotErrorToast(true);
+    } finally {
+      setSnapshotsLoading(false);
+    }
+  };
+
+  const handleCreateSnapshot = async () => {
+    if (!snapshotEmail.trim()) {
+      setSnapshotErrorMessage("Preencha o email");
+      setSnapshotErrorToast(true);
+      return;
+    }
+
+    // Validar formato de email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(snapshotEmail)) {
+      setSnapshotErrorMessage("Email inválido");
+      setSnapshotErrorToast(true);
+      return;
+    }
+
+    setSnapshotLoading(true);
+    try {
+      const token = localStorage.getItem("@backoffice:token");
+      
+      if (!token) {
+        setSnapshotErrorMessage("Token de autenticação não encontrado. Por favor, faça login novamente.");
+        setSnapshotErrorToast(true);
+        setSnapshotLoading(false);
+        return;
+      }
+      
+      console.log("🔑 Token encontrado:", token ? `${token.substring(0, 20)}...` : "não encontrado");
+      
+      const requestBody: { email: string; databaseId?: string } = {
+        email: snapshotEmail.trim(),
+      };
+      
+      // Guardar o databaseId usado antes de limpar
+      const usedDatabaseId = snapshotDatabaseId.trim();
+      
+      // Só adiciona databaseId se foi preenchido
+      if (usedDatabaseId) {
+        requestBody.databaseId = usedDatabaseId;
+      }
+      
+      const response = await api.post(
+        "/backoffice/database/create-snapshot-and-send-email",
+        requestBody,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (response.data.success) {
+        setSnapshotSuccessToast(true);
+        setShowSnapshotModal(false);
+        setSnapshotDatabaseId("");
+        setSnapshotEmail("");
+        
+        // Se a lista de snapshots estiver visível, recarregar automaticamente
+        if (showSnapshotsList) {
+          // Aguardar um pouco para o snapshot ser processado
+          setTimeout(async () => {
+            try {
+              const refreshToken = localStorage.getItem("@backoffice:token");
+              const params: { databaseId?: string } = {};
+              
+              // Usar o mesmo databaseId que foi usado para criar
+              if (usedDatabaseId) {
+                params.databaseId = usedDatabaseId;
+              }
+              
+              const listResponse = await api.get(
+                "/backoffice/database/list-snapshots",
+                {
+                  params,
+                  headers: {
+                    Authorization: `Bearer ${token}`,
+                  },
+                }
+              );
+
+              if (listResponse.data.success) {
+                setSnapshotsList(listResponse.data.snapshots || []);
+              }
+            } catch (error) {
+              console.error("Erro ao recarregar lista de snapshots:", error);
+            }
+          }, 2000);
+        }
+      }
+    } catch (error: any) {
+      console.error("Erro ao criar snapshot:", error);
+      
+      let errorMessage = "Erro ao criar snapshot";
+      
+      if (error.response) {
+        const status = error.response.status;
+        const data = error.response.data;
+        
+        if (status === 403) {
+          if (data?.wafBlocked) {
+            errorMessage = "Acesso bloqueado pelo sistema de segurança da Square Cloud (WAF)";
+            if (data?.details) {
+              errorMessage += `\n\n${data.details}`;
+            }
+            if (data?.suggestions && Array.isArray(data.suggestions)) {
+              errorMessage += "\n\nSugestões:\n" + data.suggestions.map((s: string, i: number) => `${i + 1}. ${s}`).join("\n");
+            } else if (data?.suggestion) {
+              errorMessage += `\n\nSugestão: ${data.suggestion}`;
+            }
+          } else if (data?.message) {
+            errorMessage = `${data.error || "Acesso bloqueado"}: ${data.message}`;
+            if (data.suggestion) {
+              errorMessage += `\n\nSugestão: ${data.suggestion}`;
+            }
+          } else if (data?.error) {
+            errorMessage = data.error;
+            if (data.details) {
+              errorMessage += `\n\nDetalhes: ${Array.isArray(data.details) ? data.details.join("\n") : data.details}`;
+            }
+          } else {
+            errorMessage = "Acesso negado pela Square Cloud. Isso pode ser devido a:\n1. Limite de requisições excedido\n2. IP bloqueado temporariamente\n3. Chave API inválida\n\nAguarde alguns minutos e tente novamente.";
+          }
+        } else if (status === 401) {
+          errorMessage = "Não autorizado. Faça login novamente.";
+        } else if (status === 400) {
+          errorMessage = data?.error || data?.message || "Dados inválidos. Verifique os campos preenchidos.";
+        } else if (data?.error) {
+          errorMessage = data.error;
+          if (data.details) {
+            errorMessage += `\n\nDetalhes: ${typeof data.details === "string" ? data.details : JSON.stringify(data.details)}`;
+          }
+        } else {
+          errorMessage = `Erro ${status}: ${data?.message || "Erro desconhecido"}`;
+        }
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      setSnapshotErrorMessage(errorMessage);
+      setSnapshotErrorToast(true);
+    } finally {
+      setSnapshotLoading(false);
     }
   };
 
@@ -367,6 +582,160 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebar }) => {
                 />
               </>
             )}
+            
+            {/* Botões de Snapshot - Apenas para MASTER */}
+            {user?.role === "MASTER" && !isCollapsed && (
+              <Box
+                sx={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "10px",
+                  mt: "20px",
+                  mb: "10px",
+                  ml: "-20px",
+                  width: "100%",
+                  px: "5%",
+                }}
+              >
+                <Box sx={{ display: "flex", gap: "8px", width: "100%" }}>
+                  <Button
+                    variant="outlined"
+                    color="primary"
+                    startIcon={<BackupIcon />}
+                    onClick={() => setShowSnapshotModal(true)}
+                    sx={{
+                      flex: 1,
+                      borderColor: colors.blueAccent[500],
+                      color: colors.blueAccent[500],
+                      "&:hover": {
+                        borderColor: colors.blueAccent[600],
+                        backgroundColor: colors.blueAccent[900],
+                      },
+                    }}
+                  >
+                    Criar
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    color="primary"
+                    startIcon={<ListIcon />}
+                    onClick={handleListSnapshots}
+                    disabled={snapshotsLoading}
+                    sx={{
+                      flex: 1,
+                      borderColor: colors.greenAccent[500],
+                      color: colors.greenAccent[500],
+                      "&:hover": {
+                        borderColor: colors.greenAccent[600],
+                        backgroundColor: colors.greenAccent[900],
+                      },
+                    }}
+                  >
+                    {snapshotsLoading ? "Carregando..." : "Listar"}
+                  </Button>
+                </Box>
+
+                {/* Lista de Snapshots */}
+                {showSnapshotsList && snapshotsList.length > 0 && (
+                  <Box
+                    sx={{
+                      mt: "10px",
+                      maxHeight: "300px",
+                      overflowY: "auto",
+                      backgroundColor: colors.primary[500],
+                      borderRadius: "8px",
+                      p: "12px",
+                    }}
+                  >
+                    <Typography variant="body2" sx={{ mb: 1, color: colors.grey[200], fontWeight: "bold" }}>
+                      📋 Snapshots ({snapshotsList.length})
+                    </Typography>
+                    {snapshotsList.map((snapshot: any, index: number) => (
+                      <Box
+                        key={index}
+                        sx={{
+                          mb: 1,
+                          p: 1,
+                          backgroundColor: colors.primary[600],
+                          borderRadius: "4px",
+                          border: `1px solid ${colors.grey[700]}`,
+                        }}
+                      >
+                        <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 0.5 }}>
+                          <Typography variant="caption" sx={{ color: colors.grey[300], fontWeight: "bold" }}>
+                            {snapshot.modifiedFormatted}
+                          </Typography>
+                          <Typography variant="caption" sx={{ color: colors.grey[400] }}>
+                            {snapshot.sizeInMB} MB
+                          </Typography>
+                        </Box>
+                        <Box sx={{ display: "flex", gap: 1, mt: 1 }}>
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            startIcon={<DownloadIcon />}
+                            onClick={() => window.open(snapshot.downloadUrl, "_blank")}
+                            sx={{
+                              fontSize: "10px",
+                              padding: "4px 8px",
+                              borderColor: colors.blueAccent[500],
+                              color: colors.blueAccent[500],
+                              "&:hover": {
+                                borderColor: colors.blueAccent[600],
+                                backgroundColor: colors.blueAccent[900],
+                              },
+                            }}
+                          >
+                            Baixar
+                          </Button>
+                        </Box>
+                      </Box>
+                    ))}
+                    <Button
+                      size="small"
+                      variant="text"
+                      onClick={() => setShowSnapshotsList(false)}
+                      sx={{
+                        mt: 1,
+                        color: colors.grey[400],
+                        fontSize: "11px",
+                      }}
+                    >
+                      Ocultar lista
+                    </Button>
+                  </Box>
+                )}
+
+                {showSnapshotsList && snapshotsList.length === 0 && (
+                  <Box
+                    sx={{
+                      mt: "10px",
+                      p: "12px",
+                      backgroundColor: colors.primary[500],
+                      borderRadius: "8px",
+                      textAlign: "center",
+                    }}
+                  >
+                    <Typography variant="body2" sx={{ color: colors.grey[400] }}>
+                      Nenhum snapshot encontrado
+                    </Typography>
+                    <Button
+                      size="small"
+                      variant="text"
+                      onClick={() => setShowSnapshotsList(false)}
+                      sx={{
+                        mt: 1,
+                        color: colors.grey[400],
+                        fontSize: "11px",
+                      }}
+                    >
+                      Fechar
+                    </Button>
+                  </Box>
+                )}
+              </Box>
+            )}
+
             {/* Enhanced Modal Component */}
             <EnhancedModal
               open={openModal}
@@ -375,6 +744,112 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebar }) => {
               title="Digite a senha de acesso"
               label="Code"
             />
+            
+            {/* Modal de Snapshot */}
+            {showSnapshotModal && (
+              <Box
+                sx={{
+                  position: "fixed",
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  backgroundColor: "rgba(0, 0, 0, 0.5)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  zIndex: 9999,
+                }}
+              >
+                <Box
+                  sx={{
+                    backgroundColor: colors.primary[400],
+                    padding: "24px",
+                    borderRadius: "8px",
+                    minWidth: "400px",
+                    maxWidth: "500px",
+                  }}
+                >
+                  <Typography variant="h6" sx={{ mb: 2, color: colors.grey[100] }}>
+                    📦 Criar Snapshot do Banco de Dados
+                  </Typography>
+                  
+                  <Box sx={{ mb: 2 }}>
+                    <Typography variant="body2" sx={{ mb: 1, color: colors.grey[200] }}>
+                      ID do Banco de Dados (opcional - será extraído automaticamente se não preenchido):
+                    </Typography>
+                    <input
+                      type="text"
+                      value={snapshotDatabaseId}
+                      onChange={(e) => setSnapshotDatabaseId(e.target.value)}
+                      placeholder="Deixe em branco para usar o banco configurado"
+                      style={{
+                        width: "100%",
+                        padding: "8px",
+                        borderRadius: "4px",
+                        border: `1px solid ${colors.grey[700]}`,
+                        backgroundColor: colors.primary[500],
+                        color: colors.grey[100],
+                      }}
+                    />
+                    <Typography variant="caption" sx={{ mt: 0.5, color: colors.grey[400], display: "block" }}>
+                      Se deixado em branco, o sistema extrairá automaticamente da configuração do banco de dados.
+                    </Typography>
+                  </Box>
+
+                  <Box sx={{ mb: 3 }}>
+                    <Typography variant="body2" sx={{ mb: 1, color: colors.grey[200] }}>
+                      Email para receber o snapshot:
+                    </Typography>
+                    <input
+                      type="email"
+                      value={snapshotEmail}
+                      onChange={(e) => setSnapshotEmail(e.target.value)}
+                      placeholder="email@exemplo.com"
+                      style={{
+                        width: "100%",
+                        padding: "8px",
+                        borderRadius: "4px",
+                        border: `1px solid ${colors.grey[700]}`,
+                        backgroundColor: colors.primary[500],
+                        color: colors.grey[100],
+                      }}
+                    />
+                  </Box>
+
+                  <Box sx={{ display: "flex", gap: 2, justifyContent: "flex-end" }}>
+                    <Button
+                      variant="outlined"
+                      onClick={() => {
+                        setShowSnapshotModal(false);
+                        setSnapshotDatabaseId("");
+                        setSnapshotEmail("");
+                      }}
+                      sx={{
+                        color: colors.grey[200],
+                        borderColor: colors.grey[700],
+                      }}
+                    >
+                      Cancelar
+                    </Button>
+                    <Button
+                      variant="contained"
+                      onClick={handleCreateSnapshot}
+                      disabled={snapshotLoading}
+                      sx={{
+                        backgroundColor: colors.blueAccent[500],
+                        "&:hover": {
+                          backgroundColor: colors.blueAccent[600],
+                        },
+                      }}
+                    >
+                      {snapshotLoading ? "Criando..." : "Criar Snapshot"}
+                    </Button>
+                  </Box>
+                </Box>
+              </Box>
+            )}
+
             {/* Error Toast */}
             <Snackbar
               open={showErrorToast}
@@ -384,6 +859,30 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebar }) => {
             >
               <Alert onClose={() => setShowErrorToast(false)} severity="error" sx={{ width: "100%" }}>
                 Não foi possível acessar a planilha. Verifique o valor inserido.
+              </Alert>
+            </Snackbar>
+
+            {/* Success Toast para Snapshot */}
+            <Snackbar
+              open={snapshotSuccessToast}
+              autoHideDuration={6000}
+              onClose={() => setSnapshotSuccessToast(false)}
+              anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+            >
+              <Alert onClose={() => setSnapshotSuccessToast(false)} severity="success" sx={{ width: "100%" }}>
+                Snapshot criado e enviado por email com sucesso!
+              </Alert>
+            </Snackbar>
+
+            {/* Error Toast para Snapshot */}
+            <Snackbar
+              open={snapshotErrorToast}
+              autoHideDuration={6000}
+              onClose={() => setSnapshotErrorToast(false)}
+              anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+            >
+              <Alert onClose={() => setSnapshotErrorToast(false)} severity="error" sx={{ width: "100%" }}>
+                {snapshotErrorMessage || "Erro ao criar snapshot"}
               </Alert>
             </Snackbar>
             {/* Barra Superior com Botão de Sair */}
