@@ -2,7 +2,7 @@ import type React from "react";
 
 import { useEffect, useState } from "react";
 import { ProSidebar, Menu, MenuItem } from "react-pro-sidebar";
-import { Box, Button, IconButton, Typography, useTheme, Snackbar, Alert } from "@mui/material";
+import { Box, Button, IconButton, Typography, useTheme, Snackbar, Alert, Dialog, DialogTitle, DialogContent, DialogActions } from "@mui/material";
 import { useLocation, useNavigate } from "react-router-dom"; // Removido o import do Link
 import "react-pro-sidebar/dist/css/styles.css";
 import { tokens } from "../../theme";
@@ -700,14 +700,14 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebar }) => {
                   px: "5%",
                 }}
               >
-                <Box sx={{ display: "flex", gap: "8px", width: "100%" }}>
+                <Box sx={{ display: "flex", flexDirection: "column", gap: "8px", width: "100%" }}>
                   <Button
                     variant="outlined"
                     color="primary"
                     startIcon={<BackupIcon />}
                     onClick={() => setShowSnapshotModal(true)}
                     sx={{
-                      flex: 1,
+                      width: "100%",
                       borderColor: colors.blueAccent[500],
                       color: colors.blueAccent[500],
                       "&:hover": {
@@ -716,7 +716,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebar }) => {
                       },
                     }}
                   >
-                    Criar
+                    Backup BD BR
                   </Button>
                   <Button
                     variant="outlined"
@@ -725,7 +725,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebar }) => {
                     onClick={handleListSnapshots}
                     disabled={snapshotsLoading}
                     sx={{
-                      flex: 1,
+                      width: "100%",
                       borderColor: colors.greenAccent[500],
                       color: colors.greenAccent[500],
                       "&:hover": {
@@ -737,63 +737,122 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebar }) => {
                     {snapshotsLoading ? "Carregando..." : "Listar"}
                   </Button>
                 </Box>
+              </Box>
+            )}
 
-                {/* Lista de Snapshots */}
-                {showSnapshotsList && snapshotsList.length > 0 && (
+            {/* Enhanced Modal Component */}
+            <EnhancedModal
+              open={openModal}
+              onClose={handleCloseModal}
+              onSave={handleSaveSpreadsheetModal}
+              title="Digite a senha de acesso"
+              label="Code"
+            />
+            
+            {/* Modal de Lista de Snapshots */}
+            <Dialog
+              open={showSnapshotsList}
+              onClose={() => setShowSnapshotsList(false)}
+              maxWidth="md"
+              fullWidth
+              PaperProps={{
+                sx: {
+                  backgroundColor: colors.primary[400],
+                  borderRadius: "12px",
+                  border: `1px solid ${colors.grey[700]}`,
+                },
+              }}
+            >
+              <DialogTitle
+                sx={{
+                  backgroundColor: colors.primary[500],
+                  color: colors.grey[100],
+                  fontWeight: "bold",
+                  fontSize: "1.25rem",
+                  borderBottom: `1px solid ${colors.grey[700]}`,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 1,
+                }}
+              >
+                <ListIcon sx={{ color: colors.greenAccent[500] }} />
+                Snapshots do Banco de Dados
+                <Box sx={{ ml: "auto", display: "flex", alignItems: "center", gap: 1 }}>
+                  <Typography variant="body2" sx={{ color: colors.grey[400] }}>
+                    {snapshotsList.length} {snapshotsList.length === 1 ? "snapshot" : "snapshots"}
+                  </Typography>
+                </Box>
+              </DialogTitle>
+              <DialogContent sx={{ p: 0 }}>
+                {snapshotsLoading ? (
+                  <Box sx={{ p: 4, textAlign: "center" }}>
+                    <Typography variant="body1" sx={{ color: colors.grey[300] }}>
+                      Carregando snapshots...
+                    </Typography>
+                  </Box>
+                ) : snapshotsList.length === 0 ? (
+                  <Box sx={{ p: 4, textAlign: "center" }}>
+                    <Typography variant="body1" sx={{ color: colors.grey[400] }}>
+                      Nenhum snapshot encontrado
+                    </Typography>
+                  </Box>
+                ) : (
                   <Box
                     sx={{
-                      mt: "10px",
-                      maxHeight: "300px",
+                      maxHeight: "60vh",
                       overflowY: "auto",
-                      backgroundColor: colors.primary[500],
-                      borderRadius: "8px",
-                      p: "12px",
+                      p: 2,
                     }}
                   >
-                    <Typography variant="body2" sx={{ mb: 1, color: colors.grey[200], fontWeight: "bold" }}>
-                      📋 Snapshots ({snapshotsList.length})
-                    </Typography>
                     {snapshotsList.map((snapshot: any, index: number) => (
                       <Box
                         key={index}
                         sx={{
-                          mb: 1,
-                          p: 1,
+                          mb: 2,
+                          p: 2,
                           backgroundColor: colors.primary[600],
-                          borderRadius: "4px",
+                          borderRadius: "8px",
                           border: `1px solid ${colors.grey[700]}`,
+                          transition: "all 0.2s ease",
+                          "&:hover": {
+                            borderColor: colors.blueAccent[500],
+                            boxShadow: `0 2px 8px rgba(0, 0, 0, 0.2)`,
+                          },
                         }}
                       >
-                        <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 0.5 }}>
-                          <Typography variant="caption" sx={{ color: colors.grey[300], fontWeight: "bold" }}>
-                            {snapshot.modifiedFormatted}
-                          </Typography>
-                          <Typography variant="caption" sx={{ color: colors.grey[400] }}>
-                            {snapshot.sizeInMB} MB
-                          </Typography>
+                        <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", mb: 2 }}>
+                          <Box>
+                            <Typography variant="subtitle2" sx={{ color: colors.grey[200], fontWeight: "bold", mb: 0.5 }}>
+                              📅 {snapshot.modifiedFormatted}
+                            </Typography>
+                            <Typography variant="body2" sx={{ color: colors.grey[400] }}>
+                              Tamanho: {snapshot.sizeInMB} MB
+                            </Typography>
+                            {snapshot.name && (
+                              <Typography variant="caption" sx={{ color: colors.grey[500], fontFamily: "monospace", display: "block", mt: 0.5 }}>
+                                ID: {snapshot.name.substring(0, 20)}...
+                              </Typography>
+                            )}
+                          </Box>
                         </Box>
-                        <Box sx={{ display: "flex", gap: 1, mt: 1 }}>
+                        <Box sx={{ display: "flex", gap: 1.5, mt: 2 }}>
                           <Button
-                            size="small"
-                            variant="outlined"
+                            variant="contained"
                             startIcon={<DownloadIcon />}
                             onClick={() => window.open(snapshot.downloadUrl, "_blank")}
                             sx={{
-                              fontSize: "10px",
-                              padding: "4px 8px",
-                              borderColor: colors.blueAccent[500],
-                              color: colors.blueAccent[500],
+                              backgroundColor: colors.blueAccent[500],
+                              color: colors.grey[100],
                               "&:hover": {
-                                borderColor: colors.blueAccent[600],
-                                backgroundColor: colors.blueAccent[900],
+                                backgroundColor: colors.blueAccent[600],
                               },
+                              flex: 1,
                             }}
                           >
                             Baixar
                           </Button>
                           <Button
-                            size="small"
-                            variant="outlined"
+                            variant="contained"
                             startIcon={<RestoreIcon />}
                             onClick={() => {
                               if (!snapshot.versionId) {
@@ -807,18 +866,16 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebar }) => {
                             disabled={restoringSnapshot === snapshot.name || !snapshot.versionId}
                             title={!snapshot.versionId ? "versionId não encontrado - não é possível restaurar" : "Restaurar banco de dados para este snapshot"}
                             sx={{
-                              fontSize: "10px",
-                              padding: "4px 8px",
-                              borderColor: "#ff9800",
-                              color: "#ff9800",
+                              backgroundColor: "#ff9800",
+                              color: colors.grey[100],
                               "&:hover": {
-                                borderColor: "#f57c00",
-                                backgroundColor: "rgba(255, 152, 0, 0.1)",
+                                backgroundColor: "#f57c00",
                               },
                               "&:disabled": {
                                 opacity: 0.5,
                                 cursor: "not-allowed",
                               },
+                              flex: 1,
                             }}
                           >
                             {restoringSnapshot === snapshot.name ? "Restaurando..." : "Restaurar"}
@@ -826,59 +883,29 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebar }) => {
                         </Box>
                       </Box>
                     ))}
-                    <Button
-                      size="small"
-                      variant="text"
-                      onClick={() => setShowSnapshotsList(false)}
-                      sx={{
-                        mt: 1,
-                        color: colors.grey[400],
-                        fontSize: "11px",
-                      }}
-                    >
-                      Ocultar lista
-                    </Button>
                   </Box>
                 )}
-
-                {showSnapshotsList && snapshotsList.length === 0 && (
-                  <Box
-                    sx={{
-                      mt: "10px",
-                      p: "12px",
-                      backgroundColor: colors.primary[500],
-                      borderRadius: "8px",
-                      textAlign: "center",
-                    }}
-                  >
-                    <Typography variant="body2" sx={{ color: colors.grey[400] }}>
-                      Nenhum snapshot encontrado
-                    </Typography>
-                    <Button
-                      size="small"
-                      variant="text"
-                      onClick={() => setShowSnapshotsList(false)}
-                      sx={{
-                        mt: 1,
-                        color: colors.grey[400],
-                        fontSize: "11px",
-                      }}
-                    >
-                      Fechar
-                    </Button>
-                  </Box>
-                )}
-              </Box>
-            )}
-
-            {/* Enhanced Modal Component */}
-            <EnhancedModal
-              open={openModal}
-              onClose={handleCloseModal}
-              onSave={handleSaveSpreadsheetModal}
-              title="Digite a senha de acesso"
-              label="Code"
-            />
+              </DialogContent>
+              <DialogActions
+                sx={{
+                  backgroundColor: colors.primary[500],
+                  borderTop: `1px solid ${colors.grey[700]}`,
+                  p: 2,
+                }}
+              >
+                <Button
+                  onClick={() => setShowSnapshotsList(false)}
+                  sx={{
+                    color: colors.grey[300],
+                    "&:hover": {
+                      backgroundColor: colors.primary[600],
+                    },
+                  }}
+                >
+                  Fechar
+                </Button>
+              </DialogActions>
+            </Dialog>
             
             {/* Modal de Snapshot */}
             {showSnapshotModal && (
