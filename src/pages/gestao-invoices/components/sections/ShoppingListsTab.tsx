@@ -102,6 +102,10 @@ export function ShoppingListsTab() {
   const [updateOrderedQuantity, setUpdateOrderedQuantity] = useState<boolean>(false);
   const [addToExistingPending, setAddToExistingPending] = useState<boolean>(true);
   const [selectedItemIndexToMerge, setSelectedItemIndexToMerge] = useState<number | null>(null);
+  const [isTransferring, setIsTransferring] = useState<boolean>(false);
+  const [transferAddToExisting, setTransferAddToExisting] = useState<boolean>(true);
+  const [transferSelectedItemToMerge, setTransferSelectedItemToMerge] = useState<string | null>(null);
+  const [existingItemsInTargetList, setExistingItemsInTargetList] = useState<ShoppingListItem[]>([]);
   const { setOpenNotification } = useNotification();
 
   const [newList, setNewList] = useState({
@@ -1519,7 +1523,14 @@ export function ShoppingListsTab() {
       return;
     }
 
+    // Prevenir múltiplos cliques
+    if (isTransferring) {
+      return;
+    }
+
     try {
+      setIsTransferring(true);
+
       // Calcular quantidade a transferir (se for item pendente, usar transferQuantity ou quantidade pendente)
       const pendingQuantity = selectedItem.quantity - (selectedItem.receivedQuantity || 0);
       const quantityToTransfer = selectedItem.status === "PENDING" 
@@ -1532,6 +1543,7 @@ export function ShoppingListsTab() {
           title: "Erro!",
           notification: "Quantidade a transferir deve ser maior que zero!",
         });
+        setIsTransferring(false);
         return;
       }
 
@@ -1543,49 +1555,112 @@ export function ShoppingListsTab() {
       const targetListResponse = await api.get(`/invoice/shopping-lists/${selectedListForTransfer}`);
       const targetList = targetListResponse.data;
 
-      // Adicionar item à lista destino
-      const currentItems =
-        targetList.shoppingListItems?.map((i: ShoppingListItem) => ({
-          productId: i.productId,
-          quantity: i.quantity,
-          notes: i.notes || "",
-        })) || [];
+      // Verificar se o produto já existe na lista destino
+      const existingItems = targetList.shoppingListItems?.filter(
+        (i: ShoppingListItem) => i.productId === selectedItem.productId
+      ) || [];
 
-      currentItems.push({
-        productId: selectedItem.productId,
-        quantity: quantityToTransfer,
-        notes: selectedItem.notes || "",
-      });
+      // Se existem itens com o mesmo produto, verificar se o usuário quer adicionar ou criar novo
+      if (existingItems.length > 0 && transferAddToExisting && transferSelectedItemToMerge) {
+        // Adicionar à quantidade de um item existente
+        const itemToMerge = existingItems.find((i: ShoppingListItem) => i.id === transferSelectedItemToMerge);
+        
+        if (itemToMerge) {
+          // Atualizar a quantidade do item existente
+          const currentItems =
+            targetList.shoppingListItems?.map((i: ShoppingListItem) => {
+              if (i.id === transferSelectedItemToMerge) {
+                return {
+                  productId: i.productId,
+                  quantity: i.quantity + quantityToTransfer,
+                  notes: i.notes || "",
+                };
+              }
+              return {
+                productId: i.productId,
+                quantity: i.quantity,
+                notes: i.notes || "",
+              };
+            }) || [];
 
-      await api.put(`/invoice/shopping-lists/${selectedListForTransfer}`, {
-        name: targetList.name,
-        description: targetList.description,
-        items: currentItems,
-      });
-
-      // Se o item estava comprado, atualizar o status na lista destino
-      if (wasPurchased && purchasedQuantity > 0) {
-        // Buscar a lista atualizada para encontrar o item recém-criado
-        const updatedTargetListResponse = await api.get(`/invoice/shopping-lists/${selectedListForTransfer}`);
-        const updatedTargetList = updatedTargetListResponse.data;
-
-        // Encontrar o item recém-criado pelo productId
-        const transferredItem = updatedTargetList.shoppingListItems?.find(
-          (i: ShoppingListItem) => i.productId === selectedItem.productId && i.status === "PENDING"
-        );
-
-        if (transferredItem) {
-          // Atualizar o item para manter o status de comprado
-          await api.patch("/invoice/shopping-lists/update-purchased-quantity", {
-            itemId: transferredItem.id,
-            purchasedQuantity: purchasedQuantity,
+          await api.put(`/invoice/shopping-lists/${selectedListForTransfer}`, {
+            name: targetList.name,
+            description: targetList.description,
+            items: currentItems,
           });
+
+          // Se o item transferido estava comprado, atualizar o status na lista destino
+          if (wasPurchased && purchasedQuantity > 0) {
+            // Buscar a lista atualizada
+            const updatedTargetListResponse = await api.get(`/invoice/shopping-lists/${selectedListForTransfer}`);
+            const updatedTargetList = updatedTargetListResponse.data;
+
+            // Encontrar o item atualizado
+            const mergedItem = updatedTargetList.shoppingListItems?.find(
+              (i: ShoppingListItem) => i.id === transferSelectedItemToMerge
+            );
+
+            if (mergedItem) {
+              // Atualizar quantidade comprada (somar com a quantidade comprada do item transferido)
+              const newPurchasedQuantity = (mergedItem.receivedQuantity || 0) + purchasedQuantity;
+              await api.patch("/invoice/shopping-lists/update-purchased-quantity", {
+                itemId: mergedItem.id,
+                purchasedQuantity: newPurchasedQuantity,
+              });
+            }
+          }
+        }
+      } else {
+        // Criar novo item separado
+        const currentItems =
+          targetList.shoppingListItems?.map((i: ShoppingListItem) => ({
+            productId: i.productId,
+            quantity: i.quantity,
+            notes: i.notes || "",
+          })) || [];
+
+        currentItems.push({
+          productId: selectedItem.productId,
+          quantity: quantityToTransfer,
+          notes: selectedItem.notes || "",
+        });
+
+        await api.put(`/invoice/shopping-lists/${selectedListForTransfer}`, {
+          name: targetList.name,
+          description: targetList.description,
+          items: currentItems,
+        });
+
+        // Se o item estava comprado e foi criado novo item, atualizar o status na lista destino
+        if (wasPurchased && purchasedQuantity > 0 && (!transferAddToExisting || !transferSelectedItemToMerge)) {
+          // Buscar a lista atualizada para encontrar o item recém-criado
+          const updatedTargetListResponse = await api.get(`/invoice/shopping-lists/${selectedListForTransfer}`);
+          const updatedTargetList = updatedTargetListResponse.data;
+
+          // Encontrar o item recém-criado pelo productId (o último pendente criado)
+          const transferredItem = updatedTargetList.shoppingListItems?.find(
+            (i: ShoppingListItem) => i.productId === selectedItem.productId && i.status === "PENDING" && i.quantity === quantityToTransfer
+          );
+
+          if (transferredItem) {
+            // Atualizar o item para manter o status de comprado
+            await api.patch("/invoice/shopping-lists/update-purchased-quantity", {
+              itemId: transferredItem.id,
+              purchasedQuantity: purchasedQuantity,
+            });
+          }
         }
       }
 
       // Remover da lista origem apenas se transferindo tudo, ou atualizar quantidade
       const allListsResponse = await api.get("/invoice/shopping-lists");
-      const allLists = allListsResponse.data;
+      // Garantir que allLists seja sempre um array
+      const allLists = Array.isArray(allListsResponse.data?.data) 
+        ? allListsResponse.data.data 
+        : Array.isArray(allListsResponse.data) 
+        ? allListsResponse.data 
+        : [];
+      
       const sourceList = allLists.find((l: ShoppingList) => 
         l.shoppingListItems?.some((i) => i.id === selectedItem.id)
       );
@@ -1659,6 +1734,10 @@ export function ShoppingListsTab() {
       setShowTransferModal(false);
       setSelectedListForTransfer("");
       setTransferQuantity(0);
+      setTransferAddToExisting(true);
+      setTransferSelectedItemToMerge(null);
+      setExistingItemsInTargetList([]);
+      setIsTransferring(false);
       await fetchData();
     } catch (error) {
       console.error("Erro ao transferir item:", error);
@@ -1667,6 +1746,7 @@ export function ShoppingListsTab() {
         title: "Erro!",
         notification: "Erro ao transferir item",
       });
+      setIsTransferring(false);
     }
   };
 
@@ -3816,14 +3896,40 @@ export function ShoppingListsTab() {
                 <label className="block text-sm font-medium text-gray-700 mb-1">Selecione a lista destino</label>
                 <select
                   value={selectedListForTransfer}
-                  onChange={(e) => {
-                    setSelectedListForTransfer(e.target.value);
+                  onChange={async (e) => {
+                    const listId = e.target.value;
+                    setSelectedListForTransfer(listId);
+                    // Resetar opções de merge
+                    setTransferAddToExisting(true);
+                    setTransferSelectedItemToMerge(null);
+                    setExistingItemsInTargetList([]);
+                    
                     // Resetar quantidade ao trocar de lista
                     if (selectedItem.status === "PENDING") {
                       const pendingQty = selectedItem.quantity - (selectedItem.receivedQuantity || 0);
                       setTransferQuantity(pendingQty);
                     } else {
                       setTransferQuantity(selectedItem.quantity);
+                    }
+
+                    // Verificar se há itens com o mesmo produto na lista destino
+                    if (listId) {
+                      try {
+                        const targetListResponse = await api.get(`/invoice/shopping-lists/${listId}`);
+                        const targetList = targetListResponse.data;
+                        const existingItems = targetList.shoppingListItems?.filter(
+                          (i: ShoppingListItem) => i.productId === selectedItem.productId
+                        ) || [];
+                        
+                        setExistingItemsInTargetList(existingItems);
+                        
+                        // Se há apenas um item existente, selecionar automaticamente
+                        if (existingItems.length === 1) {
+                          setTransferSelectedItemToMerge(existingItems[0].id);
+                        }
+                      } catch (error) {
+                        console.error("Erro ao verificar itens existentes:", error);
+                      }
                     }
                   }}
                   className="w-full border border-gray-300 rounded-md p-2"
@@ -3891,19 +3997,98 @@ export function ShoppingListsTab() {
                   </div>
                 </div>
               )}
+
+              {/* Opções quando há itens existentes com o mesmo produto */}
+              {selectedListForTransfer && existingItemsInTargetList.length > 0 && (
+                <div className="bg-purple-50 border border-purple-200 rounded-md p-4">
+                  <p className="text-sm font-medium text-purple-800 mb-3">
+                    ⚠️ Este produto já existe na lista destino!
+                  </p>
+                  
+                  <div className="space-y-3">
+                    <div className="flex items-start">
+                      <input
+                        type="radio"
+                        id="transfer-add-existing"
+                        checked={transferAddToExisting}
+                        onChange={() => {
+                          setTransferAddToExisting(true);
+                          // Selecionar automaticamente se há apenas um item
+                          if (existingItemsInTargetList.length === 1) {
+                            setTransferSelectedItemToMerge(existingItemsInTargetList[0].id);
+                          }
+                        }}
+                        className="mt-1 h-4 w-4 text-purple-600 border-gray-300 focus:ring-purple-500"
+                      />
+                      <label htmlFor="transfer-add-existing" className="ml-2 text-sm text-gray-700 flex-1">
+                        <span className="font-medium">Adicionar à quantidade de um item existente</span>
+                        <p className="text-xs text-gray-500 mt-1">
+                          A quantidade será somada a um dos itens existentes
+                        </p>
+                      </label>
+                    </div>
+
+                    {transferAddToExisting && (
+                      <div className="ml-6 space-y-2">
+                        {existingItemsInTargetList.map((item: ShoppingListItem) => (
+                          <div key={item.id} className="flex items-center">
+                            <input
+                              type="radio"
+                              id={`transfer-item-${item.id}`}
+                              name="transfer-item-select"
+                              checked={transferSelectedItemToMerge === item.id}
+                              onChange={() => setTransferSelectedItemToMerge(item.id)}
+                              className="h-4 w-4 text-purple-600 border-gray-300 focus:ring-purple-500"
+                            />
+                            <label htmlFor={`transfer-item-${item.id}`} className="ml-2 text-sm text-gray-700">
+                              <span className="font-medium">
+                                Item: Pedido {item.quantity} / 
+                                {item.status === "PURCHASED" || item.status === "RECEIVED" ? (
+                                  <span className="text-green-600"> Comprado {item.receivedQuantity || 0}</span>
+                                ) : (
+                                  <span className="text-yellow-600"> Pendente {item.quantity - (item.receivedQuantity || 0)}</span>
+                                )}
+                              </span>
+                            </label>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    <div className="flex items-start">
+                      <input
+                        type="radio"
+                        id="transfer-create-new"
+                        checked={!transferAddToExisting}
+                        onChange={() => {
+                          setTransferAddToExisting(false);
+                          setTransferSelectedItemToMerge(null);
+                        }}
+                        className="mt-1 h-4 w-4 text-purple-600 border-gray-300 focus:ring-purple-500"
+                      />
+                      <label htmlFor="transfer-create-new" className="ml-2 text-sm text-gray-700 flex-1">
+                        <span className="font-medium">Criar um novo item separado</span>
+                        <p className="text-xs text-gray-500 mt-1">
+                          Será criado um novo item na lista, mesmo com produto duplicado
+                        </p>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="flex gap-2 mt-6">
               <button
                 onClick={handleTransferItem}
-                disabled={!selectedListForTransfer}
+                disabled={!selectedListForTransfer || isTransferring || (transferAddToExisting && !transferSelectedItemToMerge)}
                 className={`px-4 py-2 rounded flex-1 ${
-                  selectedListForTransfer
+                  selectedListForTransfer && !isTransferring && (!transferAddToExisting || transferSelectedItemToMerge)
                     ? "bg-blue-600 hover:bg-blue-700 text-white"
                     : "bg-gray-300 text-gray-500 cursor-not-allowed"
                 }`}
               >
-                ✅ Confirmar Transferência
+                {isTransferring ? "⏳ Transferindo..." : "✅ Confirmar Transferência"}
               </button>
               <button
                 onClick={() => {
