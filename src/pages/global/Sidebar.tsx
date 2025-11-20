@@ -19,6 +19,7 @@ import DescriptionOutlinedIcon from "@mui/icons-material/DescriptionOutlined";
 import BackupIcon from "@mui/icons-material/Backup";
 import ListIcon from "@mui/icons-material/List";
 import DownloadIcon from "@mui/icons-material/Download";
+import RestoreIcon from "@mui/icons-material/Restore";
 import { usePermissionStore } from "../../store/permissionsStore";
 import { api } from "../../services/api";
 
@@ -52,6 +53,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebar }) => {
   const [showSnapshotsList, setShowSnapshotsList] = useState(false);
   const [snapshotsList, setSnapshotsList] = useState<any[]>([]);
   const [snapshotsLoading, setSnapshotsLoading] = useState(false);
+  const [restoringSnapshot, setRestoringSnapshot] = useState<string | null>(null);
   const { getPermissions, permissions, user } = usePermissionStore();
   const location = useLocation();
 
@@ -174,7 +176,10 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebar }) => {
       );
 
       if (response.data.success) {
-        setSnapshotsList(response.data.snapshots || []);
+        const snapshots = response.data.snapshots || [];
+        console.log("📋 Snapshots recebidos:", snapshots.length);
+        console.log("📋 Primeiro snapshot (exemplo):", snapshots[0]);
+        setSnapshotsList(snapshots);
         setShowSnapshotsList(true);
       }
     } catch (error: any) {
@@ -196,6 +201,104 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebar }) => {
       setSnapshotErrorToast(true);
     } finally {
       setSnapshotsLoading(false);
+    }
+  };
+
+  const handleRestoreSnapshot = async (snapshot: any) => {
+    // Confirmar restauração (operação perigosa)
+    const confirmed = window.confirm(
+      `⚠️ ATENÇÃO: Você está prestes a restaurar o banco de dados para o snapshot de ${snapshot.modifiedFormatted}.\n\n` +
+      `Esta operação irá SOBRESCREVER todos os dados atuais do banco de dados.\n\n` +
+      `Tem certeza que deseja continuar?`
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setRestoringSnapshot(snapshot.name);
+    try {
+      const token = localStorage.getItem("@backoffice:token");
+      
+      if (!token) {
+        setSnapshotErrorMessage("Token de autenticação não encontrado. Por favor, faça login novamente.");
+        setSnapshotErrorToast(true);
+        setRestoringSnapshot(null);
+        return;
+      }
+
+      const requestBody: { databaseId?: string; snapshotId: string; versionId: string } = {
+        snapshotId: snapshot.name,
+        versionId: snapshot.versionId || "",
+      };
+      
+      // Só adiciona databaseId se foi preenchido
+      if (snapshotDatabaseId.trim()) {
+        requestBody.databaseId = snapshotDatabaseId.trim();
+      }
+
+      if (!snapshot.versionId) {
+        setSnapshotErrorMessage("Erro: versionId não encontrado no snapshot. Não é possível restaurar.");
+        setSnapshotErrorToast(true);
+        setRestoringSnapshot(null);
+        return;
+      }
+      
+      const response = await api.post(
+        "/backoffice/database/restore-snapshot",
+        requestBody,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (response.data.success) {
+        setSnapshotSuccessToast(true);
+        // Recarregar lista de snapshots após restauração
+        setTimeout(() => {
+          handleListSnapshots();
+        }, 1000);
+      }
+    } catch (error: any) {
+      console.error("Erro ao restaurar snapshot:", error);
+      let errorMessage = "Erro ao restaurar snapshot";
+      let errorDetails = "";
+      
+      if (error.response) {
+        const status = error.response.status;
+        const data = error.response.data;
+        
+        if (status === 403) {
+          if (data?.wafBlocked) {
+            errorMessage = "Acesso bloqueado pelo sistema de segurança da Square Cloud (WAF)";
+            errorDetails = data?.details || "A requisição foi bloqueada pelo Web Application Firewall da Square Cloud.";
+          } else {
+            errorMessage = data?.error || "Acesso negado pela Square Cloud";
+            errorDetails = data?.message || "";
+          }
+          
+          if (data?.suggestions && Array.isArray(data.suggestions)) {
+            errorDetails += "\n\nSugestões:\n" + data.suggestions.map((s: string, i: number) => `${i + 1}. ${s}`).join("\n");
+          } else if (data?.suggestion) {
+            errorDetails += `\n\nSugestão: ${data.suggestion}`;
+          }
+        } else if (status === 401) {
+          errorMessage = "Não autorizado";
+          errorDetails = "Token de autenticação inválido ou expirado. Por favor, faça login novamente.";
+        } else if (data?.error) {
+          errorMessage = data.error;
+          errorDetails = data?.details || data?.message || "";
+        }
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      setSnapshotErrorMessage(errorDetails ? `${errorMessage}\n\n${errorDetails}` : errorMessage);
+      setSnapshotErrorToast(true);
+    } finally {
+      setRestoringSnapshot(null);
     }
   };
 
@@ -687,6 +790,38 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebar }) => {
                             }}
                           >
                             Baixar
+                          </Button>
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            startIcon={<RestoreIcon />}
+                            onClick={() => {
+                              if (!snapshot.versionId) {
+                                console.warn("⚠️ versionId não encontrado no snapshot:", snapshot);
+                                setSnapshotErrorMessage("Erro: versionId não encontrado neste snapshot. Não é possível restaurar.");
+                                setSnapshotErrorToast(true);
+                                return;
+                              }
+                              handleRestoreSnapshot(snapshot);
+                            }}
+                            disabled={restoringSnapshot === snapshot.name || !snapshot.versionId}
+                            title={!snapshot.versionId ? "versionId não encontrado - não é possível restaurar" : "Restaurar banco de dados para este snapshot"}
+                            sx={{
+                              fontSize: "10px",
+                              padding: "4px 8px",
+                              borderColor: "#ff9800",
+                              color: "#ff9800",
+                              "&:hover": {
+                                borderColor: "#f57c00",
+                                backgroundColor: "rgba(255, 152, 0, 0.1)",
+                              },
+                              "&:disabled": {
+                                opacity: 0.5,
+                                cursor: "not-allowed",
+                              },
+                            }}
+                          >
+                            {restoringSnapshot === snapshot.name ? "Restaurando..." : "Restaurar"}
                           </Button>
                         </Box>
                       </Box>
