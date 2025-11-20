@@ -97,6 +97,11 @@ export function ShoppingListsTab() {
     null
   );
   const [quantityInputValue, setQuantityInputValue] = useState<string>("0");
+  const [transferQuantity, setTransferQuantity] = useState<number>(0);
+  const [selectedListForTransfer, setSelectedListForTransfer] = useState<string>("");
+  const [updateOrderedQuantity, setUpdateOrderedQuantity] = useState<boolean>(false);
+  const [addToExistingPending, setAddToExistingPending] = useState<boolean>(true);
+  const [selectedItemIndexToMerge, setSelectedItemIndexToMerge] = useState<number | null>(null);
   const { setOpenNotification } = useNotification();
 
   const [newList, setNewList] = useState({
@@ -314,18 +319,49 @@ export function ShoppingListsTab() {
         const listResponse = await api.get(`/invoice/shopping-lists/${foundListId}`);
         const updatedList = listResponse.data;
 
-        // Encontrar o item atualizado pelo productId (mais confiável que ID)
-        const updatedItem = updatedList.shoppingListItems?.find(
-          (i: ShoppingListItem) => i.productId === item.productId
+        // IMPORTANTE: Buscar pelo ID específico do item, não pelo productId
+        // Porque pode haver múltiplos itens com o mesmo productId
+        let updatedItem = updatedList.shoppingListItems?.find(
+          (i: ShoppingListItem) => i.id === item.id
         );
 
+        // Se não encontrou pelo ID (pode ter sido recriado), tentar encontrar pelo productId + quantidade + status
+        // Mas apenas se realmente não encontrou pelo ID
+        if (!updatedItem) {
+          console.warn("Item não encontrado pelo ID, tentando encontrar por productId + quantidade + status");
+          updatedItem = updatedList.shoppingListItems?.find(
+            (i: ShoppingListItem) => 
+              i.productId === item.productId &&
+              i.quantity === item.quantity &&
+              i.status === item.status &&
+              (i.receivedQuantity || 0) === (item.receivedQuantity || 0)
+          );
+        }
+
         if (updatedItem) {
-          console.log("Item atualizado encontrado:", updatedItem.id, "ID original:", item.id);
+          console.log("Item atualizado encontrado:", {
+            id: updatedItem.id,
+            idOriginal: item.id,
+            productId: updatedItem.productId,
+            quantity: updatedItem.quantity,
+            receivedQuantity: updatedItem.receivedQuantity,
+            status: updatedItem.status,
+          });
           setSelectedItem(updatedItem);
+          // IMPORTANTE: Se já comprou mais que o pedido, usar a quantidade comprada atual
+          // Não resetar para 0 se já tem quantidade comprada
           setPurchasedQuantity(updatedItem.receivedQuantity || 0);
           setAdditionalQuantity(0); // Reset quantidade adicional
+          setUpdateOrderedQuantity(false); // Reset opção de atualizar
           setShowPurchaseModal(true);
           return;
+        } else {
+          console.warn("Item não encontrado na lista atualizada, usando item original:", {
+            itemId: item.id,
+            productId: item.productId,
+            quantity: item.quantity,
+            status: item.status,
+          });
         }
       }
 
@@ -334,6 +370,7 @@ export function ShoppingListsTab() {
       setSelectedItem(item);
       setPurchasedQuantity(item.receivedQuantity || 0);
       setAdditionalQuantity(0); // Reset quantidade adicional
+      setUpdateOrderedQuantity(false); // Reset opção de atualizar
       setShowPurchaseModal(true);
     } catch (error) {
       console.error("Erro ao buscar item atualizado:", error);
@@ -341,6 +378,7 @@ export function ShoppingListsTab() {
       setSelectedItem(item);
       setPurchasedQuantity(item.receivedQuantity || 0);
       setAdditionalQuantity(0); // Reset quantidade adicional
+      setUpdateOrderedQuantity(false); // Reset opção de atualizar
       setShowPurchaseModal(true);
     }
   };
@@ -360,51 +398,56 @@ export function ShoppingListsTab() {
       return;
     }
 
-    // Aviso se quantidade total maior que pedida
-    if (totalQuantity > selectedItem.quantity) {
-      const result = await Swal.fire({
-        title: "Quantidade Maior que Pedida",
-        text: `Você pediu ${selectedItem.quantity} mas o total comprado será ${totalQuantity}. Deseja confirmar mesmo assim?`,
-        icon: "question",
-        showCancelButton: true,
-        confirmButtonText: "Sim, confirmar",
-        cancelButtonText: "Cancelar",
-        buttonsStyling: false,
-        customClass: {
-          confirmButton: "bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded font-semibold mx-2",
-          cancelButton: "bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded font-semibold mx-2",
-        },
+    // Validar: se escolheu atualizar quantidade pedida, o mínimo é 1
+    if (updateOrderedQuantity && totalQuantity < 1) {
+      setOpenNotification({
+        type: "error",
+        title: "Erro!",
+        notification: "A quantidade pedida não pode ser zero! O mínimo é 1 unidade.",
       });
-
-      if (!result.isConfirmed) {
-        return;
-      }
+      return;
     }
 
-    // Só mostrar confirmação se quantidade total ainda ficar menor que pedida
-    // E só mostrar se realmente está comprando menos (não quando já tem mais comprado)
-    // E só mostrar ocasionalmente (quando a diferença for significativa, ex: mais de 20% menor)
+    // SEMPRE mostrar confirmação final antes de concluir a compra
     const difference = selectedItem.quantity - totalQuantity;
-    const percentageDifference = (difference / selectedItem.quantity) * 100;
+    const originalOrderedQty = selectedItem.quantity;
+    let confirmMessage = "";
+    let confirmTitle = "";
 
-    if (!allowLess && totalQuantity < selectedItem.quantity && additionalQuantity > 0 && percentageDifference > 20) {
-      const result = await Swal.fire({
-        title: "Quantidade Menor que Pedida",
-        text: `Você pediu ${selectedItem.quantity} mas o total comprado será ${totalQuantity} (${difference} unidades a menos). Deseja continuar mesmo assim?`,
-        icon: "question",
-        showCancelButton: true,
-        confirmButtonText: "Sim, confirmar",
-        cancelButtonText: "Cancelar",
-        buttonsStyling: false,
-        customClass: {
-          confirmButton: "bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded font-semibold mx-2",
-          cancelButton: "bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded font-semibold mx-2",
-        },
-      });
-
-      if (!result.isConfirmed) {
-        return;
+    if (totalQuantity > selectedItem.quantity) {
+      // Comprou mais que pedido - sempre atualizar pedido
+      confirmTitle = "Confirmar Compra - Quantidade Maior que Pedida";
+      confirmMessage = `Pedido original: ${originalOrderedQty} unidades\nComprado: ${totalQuantity} unidades (${totalQuantity - originalOrderedQty} a mais)\n\nO pedido será atualizado para ${totalQuantity} unidades para acompanhar a compra.\n\nPedido original era ${originalOrderedQty} unidades.`;
+    } else if (totalQuantity < selectedItem.quantity) {
+      // Comprou menos que pedido - perguntar se quer atualizar pedido ou manter pendente
+      if (updateOrderedQuantity) {
+        confirmTitle = "Confirmar Compra - Atualizar Quantidade Pedida";
+        confirmMessage = `Pedido original: ${originalOrderedQty} unidades\nComprado: ${totalQuantity} unidades\n\nO pedido será atualizado de ${originalOrderedQty} para ${totalQuantity} unidades.\n\nPedido original era ${originalOrderedQty} unidades.`;
+      } else {
+        confirmTitle = "Confirmar Compra - Manter Pedido Original";
+        confirmMessage = `Pedido original: ${originalOrderedQty} unidades\nComprado: ${totalQuantity} unidades\n\nFicam ${difference} unidades pendentes.\n\nO pedido original de ${originalOrderedQty} unidades será mantido.`;
       }
+    } else {
+      confirmTitle = "Confirmar Compra";
+      confirmMessage = `Confirmar que ${totalQuantity} unidades foram compradas?\n\nEsta será a quantidade final após a conclusão da compra.`;
+    }
+
+    const result = await Swal.fire({
+      title: confirmTitle,
+      text: confirmMessage,
+      icon: "question",
+      showCancelButton: true,
+      confirmButtonText: "Sim, confirmar compra",
+      cancelButtonText: "Cancelar",
+      buttonsStyling: false,
+      customClass: {
+        confirmButton: "bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded font-semibold mx-2",
+        cancelButton: "bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded font-semibold mx-2",
+      },
+    });
+
+    if (!result.isConfirmed) {
+      return;
     }
 
     try {
@@ -420,40 +463,137 @@ export function ShoppingListsTab() {
         return;
       }
 
-      // Buscar o item atualizado antes de enviar para garantir que o ID está correto
+      // SEMPRE buscar o item atualizado antes de enviar para garantir que o ID está correto
       // Isso evita 404 quando a lista foi editada e os itens foram recriados
       let currentItemId = selectedItem.id;
       let currentItem = selectedItem;
+      let listId: string | undefined = undefined;
 
-      try {
-        // Tentar encontrar a lista que contém este item
-        const listId =
-          shoppingLists.find((l) =>
-            l.shoppingListItems?.some((i) => i.id === selectedItem.id || i.productId === selectedItem.productId)
-          )?.id || editingList?.id;
+      // Tentar encontrar a lista que contém este item
+      listId =
+        shoppingLists.find((l) =>
+          l.shoppingListItems?.some((i) => i.id === selectedItem.id || i.productId === selectedItem.productId)
+        )?.id || editingList?.id;
 
-        if (listId) {
+      // Se não encontrou, buscar em todas as listas (pode ter sido atualizado)
+      if (!listId) {
+        try {
+          const allListsResponse = await api.get("/invoice/shopping-lists", {
+            params: { page: 1, limit: 100 },
+          });
+          const allLists = allListsResponse.data?.data || allListsResponse.data || [];
+          const foundList = allLists.find((l: ShoppingList) =>
+            l.shoppingListItems?.some((i) => i.productId === selectedItem.productId)
+          );
+          listId = foundList?.id;
+        } catch (error) {
+          console.warn("Erro ao buscar lista em todas as listas:", error);
+        }
+      }
+
+      // Buscar item atualizado pela lista
+      if (listId) {
+        try {
           const listResponse = await api.get(`/invoice/shopping-lists/${listId}`);
           const updatedList = listResponse.data;
 
-          // Buscar pelo productId (mais confiável que ID)
-          const updatedItem = updatedList.shoppingListItems?.find(
-            (i: ShoppingListItem) => i.productId === selectedItem.productId
+          // CRÍTICO: Buscar pelo ID específico do item, não pelo productId
+          // Porque pode haver múltiplos itens com o mesmo productId
+          let updatedItem = updatedList.shoppingListItems?.find(
+            (i: ShoppingListItem) => i.id === selectedItem.id
           );
+
+          // Se não encontrou pelo ID (pode ter sido recriado), buscar por características únicas
+          if (!updatedItem) {
+            console.warn("Item não encontrado pelo ID, buscando por características únicas:", {
+              itemId: selectedItem.id,
+              productId: selectedItem.productId,
+              quantity: selectedItem.quantity,
+              status: selectedItem.status,
+              receivedQuantity: selectedItem.receivedQuantity,
+            });
+            
+            // Buscar por productId + quantity + status + receivedQuantity para identificar o item correto
+            updatedItem = updatedList.shoppingListItems?.find(
+              (i: ShoppingListItem) => 
+                i.productId === selectedItem.productId &&
+                i.quantity === selectedItem.quantity &&
+                i.status === selectedItem.status &&
+                (i.receivedQuantity || 0) === (selectedItem.receivedQuantity || 0)
+            );
+          }
 
           if (updatedItem) {
             currentItemId = updatedItem.id;
             currentItem = updatedItem;
-            console.log("Item atualizado encontrado antes de salvar:", {
+            console.log("✅ Item atualizado encontrado antes de salvar:", {
               oldId: selectedItem.id,
               newId: currentItemId,
               productId: selectedItem.productId,
+              quantity: selectedItem.quantity,
+              receivedQuantity: selectedItem.receivedQuantity,
+              status: selectedItem.status,
+              foundQuantity: updatedItem.quantity,
+              foundReceivedQuantity: updatedItem.receivedQuantity,
+              listId: listId,
             });
+          } else {
+            // Item não encontrado - pode ter sido removido ou a lista foi editada
+            console.error("❌ Item não encontrado na lista atualizada:", {
+              searchedItemId: selectedItem.id,
+              productId: selectedItem.productId,
+              quantity: selectedItem.quantity,
+              status: selectedItem.status,
+              receivedQuantity: selectedItem.receivedQuantity,
+              listId: listId,
+              availableItems: updatedList.shoppingListItems?.map((i: ShoppingListItem) => ({
+                id: i.id,
+                productId: i.productId,
+                quantity: i.quantity,
+                status: i.status,
+                receivedQuantity: i.receivedQuantity,
+              })),
+            });
+            setOpenNotification({
+              type: "error",
+              title: "Item não encontrado!",
+              notification: "O item pode ter sido removido da lista. Por favor, recarregue a página.",
+            });
+            await fetchData();
+            setShowPurchaseModal(false);
+            setPurchasedQuantity(0);
+            setAdditionalQuantity(0);
+            setUpdateOrderedQuantity(false);
+            return;
           }
+        } catch (refreshError) {
+          console.error("Erro ao buscar item atualizado antes de salvar:", refreshError);
+          setOpenNotification({
+            type: "error",
+            title: "Erro!",
+            notification: "Erro ao buscar item atualizado. Por favor, tente novamente.",
+          });
+          await fetchData();
+          setShowPurchaseModal(false);
+          setPurchasedQuantity(0);
+          setAdditionalQuantity(0);
+          setUpdateOrderedQuantity(false);
+          return;
         }
-      } catch (refreshError) {
-        console.warn("Erro ao buscar item atualizado antes de salvar, usando ID original:", refreshError);
-        // Continuar com o ID original se não conseguir atualizar
+      } else {
+        // Não conseguiu encontrar a lista
+        console.warn("Lista não encontrada para o item:", selectedItem.productId);
+        setOpenNotification({
+          type: "error",
+          title: "Lista não encontrada!",
+          notification: "Não foi possível encontrar a lista do item. Por favor, recarregue a página.",
+        });
+        await fetchData();
+        setShowPurchaseModal(false);
+        setPurchasedQuantity(0);
+        setAdditionalQuantity(0);
+        setUpdateOrderedQuantity(false);
+        return;
       }
 
       console.log("Enviando para API:", {
@@ -463,26 +603,604 @@ export function ShoppingListsTab() {
         additional: additionalQuantity,
         productId: currentItem.productId,
         productName: currentItem.product?.name,
+        originalOrdered: selectedItem.quantity,
       });
 
-      await api.patch("/invoice/shopping-lists/update-purchased-quantity", {
+      const originalOrderedQty = selectedItem.quantity;
+      const currentOrderedQty = currentItem.quantity;
+      const currentReceivedQty = currentItem.receivedQuantity || 0;
+
+      console.log("Verificando se precisa atualizar pedido:", {
+        quantityToSend,
+        currentOrderedQty,
+        currentReceivedQty,
+        originalOrderedQty,
+        updateOrderedQuantity,
+      });
+
+      // Se comprou mais que pedido OU escolheu atualizar quantidade pedida, atualizar o pedido PRIMEIRO
+      // IMPORTANTE: Cada item é único e individual - apenas este item específico será atualizado
+      const shouldUpdateOrdered = 
+        quantityToSend > currentOrderedQty || 
+        (quantityToSend < currentOrderedQty && updateOrderedQuantity);
+      
+      console.log("Decisão de atualizar quantidade pedida:", {
+        shouldUpdateOrdered,
+        quantityToSend,
+        currentOrderedQty,
+        updateOrderedQuantity,
+        itemId: currentItemId,
+        productId: currentItem.productId,
+      });
+
+      if (shouldUpdateOrdered && listId) {
+        try {
+          // Buscar a lista atualizada novamente para garantir que temos os dados mais recentes
+          const listResponse = await api.get(`/invoice/shopping-lists/${listId}`);
+          const list = listResponse.data;
+
+          // CRÍTICO: Preservar status e quantidades compradas de TODOS os itens antes de atualizar
+          // Porque o backend recria todos os itens e eles perdem esses dados
+          // IMPORTANTE: Cada item é único e individual - usar índice na lista para identificar após recriação
+          const itemsStatusArray: Array<{
+            originalId: string;
+            originalIndex: number; // Índice na lista original para identificar após recriação
+            productId: string;
+            status: string;
+            receivedQuantity: number;
+            purchased: boolean;
+            purchasedAt?: string;
+            receivedAt?: string;
+            defectiveQuantity: number;
+            returnedQuantity: number;
+            finalQuantity: number;
+            quantity: number;
+          }> = [];
+
+          list.shoppingListItems?.forEach((i: ShoppingListItem, index: number) => {
+            // IMPORTANTE: Preservar TODOS os dados de TODOS os itens individualmente
+            // Cada item é único, mesmo que tenha o mesmo productId
+            itemsStatusArray.push({
+              originalId: i.id,
+              originalIndex: index, // Guardar índice para identificar após recriação
+              productId: i.productId,
+              status: i.status,
+              receivedQuantity: i.receivedQuantity || 0,
+              purchased: i.purchased,
+              purchasedAt: i.purchasedAt,
+              receivedAt: i.receivedAt,
+              defectiveQuantity: i.defectiveQuantity || 0,
+              returnedQuantity: i.returnedQuantity || 0,
+              finalQuantity: i.finalQuantity || 0,
+              quantity: i.quantity,
+            });
+            console.log(`Preservando item ${index}:`, {
+              id: i.id,
+              productId: i.productId,
+              quantity: i.quantity,
+              status: i.status,
+              receivedQuantity: i.receivedQuantity || 0,
+            });
+          });
+
+          // CRÍTICO: Atualizar APENAS o item específico usando o ID (não productId!)
+          // Cada item é único e individual - não pode afetar outros itens
+          console.log("Preparando atualização - lista atual:", {
+            totalItems: list.shoppingListItems?.length,
+            items: list.shoppingListItems?.map(i => ({
+              id: i.id,
+              productId: i.productId,
+              quantity: i.quantity,
+              status: i.status,
+              receivedQuantity: i.receivedQuantity,
+            })),
+            itemToUpdate: {
+              id: currentItemId,
+              productId: currentItem.productId,
+              currentQuantity: currentItem.quantity,
+              newQuantity: quantityToSend,
+            },
+          });
+          
+          const updatedItems = list.shoppingListItems?.map((i: ShoppingListItem) => {
+            // IMPORTANTE: Usar apenas o ID específico, não productId (para não afetar outros itens do mesmo produto)
+            if (i.id === currentItemId) {
+              console.log("✅ Atualizando item específico:", {
+                id: i.id,
+                productId: i.productId,
+                oldQuantity: i.quantity,
+                newQuantity: quantityToSend,
+              });
+              return {
+                productId: i.productId,
+                quantity: quantityToSend, // Atualizar quantidade pedida apenas deste item INDIVIDUAL
+                notes: i.notes || "",
+              };
+            }
+            // Manter todos os outros itens exatamente como estão (SEM MUDANÇAS)
+            return {
+              productId: i.productId,
+              quantity: i.quantity, // Manter quantidade original
+              notes: i.notes || "",
+            };
+          }) || [];
+          
+          console.log("Itens que serão enviados ao backend:", {
+            totalItems: updatedItems.length,
+            items: updatedItems.map((item, idx) => ({
+              index: idx,
+              productId: item.productId,
+              quantity: item.quantity,
+            })),
+          });
+
+          await api.put(`/invoice/shopping-lists/${listId}`, {
+            name: list.name,
+            description: list.description,
+            items: updatedItems,
+          });
+
+          // IMPORTANTE: Após atualizar a lista, os itens são recriados, então precisamos:
+          // 1. Buscar o NOVO ID do item atualizado
+          // 2. Restaurar status e quantidades compradas de TODOS os itens INDIVIDUALMENTE
+          const refreshedListResponse = await api.get(`/invoice/shopping-lists/${listId}`);
+          const refreshedList = refreshedListResponse.data;
+          
+          // Encontrar o item atualizado usando uma combinação única de características
+          // IMPORTANTE: Cada item é único e individual - usar índice + características para identificar corretamente
+          const originalItemIndex = list.shoppingListItems?.findIndex((i: ShoppingListItem) => i.id === currentItemId) ?? -1;
+          
+          // Tentar encontrar pelo índice primeiro (mais confiável se a ordem não mudou)
+          let refreshedItem = originalItemIndex >= 0 
+            ? refreshedList.shoppingListItems?.[originalItemIndex]
+            : undefined;
+          
+          // VALIDAÇÃO CRÍTICA: Verificar se o item encontrado pelo índice é realmente o correto
+          // Comparar productId + quantidade (nova quantidade) para garantir que é o item certo
+          if (refreshedItem) {
+            const isCorrectItem = 
+              refreshedItem.productId === currentItem.productId &&
+              refreshedItem.quantity === quantityToSend; // Nova quantidade após atualização
+            
+            if (!isCorrectItem) {
+              console.warn("Item encontrado pelo índice não corresponde! Buscando por características:", {
+                foundItem: {
+                  id: refreshedItem.id,
+                  productId: refreshedItem.productId,
+                  quantity: refreshedItem.quantity,
+                },
+                expectedItem: {
+                  productId: currentItem.productId,
+                  quantity: quantityToSend,
+                },
+              });
+              refreshedItem = undefined; // Resetar para buscar novamente
+            }
+          }
+          
+          // Se não encontrou pelo índice ou o item não corresponde, buscar por características únicas
+          if (!refreshedItem) {
+            // Encontrar pela combinação: productId + quantidade (nova) + posição relativa entre itens do mesmo produto
+            const itemsWithSameProduct = refreshedList.shoppingListItems?.filter(
+              (i: ShoppingListItem) => i.productId === currentItem.productId
+            ) || [];
+            
+            const originalItemsWithSameProduct = list.shoppingListItems?.filter(
+              (i: ShoppingListItem) => i.productId === currentItem.productId
+            ) || [];
+            
+            const relativeIndex = originalItemsWithSameProduct.findIndex((i: ShoppingListItem) => i.id === currentItemId);
+            
+            if (relativeIndex >= 0 && relativeIndex < itemsWithSameProduct.length) {
+              // Encontrar o item na mesma posição relativa que tem a nova quantidade
+              const candidateItem = itemsWithSameProduct[relativeIndex];
+              if (candidateItem.quantity === quantityToSend) {
+                refreshedItem = candidateItem;
+              } else {
+                // Se a quantidade não corresponde na posição relativa, buscar pelo productId + nova quantidade
+                refreshedItem = itemsWithSameProduct.find(
+                  (i: ShoppingListItem) => i.quantity === quantityToSend
+                );
+              }
+            } else {
+              // Fallback: buscar apenas por productId + nova quantidade
+              refreshedItem = refreshedList.shoppingListItems?.find(
+                (i: ShoppingListItem) => 
+                  i.productId === currentItem.productId &&
+                  i.quantity === quantityToSend
+              );
+            }
+          }
+
+          if (refreshedItem) {
+            currentItemId = refreshedItem.id;
+            currentItem = refreshedItem;
+            console.log("✅ Item atualizado encontrado após editar lista (novo ID):", {
+              oldId: selectedItem.id,
+              newId: currentItemId,
+              productId: currentItem.productId,
+              oldQuantity: selectedItem.quantity,
+              newQuantity: currentItem.quantity,
+              expectedQuantity: quantityToSend,
+              matches: currentItem.quantity === quantityToSend,
+            });
+          } else {
+            console.error("❌ Item não encontrado após atualizar lista:", {
+              originalItemId: currentItemId,
+              productId: currentItem.productId,
+              expectedQuantity: quantityToSend,
+              refreshedListItems: refreshedList.shoppingListItems?.map((i: ShoppingListItem) => ({
+                id: i.id,
+                productId: i.productId,
+                quantity: i.quantity,
+                status: i.status,
+              })),
+            });
+            throw new Error("Item não encontrado após atualizar lista");
+          }
+
+          // Restaurar status e quantidades compradas de TODOS os itens INDIVIDUALMENTE
+          // EXCETO o item que está sendo atualizado (ele será atualizado depois)
+          const restorePromises: Promise<any>[] = [];
+          
+          const itemBeingUpdatedId = currentItemId;
+          
+          // Criar um mapa de itens originais para facilitar busca
+          const originalItemsMap = new Map<string, ShoppingListItem>();
+          list.shoppingListItems?.forEach((i: ShoppingListItem) => {
+            originalItemsMap.set(i.id, i);
+          });
+          
+          // IMPORTANTE: Cada item é único e individual - usar índice para mapear corretamente
+          // Como os itens são recriados na mesma ordem, podemos usar o índice original
+          // CRÍTICO: Apenas restaurar itens que REALMENTE estavam comprados ANTES da atualização
+          console.log("Iniciando restauração de itens:", {
+            totalItems: refreshedList.shoppingListItems?.length,
+            preservedItems: itemsStatusArray.length,
+            itemBeingUpdatedId,
+          });
+          
+          refreshedList.shoppingListItems?.forEach((i: ShoppingListItem, newIndex: number) => {
+            // NÃO restaurar o item que está sendo atualizado - ele será atualizado depois
+            if (i.id === itemBeingUpdatedId) {
+              console.log("⏭️ Pulando restauração do item que está sendo atualizado:", {
+                productId: i.productId,
+                itemId: i.id,
+                newIndex,
+                quantity: i.quantity,
+              });
+              return;
+            }
+
+            // Buscar dados preservados pelo índice original
+            // Como os itens são recriados na mesma ordem, o índice corresponde
+            const preservedData = itemsStatusArray[newIndex];
+            
+            // Verificar se encontrou dados preservados e se não é o item sendo atualizado
+            if (preservedData && preservedData.originalId !== currentItemId) {
+              // CRÍTICO: Apenas restaurar se o item ORIGINAL tinha status comprado E quantidade comprada > 0
+              // Não restaurar itens pendentes! Cada item é único e individual
+              const wasPurchased = (preservedData.status === "PURCHASED" || preservedData.status === "RECEIVED") && preservedData.receivedQuantity > 0;
+              
+              // VALIDAÇÃO EXTRA: Verificar se a quantidade preservada corresponde à quantidade atual
+              // Se a quantidade mudou, pode ser que seja um item diferente
+              const quantityMatches = preservedData.quantity === i.quantity;
+              
+              if (wasPurchased && quantityMatches) {
+                // Restaurar quantidade comprada e status do item INDIVIDUAL
+                console.log("✅ Restaurando item individual que estava comprado:", {
+                  originalId: preservedData.originalId,
+                  originalIndex: preservedData.originalIndex,
+                  newId: i.id,
+                  newIndex,
+                  productId: i.productId,
+                  preservedQuantity: preservedData.receivedQuantity,
+                  preservedStatus: preservedData.status,
+                  preservedOrderedQuantity: preservedData.quantity,
+                  currentStatus: i.status,
+                  currentQuantity: i.quantity,
+                  quantityMatches,
+                });
+                restorePromises.push(
+                  api.patch("/invoice/shopping-lists/update-purchased-quantity", {
+                    itemId: i.id,
+                    purchasedQuantity: preservedData.receivedQuantity,
+                  }).catch((error) => {
+                    console.warn(`❌ Erro ao restaurar status do item ${i.id} (índice ${newIndex}):`, error);
+                  })
+                );
+              } else {
+                // Item era pendente OU quantidade não corresponde - NÃO restaurar
+                console.log("⏸️ Item NÃO será restaurado:", {
+                  originalId: preservedData.originalId,
+                  newId: i.id,
+                  newIndex,
+                  productId: i.productId,
+                  preservedStatus: preservedData.status,
+                  preservedQuantity: preservedData.receivedQuantity,
+                  preservedOrderedQuantity: preservedData.quantity,
+                  currentStatus: i.status,
+                  currentQuantity: i.quantity,
+                  wasPurchased,
+                  quantityMatches,
+                  reason: !wasPurchased ? "não estava comprado" : "quantidade não corresponde",
+                });
+              }
+            } else if (!preservedData) {
+              console.warn("⚠️ Dados preservados não encontrados para índice:", newIndex);
+            } else {
+              console.log("⏸️ Item é o que está sendo atualizado, pulando:", {
+                originalId: preservedData.originalId,
+                currentItemId,
+              });
+            }
+          });
+
+          // Aguardar todas as restaurações (mas não falhar se alguma der erro)
+          const restoreResults = await Promise.allSettled(restorePromises);
+          console.log("Resultados das restaurações:", restoreResults.length, "itens restaurados");
+          
+          // Buscar novamente para ter os dados atualizados ANTES de atualizar o item atual
+          const finalListResponse = await api.get(`/invoice/shopping-lists/${listId}`);
+          const finalList = finalListResponse.data;
+          
+          // IMPORTANTE: Encontrar o item atualizado usando o ID que já temos
+          // Mas validar que é o item correto comparando productId + quantidade
+          let finalItem = finalList.shoppingListItems?.find(
+            (i: ShoppingListItem) => i.id === itemBeingUpdatedId
+          );
+          
+          // VALIDAÇÃO: Verificar se o item encontrado é realmente o correto
+          if (finalItem) {
+            const isCorrectItem = 
+              finalItem.productId === currentItem.productId &&
+              finalItem.quantity === quantityToSend; // Deve ter a nova quantidade
+            
+            if (!isCorrectItem) {
+              console.warn("⚠️ Item encontrado pelo ID não corresponde! Buscando por características:", {
+                foundItem: {
+                  id: finalItem.id,
+                  productId: finalItem.productId,
+                  quantity: finalItem.quantity,
+                },
+                expectedItem: {
+                  productId: currentItem.productId,
+                  quantity: quantityToSend,
+                },
+              });
+              
+              // Buscar novamente por características
+              finalItem = finalList.shoppingListItems?.find(
+                (i: ShoppingListItem) => 
+                  i.productId === currentItem.productId &&
+                  i.quantity === quantityToSend
+              );
+            }
+          } else {
+            // Se não encontrou pelo ID, buscar por características
+            console.warn("⚠️ Item não encontrado pelo ID, buscando por características");
+            finalItem = finalList.shoppingListItems?.find(
+              (i: ShoppingListItem) => 
+                i.productId === currentItem.productId &&
+                i.quantity === quantityToSend
+            );
+          }
+
+          if (finalItem) {
+            currentItemId = finalItem.id;
+            currentItem = finalItem;
+            console.log("✅ Item encontrado após restaurar outros itens:", {
+              itemId: currentItemId,
+              productId: currentItem.productId,
+              quantity: currentItem.quantity,
+              receivedQuantity: currentItem.receivedQuantity,
+              expectedQuantity: quantityToSend,
+              quantityMatches: currentItem.quantity === quantityToSend,
+            });
+          } else {
+            console.error("❌ Item não encontrado após restaurar outros itens:", {
+              itemBeingUpdatedId,
+              productId: currentItem.productId,
+              expectedQuantity: quantityToSend,
+              finalListItems: finalList.shoppingListItems?.map((i: ShoppingListItem) => ({
+                id: i.id,
+                productId: i.productId,
+                quantity: i.quantity,
+                status: i.status,
+              })),
+            });
+            throw new Error("Item não encontrado após restaurar outros itens");
+          }
+        } catch (updateError) {
+          console.error("Erro ao atualizar quantidade pedida:", updateError);
+          setOpenNotification({
+            type: "error",
+            title: "Erro!",
+            notification: "Erro ao atualizar quantidade pedida. Por favor, tente novamente.",
+          });
+          await fetchData();
+          setShowPurchaseModal(false);
+          setPurchasedQuantity(0);
+          setAdditionalQuantity(0);
+          setUpdateOrderedQuantity(false);
+          return;
+        }
+      }
+
+      // Atualizar quantidade comprada usando o ID correto (pode ter sido atualizado acima)
+      console.log("Atualizando quantidade comprada final:", {
         itemId: currentItemId,
         purchasedQuantity: quantityToSend,
+        productId: currentItem.productId,
+        productName: currentItem.product?.name,
+        currentQuantity: currentItem.quantity,
+        currentReceivedQuantity: currentItem.receivedQuantity,
       });
+
+      // Atualizar quantidade comprada usando o ID correto (pode ter sido atualizado acima)
+      let updateResponse;
+      try {
+        updateResponse = await api.patch("/invoice/shopping-lists/update-purchased-quantity", {
+          itemId: currentItemId,
+          purchasedQuantity: quantityToSend,
+        });
+
+        console.log("Quantidade comprada atualizada com sucesso:", updateResponse.data);
+        
+        // Verificar se a atualização foi aplicada corretamente
+        if (updateResponse.data) {
+          const updatedItemData = updateResponse.data;
+          console.log("Item atualizado retornado pela API:", {
+            itemId: updatedItemData.id,
+            productId: updatedItemData.productId,
+            quantity: updatedItemData.quantity,
+            receivedQuantity: updatedItemData.receivedQuantity,
+            status: updatedItemData.status,
+          });
+        }
+      } catch (updateError: any) {
+        console.error("Erro ao atualizar quantidade comprada:", updateError);
+        // Se der erro, tentar buscar o item novamente pelo ID específico (não productId!)
+        if (listId) {
+          const retryListResponse = await api.get(`/invoice/shopping-lists/${listId}`);
+          const retryList = retryListResponse.data;
+          // IMPORTANTE: Buscar pelo ID específico, não por productId (para não afetar outros itens)
+          const retryItem = retryList.shoppingListItems?.find(
+            (i: ShoppingListItem) => i.id === currentItemId
+          );
+          
+          if (retryItem) {
+            console.log("Tentando atualizar novamente com ID específico:", retryItem.id);
+            updateResponse = await api.patch("/invoice/shopping-lists/update-purchased-quantity", {
+              itemId: retryItem.id,
+              purchasedQuantity: quantityToSend,
+            });
+            console.log("Atualização bem-sucedida na segunda tentativa:", updateResponse.data);
+          } else {
+            throw updateError;
+          }
+        } else {
+          throw updateError;
+        }
+      }
+
+      let successMessage = "";
+      if (quantityToSend > originalOrderedQty) {
+        successMessage = `Compra confirmada! Comprado ${quantityToSend} unidades. Pedido atualizado de ${originalOrderedQty} para ${quantityToSend} unidades.`;
+      } else if (quantityToSend < originalOrderedQty && updateOrderedQuantity) {
+        successMessage = `Compra confirmada! Comprado ${quantityToSend} unidades. Pedido atualizado de ${originalOrderedQty} para ${quantityToSend} unidades.`;
+      } else if (quantityToSend < originalOrderedQty) {
+        successMessage = `Compra confirmada! Comprado ${quantityToSend} de ${originalOrderedQty} unidades. Ficam ${originalOrderedQty - quantityToSend} unidades pendentes.`;
+      } else {
+        successMessage = `Compra confirmada! Total comprado: ${quantityToSend} unidades.`;
+      }
 
       setOpenNotification({
         type: "success",
         title: "Sucesso!",
-        notification:
-          quantityToSend > currentItem.quantity
-            ? `Quantidade atualizada! Comprado ${quantityToSend} (maior que pedido de ${currentItem.quantity})`
-            : `Quantidade atualizada! Total comprado: ${quantityToSend}`,
+        notification: successMessage,
       });
 
       setShowPurchaseModal(false);
       setPurchasedQuantity(0);
       setAdditionalQuantity(0);
+      setUpdateOrderedQuantity(false);
+      
+      // Recarregar dados para garantir que tudo está atualizado
+      console.log("Recarregando dados após atualização...");
+      
+      // Aguardar um pouco para garantir que o backend processou tudo
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      
       await fetchData();
+      console.log("Dados recarregados com sucesso");
+      
+      // Verificar se a atualização foi aplicada corretamente
+      // IMPORTANTE: Usar o ID específico do item que foi atualizado, não productId
+      if (listId && currentItemId) {
+        try {
+          // Aguardar mais um pouco para garantir processamento
+          await new Promise((resolve) => setTimeout(resolve, 300));
+          
+          const verifyResponse = await api.get(`/invoice/shopping-lists/${listId}`);
+          const verifyList = verifyResponse.data;
+          
+          // CRÍTICO: Buscar pelo ID específico do item que foi atualizado
+          let verifyItem = verifyList.shoppingListItems?.find(
+            (i: ShoppingListItem) => i.id === currentItemId
+          );
+          
+          // Se não encontrou pelo ID (pode ter sido recriado), buscar por características únicas
+          if (!verifyItem) {
+            console.warn("Item não encontrado pelo ID na verificação, buscando por características:", {
+              itemId: currentItemId,
+              productId: currentItem.productId,
+              expectedQuantity: quantityToSend,
+            });
+            
+            // Buscar por productId + quantidade (nova quantidade após atualização)
+            // Se atualizou a quantidade pedida, buscar pela nova quantidade; senão, buscar pela quantidade original
+            const expectedQuantity = currentItem.quantity; // Quantidade pedida atual do item
+            verifyItem = verifyList.shoppingListItems?.find(
+              (i: ShoppingListItem) => 
+                i.productId === currentItem.productId &&
+                i.quantity === expectedQuantity &&
+                (i.receivedQuantity || 0) === quantityToSend
+            );
+          }
+          
+          if (verifyItem) {
+            console.log("✅ Verificação final do item:", {
+              itemId: verifyItem.id,
+              productId: verifyItem.productId,
+              quantity: verifyItem.quantity,
+              receivedQuantity: verifyItem.receivedQuantity,
+              expectedQuantity: quantityToSend,
+              status: verifyItem.status,
+              needsUpdate: Math.abs(verifyItem.receivedQuantity - quantityToSend) > 0.01,
+            });
+            
+            // Se a quantidade não bate, tentar atualizar novamente usando o ID correto
+            if (Math.abs(verifyItem.receivedQuantity - quantityToSend) > 0.01) {
+              console.warn("⚠️ Quantidade não corresponde! Tentando atualizar novamente...", {
+                itemId: verifyItem.id,
+                atual: verifyItem.receivedQuantity,
+                esperado: quantityToSend,
+                diferenca: Math.abs(verifyItem.receivedQuantity - quantityToSend),
+              });
+              
+              try {
+                await api.patch("/invoice/shopping-lists/update-purchased-quantity", {
+                  itemId: verifyItem.id, // Usar o ID do item encontrado
+                  purchasedQuantity: quantityToSend,
+                });
+                console.log("✅ Atualização de correção bem-sucedida");
+                // Recarregar novamente após correção
+                await new Promise((resolve) => setTimeout(resolve, 300));
+                await fetchData();
+              } catch (retryError) {
+                console.error("❌ Erro ao tentar corrigir quantidade:", retryError);
+              }
+            } else {
+              console.log("✅ Quantidade comprada está correta!");
+            }
+          } else {
+            console.warn("⚠️ Item não encontrado na verificação final!", {
+              searchedItemId: currentItemId,
+              productId: currentItem.productId,
+              expectedQuantity: quantityToSend,
+              availableItems: verifyList.shoppingListItems?.map((i: ShoppingListItem) => ({
+                id: i.id,
+                productId: i.productId,
+                quantity: i.quantity,
+                receivedQuantity: i.receivedQuantity,
+              })),
+            });
+          }
+        } catch (verifyError) {
+          console.warn("Erro ao verificar atualização:", verifyError);
+        }
+      }
     } catch (error: any) {
       console.error("Erro ao atualizar quantidade comprada:", {
         error,
@@ -543,12 +1261,39 @@ export function ShoppingListsTab() {
         const listResponse = await api.get(`/invoice/shopping-lists/${foundListId}`);
         const updatedList = listResponse.data;
 
-        // Encontrar o item atualizado pelo productId
-        const updatedItem = updatedList.shoppingListItems?.find(
-          (i: ShoppingListItem) => i.productId === item.productId
+        // IMPORTANTE: Buscar pelo ID específico do item, não pelo productId
+        // Porque pode haver múltiplos itens com o mesmo productId
+        let updatedItem = updatedList.shoppingListItems?.find(
+          (i: ShoppingListItem) => i.id === item.id
         );
 
+        // Se não encontrou pelo ID (pode ter sido recriado), tentar encontrar por productId + quantidade + status
+        if (!updatedItem) {
+          console.warn("Item não encontrado pelo ID, tentando encontrar por características:", {
+            itemId: item.id,
+            productId: item.productId,
+            quantity: item.quantity,
+            status: item.status,
+            receivedQuantity: item.receivedQuantity,
+          });
+          updatedItem = updatedList.shoppingListItems?.find(
+            (i: ShoppingListItem) => 
+              i.productId === item.productId &&
+              i.quantity === item.quantity &&
+              (i.receivedQuantity || 0) === (item.receivedQuantity || 0) &&
+              (i.status === item.status || (item.status === "PURCHASED" && i.status === "PURCHASED"))
+          );
+        }
+
         if (updatedItem) {
+          console.log("Desfazendo compra do item:", {
+            itemId: updatedItem.id,
+            productId: updatedItem.productId,
+            quantity: updatedItem.quantity,
+            receivedQuantity: updatedItem.receivedQuantity,
+            status: updatedItem.status,
+          });
+          
           await api.patch("/invoice/shopping-lists/undo-purchase", {
             itemId: updatedItem.id,
           });
@@ -561,6 +1306,18 @@ export function ShoppingListsTab() {
 
           await fetchData();
         } else {
+          console.error("Item não encontrado na lista:", {
+            originalItemId: item.id,
+            productId: item.productId,
+            quantity: item.quantity,
+            status: item.status,
+            listItems: updatedList.shoppingListItems?.map((i: ShoppingListItem) => ({
+              id: i.id,
+              productId: i.productId,
+              quantity: i.quantity,
+              status: i.status,
+            })),
+          });
           throw new Error("Item não encontrado na lista");
         }
       } else {
@@ -738,9 +1495,9 @@ export function ShoppingListsTab() {
   const handleEditList = (list: ShoppingList) => {
     setEditingList(list);
     setIsEditing(list.id);
-    // Manter apenas itens pendentes (não comprados) ao editar
+    // Manter pendentes na lista de edição para que possam ser modificados ou mantidos
+    // Itens comprados são mantidos automaticamente pelo backend
     const pendingItems = list.shoppingListItems?.filter((item) => item.status === "PENDING") || [];
-
     setNewList({
       name: list.name,
       description: list.description || "",
@@ -752,14 +1509,38 @@ export function ShoppingListsTab() {
     });
   };
 
-  const handleTransferItem = async (item: ShoppingListItem, targetListId: string) => {
+  const handleTransferItem = async () => {
+    if (!selectedItem || !selectedListForTransfer) {
+      setOpenNotification({
+        type: "error",
+        title: "Erro!",
+        notification: "Selecione uma lista destino!",
+      });
+      return;
+    }
+
     try {
+      // Calcular quantidade a transferir (se for item pendente, usar transferQuantity ou quantidade pendente)
+      const pendingQuantity = selectedItem.quantity - (selectedItem.receivedQuantity || 0);
+      const quantityToTransfer = selectedItem.status === "PENDING" 
+        ? (transferQuantity > 0 ? transferQuantity : pendingQuantity)
+        : selectedItem.quantity;
+
+      if (quantityToTransfer <= 0) {
+        setOpenNotification({
+          type: "error",
+          title: "Erro!",
+          notification: "Quantidade a transferir deve ser maior que zero!",
+        });
+        return;
+      }
+
       // Guardar informações do item original (status e quantidade comprada)
-      const wasPurchased = item.status === "PURCHASED" || item.status === "RECEIVED";
-      const purchasedQuantity = item.receivedQuantity || 0;
+      const wasPurchased = selectedItem.status === "PURCHASED" || selectedItem.status === "RECEIVED";
+      const purchasedQuantity = selectedItem.receivedQuantity || 0;
 
       // Buscar lista destino
-      const targetListResponse = await api.get(`/invoice/shopping-lists/${targetListId}`);
+      const targetListResponse = await api.get(`/invoice/shopping-lists/${selectedListForTransfer}`);
       const targetList = targetListResponse.data;
 
       // Adicionar item à lista destino
@@ -771,12 +1552,12 @@ export function ShoppingListsTab() {
         })) || [];
 
       currentItems.push({
-        productId: item.productId,
-        quantity: item.quantity,
-        notes: item.notes || "",
+        productId: selectedItem.productId,
+        quantity: quantityToTransfer,
+        notes: selectedItem.notes || "",
       });
 
-      await api.put(`/invoice/shopping-lists/${targetListId}`, {
+      await api.put(`/invoice/shopping-lists/${selectedListForTransfer}`, {
         name: targetList.name,
         description: targetList.description,
         items: currentItems,
@@ -785,12 +1566,12 @@ export function ShoppingListsTab() {
       // Se o item estava comprado, atualizar o status na lista destino
       if (wasPurchased && purchasedQuantity > 0) {
         // Buscar a lista atualizada para encontrar o item recém-criado
-        const updatedTargetListResponse = await api.get(`/invoice/shopping-lists/${targetListId}`);
+        const updatedTargetListResponse = await api.get(`/invoice/shopping-lists/${selectedListForTransfer}`);
         const updatedTargetList = updatedTargetListResponse.data;
 
         // Encontrar o item recém-criado pelo productId
         const transferredItem = updatedTargetList.shoppingListItems?.find(
-          (i: ShoppingListItem) => i.productId === item.productId && i.status === "PENDING"
+          (i: ShoppingListItem) => i.productId === selectedItem.productId && i.status === "PENDING"
         );
 
         if (transferredItem) {
@@ -802,27 +1583,69 @@ export function ShoppingListsTab() {
         }
       }
 
-      // Remover da lista origem - buscar lista atualizada
+      // Remover da lista origem apenas se transferindo tudo, ou atualizar quantidade
       const allListsResponse = await api.get("/invoice/shopping-lists");
       const allLists = allListsResponse.data;
-      const sourceList = allLists.find((l: ShoppingList) => l.shoppingListItems?.some((i) => i.id === item.id));
+      const sourceList = allLists.find((l: ShoppingList) => 
+        l.shoppingListItems?.some((i) => i.id === selectedItem.id)
+      );
 
       if (sourceList) {
-        // Manter itens comprados e remover apenas o item transferido
-        const remainingItems =
-          sourceList.shoppingListItems
-            ?.filter((i: ShoppingListItem) => i.id !== item.id)
-            .map((i: ShoppingListItem) => ({
+        if (selectedItem.status === "PENDING" && quantityToTransfer >= pendingQuantity) {
+          // Transferindo tudo - remover item
+          const remainingItems =
+            sourceList.shoppingListItems
+              ?.filter((i: ShoppingListItem) => i.id !== selectedItem.id)
+              .map((i: ShoppingListItem) => ({
+                productId: i.productId,
+                quantity: i.quantity,
+                notes: i.notes || "",
+              })) || [];
+
+          await api.put(`/invoice/shopping-lists/${sourceList.id}`, {
+            name: sourceList.name,
+            description: sourceList.description,
+            items: remainingItems,
+          });
+        } else if (selectedItem.status === "PENDING" && quantityToTransfer < pendingQuantity) {
+          // Transferindo parte - atualizar quantidade na origem
+          const updatedItems = sourceList.shoppingListItems?.map((i: ShoppingListItem) => {
+            if (i.id === selectedItem.id) {
+              return {
+                productId: i.productId,
+                quantity: i.quantity - quantityToTransfer,
+                notes: i.notes || "",
+              };
+            }
+            return {
               productId: i.productId,
               quantity: i.quantity,
               notes: i.notes || "",
-            })) || [];
+            };
+          }) || [];
 
-        await api.put(`/invoice/shopping-lists/${sourceList.id}`, {
-          name: sourceList.name,
-          description: sourceList.description,
-          items: remainingItems,
-        });
+          await api.put(`/invoice/shopping-lists/${sourceList.id}`, {
+            name: sourceList.name,
+            description: sourceList.description,
+            items: updatedItems,
+          });
+        } else if (wasPurchased) {
+          // Item comprado - remover completamente
+          const remainingItems =
+            sourceList.shoppingListItems
+              ?.filter((i: ShoppingListItem) => i.id !== selectedItem.id)
+              .map((i: ShoppingListItem) => ({
+                productId: i.productId,
+                quantity: i.quantity,
+                notes: i.notes || "",
+              })) || [];
+
+          await api.put(`/invoice/shopping-lists/${sourceList.id}`, {
+            name: sourceList.name,
+            description: sourceList.description,
+            items: remainingItems,
+          });
+        }
       }
 
       setOpenNotification({
@@ -834,6 +1657,8 @@ export function ShoppingListsTab() {
       });
 
       setShowTransferModal(false);
+      setSelectedListForTransfer("");
+      setTransferQuantity(0);
       await fetchData();
     } catch (error) {
       console.error("Erro ao transferir item:", error);
@@ -978,61 +1803,56 @@ export function ShoppingListsTab() {
     try {
       setIsCreating(true);
 
-      // Buscar lista atualizada para pegar itens comprados
+      // Buscar lista atualizada para pegar itens comprados E pendentes
       const currentListResponse = await api.get(`/invoice/shopping-lists/${editingList.id}`);
       const currentList = currentListResponse.data;
 
-      // Manter itens comprados (PURCHASED e RECEIVED)
-      const purchasedItems =
+      // CRÍTICO: Preservar TODOS os itens comprados (completos e parciais) com suas características únicas
+      // Usar productId + quantity + receivedQuantity para identificar cada item único
+      const purchasedItems: Array<{
+        productId: string;
+        quantity: number;
+        notes: string;
+        purchasedQuantity: number;
+        purchasedStatus: string;
+        originalId: string; // Guardar ID original para referência
+        originalIndex: number; // Guardar índice original
+      }> =
         currentList.shoppingListItems
           ?.filter((item: ShoppingListItem) => item.status === "PURCHASED" || item.status === "RECEIVED")
-          .map((item: ShoppingListItem) => ({
+          .map((item: ShoppingListItem, index: number) => ({
             productId: item.productId,
             quantity: Number(item.quantity) || 0,
             notes: item.notes || "",
+            // Manter informações de compra para restaurar depois
+            purchasedQuantity: item.receivedQuantity || 0,
+            purchasedStatus: item.status,
+            originalId: item.id,
+            originalIndex: index,
           })) || [];
 
       // Garantir que todos os itens tenham quantity como número
+      // NÃO MESCLAR - manter todos os itens como estão (permitir duplicados)
       const validatedNewItems = newList.items.map((item) => ({
         productId: item.productId,
         quantity: Number(item.quantity) || 0,
         notes: item.notes || "",
       }));
 
-      // Mesclar produtos duplicados nos novos itens, SOMANDO as quantidades
-      const mergedNewItemsMap = new Map<string, { productId: string; quantity: number; notes: string }>();
-      validatedNewItems.forEach((item) => {
-        const existing = mergedNewItemsMap.get(item.productId);
-        if (existing) {
-          // Se já existe, SOMAR as quantidades
-          mergedNewItemsMap.set(item.productId, {
-            productId: item.productId,
-            quantity: existing.quantity + item.quantity,
-            notes: existing.notes || item.notes || "",
-          });
-        } else {
-          mergedNewItemsMap.set(item.productId, {
-            productId: item.productId,
-            quantity: item.quantity,
-            notes: item.notes || "",
-          });
-        }
-      });
-      const mergedNewItems = Array.from(mergedNewItemsMap.values());
+      // IMPORTANTE: NÃO remover itens pendentes que têm o mesmo productId de itens comprados
+      // Porque podem ser itens diferentes (duplicados permitidos)
+      // Apenas incluir os itens comprados na lista final junto com os novos itens
+      
+      // Converter purchasedItems para o formato esperado pela API (sem campos extras)
+      const purchasedItemsForApi = purchasedItems.map((item) => ({
+        productId: item.productId,
+        quantity: item.quantity,
+        notes: item.notes,
+      }));
 
-      // Remover produtos dos novos itens que já estão comprados (mesclar)
-      // Se um produto já foi comprado, mantemos apenas o comprado e removemos o pendente
-      const purchasedProductIds = purchasedItems.map(
-        (item: { productId: string; quantity: number; notes?: string }) => item.productId
-      );
-
-      // Filtrar novos itens removendo os que já estão comprados
-      const newItemsWithoutPurchased = mergedNewItems.filter(
-        (item: { productId: string; quantity: number; notes?: string }) => !purchasedProductIds.includes(item.productId)
-      );
-
-      // Combinar itens pendentes editados (sem os já comprados) com itens comprados mantidos
-      const allItems = [...newItemsWithoutPurchased, ...purchasedItems];
+      // Combinar: itens da lista de edição (pendentes mantidos + novos) + comprados mantidos
+      // PERMITIR DUPLICADOS - itens com mesmo productId podem coexistir
+      const allItems = [...validatedNewItems, ...purchasedItemsForApi];
 
       // Validar que há pelo menos um item
       if (allItems.length === 0) {
@@ -1056,6 +1876,9 @@ export function ShoppingListsTab() {
         description: newList.description,
         itemsCount: allItems.length,
         items: allItems,
+        validatedNewItems: validatedNewItems,
+        purchasedItemsForApi: purchasedItemsForApi,
+        purchasedItemsCount: purchasedItems.length,
       });
 
       await api.put(`/invoice/shopping-lists/${editingList.id}`, {
@@ -1064,10 +1887,105 @@ export function ShoppingListsTab() {
         items: allItems,
       });
 
+      // Restaurar status de comprado para os itens que já estavam comprados
+      if (purchasedItems.length > 0) {
+        // Buscar lista atualizada após a edição
+        const updatedListResponse = await api.get(`/invoice/shopping-lists/${editingList.id}`);
+        const updatedList = updatedListResponse.data;
+
+        console.log("Restaurando itens comprados:", {
+          purchasedItemsCount: purchasedItems.length,
+          updatedListItemsCount: updatedList.shoppingListItems?.length || 0,
+        });
+
+        // Para cada item que estava comprado, restaurar o status usando características únicas
+        const restorePromises: Promise<any>[] = [];
+        const restoredItemIds = new Set<string>(); // Evitar restaurar o mesmo item duas vezes
+        
+        for (const purchasedItem of purchasedItems) {
+          // CRÍTICO: Buscar pelo productId + quantity + receivedQuantity para identificar o item correto
+          // Porque pode haver múltiplos itens do mesmo produto
+          let updatedItem = updatedList.shoppingListItems?.find(
+            (i: ShoppingListItem) => 
+              !restoredItemIds.has(i.id) && // Não restaurar o mesmo item duas vezes
+              i.productId === purchasedItem.productId &&
+              i.quantity === purchasedItem.quantity &&
+              (i.receivedQuantity || 0) === purchasedItem.purchasedQuantity
+          );
+
+          // Se não encontrou pela combinação exata, tentar apenas por productId + quantity
+          // (caso o receivedQuantity ainda não tenha sido restaurado)
+          if (!updatedItem) {
+            // Buscar todos os itens candidatos (mesmo productId + quantity)
+            const candidateItems = updatedList.shoppingListItems?.filter(
+              (i: ShoppingListItem) => 
+                !restoredItemIds.has(i.id) &&
+                i.productId === purchasedItem.productId &&
+                i.quantity === purchasedItem.quantity &&
+                (i.receivedQuantity || 0) === 0 // Ainda não foi restaurado
+            ) || [];
+
+            // Se há apenas um candidato, usar ele
+            // Se há múltiplos candidatos, usar o primeiro (a ordem pode variar após recriação)
+            if (candidateItems.length > 0) {
+              updatedItem = candidateItems[0];
+            }
+          }
+
+          if (updatedItem && purchasedItem.purchasedQuantity > 0) {
+            // Marcar como restaurado para evitar duplicatas
+            restoredItemIds.add(updatedItem.id);
+            
+            console.log("Restaurando item comprado:", {
+              originalId: purchasedItem.originalId,
+              originalIndex: purchasedItem.originalIndex,
+              newId: updatedItem.id,
+              productId: purchasedItem.productId,
+              quantity: purchasedItem.quantity,
+              purchasedQuantity: purchasedItem.purchasedQuantity,
+              status: purchasedItem.purchasedStatus,
+            });
+
+            restorePromises.push(
+              api.patch("/invoice/shopping-lists/update-purchased-quantity", {
+                itemId: updatedItem.id,
+                purchasedQuantity: purchasedItem.purchasedQuantity,
+              }).then(() => {
+                console.log(`✅ Item restaurado: ${updatedItem.id} (quantidade: ${purchasedItem.purchasedQuantity})`);
+              }).catch((error) => {
+                console.warn(`❌ Erro ao restaurar status de compra para item ${updatedItem.id}:`, error);
+                // Remover do Set em caso de erro para permitir nova tentativa
+                restoredItemIds.delete(updatedItem.id);
+              })
+            );
+          } else {
+            console.warn("Item comprado não encontrado após edição:", {
+              productId: purchasedItem.productId,
+              quantity: purchasedItem.quantity,
+              purchasedQuantity: purchasedItem.purchasedQuantity,
+              status: purchasedItem.purchasedStatus,
+              originalId: purchasedItem.originalId,
+              availableItems: updatedList.shoppingListItems?.map((i: ShoppingListItem) => ({
+                id: i.id,
+                productId: i.productId,
+                quantity: i.quantity,
+                receivedQuantity: i.receivedQuantity,
+                status: i.status,
+                alreadyRestored: restoredItemIds.has(i.id),
+              })),
+            });
+          }
+        }
+
+        // Aguardar todas as restaurações em paralelo
+        await Promise.all(restorePromises);
+        console.log(`✅ Restauração concluída: ${restorePromises.length} itens processados`);
+      }
+
       setOpenNotification({
         type: "success",
         title: "Sucesso!",
-        notification: "Lista atualizada com sucesso!",
+        notification: "Lista atualizada com sucesso! Itens comprados mantidos.",
       });
 
       setNewList({
@@ -1123,15 +2041,118 @@ export function ShoppingListsTab() {
       return;
     }
 
-    // Adicionar no início da lista (unshift)
-    setNewList((prev) => ({
-      ...prev,
-      items: [{ productId: selectedProductForAdd.productId, quantity: quantityToAdd, notes: "" }, ...prev.items],
-    }));
+    // Verificar se já existe produto na lista atual (seja editando ou criando)
+    const existingInList = newList.items.find(
+      (item) => item.productId === selectedProductForAdd.productId
+    );
+
+    // Se estamos editando, também verificar se existe na lista original (pendente)
+    let existingPendingItem: ShoppingListItem | undefined;
+    if (editingList) {
+      existingPendingItem = editingList.shoppingListItems?.find(
+        (item) => item.productId === selectedProductForAdd.productId && item.status === "PENDING"
+      );
+    }
+
+    // Se existe na lista atual OU existe pendente na lista original, perguntar ao usuário
+    if (existingInList || existingPendingItem) {
+      if (addToExistingPending) {
+        // Adicionar ao existente (somar quantidade)
+        if (existingInList) {
+          // Já está na lista de edição/criação - somar no item selecionado ou primeiro se não selecionado
+          let targetIndex = selectedItemIndexToMerge;
+          
+          // Se não há seleção, usar o primeiro item do produto
+          if (targetIndex === null || targetIndex < 0) {
+            targetIndex = newList.items.findIndex(
+              (item) => item.productId === selectedProductForAdd.productId
+            );
+          }
+          
+          if (targetIndex >= 0 && targetIndex < newList.items.length) {
+            setNewList((prev) => ({
+              ...prev,
+              items: prev.items.map((item, index) =>
+                index === targetIndex
+                  ? { ...item, quantity: item.quantity + quantityToAdd }
+                  : item
+              ),
+            }));
+          }
+        } else if (existingPendingItem) {
+          // Está pendente na lista original mas não está na lista de edição ainda
+          // Adicionar à lista de edição com quantidade somada
+          setNewList((prev) => ({
+            ...prev,
+            items: [
+              ...prev.items,
+              {
+                productId: selectedProductForAdd.productId,
+                quantity: existingPendingItem!.quantity + quantityToAdd,
+                notes: existingPendingItem!.notes || "",
+              },
+            ],
+          }));
+        }
+      } else {
+        // Criar novo item (não somar) - permitir duplicado
+        // IMPORTANTE: Se o item já está na lista de edição, manter ele E criar um novo
+        // Se não está na lista mas existe pendente, criar novo sem remover o pendente
+        console.log("Criando novo item duplicado:", {
+          productId: selectedProductForAdd.productId,
+          quantity: quantityToAdd,
+          existingInList: existingInList ? { quantity: existingInList.quantity } : null,
+          existingPendingItem: existingPendingItem ? { quantity: existingPendingItem.quantity } : null,
+          currentItemsBefore: newList.items.map(item => ({ productId: item.productId, quantity: item.quantity })),
+        });
+        setNewList((prev) => {
+          const newItems = [{ productId: selectedProductForAdd.productId, quantity: quantityToAdd, notes: "" }, ...prev.items];
+          console.log("Itens após criar novo:", {
+            total: newItems.length,
+            items: newItems.map(item => ({ productId: item.productId, quantity: item.quantity })),
+          });
+          return {
+            ...prev,
+            items: newItems,
+          };
+        });
+      }
+    } else {
+      // Produto não existe - verificar se está comprado (se editando)
+      if (editingList) {
+        const existingPurchasedItem = editingList.shoppingListItems?.find(
+          (item) =>
+            item.productId === selectedProductForAdd.productId &&
+            (item.status === "PURCHASED" || item.status === "RECEIVED")
+        );
+
+        if (existingPurchasedItem) {
+          // Produto já está comprado - criar novo item (não somar ao comprado)
+          setNewList((prev) => ({
+            ...prev,
+            items: [{ productId: selectedProductForAdd.productId, quantity: quantityToAdd, notes: "" }, ...prev.items],
+          }));
+        } else {
+          // Produto novo - adicionar normalmente
+          setNewList((prev) => ({
+            ...prev,
+            items: [{ productId: selectedProductForAdd.productId, quantity: quantityToAdd, notes: "" }, ...prev.items],
+          }));
+        }
+      } else {
+        // Criando nova lista e produto não existe - adicionar normalmente
+        setNewList((prev) => ({
+          ...prev,
+          items: [{ productId: selectedProductForAdd.productId, quantity: quantityToAdd, notes: "" }, ...prev.items],
+        }));
+      }
+    }
 
     // Limpar seleção
     setSelectedProductForAdd(null);
     setQuantityInputValue("0");
+    setAddToExistingPending(true); // Reset para próximo produto
+    setSelectedItemIndexToMerge(null); // Reset seleção de item
   };
 
   const removeProductFromList = (index: number) => {
@@ -1646,9 +2667,43 @@ export function ShoppingListsTab() {
                         if (productId) {
                           setSelectedProductForAdd({ productId, quantity: 0 });
                           setQuantityInputValue("0");
+                          // Verificar se produto já existe como pendente quando selecionar
+                          if (editingList) {
+                            const existingPending = editingList.shoppingListItems?.find(
+                              (item) => item.productId === productId && item.status === "PENDING"
+                            );
+                            const existingInEditList = newList.items.filter(
+                              (item) => item.productId === productId
+                            );
+                            // Se já existe pendente ou na lista de edição, mostrar opção de adicionar
+                            setAddToExistingPending(existingPending !== undefined || existingInEditList.length > 0);
+                            // Se há múltiplos itens, selecionar o primeiro por padrão
+                            if (existingInEditList.length > 0) {
+                              const firstIndex = newList.items.findIndex(
+                                (item) => item.productId === productId
+                              );
+                              setSelectedItemIndexToMerge(firstIndex >= 0 ? firstIndex : null);
+                            } else {
+                              setSelectedItemIndexToMerge(null);
+                            }
+                          } else {
+                            // Nova lista - verificar se já está na lista atual
+                            const existingInList = newList.items.filter((item) => item.productId === productId);
+                            setAddToExistingPending(existingInList.length > 0);
+                            // Se há múltiplos itens, selecionar o primeiro por padrão
+                            if (existingInList.length > 0) {
+                              const firstIndex = newList.items.findIndex(
+                                (item) => item.productId === productId
+                              );
+                              setSelectedItemIndexToMerge(firstIndex >= 0 ? firstIndex : null);
+                            } else {
+                              setSelectedItemIndexToMerge(null);
+                            }
+                          }
                         } else {
                           setSelectedProductForAdd(null);
                           setQuantityInputValue("0");
+                          setAddToExistingPending(true);
                         }
                       }}
                       inline={true}
@@ -1698,6 +2753,8 @@ export function ShoppingListsTab() {
                       onClick={() => {
                         setSelectedProductForAdd(null);
                         setQuantityInputValue("0");
+                        setAddToExistingPending(true);
+                        setSelectedItemIndexToMerge(null);
                       }}
                       className="bg-red-500 hover:bg-red-600 text-white px-3 py-2 rounded flex items-center"
                     >
@@ -1707,6 +2764,113 @@ export function ShoppingListsTab() {
                   </div>
                 )}
               </div>
+
+              {/* Toggle para adicionar ao existente ou criar novo (sempre que produto já existe) */}
+              {selectedProductForAdd && (() => {
+                const existingInList = newList.items.find(
+                  (item) => item.productId === selectedProductForAdd.productId
+                );
+                const existingPending = editingList?.shoppingListItems?.find(
+                  (item) => item.productId === selectedProductForAdd.productId && item.status === "PENDING"
+                );
+                const existingPurchased = editingList?.shoppingListItems?.find(
+                  (item) =>
+                    item.productId === selectedProductForAdd.productId &&
+                    (item.status === "PURCHASED" || item.status === "RECEIVED")
+                );
+
+                if (existingInList || existingPending) {
+                  // Produto já existe na lista atual ou como pendente - mostrar toggle
+                  const existingItemsInList = newList.items.filter(
+                    (item) => item.productId === selectedProductForAdd.productId
+                  );
+                  const hasMultipleItems = existingItemsInList.length > 1;
+                  const existingQuantity = existingInList?.quantity || existingPending?.quantity || 0;
+                  
+                  return (
+                    <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded-md">
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={addToExistingPending}
+                          onChange={(e) => {
+                            setAddToExistingPending(e.target.checked);
+                            if (!e.target.checked) {
+                              setSelectedItemIndexToMerge(null);
+                            }
+                          }}
+                          className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                        />
+                        <span className="text-sm text-gray-700">
+                          {addToExistingPending
+                            ? hasMultipleItems
+                              ? `✅ Adicionar ao item selecionado`
+                              : `✅ Adicionar ao existente (${existingQuantity} unidades)`
+                            : "➕ Criar novo item separado"}
+                        </span>
+                      </label>
+                      {addToExistingPending && hasMultipleItems && (
+                        <div className="mt-2 ml-6">
+                          <p className="text-xs text-gray-600 mb-1">Selecione qual item modificar:</p>
+                          <div className="space-y-1">
+                            {existingItemsInList.map((item, idx) => {
+                              // Encontrar o índice real na lista completa (encontrar a idx-ésima ocorrência)
+                              let realIndex = -1;
+                              let count = 0;
+                              for (let i = 0; i < newList.items.length; i++) {
+                                if (newList.items[i].productId === item.productId) {
+                                  if (count === idx) {
+                                    realIndex = i;
+                                    break;
+                                  }
+                                  count++;
+                                }
+                              }
+                              
+                              return (
+                                <label
+                                  key={`${item.productId}-${idx}`}
+                                  className="flex items-center gap-2 cursor-pointer p-1 hover:bg-yellow-100 rounded"
+                                >
+                                  <input
+                                    type="radio"
+                                    name="selectedItemToMerge"
+                                    checked={selectedItemIndexToMerge === realIndex}
+                                    onChange={() => setSelectedItemIndexToMerge(realIndex)}
+                                    className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                                  />
+                                  <span className="text-xs text-gray-700">
+                                    Item {idx + 1}: {item.quantity} unidades
+                                  </span>
+                                </label>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                      <p className="text-xs text-gray-500 mt-1 ml-6">
+                        {addToExistingPending
+                          ? hasMultipleItems
+                            ? selectedItemIndexToMerge !== null
+                              ? `A quantidade será somada ao item selecionado`
+                              : "Selecione um item acima para modificar"
+                            : "A quantidade será somada ao item existente"
+                          : "Será criado um novo item independente (permite duplicados)"}
+                      </p>
+                    </div>
+                  );
+                } else if (existingPurchased) {
+                  // Produto já está comprado - informar que será novo item
+                  return (
+                    <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded-md">
+                      <p className="text-sm text-blue-700">
+                        ℹ️ Este produto já está comprado. Será criado um novo item pendente.
+                      </p>
+                    </div>
+                  );
+                }
+                return null;
+              })()}
             </div>
 
             {/* Lista de produtos adicionados */}
@@ -2015,6 +3179,12 @@ export function ShoppingListsTab() {
                                   {item.receivedQuantity > 0 && (
                                     <span className="text-green-600"> / Comprado: {item.receivedQuantity}</span>
                                   )}
+                                  {item.status === "PENDING" && item.receivedQuantity > 0 && (
+                                    <span className="text-yellow-600"> / Pendente: {item.quantity - item.receivedQuantity}</span>
+                                  )}
+                                  {item.status === "PENDING" && (!item.receivedQuantity || item.receivedQuantity === 0) && (
+                                    <span className="text-yellow-600"> / Pendente: {item.quantity}</span>
+                                  )}
                                 </span>
                               </div>
                               {item.notes && <p className="text-sm text-gray-600 mt-1">{item.notes}</p>}
@@ -2024,7 +3194,11 @@ export function ShoppingListsTab() {
                             <div className="flex gap-1">
                               {item.status === "PENDING" && (
                                 <>
-                                  <Tooltip content="Informar quantidade comprada" position="left" maxWidth="140px">
+                                  <Tooltip 
+                                    content="Informar quantidade comprada (pode comprar mais que pedido)"
+                                    position="left" 
+                                    maxWidth="180px"
+                                  >
                                     <button
                                       onClick={() => handleOpenPurchaseModal(item, list.id)}
                                       className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-xs flex items-center"
@@ -2036,6 +3210,14 @@ export function ShoppingListsTab() {
                                     <button
                                       onClick={() => {
                                         setSelectedItem(item);
+                                        // Inicializar quantidade de transferência
+                                        if (item.status === "PENDING") {
+                                          const pendingQty = item.quantity - (item.receivedQuantity || 0);
+                                          setTransferQuantity(pendingQty);
+                                        } else {
+                                          setTransferQuantity(item.quantity);
+                                        }
+                                        setSelectedListForTransfer("");
                                         setShowTransferModal(true);
                                       }}
                                       className="bg-purple-500 hover:bg-purple-600 text-white px-2 py-1 rounded text-xs flex items-center"
@@ -2103,10 +3285,23 @@ export function ShoppingListsTab() {
                               )}
                               {(item.status === "PURCHASED" || item.status === "RECEIVED") && (
                                 <>
-                                  <Tooltip content="Atualizar quantidade comprada" position="left" maxWidth="160px">
+                                  <Tooltip 
+                                    content={
+                                      (item.receivedQuantity || 0) >= item.quantity
+                                        ? "Compra completa! Use 'Desfazer' para alterar"
+                                        : "Atualizar quantidade comprada"
+                                    } 
+                                    position="left" 
+                                    maxWidth="160px"
+                                  >
                                     <button
                                       onClick={() => handleOpenPurchaseModal(item, list.id)}
-                                      className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-xs flex items-center"
+                                      disabled={(item.receivedQuantity || 0) >= item.quantity}
+                                      className={`px-3 py-1 rounded text-xs flex items-center ${
+                                        (item.receivedQuantity || 0) >= item.quantity
+                                          ? "bg-gray-400 cursor-not-allowed text-white opacity-60"
+                                          : "bg-blue-500 hover:bg-blue-600 text-white"
+                                      }`}
                                     >
                                       🛒 Comprar
                                     </button>
@@ -2223,6 +3418,9 @@ export function ShoppingListsTab() {
                                   {item.receivedQuantity > 0 && (
                                     <span className="text-green-600"> / Comprado: {item.receivedQuantity}</span>
                                   )}
+                                  {item.receivedQuantity > 0 && item.receivedQuantity < item.quantity && (
+                                    <span className="text-yellow-600"> / Pendente: {item.quantity - item.receivedQuantity}</span>
+                                  )}
                                   {item.receivedQuantity > item.quantity && (
                                     <span className="text-purple-600"> ⚠️ (maior que pedido)</span>
                                   )}
@@ -2233,10 +3431,23 @@ export function ShoppingListsTab() {
 
                             {/* Botões de Ação */}
                             <div className="flex gap-1">
-                              <Tooltip content="Atualizar quantidade comprada" position="left" maxWidth="160px">
+                              <Tooltip 
+                                content={
+                                  (item.receivedQuantity || 0) >= item.quantity
+                                    ? "Compra completa! Use 'Desfazer' para alterar"
+                                    : "Atualizar quantidade comprada"
+                                } 
+                                position="left" 
+                                maxWidth="160px"
+                              >
                                 <button
                                   onClick={() => handleOpenPurchaseModal(item, list.id)}
-                                  className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-xs flex items-center"
+                                  disabled={(item.receivedQuantity || 0) >= item.quantity}
+                                  className={`px-3 py-1 rounded text-xs flex items-center ${
+                                    (item.receivedQuantity || 0) >= item.quantity
+                                      ? "bg-gray-400 cursor-not-allowed text-white opacity-60"
+                                      : "bg-blue-500 hover:bg-blue-600 text-white"
+                                  }`}
                                 >
                                   🛒 Comprar
                                 </button>
@@ -2258,6 +3469,14 @@ export function ShoppingListsTab() {
                                 <button
                                   onClick={() => {
                                     setSelectedItem(item);
+                                    // Inicializar quantidade de transferência
+                                    if (item.status === "PENDING") {
+                                      const pendingQty = item.quantity - (item.receivedQuantity || 0);
+                                      setTransferQuantity(pendingQty);
+                                    } else {
+                                      setTransferQuantity(item.quantity);
+                                    }
+                                    setSelectedListForTransfer("");
                                     setShowTransferModal(true);
                                   }}
                                   className="bg-purple-500 hover:bg-purple-600 text-white px-2 py-1 rounded text-xs flex items-center"
@@ -2420,20 +3639,21 @@ export function ShoppingListsTab() {
       {/* Modal Simplificado de Quantidade Comprada */}
       {showPurchaseModal && selectedItem && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-lg shadow-xl max-w-md w-full mx-4">
+          <div className="bg-white p-6 rounded-lg shadow-xl max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto">
             <h3 className="text-lg font-semibold mb-4">
               🛒 Informar Quantidade Comprada - {selectedItem.product.name}
             </h3>
 
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">📦 Quantidade Pedida</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">📦 Quantidade Pedida (Original)</label>
                 <input
                   type="number"
                   value={selectedItem.quantity}
                   disabled
                   className="w-full border border-gray-300 rounded-md p-2 bg-gray-100"
                 />
+                <p className="text-xs text-gray-500 mt-1">Pedido original: {selectedItem.quantity} unidades</p>
               </div>
 
               <div>
@@ -2449,6 +3669,8 @@ export function ShoppingListsTab() {
                     // Calcular quantidade adicional (pode ser negativa se o usuário quiser corrigir)
                     const newAdditional = totalQty - purchasedQuantity;
                     setAdditionalQuantity(newAdditional);
+                    // Resetar opção de atualizar quando mudar quantidade
+                    setUpdateOrderedQuantity(false);
                   }}
                   onFocus={(e) => {
                     // Selecionar todo o texto ao focar para facilitar substituição
@@ -2463,22 +3685,100 @@ export function ShoppingListsTab() {
                 </p>
               </div>
 
-              <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm font-medium text-gray-700">📊 Total que será comprado:</span>
-                  <span className="text-lg font-bold text-blue-600">{purchasedQuantity + additionalQuantity}</span>
+              {/* Opção para atualizar quantidade pedida quando comprar menos */}
+              {purchasedQuantity + additionalQuantity < selectedItem.quantity && (
+                <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4">
+                  <label className={`flex items-start gap-2 ${(purchasedQuantity + additionalQuantity) < 1 ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}>
+                    <input
+                      type="checkbox"
+                      checked={updateOrderedQuantity}
+                      disabled={(purchasedQuantity + additionalQuantity) < 1}
+                      onChange={(e) => {
+                        if ((purchasedQuantity + additionalQuantity) >= 1) {
+                          setUpdateOrderedQuantity(e.target.checked);
+                        }
+                      }}
+                      className="mt-1"
+                    />
+                    <div className="flex-1">
+                      <span className="text-sm font-medium text-gray-700 block">
+                        Atualizar quantidade pedida de {selectedItem.quantity} para {purchasedQuantity + additionalQuantity}
+                      </span>
+                      {(purchasedQuantity + additionalQuantity) < 1 ? (
+                        <p className="text-xs text-red-600 mt-1 font-semibold">
+                          ⚠️ Não é possível atualizar a quantidade pedida para zero! O mínimo é 1 unidade.
+                        </p>
+                      ) : (
+                        <p className="text-xs text-gray-600 mt-1">
+                          Se marcado: O pedido será atualizado para {purchasedQuantity + additionalQuantity} unidades e não ficará nada pendente.
+                          <br />
+                          Se desmarcado: O pedido original de {selectedItem.quantity} será mantido e ficarão {selectedItem.quantity - (purchasedQuantity + additionalQuantity)} unidades pendentes.
+                        </p>
+                      )}
+                    </div>
+                  </label>
                 </div>
-                {purchasedQuantity + additionalQuantity < selectedItem.quantity && (
-                  <p className="text-xs text-yellow-600 mt-1">
-                    ⚠️ Ainda faltam {selectedItem.quantity - (purchasedQuantity + additionalQuantity)} unidades
-                  </p>
-                )}
-                {purchasedQuantity + additionalQuantity > selectedItem.quantity && (
-                  <p className="text-xs text-purple-600 mt-1">
-                    ⚠️ Será comprado {purchasedQuantity + additionalQuantity - selectedItem.quantity} a mais que o
-                    pedido
-                  </p>
-                )}
+              )}
+
+              {/* Informação quando comprar mais que pedido */}
+              {purchasedQuantity + additionalQuantity > selectedItem.quantity && (
+                <div className="bg-purple-50 border border-purple-200 rounded-md p-4">
+                  <div className="flex items-start gap-2">
+                    <span className="text-purple-600 text-lg">ℹ️</span>
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-purple-800 mb-1">
+                        Quantidade maior que pedido
+                      </p>
+                      <p className="text-xs text-purple-700">
+                        O pedido será automaticamente atualizado de <strong>{selectedItem.quantity}</strong> para <strong>{purchasedQuantity + additionalQuantity}</strong> unidades para acompanhar a compra.
+                        <br />
+                        <span className="text-purple-600 mt-1 block">
+                          📝 Pedido original era {selectedItem.quantity} unidades.
+                        </span>
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-sm font-medium text-gray-700">📊 Resumo:</span>
+                </div>
+                <div className="space-y-1 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Pedido original:</span>
+                    <span className="font-semibold">{selectedItem.quantity}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Será comprado:</span>
+                    <span className="font-semibold text-blue-600">{purchasedQuantity + additionalQuantity}</span>
+                  </div>
+                  {purchasedQuantity + additionalQuantity < selectedItem.quantity && (
+                    <div className="flex justify-between">
+                      <span className="text-yellow-600">Ficará pendente:</span>
+                      <span className="font-semibold text-yellow-600">
+                        {selectedItem.quantity - (purchasedQuantity + additionalQuantity)}
+                      </span>
+                    </div>
+                  )}
+                  {purchasedQuantity + additionalQuantity > selectedItem.quantity && (
+                    <div className="flex justify-between">
+                      <span className="text-purple-600">Diferença (+):</span>
+                      <span className="font-semibold text-purple-600">
+                        +{purchasedQuantity + additionalQuantity - selectedItem.quantity}
+                      </span>
+                    </div>
+                  )}
+                  {updateOrderedQuantity && purchasedQuantity + additionalQuantity < selectedItem.quantity && (
+                    <div className="mt-2 pt-2 border-t border-blue-300">
+                      <div className="flex justify-between">
+                        <span className="text-green-600 font-medium">Novo pedido será:</span>
+                        <span className="font-bold text-green-600">{purchasedQuantity + additionalQuantity}</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -2487,13 +3787,14 @@ export function ShoppingListsTab() {
                 onClick={() => handleSavePurchasedQuantity(false)}
                 className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded flex-1"
               >
-                💾 Salvar
+                💾 Confirmar Compra
               </button>
               <button
                 onClick={() => {
                   setShowPurchaseModal(false);
                   setPurchasedQuantity(0);
                   setAdditionalQuantity(0);
+                  setUpdateOrderedQuantity(false);
                 }}
                 className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded"
               >
@@ -2514,16 +3815,26 @@ export function ShoppingListsTab() {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Selecione a lista destino</label>
                 <select
+                  value={selectedListForTransfer}
                   onChange={(e) => {
-                    if (e.target.value) {
-                      handleTransferItem(selectedItem, e.target.value);
+                    setSelectedListForTransfer(e.target.value);
+                    // Resetar quantidade ao trocar de lista
+                    if (selectedItem.status === "PENDING") {
+                      const pendingQty = selectedItem.quantity - (selectedItem.receivedQuantity || 0);
+                      setTransferQuantity(pendingQty);
+                    } else {
+                      setTransferQuantity(selectedItem.quantity);
                     }
                   }}
                   className="w-full border border-gray-300 rounded-md p-2"
                 >
                   <option value="">Selecione uma lista...</option>
                   {shoppingLists
-                    .filter((list) => list.id !== editingList?.id && !list.completed)
+                    .filter((list) => {
+                      // Não mostrar a lista de origem (onde o item está atualmente)
+                      const isSourceList = list.shoppingListItems?.some((i) => i.id === selectedItem.id);
+                      return !isSourceList && list.id !== editingList?.id && !list.completed;
+                    })
                     .map((list) => (
                       <option key={list.id} value={list.id}>
                         {list.name}
@@ -2531,15 +3842,77 @@ export function ShoppingListsTab() {
                     ))}
                 </select>
               </div>
+
+              {/* Mostrar opção de quantidade apenas para itens pendentes */}
+              {selectedItem.status === "PENDING" && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Quantidade a Transferir (dos que faltam)
+                  </label>
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3 mb-2">
+                    <div className="text-sm text-gray-700">
+                      <div>Pedido: {selectedItem.quantity}</div>
+                      <div>Comprado: {selectedItem.receivedQuantity || 0}</div>
+                      <div className="font-semibold text-yellow-700">
+                        Pendente: {selectedItem.quantity - (selectedItem.receivedQuantity || 0)}
+                      </div>
+                    </div>
+                  </div>
+                  <input
+                    type="number"
+                    value={transferQuantity}
+                    onChange={(e) => {
+                      const value = e.target.value.replace(/[^0-9.]/g, "");
+                      const qty = parseFloat(value) || 0;
+                      const maxQty = selectedItem.quantity - (selectedItem.receivedQuantity || 0);
+                      setTransferQuantity(Math.min(qty, maxQty));
+                    }}
+                    min="0"
+                    max={selectedItem.quantity - (selectedItem.receivedQuantity || 0)}
+                    className="w-full border border-gray-300 rounded-md p-2"
+                    placeholder="Digite a quantidade"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Máximo: {selectedItem.quantity - (selectedItem.receivedQuantity || 0)} unidades pendentes
+                  </p>
+                </div>
+              )}
+
+              {selectedItem.status !== "PENDING" && (
+                <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
+                  <div className="text-sm text-gray-700">
+                    <div>Quantidade total: {selectedItem.quantity}</div>
+                    {selectedItem.receivedQuantity > 0 && (
+                      <div className="text-green-600">Comprado: {selectedItem.receivedQuantity}</div>
+                    )}
+                    <p className="text-xs text-gray-500 mt-1">
+                      O item completo será transferido mantendo o status de comprado.
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="flex gap-2 mt-6">
               <button
+                onClick={handleTransferItem}
+                disabled={!selectedListForTransfer}
+                className={`px-4 py-2 rounded flex-1 ${
+                  selectedListForTransfer
+                    ? "bg-blue-600 hover:bg-blue-700 text-white"
+                    : "bg-gray-300 text-gray-500 cursor-not-allowed"
+                }`}
+              >
+                ✅ Confirmar Transferência
+              </button>
+              <button
                 onClick={() => {
                   setShowTransferModal(false);
                   setSelectedItem(null);
+                  setSelectedListForTransfer("");
+                  setTransferQuantity(0);
                 }}
-                className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded flex-1"
+                className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded"
               >
                 ❌ Cancelar
               </button>
