@@ -120,11 +120,25 @@ const AuthBackofficeProvider = ({ children }: AuthBackofficeProviderProps) => {
   useEffect(() => {
     const interceptor = api.interceptors.request.use(
       async function (config: any) {
-        if (!isFetchingAccount) {
+        // Sempre adicionar o token atual aos headers se não estiver presente
+        const token = localStorage.getItem("@backoffice:token");
+        if (token && !config.headers.Authorization) {
+          config.headers.Authorization = `Bearer ${token}`;
+        }
+        
+        // Se não há token e não está fazendo fetch de account, tentar inicializar
+        if (!token && !isFetchingAccount && !config.url?.includes("/auth/")) {
           isFetchingAccount = true;
           await initialize();
           isFetchingAccount = false;
+          
+          // Após inicializar, adicionar o novo token se disponível
+          const newToken = localStorage.getItem("@backoffice:token");
+          if (newToken) {
+            config.headers.Authorization = `Bearer ${newToken}`;
+          }
         }
+        
         return config;
       },
       function (error: any) {
