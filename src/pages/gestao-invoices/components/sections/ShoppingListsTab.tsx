@@ -16,6 +16,10 @@ import {
   RotateCcw,
   ChevronDown,
   ChevronUp,
+  RefreshCw,
+  Copy,
+  Save,
+  History,
 } from "lucide-react";
 import { api } from "../../../../services/api";
 import Swal from "sweetalert2";
@@ -93,6 +97,10 @@ export function ShoppingListsTab() {
   const [showPdfModal, setShowPdfModal] = useState(false);
   const [pdfContent, setPdfContent] = useState<string>("");
   const [showOnlyPending, setShowOnlyPending] = useState(false);
+  const [showDeletedLists, setShowDeletedLists] = useState(false);
+  const [deletedLists, setDeletedLists] = useState<any[]>([]);
+  const [editingListName, setEditingListName] = useState<string | null>(null); // ID da lista sendo editada
+  const [editingListNameValue, setEditingListNameValue] = useState<string>(""); // Valor temporário do nome
   const [selectedItem, setSelectedItem] = useState<ShoppingListItem | null>(null);
   const [purchasedQuantity, setPurchasedQuantity] = useState<string | number>("");
   const [additionalQuantity, setAdditionalQuantity] = useState<string | number>("");
@@ -285,6 +293,400 @@ export function ShoppingListsTab() {
     }
   };
 
+  const handleMigrateList = async (listId: string, listName: string) => {
+    const result = await Swal.fire({
+      title: "Migrar Lista",
+      html: `
+        <p class="text-sm text-gray-700 mb-4">
+          Esta lista será migrada para o novo modelo mantendo todos os dados.
+        </p>
+        <p class="text-sm font-semibold text-blue-600 mb-2">Lista atual: ${listName}</p>
+        <p class="text-sm text-gray-600 mb-4">Nova lista: ${listName} novo-modelo</p>
+        <p class="text-xs text-yellow-600">
+          ⚠️ A lista antiga será mantida. Uma nova lista será criada no novo formato.
+        </p>
+      `,
+      icon: "info",
+      showCancelButton: true,
+      confirmButtonColor: "#3b82f6",
+      cancelButtonColor: "#6b7280",
+      confirmButtonText: "Sim, migrar!",
+      cancelButtonText: "Cancelar",
+      buttonsStyling: false,
+      customClass: {
+        confirmButton: "bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded font-semibold mx-2",
+        cancelButton: "bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded font-semibold mx-2",
+      },
+    });
+
+    if (result.isConfirmed) {
+      try {
+        const response = await api.post("/invoice/shopping-lists/migrate", {
+          oldListId: listId,
+          newListName: `${listName} novo-modelo`,
+        });
+
+        setOpenNotification({
+          type: "success",
+          title: "Sucesso!",
+          notification: `Lista migrada com sucesso! Nova lista: "${response.data.newList.name}"`,
+        });
+
+        await fetchData();
+      } catch (error: any) {
+        console.error("Erro ao migrar lista:", error);
+        const errorMessage = error?.response?.data?.message || error?.message || "Erro ao migrar lista";
+        setOpenNotification({
+          type: "error",
+          title: "Erro!",
+          notification: errorMessage,
+        });
+      }
+    }
+  };
+
+  const handleDuplicateList = async (listId: string, listName: string) => {
+    const result = await Swal.fire({
+      title: "Duplicar Lista",
+      html: `
+        <p class="text-sm text-gray-700 mb-4">
+          Uma cópia desta lista será criada. Os produtos comprados serão resetados para pendente.
+        </p>
+        <p class="text-sm font-semibold text-blue-600 mb-2">Lista original: ${listName}</p>
+        <p class="text-sm text-gray-600 mb-4">Nova lista: ${listName} (Cópia)</p>
+      `,
+      icon: "question",
+      showCancelButton: true,
+      confirmButtonColor: "#3b82f6",
+      cancelButtonColor: "#6b7280",
+      confirmButtonText: "Sim, duplicar!",
+      cancelButtonText: "Cancelar",
+      buttonsStyling: false,
+      customClass: {
+        confirmButton: "bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded font-semibold mx-2",
+        cancelButton: "bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded font-semibold mx-2",
+      },
+    });
+
+    if (result.isConfirmed) {
+      try {
+        const response = await api.post("/invoice/shopping-lists/duplicate", {
+          listId: listId,
+        });
+
+        setOpenNotification({
+          type: "success",
+          title: "Sucesso!",
+          notification: `Lista duplicada com sucesso! Nova lista: "${response.data.list.name}"`,
+        });
+
+        await fetchData();
+      } catch (error: any) {
+        console.error("Erro ao duplicar lista:", error);
+        const errorMessage = error?.response?.data?.message || error?.message || "Erro ao duplicar lista";
+        setOpenNotification({
+          type: "error",
+          title: "Erro!",
+          notification: errorMessage,
+        });
+      }
+    }
+  };
+
+  const handleCreateBackup = async (listId: string, listName: string) => {
+    try {
+      const response = await api.post("/invoice/shopping-lists/backup", {
+        listId: listId,
+      });
+
+      setOpenNotification({
+        type: "success",
+        title: "Backup Criado!",
+        notification: `Backup da lista "${listName}" criado com sucesso! Versão ${response.data.backup.version} (Total: ${response.data.backup.totalVersions} versões)`,
+      });
+    } catch (error: any) {
+      console.error("Erro ao criar backup:", error);
+      const errorMessage = error?.response?.data?.message || error?.message || "Erro ao criar backup";
+      setOpenNotification({
+        type: "error",
+        title: "Erro!",
+        notification: errorMessage,
+      });
+    }
+  };
+
+  const handleRestoreBackup = async (listId: string, listName: string) => {
+    try {
+      // Buscar todas as versões disponíveis
+      const backupsResponse = await api.get("/invoice/shopping-lists/backups", {
+        params: { listId },
+      });
+
+      const versions = backupsResponse.data.versions || [];
+
+      if (versions.length === 0) {
+        Swal.fire({
+          icon: "info",
+          title: "Nenhum Backup",
+          text: "Esta lista não possui backups disponíveis.",
+          confirmButtonColor: "#3b82f6",
+        });
+        return;
+      }
+
+      // Criar HTML com lista de versões
+      const versionsHtml = versions
+        .map(
+          (v: any) => `
+        <div class="border rounded p-2 mb-2 cursor-pointer hover:bg-gray-50" onclick="window.selectedVersion = ${
+          v.version
+        }">
+          <div class="flex justify-between items-center">
+            <span class="font-semibold">Versão ${v.version}</span>
+            <span class="text-xs text-gray-500">${new Date(v.createdAt).toLocaleString("pt-BR")}</span>
+          </div>
+          <div class="text-xs text-gray-600 mt-1">
+            ${v.itemsCount} itens • ${v.name}
+          </div>
+        </div>
+      `
+        )
+        .join("");
+
+      const result = await Swal.fire({
+        title: "Restaurar Backup",
+        html: `
+          <p class="text-sm text-gray-700 mb-4">
+            Escolha qual versão da lista "${listName}" deseja restaurar:
+          </p>
+          <div id="versions-list" class="max-h-64 overflow-y-auto">
+            ${versionsHtml}
+          </div>
+          <p class="text-xs text-yellow-600 mt-4">
+            ⚠️ A versão atual será substituída pela versão selecionada.
+          </p>
+        `,
+        icon: "question",
+        showCancelButton: true,
+        confirmButtonColor: "#3b82f6",
+        cancelButtonColor: "#6b7280",
+        confirmButtonText: "Restaurar",
+        cancelButtonText: "Cancelar",
+        buttonsStyling: false,
+        customClass: {
+          confirmButton: "bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded font-semibold mx-2",
+          cancelButton: "bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded font-semibold mx-2",
+        },
+        didOpen: () => {
+          // Adicionar evento de clique nas versões
+          const versionDivs = document.querySelectorAll("#versions-list > div");
+          versionDivs.forEach((div) => {
+            div.addEventListener("click", () => {
+              // Remover seleção anterior
+              versionDivs.forEach((d) => d.classList.remove("bg-blue-50", "border-blue-300"));
+              // Adicionar seleção atual
+              div.classList.add("bg-blue-50", "border-blue-300");
+              // @ts-ignore
+              window.selectedVersion = parseInt(
+                div.querySelector("span.font-semibold")?.textContent?.replace("Versão ", "") || "0"
+              );
+            });
+          });
+        },
+      });
+
+      if (result.isConfirmed) {
+        // @ts-ignore
+        const selectedVersion = window.selectedVersion || versions[0].version;
+
+        const confirmResult = await Swal.fire({
+          title: "Confirmar Restauração",
+          html: `
+            <p class="text-sm text-gray-700 mb-4">
+              Tem certeza que deseja restaurar a <strong>Versão ${selectedVersion}</strong> da lista "${listName}"?
+            </p>
+            <p class="text-xs text-red-600">
+              ⚠️ Esta ação não pode ser desfeita. A versão atual será substituída.
+            </p>
+          `,
+          icon: "warning",
+          showCancelButton: true,
+          confirmButtonColor: "#dc2626",
+          cancelButtonColor: "#6b7280",
+          confirmButtonText: "Sim, restaurar!",
+          cancelButtonText: "Cancelar",
+          buttonsStyling: false,
+          customClass: {
+            confirmButton: "bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded font-semibold mx-2",
+            cancelButton: "bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded font-semibold mx-2",
+          },
+        });
+
+        if (confirmResult.isConfirmed) {
+          try {
+            await api.post("/invoice/shopping-lists/restore", {
+              listId: listId,
+              version: selectedVersion,
+            });
+
+            setOpenNotification({
+              type: "success",
+              title: "Backup Restaurado!",
+              notification: `Lista "${listName}" restaurada da versão ${selectedVersion} com sucesso!`,
+            });
+
+            await fetchData();
+          } catch (error: any) {
+            console.error("Erro ao restaurar backup:", error);
+            const errorMessage = error?.response?.data?.message || error?.message || "Erro ao restaurar backup";
+            setOpenNotification({
+              type: "error",
+              title: "Erro!",
+              notification: errorMessage,
+            });
+          }
+        }
+      }
+    } catch (error: any) {
+      console.error("Erro ao buscar backups:", error);
+      const errorMessage = error?.response?.data?.message || error?.message || "Erro ao buscar backups";
+      setOpenNotification({
+        type: "error",
+        title: "Erro!",
+        notification: errorMessage,
+      });
+    }
+  };
+
+  const fetchDeletedLists = async () => {
+    try {
+      console.log("🔍 [Frontend] Buscando listas deletadas...");
+      const response = await api.get("/invoice/shopping-lists/deleted");
+      console.log("📦 [Frontend] Resposta completa:", response);
+      console.log("📦 [Frontend] response.data:", response.data);
+      console.log("📦 [Frontend] response.data.deletedLists:", response.data?.deletedLists);
+
+      const lists = response.data?.deletedLists || response.data || [];
+      console.log("✅ [Frontend] Listas deletadas encontradas:", lists);
+      console.log("✅ [Frontend] Quantidade:", lists.length);
+
+      if (lists.length > 0) {
+        console.log("✅ [Frontend] Primeira lista:", lists[0]);
+      }
+
+      setDeletedLists(lists);
+      return lists;
+    } catch (error: any) {
+      console.error("❌ [Frontend] Erro ao buscar listas apagadas:", error);
+      console.error("❌ [Frontend] Detalhes do erro:", error?.response?.data);
+      console.error("❌ [Frontend] Status:", error?.response?.status);
+      setDeletedLists([]);
+      return [];
+    }
+  };
+
+  const handleRestoreDeletedList = async (listId: string, listName: string) => {
+    const result = await Swal.fire({
+      title: "Restaurar Lista Apagada",
+      html: `
+        <p class="text-sm text-gray-700 mb-4">
+          Deseja restaurar a lista "${listName}" que foi apagada?
+        </p>
+        <p class="text-xs text-blue-600">
+          A lista será restaurada do backup mais recente disponível.
+        </p>
+      `,
+      icon: "question",
+      showCancelButton: true,
+      confirmButtonColor: "#3b82f6",
+      cancelButtonColor: "#6b7280",
+      confirmButtonText: "Sim, restaurar!",
+      cancelButtonText: "Cancelar",
+      buttonsStyling: false,
+      customClass: {
+        confirmButton: "bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded font-semibold mx-2",
+        cancelButton: "bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded font-semibold mx-2",
+      },
+    });
+
+    if (result.isConfirmed) {
+      try {
+        await api.post("/invoice/shopping-lists/restore-deleted", {
+          listId: listId,
+        });
+
+        setOpenNotification({
+          type: "success",
+          title: "Lista Restaurada!",
+          notification: `Lista "${listName}" restaurada com sucesso!`,
+        });
+
+        // Fechar modal após restaurar com sucesso
+        setShowDeletedLists(false);
+        setDeletedLists([]);
+
+        // Atualizar lista de deletadas após restaurar
+        await fetchDeletedLists();
+        await fetchData();
+      } catch (error: any) {
+        console.error("Erro ao restaurar lista apagada:", error);
+        const errorMessage = error?.response?.data?.message || error?.message || "Erro ao restaurar lista apagada";
+        setOpenNotification({
+          type: "error",
+          title: "Erro!",
+          notification: errorMessage,
+        });
+      }
+    }
+  };
+
+  const handleUpdateListName = async (listId: string, newName: string) => {
+    if (!newName.trim()) {
+      setEditingListName(null);
+      setEditingListNameValue("");
+      return;
+    }
+
+    try {
+      await api.put(`/invoice/shopping-lists/${listId}`, {
+        name: newName.trim(),
+      });
+
+      setOpenNotification({
+        type: "success",
+        title: "Sucesso!",
+        notification: "Nome da lista atualizado com sucesso!",
+      });
+
+      await fetchData();
+    } catch (error: any) {
+      console.error("Erro ao atualizar nome da lista:", error);
+      const errorMessage = error?.response?.data?.message || error?.message || "Erro ao atualizar nome da lista";
+      setOpenNotification({
+        type: "error",
+        title: "Erro!",
+        notification: errorMessage,
+      });
+    } finally {
+      setEditingListName(null);
+      setEditingListNameValue("");
+    }
+  };
+
+  const handleStartEditingListName = (listId: string, currentName: string) => {
+    setEditingListName(listId);
+    setEditingListNameValue(currentName);
+  };
+
+  const handleCancelEditingListName = () => {
+    setEditingListName(null);
+    setEditingListNameValue("");
+  };
+
+  const handleSaveListName = (listId: string) => {
+    handleUpdateListName(listId, editingListNameValue);
+  };
+
   const handleDeleteList = async (listId: string) => {
     const result = await Swal.fire({
       title: "Confirmar Exclusão",
@@ -312,6 +714,10 @@ export function ShoppingListsTab() {
         });
         // Nota: Não precisa resetar confirmações ao deletar lista, pois a lista será removida completamente
         await fetchData();
+        // Se o modal de deletadas estiver aberto, atualizar a lista
+        if (showDeletedLists) {
+          await fetchDeletedLists();
+        }
       } catch (error) {
         console.error("Erro ao deletar lista:", error);
         setOpenNotification({
@@ -1565,26 +1971,33 @@ export function ShoppingListsTab() {
     try {
       setIsTransferring(true);
 
-      // Calcular quantidade a transferir (se for item pendente, usar transferQuantity ou quantidade pendente)
+      // Calcular quantidade a transferir (sempre apenas a quantidade PENDENTE, nunca a comprada)
       const pendingQuantity = selectedItem.quantity - (selectedItem.receivedQuantity || 0);
       let quantityToTransfer: number;
 
-      if (selectedItem.status === "PENDING") {
-        // Para itens pendentes, usar transferQuantity se fornecida e válida, senão usar quantidade pendente
-        const qtyValue =
-          typeof transferQuantity === "string"
-            ? transferQuantity === ""
-              ? 0
-              : parseFloat(transferQuantity)
-            : transferQuantity;
-        if (qtyValue > 0 && qtyValue <= pendingQuantity) {
-          quantityToTransfer = qtyValue;
-        } else {
-          quantityToTransfer = pendingQuantity;
-        }
+      // SEMPRE transferir apenas a quantidade pendente, nunca a comprada
+      const qtyValue =
+        typeof transferQuantity === "string"
+          ? transferQuantity === ""
+            ? 0
+            : parseFloat(transferQuantity)
+          : transferQuantity;
+
+      if (qtyValue > 0 && qtyValue <= pendingQuantity) {
+        quantityToTransfer = qtyValue;
       } else {
-        // Para itens comprados, transferir quantidade total
-        quantityToTransfer = selectedItem.quantity;
+        quantityToTransfer = pendingQuantity;
+      }
+
+      // Se não há quantidade pendente, não pode transferir
+      if (pendingQuantity <= 0) {
+        setOpenNotification({
+          type: "error",
+          title: "Erro!",
+          notification: "Este item já foi completamente comprado. Não há quantidade pendente para transferir.",
+        });
+        setIsTransferring(false);
+        return;
       }
 
       console.log("quantityToTransfer:", quantityToTransfer);
@@ -1720,60 +2133,24 @@ export function ShoppingListsTab() {
       console.log("sourceList (origem):", sourceList);
 
       if (sourceList) {
-        if (selectedItem.status === "PENDING" && quantityToTransfer >= pendingQuantity) {
-          // Transferindo tudo - remover item
-          const remainingItems =
-            sourceList.shoppingListItems
-              ?.filter((i: ShoppingListItem) => i.id !== selectedItem.id)
-              .map((i: ShoppingListItem) => ({
-                productId: i.productId,
-                quantity: i.quantity,
-                notes: i.notes || "",
-              })) || [];
-
-          await api.put(`/invoice/shopping-lists/${sourceList.id}`, {
-            name: sourceList.name,
-            description: sourceList.description,
-            items: remainingItems,
-          });
-        } else if (selectedItem.status === "PENDING" && quantityToTransfer < pendingQuantity) {
-          // Transferindo parte - atualizar quantidade na origem
-          const updatedItems =
-            sourceList.shoppingListItems?.map((i: ShoppingListItem) => {
-              if (i.id === selectedItem.id) {
-                return {
-                  productId: i.productId,
-                  quantity: i.quantity - quantityToTransfer,
-                  notes: i.notes || "",
-                };
-              }
-              return {
-                productId: i.productId,
-                quantity: i.quantity,
-                notes: i.notes || "",
-              };
-            }) || [];
-
-          await api.put(`/invoice/shopping-lists/${sourceList.id}`, {
-            name: sourceList.name,
-            description: sourceList.description,
-            items: updatedItems,
-          });
-        } else if (wasPurchased) {
-          // Item comprado - remover completamente
-          const remainingItems =
-            sourceList.shoppingListItems
-              ?.filter((i: ShoppingListItem) => i.id !== selectedItem.id)
-              .map((i: ShoppingListItem) => ({
-                productId: i.productId,
-                quantity: i.quantity,
-                notes: i.notes || "",
-              })) || [];
-
-          await api.put(`/invoice/shopping-lists/${sourceList.id}`, {
-            name: sourceList.name,
-            description: sourceList.description,
-            items: remainingItems,
+        // CORREÇÃO: Usar endpoints específicos que preservam status dos outros itens
+        if (quantityToTransfer >= pendingQuantity) {
+          // Transferindo toda quantidade pendente - remover item OU atualizar quantidade se ainda tem comprado
+          if (selectedItem.receivedQuantity > 0) {
+            // Item parcialmente comprado - apenas reduzir quantidade (mantém receivedQuantity)
+            const newQuantity = selectedItem.receivedQuantity; // Manter apenas a quantidade comprada
+            await api.patch(`/invoice/shopping-lists/item/${selectedItem.id}/quantity`, {
+              quantity: newQuantity,
+            });
+          } else {
+            // Item totalmente pendente - deletar completamente
+            await api.delete(`/invoice/shopping-lists/item/${selectedItem.id}`);
+          }
+        } else {
+          // Transferindo parte da quantidade pendente - reduzir quantidade na origem
+          const newQuantity = selectedItem.quantity - quantityToTransfer;
+          await api.patch(`/invoice/shopping-lists/item/${selectedItem.id}/quantity`, {
+            quantity: newQuantity,
           });
         }
       }
@@ -2754,15 +3131,29 @@ export function ShoppingListsTab() {
             <HelpCircle className="ml-2 inline cursor-help text-blue-500 hover:text-blue-700" size={16} />
           </Tooltip>
         </h2>
-        <Tooltip content="Criar nova lista de compras" position="bottom" maxWidth="150px">
-          <button
-            onClick={() => setIsEditing("new")}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded flex items-center"
-          >
-            <Plus className="mr-2" size={16} />
-            Nova Lista
-          </button>
-        </Tooltip>
+        <div className="flex gap-2">
+          <Tooltip content="Criar nova lista de compras" position="bottom" maxWidth="150px">
+            <button
+              onClick={() => setIsEditing("new")}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded flex items-center"
+            >
+              <Plus className="mr-2" size={16} />
+              Nova Lista
+            </button>
+          </Tooltip>
+          <Tooltip content="Ver histórico de listas deletadas" position="bottom" maxWidth="200px">
+            <button
+              onClick={async () => {
+                setShowDeletedLists(true);
+                await fetchDeletedLists();
+              }}
+              className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded flex items-center"
+            >
+              <History className="mr-2" size={16} />
+              Histórico Deletadas
+            </button>
+          </Tooltip>
+        </div>
       </div>
 
       {/* Formulário de Nova Lista / Edição */}
@@ -3128,6 +3519,102 @@ export function ShoppingListsTab() {
         </div>
       </div>
 
+      {/* Modal de Histórico de Listas Deletadas */}
+      {showDeletedLists &&
+        createPortal(
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full mx-4 max-h-[90vh] flex flex-col">
+              <div className="p-6 border-b border-gray-200 flex justify-between items-center">
+                <h3 className="text-xl font-semibold text-gray-800">📋 Histórico de Listas Deletadas</h3>
+                <div className="flex gap-2 items-center">
+                  <button
+                    onClick={async () => {
+                      await fetchDeletedLists();
+                    }}
+                    className="text-blue-600 hover:text-blue-700 transition-colors px-3 py-1 rounded hover:bg-blue-50"
+                    title="Atualizar lista"
+                  >
+                    <RefreshCw size={20} />
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowDeletedLists(false);
+                      setDeletedLists([]);
+                    }}
+                    className="text-gray-500 hover:text-gray-700 transition-colors"
+                  >
+                    <X size={24} />
+                  </button>
+                </div>
+              </div>
+              <div className="p-6 overflow-y-auto flex-1">
+                {(() => {
+                  console.log("🎨 [Render] Renderizando modal, deletedLists.length:", deletedLists.length);
+                  console.log("🎨 [Render] deletedLists:", deletedLists);
+                  return null;
+                })()}
+                {deletedLists.length === 0 ? (
+                  <div className="text-center py-8 text-gray-500">
+                    <Package className="mx-auto mb-4" size={48} />
+                    <p className="font-semibold mb-2">Nenhuma lista deletada encontrada.</p>
+                    <p className="text-sm mt-2 mb-4">Listas deletadas aparecerão aqui se tiverem backup disponível.</p>
+                    <button
+                      onClick={async () => {
+                        console.log("🔄 [Botão] Atualizando lista de deletadas...");
+                        await fetchDeletedLists();
+                      }}
+                      className="mt-4 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 mx-auto"
+                    >
+                      <RefreshCw size={16} />
+                      Atualizar
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {deletedLists.map((deletedList) => (
+                      <div
+                        key={deletedList.id}
+                        className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors"
+                      >
+                        <div className="flex-1">
+                          <p className="font-semibold text-gray-800 text-lg">{deletedList.name}</p>
+                          {deletedList.description && (
+                            <p className="text-sm text-gray-600 mt-1">{deletedList.description}</p>
+                          )}
+                          <div className="flex gap-4 mt-2 text-xs text-gray-500">
+                            <span>📦 {deletedList.itemsCount} itens</span>
+                            <span>💾 {deletedList.totalVersions} versões de backup</span>
+                            <span>🗓️ Apagada em: {new Date(deletedList.deletedAt).toLocaleString("pt-BR")}</span>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => handleRestoreDeletedList(deletedList.id, deletedList.name)}
+                          className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 font-semibold transition-colors ml-4"
+                        >
+                          <RotateCcw size={18} />
+                          Restaurar
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <div className="p-4 border-t border-gray-200 flex justify-end">
+                <button
+                  onClick={() => {
+                    setShowDeletedLists(false);
+                    setDeletedLists([]);
+                  }}
+                  className="bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded-lg font-semibold transition-colors"
+                >
+                  Fechar
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
+
       {/* Lista de Listas */}
       <div className="space-y-4">
         {shoppingLists.length === 0 ? (
@@ -3187,7 +3674,37 @@ export function ShoppingListsTab() {
                     </div>
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
-                        <h3 className="text-lg font-semibold text-gray-800">{list.name}</h3>
+                        {editingListName === list.id ? (
+                          <input
+                            type="text"
+                            value={editingListNameValue}
+                            onChange={(e) => setEditingListNameValue(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                e.preventDefault();
+                                handleSaveListName(list.id);
+                              } else if (e.key === "Escape") {
+                                e.preventDefault();
+                                handleCancelEditingListName();
+                              }
+                            }}
+                            onBlur={() => handleSaveListName(list.id)}
+                            autoFocus
+                            className="text-lg font-semibold text-gray-800 bg-white border-2 border-blue-500 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[200px]"
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                        ) : (
+                          <h3
+                            className="text-lg font-semibold text-gray-800 cursor-pointer hover:text-blue-600 transition-colors"
+                            onDoubleClick={(e) => {
+                              e.stopPropagation();
+                              handleStartEditingListName(list.id, list.name);
+                            }}
+                            title="Duplo clique para editar o nome"
+                          >
+                            {list.name}
+                          </h3>
+                        )}
                         {list.status === "concluida" && (
                           <span className="px-2 py-1 bg-green-500 text-white text-xs font-semibold rounded-full">
                             ✅ Concluída
@@ -3217,7 +3734,61 @@ export function ShoppingListsTab() {
                       </p>
                     </div>
                   </div>
-                  <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
+                  <div className="flex gap-2 flex-wrap" onClick={(e) => e.stopPropagation()}>
+                    {/* Botão de migração - aparece para listas antigas ou que precisam migração */}
+                    {(!list.shoppingListItems ||
+                      list.shoppingListItems.length === 0 ||
+                      list.name.includes("18/11") ||
+                      list.name.includes("NOVOS 18/11")) && (
+                      <Tooltip
+                        content="Migrar lista para o novo modelo (preserva todos os dados)"
+                        position="bottom"
+                        maxWidth="200px"
+                      >
+                        <button
+                          onClick={() => handleMigrateList(list.id, list.name)}
+                          className="bg-indigo-500 hover:bg-indigo-600 text-white px-3 py-1 rounded text-sm flex items-center"
+                        >
+                          <RefreshCw size={14} className="mr-1" />
+                          Migrar
+                        </button>
+                      </Tooltip>
+                    )}
+                    <Tooltip
+                      content="Duplicar lista (cria uma cópia com produtos resetados)"
+                      position="bottom"
+                      maxWidth="200px"
+                    >
+                      <button
+                        onClick={() => handleDuplicateList(list.id, list.name)}
+                        className="bg-teal-500 hover:bg-teal-600 text-white px-3 py-1 rounded text-sm flex items-center"
+                      >
+                        <Copy size={14} className="mr-1" />
+                        Duplicar
+                      </button>
+                    </Tooltip>
+                    <Tooltip
+                      content="Criar backup manual da lista (salva versão atual)"
+                      position="bottom"
+                      maxWidth="200px"
+                    >
+                      <button
+                        onClick={() => handleCreateBackup(list.id, list.name)}
+                        className="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded text-sm flex items-center"
+                      >
+                        <Save size={14} className="mr-1" />
+                        Backup
+                      </button>
+                    </Tooltip>
+                    <Tooltip content="Restaurar lista de um backup anterior" position="bottom" maxWidth="200px">
+                      <button
+                        onClick={() => handleRestoreBackup(list.id, list.name)}
+                        className="bg-orange-500 hover:bg-orange-600 text-white px-3 py-1 rounded text-sm flex items-center"
+                      >
+                        <History size={14} className="mr-1" />
+                        Restaurar
+                      </button>
+                    </Tooltip>
                     <Tooltip content="Editar lista: adicionar/remover produtos" position="bottom" maxWidth="160px">
                       <button
                         onClick={() => handleEditList(list)}
