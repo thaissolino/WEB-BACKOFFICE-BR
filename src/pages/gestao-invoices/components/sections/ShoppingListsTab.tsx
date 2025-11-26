@@ -20,6 +20,7 @@ import {
   Copy,
   Save,
   History,
+  Settings,
 } from "lucide-react";
 import { api } from "../../../../services/api";
 import Swal from "sweetalert2";
@@ -101,6 +102,9 @@ export function ShoppingListsTab() {
   const [deletedLists, setDeletedLists] = useState<any[]>([]);
   const [editingListName, setEditingListName] = useState<string | null>(null); // ID da lista sendo editada
   const [editingListNameValue, setEditingListNameValue] = useState<string>(""); // Valor temporário do nome
+  const [openManageMenu, setOpenManageMenu] = useState<string | null>(null); // ID da lista com menu aberto
+  const [manageMenuPosition, setManageMenuPosition] = useState<{ top: number; left: number } | null>(null);
+  const manageMenuButtonRefs = useRef<{ [key: string]: HTMLButtonElement | null }>({});
   const [selectedItem, setSelectedItem] = useState<ShoppingListItem | null>(null);
   const [purchasedQuantity, setPurchasedQuantity] = useState<string | number>("");
   const [additionalQuantity, setAdditionalQuantity] = useState<string | number>("");
@@ -220,6 +224,25 @@ export function ShoppingListsTab() {
       }
     }
   }, []);
+
+  // Fechar menu ao clicar fora
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (!target.closest(".manage-menu-container") && !target.closest("[data-manage-menu]")) {
+        setOpenManageMenu(null);
+        setManageMenuPosition(null);
+      }
+    };
+
+    if (openManageMenu) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [openManageMenu]);
 
   // Salvar lista em construção no localStorage sempre que mudar
   useEffect(() => {
@@ -631,6 +654,58 @@ export function ShoppingListsTab() {
       } catch (error: any) {
         console.error("Erro ao restaurar lista apagada:", error);
         const errorMessage = error?.response?.data?.message || error?.message || "Erro ao restaurar lista apagada";
+        setOpenNotification({
+          type: "error",
+          title: "Erro!",
+          notification: errorMessage,
+        });
+      }
+    }
+  };
+
+  const handleDeleteAllDeletedHistory = async () => {
+    const result = await Swal.fire({
+      title: "⚠️ Atenção!",
+      html: `
+        <p class="text-sm text-gray-700 mb-4">
+          <strong>Esta ação é irreversível!</strong>
+        </p>
+        <p class="text-sm text-gray-700 mb-4">
+          Tem certeza que deseja deletar todo o histórico de listas deletadas?
+        </p>
+        <p class="text-xs text-red-600 font-semibold">
+          Todos os backups de listas deletadas serão permanentemente removidos e não poderão ser restaurados.
+        </p>
+      `,
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#dc2626",
+      cancelButtonColor: "#6b7280",
+      confirmButtonText: "Sim, deletar tudo!",
+      cancelButtonText: "Cancelar",
+      buttonsStyling: false,
+      customClass: {
+        confirmButton: "bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded font-semibold mx-2",
+        cancelButton: "bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded font-semibold mx-2",
+      },
+    });
+
+    if (result.isConfirmed) {
+      try {
+        await api.delete("/invoice/shopping-lists/deleted/all");
+
+        setOpenNotification({
+          type: "success",
+          title: "Histórico Apagado!",
+          notification: "Todo o histórico de listas deletadas foi removido com sucesso!",
+        });
+
+        // Atualizar lista de deletadas após apagar
+        await fetchDeletedLists();
+      } catch (error: any) {
+        console.error("Erro ao apagar histórico de deletadas:", error);
+        const errorMessage =
+          error?.response?.data?.message || error?.message || "Erro ao apagar histórico de deletadas";
         setOpenNotification({
           type: "error",
           title: "Erro!",
@@ -3525,9 +3600,19 @@ export function ShoppingListsTab() {
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
             <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full mx-4 max-h-[90vh] flex flex-col">
               <div className="p-6 border-b border-gray-200 flex justify-between items-center">
-                <h3 className="text-xl font-semibold text-gray-800">📋 Histórico de Listas Deletadas</h3>
-                <div className="flex gap-2 items-center">
+                <div className="flex items-center gap-4 flex-1">
+                  <h3 className="text-xl font-semibold text-gray-800">📋 Histórico de Listas Deletadas</h3>
                   <button
+                    onClick={handleDeleteAllDeletedHistory}
+                    className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 font-semibold transition-colors"
+                  >
+                    <Trash2 size={18} />
+                    Apagar Histórico de Deletadas
+                  </button>
+                </div>
+                <div className="flex gap-2 items-center">
+                  {/* Botão de atualizar comentado - não funciona */}
+                  {/* <button
                     onClick={async () => {
                       await fetchDeletedLists();
                     }}
@@ -3535,7 +3620,7 @@ export function ShoppingListsTab() {
                     title="Atualizar lista"
                   >
                     <RefreshCw size={20} />
-                  </button>
+                  </button> */}
                   <button
                     onClick={() => {
                       setShowDeletedLists(false);
@@ -3645,7 +3730,9 @@ export function ShoppingListsTab() {
             return (
               <div
                 key={list.id}
-                className={`border rounded-lg overflow-hidden transition-all duration-300 ${
+                className={`border rounded-lg ${
+                  openManageMenu === list.id ? "overflow-visible" : "overflow-hidden"
+                } transition-all duration-300 ${
                   list.status === "concluida"
                     ? "bg-green-50 border-green-200"
                     : list.status === "comprando"
@@ -3734,116 +3821,192 @@ export function ShoppingListsTab() {
                       </p>
                     </div>
                   </div>
-                  <div className="flex gap-2 flex-wrap" onClick={(e) => e.stopPropagation()}>
-                    {/* Botão de migração - aparece para listas antigas ou que precisam migração */}
-                    {(!list.shoppingListItems ||
-                      list.shoppingListItems.length === 0 ||
-                      list.name.includes("18/11") ||
-                      list.name.includes("NOVOS 18/11")) && (
-                      <Tooltip
-                        content="Migrar lista para o novo modelo (preserva todos os dados)"
-                        position="bottom"
-                        maxWidth="200px"
-                      >
-                        <button
-                          onClick={() => handleMigrateList(list.id, list.name)}
-                          className="bg-indigo-500 hover:bg-indigo-600 text-white px-3 py-1 rounded text-sm flex items-center"
-                        >
-                          <RefreshCw size={14} className="mr-1" />
-                          Migrar
-                        </button>
-                      </Tooltip>
-                    )}
-                    <Tooltip
-                      content="Duplicar lista (cria uma cópia com produtos resetados)"
-                      position="bottom"
-                      maxWidth="200px"
-                    >
+                  <div className="relative manage-menu-container" onClick={(e) => e.stopPropagation()}>
+                    <Tooltip content="Gerenciar lista" position="bottom" maxWidth="120px">
                       <button
-                        onClick={() => handleDuplicateList(list.id, list.name)}
-                        className="bg-teal-500 hover:bg-teal-600 text-white px-3 py-1 rounded text-sm flex items-center"
+                        ref={(el) => {
+                          manageMenuButtonRefs.current[list.id] = el;
+                        }}
+                        onClick={() => {
+                          if (openManageMenu === list.id) {
+                            setOpenManageMenu(null);
+                            setManageMenuPosition(null);
+                          } else {
+                            const button = manageMenuButtonRefs.current[list.id];
+                            if (button) {
+                              const rect = button.getBoundingClientRect();
+                              setManageMenuPosition({
+                                top: rect.bottom + window.scrollY + 4,
+                                left: rect.right + window.scrollX - 200, // Ajusta para alinhar à direita
+                              });
+                            }
+                            setOpenManageMenu(list.id);
+                          }
+                        }}
+                        className="bg-gray-700 hover:bg-gray-800 text-white px-4 py-2 rounded text-sm flex items-center gap-2 font-semibold transition-colors"
                       >
-                        <Copy size={14} className="mr-1" />
-                        Duplicar
-                      </button>
-                    </Tooltip>
-                    <Tooltip
-                      content="Criar backup manual da lista (salva versão atual)"
-                      position="bottom"
-                      maxWidth="200px"
-                    >
-                      <button
-                        onClick={() => handleCreateBackup(list.id, list.name)}
-                        className="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded text-sm flex items-center"
-                      >
-                        <Save size={14} className="mr-1" />
-                        Backup
-                      </button>
-                    </Tooltip>
-                    <Tooltip content="Restaurar lista de um backup anterior" position="bottom" maxWidth="200px">
-                      <button
-                        onClick={() => handleRestoreBackup(list.id, list.name)}
-                        className="bg-orange-500 hover:bg-orange-600 text-white px-3 py-1 rounded text-sm flex items-center"
-                      >
-                        <History size={14} className="mr-1" />
-                        Restaurar
-                      </button>
-                    </Tooltip>
-                    <Tooltip content="Editar lista: adicionar/remover produtos" position="bottom" maxWidth="160px">
-                      <button
-                        onClick={() => handleEditList(list)}
-                        className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-sm flex items-center"
-                      >
-                        <Edit size={14} className="mr-1" />
-                        Editar
-                      </button>
-                    </Tooltip>
-                    <Tooltip content="Visualizar PDF na tela" position="bottom" maxWidth="140px">
-                      <button
-                        onClick={() => handleViewPDF(list.id, list.name, false)}
-                        className="bg-purple-500 hover:bg-purple-600 text-white px-3 py-1 rounded text-sm flex items-center"
-                      >
-                        <FileText size={14} className="mr-1" />
-                        Ver PDF
-                      </button>
-                    </Tooltip>
-                    <Tooltip content="Visualizar apenas pendentes" position="bottom" maxWidth="160px">
-                      <button
-                        onClick={() => handleViewPDF(list.id, list.name, true)}
-                        className="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded text-sm flex items-center"
-                      >
-                        <FileText size={14} className="mr-1" />
-                        Ver Pendentes
-                      </button>
-                    </Tooltip>
-                    <Tooltip content="Baixar lista em PDF" position="bottom" maxWidth="120px">
-                      <button
-                        onClick={() => handleDownloadPDF(list.id, list.name)}
-                        className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm flex items-center"
-                      >
-                        <Download size={14} className="mr-1" />
-                        Baixar
-                      </button>
-                    </Tooltip>
-                    <Tooltip content="Baixar lista em CSV" position="bottom" maxWidth="120px">
-                      <button
-                        onClick={() => handleDownloadExcel(list.id, list.name)}
-                        className="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded text-sm flex items-center"
-                      >
-                        <FileSpreadsheet size={14} className="mr-1" />
-                        CSV
-                      </button>
-                    </Tooltip>
-                    <Tooltip content="Deletar lista permanentemente" position="bottom" maxWidth="140px">
-                      <button
-                        onClick={() => handleDeleteList(list.id)}
-                        className="bg-gray-500 hover:bg-gray-600 text-white px-3 py-1 rounded text-sm flex items-center"
-                      >
-                        <Trash2 size={14} className="mr-1" />
-                        Deletar
+                        <Settings size={16} />
+                        Gerenciar
+                        <ChevronDown
+                          size={14}
+                          className={`transition-transform duration-200 ${
+                            openManageMenu === list.id ? "rotate-180" : ""
+                          }`}
+                        />
                       </button>
                     </Tooltip>
                   </div>
+
+                  {/* Menu Dropdown via Portal - Ordem Alfabética */}
+                  {openManageMenu === list.id &&
+                    manageMenuPosition &&
+                    createPortal(
+                      <div
+                        data-manage-menu
+                        className="fixed bg-white border border-gray-200 rounded-lg shadow-xl z-[9999] min-w-[200px] py-1"
+                        style={{
+                          top: `${manageMenuPosition.top}px`,
+                          left: `${manageMenuPosition.left}px`,
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {/* Backup */}
+                        <button
+                          onClick={() => {
+                            handleCreateBackup(list.id, list.name);
+                            setOpenManageMenu(null);
+                            setManageMenuPosition(null);
+                          }}
+                          className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-green-50 hover:text-green-700 flex items-center gap-2"
+                        >
+                          <Save size={16} />
+                          Backup
+                        </button>
+
+                        {/* Baixar CSV */}
+                        <button
+                          onClick={() => {
+                            handleDownloadExcel(list.id, list.name);
+                            setOpenManageMenu(null);
+                            setManageMenuPosition(null);
+                          }}
+                          className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-green-50 hover:text-green-700 flex items-center gap-2"
+                        >
+                          <FileSpreadsheet size={16} />
+                          Baixar CSV
+                        </button>
+
+                        {/* Baixar PDF */}
+                        <button
+                          onClick={() => {
+                            handleDownloadPDF(list.id, list.name);
+                            setOpenManageMenu(null);
+                            setManageMenuPosition(null);
+                          }}
+                          className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-red-50 hover:text-red-700 flex items-center gap-2"
+                        >
+                          <Download size={16} />
+                          Baixar PDF
+                        </button>
+
+                        {/* Duplicar */}
+                        <button
+                          onClick={() => {
+                            handleDuplicateList(list.id, list.name);
+                            setOpenManageMenu(null);
+                            setManageMenuPosition(null);
+                          }}
+                          className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-teal-50 hover:text-teal-700 flex items-center gap-2"
+                        >
+                          <Copy size={16} />
+                          Duplicar
+                        </button>
+
+                        {/* Editar */}
+                        <button
+                          onClick={() => {
+                            handleEditList(list);
+                            setOpenManageMenu(null);
+                            setManageMenuPosition(null);
+                          }}
+                          className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 flex items-center gap-2"
+                        >
+                          <Edit size={16} />
+                          Editar
+                        </button>
+
+                        {/* Excluir */}
+                        <button
+                          onClick={() => {
+                            handleDeleteList(list.id);
+                            setOpenManageMenu(null);
+                            setManageMenuPosition(null);
+                          }}
+                          className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-red-50 hover:text-red-700 flex items-center gap-2"
+                        >
+                          <Trash2 size={16} />
+                          Excluir
+                        </button>
+
+                        {/* Migrar - apenas para listas antigas */}
+                        {(!list.shoppingListItems ||
+                          list.shoppingListItems.length === 0 ||
+                          list.name.includes("18/11") ||
+                          list.name.includes("NOVOS 18/11")) && (
+                          <button
+                            onClick={() => {
+                              handleMigrateList(list.id, list.name);
+                              setOpenManageMenu(null);
+                              setManageMenuPosition(null);
+                            }}
+                            className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-indigo-50 hover:text-indigo-700 flex items-center gap-2"
+                          >
+                            <RefreshCw size={16} />
+                            Migrar
+                          </button>
+                        )}
+
+                        {/* Restaurar */}
+                        <button
+                          onClick={() => {
+                            handleRestoreBackup(list.id, list.name);
+                            setOpenManageMenu(null);
+                            setManageMenuPosition(null);
+                          }}
+                          className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-orange-50 hover:text-orange-700 flex items-center gap-2"
+                        >
+                          <History size={16} />
+                          Restaurar
+                        </button>
+
+                        {/* Ver PDF */}
+                        <button
+                          onClick={() => {
+                            handleViewPDF(list.id, list.name, false);
+                            setOpenManageMenu(null);
+                            setManageMenuPosition(null);
+                          }}
+                          className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-purple-50 hover:text-purple-700 flex items-center gap-2"
+                        >
+                          <FileText size={16} />
+                          Ver PDF
+                        </button>
+
+                        {/* Ver Pendentes */}
+                        <button
+                          onClick={() => {
+                            handleViewPDF(list.id, list.name, true);
+                            setOpenManageMenu(null);
+                            setManageMenuPosition(null);
+                          }}
+                          className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-yellow-50 hover:text-yellow-700 flex items-center gap-2"
+                        >
+                          <FileText size={16} />
+                          Ver Pendentes
+                        </button>
+                      </div>,
+                      document.body
+                    )}
                 </div>
 
                 {/* Conteúdo colapsável */}
