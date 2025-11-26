@@ -16,6 +16,10 @@ import {
   RotateCcw,
   ChevronDown,
   ChevronUp,
+  RefreshCw,
+  Copy,
+  Save,
+  History,
 } from "lucide-react";
 import { api } from "../../../../services/api";
 import Swal from "sweetalert2";
@@ -282,6 +286,271 @@ export function ShoppingListsTab() {
       });
     } finally {
       setIsCreating(false);
+    }
+  };
+
+  const handleMigrateList = async (listId: string, listName: string) => {
+    const result = await Swal.fire({
+      title: "Migrar Lista",
+      html: `
+        <p class="text-sm text-gray-700 mb-4">
+          Esta lista será migrada para o novo modelo mantendo todos os dados.
+        </p>
+        <p class="text-sm font-semibold text-blue-600 mb-2">Lista atual: ${listName}</p>
+        <p class="text-sm text-gray-600 mb-4">Nova lista: ${listName} novo-modelo</p>
+        <p class="text-xs text-yellow-600">
+          ⚠️ A lista antiga será mantida. Uma nova lista será criada no novo formato.
+        </p>
+      `,
+      icon: "info",
+      showCancelButton: true,
+      confirmButtonColor: "#3b82f6",
+      cancelButtonColor: "#6b7280",
+      confirmButtonText: "Sim, migrar!",
+      cancelButtonText: "Cancelar",
+      buttonsStyling: false,
+      customClass: {
+        confirmButton: "bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded font-semibold mx-2",
+        cancelButton: "bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded font-semibold mx-2",
+      },
+    });
+
+    if (result.isConfirmed) {
+      try {
+        const response = await api.post("/invoice/shopping-lists/migrate", {
+          oldListId: listId,
+          newListName: `${listName} novo-modelo`,
+        });
+
+        setOpenNotification({
+          type: "success",
+          title: "Sucesso!",
+          notification: `Lista migrada com sucesso! Nova lista: "${response.data.newList.name}"`,
+        });
+
+        await fetchData();
+      } catch (error: any) {
+        console.error("Erro ao migrar lista:", error);
+        const errorMessage = error?.response?.data?.message || error?.message || "Erro ao migrar lista";
+        setOpenNotification({
+          type: "error",
+          title: "Erro!",
+          notification: errorMessage,
+        });
+      }
+    }
+  };
+
+  const handleDuplicateList = async (listId: string, listName: string) => {
+    const result = await Swal.fire({
+      title: "Duplicar Lista",
+      html: `
+        <p class="text-sm text-gray-700 mb-4">
+          Uma cópia desta lista será criada. Os produtos comprados serão resetados para pendente.
+        </p>
+        <p class="text-sm font-semibold text-blue-600 mb-2">Lista original: ${listName}</p>
+        <p class="text-sm text-gray-600 mb-4">Nova lista: ${listName} (Cópia)</p>
+      `,
+      icon: "question",
+      showCancelButton: true,
+      confirmButtonColor: "#3b82f6",
+      cancelButtonColor: "#6b7280",
+      confirmButtonText: "Sim, duplicar!",
+      cancelButtonText: "Cancelar",
+      buttonsStyling: false,
+      customClass: {
+        confirmButton: "bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded font-semibold mx-2",
+        cancelButton: "bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded font-semibold mx-2",
+      },
+    });
+
+    if (result.isConfirmed) {
+      try {
+        const response = await api.post("/invoice/shopping-lists/duplicate", {
+          listId: listId,
+        });
+
+        setOpenNotification({
+          type: "success",
+          title: "Sucesso!",
+          notification: `Lista duplicada com sucesso! Nova lista: "${response.data.list.name}"`,
+        });
+
+        await fetchData();
+      } catch (error: any) {
+        console.error("Erro ao duplicar lista:", error);
+        const errorMessage = error?.response?.data?.message || error?.message || "Erro ao duplicar lista";
+        setOpenNotification({
+          type: "error",
+          title: "Erro!",
+          notification: errorMessage,
+        });
+      }
+    }
+  };
+
+  const handleCreateBackup = async (listId: string, listName: string) => {
+    try {
+      const response = await api.post("/invoice/shopping-lists/backup", {
+        listId: listId,
+      });
+
+      setOpenNotification({
+        type: "success",
+        title: "Backup Criado!",
+        notification: `Backup da lista "${listName}" criado com sucesso! Versão ${response.data.backup.version} (Total: ${response.data.backup.totalVersions} versões)`,
+      });
+    } catch (error: any) {
+      console.error("Erro ao criar backup:", error);
+      const errorMessage = error?.response?.data?.message || error?.message || "Erro ao criar backup";
+      setOpenNotification({
+        type: "error",
+        title: "Erro!",
+        notification: errorMessage,
+      });
+    }
+  };
+
+  const handleRestoreBackup = async (listId: string, listName: string) => {
+    try {
+      // Buscar todas as versões disponíveis
+      const backupsResponse = await api.get("/invoice/shopping-lists/backups", {
+        params: { listId },
+      });
+
+      const versions = backupsResponse.data.versions || [];
+
+      if (versions.length === 0) {
+        Swal.fire({
+          icon: "info",
+          title: "Nenhum Backup",
+          text: "Esta lista não possui backups disponíveis.",
+          confirmButtonColor: "#3b82f6",
+        });
+        return;
+      }
+
+      // Criar HTML com lista de versões
+      const versionsHtml = versions
+        .map(
+          (v: any) => `
+        <div class="border rounded p-2 mb-2 cursor-pointer hover:bg-gray-50" onclick="window.selectedVersion = ${
+          v.version
+        }">
+          <div class="flex justify-between items-center">
+            <span class="font-semibold">Versão ${v.version}</span>
+            <span class="text-xs text-gray-500">${new Date(v.createdAt).toLocaleString("pt-BR")}</span>
+          </div>
+          <div class="text-xs text-gray-600 mt-1">
+            ${v.itemsCount} itens • ${v.name}
+          </div>
+        </div>
+      `
+        )
+        .join("");
+
+      const result = await Swal.fire({
+        title: "Restaurar Backup",
+        html: `
+          <p class="text-sm text-gray-700 mb-4">
+            Escolha qual versão da lista "${listName}" deseja restaurar:
+          </p>
+          <div id="versions-list" class="max-h-64 overflow-y-auto">
+            ${versionsHtml}
+          </div>
+          <p class="text-xs text-yellow-600 mt-4">
+            ⚠️ A versão atual será substituída pela versão selecionada.
+          </p>
+        `,
+        icon: "question",
+        showCancelButton: true,
+        confirmButtonColor: "#3b82f6",
+        cancelButtonColor: "#6b7280",
+        confirmButtonText: "Restaurar",
+        cancelButtonText: "Cancelar",
+        buttonsStyling: false,
+        customClass: {
+          confirmButton: "bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded font-semibold mx-2",
+          cancelButton: "bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded font-semibold mx-2",
+        },
+        didOpen: () => {
+          // Adicionar evento de clique nas versões
+          const versionDivs = document.querySelectorAll("#versions-list > div");
+          versionDivs.forEach((div) => {
+            div.addEventListener("click", () => {
+              // Remover seleção anterior
+              versionDivs.forEach((d) => d.classList.remove("bg-blue-50", "border-blue-300"));
+              // Adicionar seleção atual
+              div.classList.add("bg-blue-50", "border-blue-300");
+              // @ts-ignore
+              window.selectedVersion = parseInt(
+                div.querySelector("span.font-semibold")?.textContent?.replace("Versão ", "") || "0"
+              );
+            });
+          });
+        },
+      });
+
+      if (result.isConfirmed) {
+        // @ts-ignore
+        const selectedVersion = window.selectedVersion || versions[0].version;
+
+        const confirmResult = await Swal.fire({
+          title: "Confirmar Restauração",
+          html: `
+            <p class="text-sm text-gray-700 mb-4">
+              Tem certeza que deseja restaurar a <strong>Versão ${selectedVersion}</strong> da lista "${listName}"?
+            </p>
+            <p class="text-xs text-red-600">
+              ⚠️ Esta ação não pode ser desfeita. A versão atual será substituída.
+            </p>
+          `,
+          icon: "warning",
+          showCancelButton: true,
+          confirmButtonColor: "#dc2626",
+          cancelButtonColor: "#6b7280",
+          confirmButtonText: "Sim, restaurar!",
+          cancelButtonText: "Cancelar",
+          buttonsStyling: false,
+          customClass: {
+            confirmButton: "bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded font-semibold mx-2",
+            cancelButton: "bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded font-semibold mx-2",
+          },
+        });
+
+        if (confirmResult.isConfirmed) {
+          try {
+            await api.post("/invoice/shopping-lists/restore", {
+              listId: listId,
+              version: selectedVersion,
+            });
+
+            setOpenNotification({
+              type: "success",
+              title: "Backup Restaurado!",
+              notification: `Lista "${listName}" restaurada da versão ${selectedVersion} com sucesso!`,
+            });
+
+            await fetchData();
+          } catch (error: any) {
+            console.error("Erro ao restaurar backup:", error);
+            const errorMessage = error?.response?.data?.message || error?.message || "Erro ao restaurar backup";
+            setOpenNotification({
+              type: "error",
+              title: "Erro!",
+              notification: errorMessage,
+            });
+          }
+        }
+      }
+    } catch (error: any) {
+      console.error("Erro ao buscar backups:", error);
+      const errorMessage = error?.response?.data?.message || error?.message || "Erro ao buscar backups";
+      setOpenNotification({
+        type: "error",
+        title: "Erro!",
+        notification: errorMessage,
+      });
     }
   };
 
@@ -3217,7 +3486,61 @@ export function ShoppingListsTab() {
                       </p>
                     </div>
                   </div>
-                  <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
+                  <div className="flex gap-2 flex-wrap" onClick={(e) => e.stopPropagation()}>
+                    {/* Botão de migração - aparece para listas antigas ou que precisam migração */}
+                    {(!list.shoppingListItems ||
+                      list.shoppingListItems.length === 0 ||
+                      list.name.includes("18/11") ||
+                      list.name.includes("NOVOS 18/11")) && (
+                      <Tooltip
+                        content="Migrar lista para o novo modelo (preserva todos os dados)"
+                        position="bottom"
+                        maxWidth="200px"
+                      >
+                        <button
+                          onClick={() => handleMigrateList(list.id, list.name)}
+                          className="bg-indigo-500 hover:bg-indigo-600 text-white px-3 py-1 rounded text-sm flex items-center"
+                        >
+                          <RefreshCw size={14} className="mr-1" />
+                          Migrar
+                        </button>
+                      </Tooltip>
+                    )}
+                    <Tooltip
+                      content="Duplicar lista (cria uma cópia com produtos resetados)"
+                      position="bottom"
+                      maxWidth="200px"
+                    >
+                      <button
+                        onClick={() => handleDuplicateList(list.id, list.name)}
+                        className="bg-teal-500 hover:bg-teal-600 text-white px-3 py-1 rounded text-sm flex items-center"
+                      >
+                        <Copy size={14} className="mr-1" />
+                        Duplicar
+                      </button>
+                    </Tooltip>
+                    <Tooltip
+                      content="Criar backup manual da lista (salva versão atual)"
+                      position="bottom"
+                      maxWidth="200px"
+                    >
+                      <button
+                        onClick={() => handleCreateBackup(list.id, list.name)}
+                        className="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded text-sm flex items-center"
+                      >
+                        <Save size={14} className="mr-1" />
+                        Backup
+                      </button>
+                    </Tooltip>
+                    <Tooltip content="Restaurar lista de um backup anterior" position="bottom" maxWidth="200px">
+                      <button
+                        onClick={() => handleRestoreBackup(list.id, list.name)}
+                        className="bg-orange-500 hover:bg-orange-600 text-white px-3 py-1 rounded text-sm flex items-center"
+                      >
+                        <History size={14} className="mr-1" />
+                        Restaurar
+                      </button>
+                    </Tooltip>
                     <Tooltip content="Editar lista: adicionar/remover produtos" position="bottom" maxWidth="160px">
                       <button
                         onClick={() => handleEditList(list)}
