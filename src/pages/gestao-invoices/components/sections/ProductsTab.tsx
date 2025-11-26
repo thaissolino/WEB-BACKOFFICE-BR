@@ -27,12 +27,14 @@ export function ProductsTab() {
     setIsLoading(true);
     try {
       const response = await api.get<Product[]>("/invoice/product");
-      // Ordenar por nome alfabético por padrão
+      // Sempre ordenar por nome alfabético (padrão)
       const sortedProducts = [...response.data].sort((a, b) => {
         if (sortBy === "name") {
-          return a.name.localeCompare(b.name, "pt-BR", { sensitivity: "base" });
+          // Ordenação alfabética por nome (case-insensitive)
+          return a.name.localeCompare(b.name, "pt-BR", { sensitivity: "base", numeric: true });
         } else {
-          return a.code.localeCompare(b.code, "pt-BR", { sensitivity: "base" });
+          // Ordenação por código
+          return a.code.localeCompare(b.code, "pt-BR", { sensitivity: "base", numeric: true });
         }
       });
       setProducts(sortedProducts);
@@ -83,9 +85,9 @@ export function ProductsTab() {
         //   },
         // });
         setOpenNotification({
-          type: 'success',
-          title: 'Sucesso!',
-          notification: 'Produto excluído permanentemente!'
+          type: "success",
+          title: "Sucesso!",
+          notification: "Produto excluído permanentemente!",
         });
       } catch (error) {
         console.error("Erro ao excluir produto:", error);
@@ -123,6 +125,26 @@ export function ProductsTab() {
       return;
     }
 
+    // Validar se já existe produto com o mesmo nome (case-insensitive) ou código
+    const existingProduct = products.find(
+      (p) =>
+        p.id !== currentProduct.id && // Não verificar o próprio produto se estiver editando
+        (p.name.toLowerCase() === trimmedName.toLowerCase() || p.code === trimmedCode)
+    );
+
+    if (existingProduct) {
+      Swal.fire({
+        icon: "error",
+        title: "Produto duplicado!",
+        text: `Já existe um produto com o nome "${existingProduct.name}" ou código "${existingProduct.code}".`,
+        buttonsStyling: false,
+        customClass: {
+          confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
+        },
+      });
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       if (currentProduct.id) {
@@ -138,9 +160,9 @@ export function ProductsTab() {
         //   },
         // });
         setOpenNotification({
-          type: 'success',
-          title: 'Sucesso!',
-          notification: 'Produto atualizado com sucesso!'
+          type: "success",
+          title: "Sucesso!",
+          notification: "Produto atualizado com sucesso!",
         });
       } else {
         await api.post("/invoice/product", currentProduct);
@@ -155,25 +177,40 @@ export function ProductsTab() {
         //   },
         // });
         setOpenNotification({
-          type: 'success',
-          title: 'Sucesso!',
-          notification: 'Produto criado com sucesso!'
+          type: "success",
+          title: "Sucesso!",
+          notification: "Produto criado com sucesso!",
         });
       }
       await fetchData();
       setShowModal(false);
       setCurrentProduct(null);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Erro ao salvar produto:", error);
-      Swal.fire({
-        icon: "error",
-        title: "Erro!",
-        text: "Não foi possível salvar o produto.",
-        buttonsStyling: false,
-        customClass: {
-          confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
-        },
-      });
+      const errorMessage = error?.response?.data?.message || error?.message || "Não foi possível salvar o produto.";
+
+      // Se o erro for de produto duplicado, mostrar mensagem específica
+      if (error?.response?.status === 409 || errorMessage.includes("já existe")) {
+        Swal.fire({
+          icon: "error",
+          title: "Produto duplicado!",
+          text: errorMessage || "Já existe um produto com este nome ou código.",
+          buttonsStyling: false,
+          customClass: {
+            confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
+          },
+        });
+      } else {
+        Swal.fire({
+          icon: "error",
+          title: "Erro!",
+          text: errorMessage,
+          buttonsStyling: false,
+          customClass: {
+            confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
+          },
+        });
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -212,32 +249,32 @@ export function ProductsTab() {
             </select>
           </div>
           <button
-          onClick={() => {
-            let maiorCodigo = 0;
+            onClick={() => {
+              let maiorCodigo = 0;
 
-            products.forEach((p) => {
-              const numero = parseInt(p.code);
-              if (!isNaN(numero) && numero > maiorCodigo) {
-                maiorCodigo = numero;
-              }
-            });
+              products.forEach((p) => {
+                const numero = parseInt(p.code);
+                if (!isNaN(numero) && numero > maiorCodigo) {
+                  maiorCodigo = numero;
+                }
+              });
 
-            setCurrentProduct({
-              id: "",
-              name: "",
-              code: String(maiorCodigo + 1), // código seguro e automático
-              priceweightAverage: 0,
-              weightAverage: 0,
-              description: "",
-            });
-            setShowModal(true);
-          }}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded flex items-center"
-          disabled={isLoading || isSubmitting}
-        >
-          {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2" size={16} />}
-          Novo Produto
-        </button>
+              setCurrentProduct({
+                id: "",
+                name: "",
+                code: String(maiorCodigo + 1), // código seguro e automático
+                priceweightAverage: 0,
+                weightAverage: 0,
+                description: "",
+              });
+              setShowModal(true);
+            }}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded flex items-center"
+            disabled={isLoading || isSubmitting}
+          >
+            {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2" size={16} />}
+            Novo Produto
+          </button>
         </div>
       </div>
 
