@@ -621,6 +621,10 @@ export function ShoppingListsTab() {
           notification: `Lista "${listName}" restaurada com sucesso!`,
         });
 
+        // Fechar modal após restaurar com sucesso
+        setShowDeletedLists(false);
+        setDeletedLists([]);
+
         // Atualizar lista de deletadas após restaurar
         await fetchDeletedLists();
         await fetchData();
