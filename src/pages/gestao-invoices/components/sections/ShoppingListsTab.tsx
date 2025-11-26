@@ -99,6 +99,8 @@ export function ShoppingListsTab() {
   const [showOnlyPending, setShowOnlyPending] = useState(false);
   const [showDeletedLists, setShowDeletedLists] = useState(false);
   const [deletedLists, setDeletedLists] = useState<any[]>([]);
+  const [editingListName, setEditingListName] = useState<string | null>(null); // ID da lista sendo editada
+  const [editingListNameValue, setEditingListNameValue] = useState<string>(""); // Valor temporário do nome
   const [selectedItem, setSelectedItem] = useState<ShoppingListItem | null>(null);
   const [purchasedQuantity, setPurchasedQuantity] = useState<string | number>("");
   const [additionalQuantity, setAdditionalQuantity] = useState<string | number>("");
@@ -632,6 +634,53 @@ export function ShoppingListsTab() {
         });
       }
     }
+  };
+
+  const handleUpdateListName = async (listId: string, newName: string) => {
+    if (!newName.trim()) {
+      setEditingListName(null);
+      setEditingListNameValue("");
+      return;
+    }
+
+    try {
+      await api.put(`/invoice/shopping-lists/${listId}`, {
+        name: newName.trim(),
+      });
+
+      setOpenNotification({
+        type: "success",
+        title: "Sucesso!",
+        notification: "Nome da lista atualizado com sucesso!",
+      });
+
+      await fetchData();
+    } catch (error: any) {
+      console.error("Erro ao atualizar nome da lista:", error);
+      const errorMessage = error?.response?.data?.message || error?.message || "Erro ao atualizar nome da lista";
+      setOpenNotification({
+        type: "error",
+        title: "Erro!",
+        notification: errorMessage,
+      });
+    } finally {
+      setEditingListName(null);
+      setEditingListNameValue("");
+    }
+  };
+
+  const handleStartEditingListName = (listId: string, currentName: string) => {
+    setEditingListName(listId);
+    setEditingListNameValue(currentName);
+  };
+
+  const handleCancelEditingListName = () => {
+    setEditingListName(null);
+    setEditingListNameValue("");
+  };
+
+  const handleSaveListName = (listId: string) => {
+    handleUpdateListName(listId, editingListNameValue);
   };
 
   const handleDeleteList = async (listId: string) => {
@@ -3621,7 +3670,37 @@ export function ShoppingListsTab() {
                     </div>
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
-                        <h3 className="text-lg font-semibold text-gray-800">{list.name}</h3>
+                        {editingListName === list.id ? (
+                          <input
+                            type="text"
+                            value={editingListNameValue}
+                            onChange={(e) => setEditingListNameValue(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                e.preventDefault();
+                                handleSaveListName(list.id);
+                              } else if (e.key === "Escape") {
+                                e.preventDefault();
+                                handleCancelEditingListName();
+                              }
+                            }}
+                            onBlur={() => handleSaveListName(list.id)}
+                            autoFocus
+                            className="text-lg font-semibold text-gray-800 bg-white border-2 border-blue-500 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[200px]"
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                        ) : (
+                          <h3
+                            className="text-lg font-semibold text-gray-800 cursor-pointer hover:text-blue-600 transition-colors"
+                            onDoubleClick={(e) => {
+                              e.stopPropagation();
+                              handleStartEditingListName(list.id, list.name);
+                            }}
+                            title="Duplo clique para editar o nome"
+                          >
+                            {list.name}
+                          </h3>
+                        )}
                         {list.status === "concluida" && (
                           <span className="px-2 py-1 bg-green-500 text-white text-xs font-semibold rounded-full">
                             ✅ Concluída
