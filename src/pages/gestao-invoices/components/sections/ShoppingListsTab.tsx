@@ -128,6 +128,7 @@ export function ShoppingListsTab() {
   const [transferAddToExisting, setTransferAddToExisting] = useState<boolean>(true);
   const [transferSelectedItemToMerge, setTransferSelectedItemToMerge] = useState<string | null>(null);
   const [existingItemsInTargetList, setExistingItemsInTargetList] = useState<ShoppingListItem[]>([]);
+  const [transferMode, setTransferMode] = useState<"transfer" | "duplicate">("transfer"); // "transfer" = mover, "duplicate" = copiar
   const { setOpenNotification } = useNotification();
 
   const [newList, setNewList] = useState({
@@ -2046,33 +2047,39 @@ export function ShoppingListsTab() {
     try {
       setIsTransferring(true);
 
-      // Calcular quantidade a transferir (sempre apenas a quantidade PENDENTE, nunca a comprada)
+      // Calcular quantidade a transferir
       const pendingQuantity = selectedItem.quantity - (selectedItem.receivedQuantity || 0);
+      const isFullyPurchased = selectedItem.receivedQuantity >= selectedItem.quantity;
       let quantityToTransfer: number;
 
-      // SEMPRE transferir apenas a quantidade pendente, nunca a comprada
-      const qtyValue =
-        typeof transferQuantity === "string"
-          ? transferQuantity === ""
-            ? 0
-            : parseFloat(transferQuantity)
-          : transferQuantity;
-
-      if (qtyValue > 0 && qtyValue <= pendingQuantity) {
-        quantityToTransfer = qtyValue;
+      // Se está totalmente comprado, SEMPRE transferir/duplicar tudo (não pode ser em fração)
+      if (isFullyPurchased) {
+        quantityToTransfer = selectedItem.quantity; // Sempre a quantidade total
       } else {
-        quantityToTransfer = pendingQuantity;
-      }
+        // Para itens parcialmente comprados, usar input de quantidade (apenas pendente)
+        const qtyValue =
+          typeof transferQuantity === "string"
+            ? transferQuantity === ""
+              ? 0
+              : parseFloat(transferQuantity)
+            : transferQuantity;
 
-      // Se não há quantidade pendente, não pode transferir
-      if (pendingQuantity <= 0) {
-        setOpenNotification({
-          type: "error",
-          title: "Erro!",
-          notification: "Este item já foi completamente comprado. Não há quantidade pendente para transferir.",
-        });
-        setIsTransferring(false);
-        return;
+        if (qtyValue > 0 && qtyValue <= pendingQuantity) {
+          quantityToTransfer = qtyValue;
+        } else {
+          quantityToTransfer = pendingQuantity;
+        }
+
+        // Validação: quantidade deve ser maior que zero
+        if (quantityToTransfer <= 0) {
+          setOpenNotification({
+            type: "error",
+            title: "Erro!",
+            notification: "Quantidade a transferir deve ser maior que zero!",
+          });
+          setIsTransferring(false);
+          return;
+        }
       }
 
       console.log("quantityToTransfer:", quantityToTransfer);
@@ -2161,9 +2168,13 @@ export function ShoppingListsTab() {
             notes: i.notes || "",
           })) || [];
 
+        // Quando duplicar item totalmente comprado, usar quantidade total, não apenas pendente
+        const quantityForNewItem =
+          transferMode === "duplicate" && isFullyPurchased ? quantityToTransfer : quantityToTransfer;
+
         currentItems.push({
           productId: selectedItem.productId,
-          quantity: quantityToTransfer,
+          quantity: quantityForNewItem,
           notes: selectedItem.notes || "",
         });
 
@@ -2208,34 +2219,58 @@ export function ShoppingListsTab() {
       console.log("sourceList (origem):", sourceList);
 
       if (sourceList) {
-        // CORREÇÃO: Usar endpoints específicos que preservam status dos outros itens
-        if (quantityToTransfer >= pendingQuantity) {
-          // Transferindo toda quantidade pendente - remover item OU atualizar quantidade se ainda tem comprado
-          if (selectedItem.receivedQuantity > 0) {
-            // Item parcialmente comprado - apenas reduzir quantidade (mantém receivedQuantity)
-            const newQuantity = selectedItem.receivedQuantity; // Manter apenas a quantidade comprada
-            await api.patch(`/invoice/shopping-lists/item/${selectedItem.id}/quantity`, {
-              quantity: newQuantity,
-            });
-          } else {
-            // Item totalmente pendente - deletar completamente
-            await api.delete(`/invoice/shopping-lists/item/${selectedItem.id}`);
-          }
+        // Se modo é duplicar, não remover nem alterar o item original
+        if (transferMode === "duplicate") {
+          // Não fazer nada - item original permanece intacto
+          console.log("Modo duplicar: item original mantido na lista origem");
         } else {
-          // Transferindo parte da quantidade pendente - reduzir quantidade na origem
-          const newQuantity = selectedItem.quantity - quantityToTransfer;
-          await api.patch(`/invoice/shopping-lists/item/${selectedItem.id}/quantity`, {
-            quantity: newQuantity,
-          });
+          // Modo transferir: remover ou atualizar quantidade na origem
+          if (isFullyPurchased) {
+            // Item totalmente comprado - deletar completamente ao transferir tudo
+            await api.delete(`/invoice/shopping-lists/item/${selectedItem.id}`);
+          } else if (quantityToTransfer >= pendingQuantity) {
+            // Transferindo toda quantidade pendente - remover item OU atualizar quantidade se ainda tem comprado
+            if (selectedItem.receivedQuantity > 0) {
+              // Item parcialmente comprado - apenas reduzir quantidade (mantém receivedQuantity)
+              const newQuantity = Number(selectedItem.receivedQuantity) || 0; // Manter apenas a quantidade comprada
+              if (newQuantity > 0) {
+                await api.patch(`/invoice/shopping-lists/item/${selectedItem.id}/quantity`, {
+                  quantity: newQuantity,
+                });
+              } else {
+                // Se não há quantidade comprada, deletar o item
+                await api.delete(`/invoice/shopping-lists/item/${selectedItem.id}`);
+              }
+            } else {
+              // Item totalmente pendente - deletar completamente
+              await api.delete(`/invoice/shopping-lists/item/${selectedItem.id}`);
+            }
+          } else {
+            // Transferindo parte da quantidade pendente - reduzir quantidade na origem
+            const newQuantity = Number(selectedItem.quantity) - Number(quantityToTransfer);
+            if (newQuantity > 0) {
+              await api.patch(`/invoice/shopping-lists/item/${selectedItem.id}/quantity`, {
+                quantity: newQuantity,
+              });
+            } else {
+              // Se a nova quantidade seria zero ou negativa, deletar o item
+              await api.delete(`/invoice/shopping-lists/item/${selectedItem.id}`);
+            }
+          }
         }
       }
 
       setOpenNotification({
         type: "success",
         title: "Sucesso!",
-        notification: wasPurchased
-          ? "Item transferido com sucesso! Status de comprado mantido."
-          : "Item transferido com sucesso!",
+        notification:
+          transferMode === "duplicate"
+            ? wasPurchased
+              ? "Item duplicado com sucesso! Status de comprado mantido."
+              : "Item duplicado com sucesso!"
+            : wasPurchased
+            ? "Item transferido com sucesso! Status de comprado mantido."
+            : "Item transferido com sucesso!",
       });
 
       setShowTransferModal(false);
@@ -2244,6 +2279,7 @@ export function ShoppingListsTab() {
       setTransferAddToExisting(true);
       setTransferSelectedItemToMerge(null);
       setExistingItemsInTargetList([]);
+      setTransferMode("transfer"); // Resetar para modo padrão
       setIsTransferring(false);
       await fetchData();
     } catch (error) {
@@ -4086,6 +4122,9 @@ export function ShoppingListsTab() {
                                         // Inicializar quantidade de transferência como vazio (cliente não gosta de zero)
                                         setTransferQuantity("");
                                         setSelectedListForTransfer("");
+                                        // Inicializar modo de transferência: se totalmente comprado, padrão é duplicar
+                                        const isFullyPurchased = (item.receivedQuantity || 0) >= item.quantity;
+                                        setTransferMode(isFullyPurchased ? "duplicate" : "transfer");
                                         setShowTransferModal(true);
                                       }}
                                       className="bg-purple-500 hover:bg-purple-600 text-white px-2 py-1 rounded text-xs flex items-center"
@@ -5150,6 +5189,10 @@ export function ShoppingListsTab() {
                     // Resetar quantidade ao trocar de lista (deixar vazio)
                     setTransferQuantity("");
 
+                    // Resetar modo de transferência ao trocar de lista
+                    const isFullyPurchased = selectedItem.receivedQuantity >= selectedItem.quantity;
+                    setTransferMode(isFullyPurchased ? "duplicate" : "transfer");
+
                     // Verificar se há itens com o mesmo produto na lista destino
                     if (listId) {
                       try {
@@ -5238,7 +5281,6 @@ export function ShoppingListsTab() {
 
               {selectedItem.status !== "PENDING" && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Quantidade a Transferir</label>
                   <div className="bg-blue-50 border border-blue-200 rounded-md p-3 mb-2">
                     <div className="text-sm text-gray-700">
                       <div>Quantidade total: {selectedItem.quantity}</div>
@@ -5250,33 +5292,82 @@ export function ShoppingListsTab() {
                       </p>
                     </div>
                   </div>
-                  <input
-                    type="number"
-                    value={transferQuantity === "" ? "" : transferQuantity}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      // Permitir campo vazio
-                      if (value === "") {
-                        setTransferQuantity("");
-                        return;
-                      }
-                      // Remover caracteres não numéricos
-                      const cleanValue = value.replace(/[^0-9.]/g, "");
-                      if (cleanValue === "") {
-                        setTransferQuantity("");
-                        return;
-                      }
-                      const qty = parseFloat(cleanValue);
-                      if (!isNaN(qty) && qty > 0) {
-                        setTransferQuantity(Math.min(qty, selectedItem.quantity));
-                      }
-                    }}
-                    min="1"
-                    max={selectedItem.quantity}
-                    className="w-full border border-gray-300 rounded-md p-2"
-                    placeholder="Digite a quantidade"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">Máximo: {selectedItem.quantity} unidades</p>
+
+                  {/* Opção de Transferir ou Duplicar quando totalmente comprado */}
+                  {selectedItem.receivedQuantity >= selectedItem.quantity && (
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3 mb-2">
+                      <p className="text-sm font-medium text-yellow-800 mb-2">Escolha o modo de transferência:</p>
+                      <div className="space-y-2">
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="radio"
+                            name="transferMode"
+                            value="transfer"
+                            checked={transferMode === "transfer"}
+                            onChange={() => setTransferMode("transfer")}
+                            className="text-blue-600"
+                          />
+                          <span className="text-sm text-gray-700">
+                            <strong>Transferir</strong> - Remove da lista atual e adiciona na lista destino
+                          </span>
+                        </label>
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="radio"
+                            name="transferMode"
+                            value="duplicate"
+                            checked={transferMode === "duplicate"}
+                            onChange={() => setTransferMode("duplicate")}
+                            className="text-blue-600"
+                          />
+                          <span className="text-sm text-gray-700">
+                            <strong>Duplicar</strong> - Mantém na lista atual e cria uma cópia na lista destino
+                          </span>
+                        </label>
+                      </div>
+                      <p className="text-xs text-yellow-700 mt-2 font-semibold">
+                        ⚠️ Item totalmente comprado será transferido/duplicado completamente ({selectedItem.quantity}{" "}
+                        unidades).
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Input de quantidade apenas para itens parcialmente comprados */}
+                  {selectedItem.receivedQuantity < selectedItem.quantity && (
+                    <>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Quantidade a Transferir</label>
+                      <input
+                        type="number"
+                        value={transferQuantity === "" ? "" : transferQuantity}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          // Permitir campo vazio
+                          if (value === "") {
+                            setTransferQuantity("");
+                            return;
+                          }
+                          // Remover caracteres não numéricos
+                          const cleanValue = value.replace(/[^0-9.]/g, "");
+                          if (cleanValue === "") {
+                            setTransferQuantity("");
+                            return;
+                          }
+                          const qty = parseFloat(cleanValue);
+                          if (!isNaN(qty) && qty > 0) {
+                            const pendingQty = selectedItem.quantity - (selectedItem.receivedQuantity || 0);
+                            setTransferQuantity(Math.min(qty, pendingQty));
+                          }
+                        }}
+                        min="1"
+                        max={selectedItem.quantity - (selectedItem.receivedQuantity || 0)}
+                        className="w-full border border-gray-300 rounded-md p-2"
+                        placeholder="Digite a quantidade"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">
+                        Máximo: {selectedItem.quantity - (selectedItem.receivedQuantity || 0)} unidades pendentes
+                      </p>
+                    </>
+                  )}
                 </div>
               )}
 
