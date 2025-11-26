@@ -20,6 +20,7 @@ import {
   Copy,
   Save,
   History,
+  Settings,
 } from "lucide-react";
 import { api } from "../../../../services/api";
 import Swal from "sweetalert2";
@@ -101,6 +102,9 @@ export function ShoppingListsTab() {
   const [deletedLists, setDeletedLists] = useState<any[]>([]);
   const [editingListName, setEditingListName] = useState<string | null>(null); // ID da lista sendo editada
   const [editingListNameValue, setEditingListNameValue] = useState<string>(""); // Valor temporário do nome
+  const [openManageMenu, setOpenManageMenu] = useState<string | null>(null); // ID da lista com menu aberto
+  const [manageMenuPosition, setManageMenuPosition] = useState<{ top: number; left: number } | null>(null);
+  const manageMenuButtonRefs = useRef<{ [key: string]: HTMLButtonElement | null }>({});
   const [selectedItem, setSelectedItem] = useState<ShoppingListItem | null>(null);
   const [purchasedQuantity, setPurchasedQuantity] = useState<string | number>("");
   const [additionalQuantity, setAdditionalQuantity] = useState<string | number>("");
@@ -124,6 +128,7 @@ export function ShoppingListsTab() {
   const [transferAddToExisting, setTransferAddToExisting] = useState<boolean>(true);
   const [transferSelectedItemToMerge, setTransferSelectedItemToMerge] = useState<string | null>(null);
   const [existingItemsInTargetList, setExistingItemsInTargetList] = useState<ShoppingListItem[]>([]);
+  const [transferMode, setTransferMode] = useState<"transfer" | "duplicate">("transfer"); // "transfer" = mover, "duplicate" = copiar
   const { setOpenNotification } = useNotification();
 
   const [newList, setNewList] = useState({
@@ -220,6 +225,25 @@ export function ShoppingListsTab() {
       }
     }
   }, []);
+
+  // Fechar menu ao clicar fora
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (!target.closest(".manage-menu-container") && !target.closest("[data-manage-menu]")) {
+        setOpenManageMenu(null);
+        setManageMenuPosition(null);
+      }
+    };
+
+    if (openManageMenu) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [openManageMenu]);
 
   // Salvar lista em construção no localStorage sempre que mudar
   useEffect(() => {
@@ -631,6 +655,58 @@ export function ShoppingListsTab() {
       } catch (error: any) {
         console.error("Erro ao restaurar lista apagada:", error);
         const errorMessage = error?.response?.data?.message || error?.message || "Erro ao restaurar lista apagada";
+        setOpenNotification({
+          type: "error",
+          title: "Erro!",
+          notification: errorMessage,
+        });
+      }
+    }
+  };
+
+  const handleDeleteAllDeletedHistory = async () => {
+    const result = await Swal.fire({
+      title: "⚠️ Atenção!",
+      html: `
+        <p class="text-sm text-gray-700 mb-4">
+          <strong>Esta ação é irreversível!</strong>
+        </p>
+        <p class="text-sm text-gray-700 mb-4">
+          Tem certeza que deseja deletar todo o histórico de listas deletadas?
+        </p>
+        <p class="text-xs text-red-600 font-semibold">
+          Todos os backups de listas deletadas serão permanentemente removidos e não poderão ser restaurados.
+        </p>
+      `,
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#dc2626",
+      cancelButtonColor: "#6b7280",
+      confirmButtonText: "Sim, deletar tudo!",
+      cancelButtonText: "Cancelar",
+      buttonsStyling: false,
+      customClass: {
+        confirmButton: "bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded font-semibold mx-2",
+        cancelButton: "bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded font-semibold mx-2",
+      },
+    });
+
+    if (result.isConfirmed) {
+      try {
+        await api.delete("/invoice/shopping-lists/deleted/all");
+
+        setOpenNotification({
+          type: "success",
+          title: "Histórico Apagado!",
+          notification: "Todo o histórico de listas deletadas foi removido com sucesso!",
+        });
+
+        // Atualizar lista de deletadas após apagar
+        await fetchDeletedLists();
+      } catch (error: any) {
+        console.error("Erro ao apagar histórico de deletadas:", error);
+        const errorMessage =
+          error?.response?.data?.message || error?.message || "Erro ao apagar histórico de deletadas";
         setOpenNotification({
           type: "error",
           title: "Erro!",
@@ -1971,33 +2047,39 @@ export function ShoppingListsTab() {
     try {
       setIsTransferring(true);
 
-      // Calcular quantidade a transferir (sempre apenas a quantidade PENDENTE, nunca a comprada)
+      // Calcular quantidade a transferir
       const pendingQuantity = selectedItem.quantity - (selectedItem.receivedQuantity || 0);
+      const isFullyPurchased = selectedItem.receivedQuantity >= selectedItem.quantity;
       let quantityToTransfer: number;
 
-      // SEMPRE transferir apenas a quantidade pendente, nunca a comprada
-      const qtyValue =
-        typeof transferQuantity === "string"
-          ? transferQuantity === ""
-            ? 0
-            : parseFloat(transferQuantity)
-          : transferQuantity;
-
-      if (qtyValue > 0 && qtyValue <= pendingQuantity) {
-        quantityToTransfer = qtyValue;
+      // Se está totalmente comprado, SEMPRE transferir/duplicar tudo (não pode ser em fração)
+      if (isFullyPurchased) {
+        quantityToTransfer = selectedItem.quantity; // Sempre a quantidade total
       } else {
-        quantityToTransfer = pendingQuantity;
-      }
+        // Para itens parcialmente comprados, usar input de quantidade (apenas pendente)
+        const qtyValue =
+          typeof transferQuantity === "string"
+            ? transferQuantity === ""
+              ? 0
+              : parseFloat(transferQuantity)
+            : transferQuantity;
 
-      // Se não há quantidade pendente, não pode transferir
-      if (pendingQuantity <= 0) {
-        setOpenNotification({
-          type: "error",
-          title: "Erro!",
-          notification: "Este item já foi completamente comprado. Não há quantidade pendente para transferir.",
-        });
-        setIsTransferring(false);
-        return;
+        if (qtyValue > 0 && qtyValue <= pendingQuantity) {
+          quantityToTransfer = qtyValue;
+        } else {
+          quantityToTransfer = pendingQuantity;
+        }
+
+        // Validação: quantidade deve ser maior que zero
+        if (quantityToTransfer <= 0) {
+          setOpenNotification({
+            type: "error",
+            title: "Erro!",
+            notification: "Quantidade a transferir deve ser maior que zero!",
+          });
+          setIsTransferring(false);
+          return;
+        }
       }
 
       console.log("quantityToTransfer:", quantityToTransfer);
@@ -2086,9 +2168,13 @@ export function ShoppingListsTab() {
             notes: i.notes || "",
           })) || [];
 
+        // Quando duplicar item totalmente comprado, usar quantidade total, não apenas pendente
+        const quantityForNewItem =
+          transferMode === "duplicate" && isFullyPurchased ? quantityToTransfer : quantityToTransfer;
+
         currentItems.push({
           productId: selectedItem.productId,
-          quantity: quantityToTransfer,
+          quantity: quantityForNewItem,
           notes: selectedItem.notes || "",
         });
 
@@ -2133,34 +2219,58 @@ export function ShoppingListsTab() {
       console.log("sourceList (origem):", sourceList);
 
       if (sourceList) {
-        // CORREÇÃO: Usar endpoints específicos que preservam status dos outros itens
-        if (quantityToTransfer >= pendingQuantity) {
-          // Transferindo toda quantidade pendente - remover item OU atualizar quantidade se ainda tem comprado
-          if (selectedItem.receivedQuantity > 0) {
-            // Item parcialmente comprado - apenas reduzir quantidade (mantém receivedQuantity)
-            const newQuantity = selectedItem.receivedQuantity; // Manter apenas a quantidade comprada
-            await api.patch(`/invoice/shopping-lists/item/${selectedItem.id}/quantity`, {
-              quantity: newQuantity,
-            });
-          } else {
-            // Item totalmente pendente - deletar completamente
-            await api.delete(`/invoice/shopping-lists/item/${selectedItem.id}`);
-          }
+        // Se modo é duplicar, não remover nem alterar o item original
+        if (transferMode === "duplicate") {
+          // Não fazer nada - item original permanece intacto
+          console.log("Modo duplicar: item original mantido na lista origem");
         } else {
-          // Transferindo parte da quantidade pendente - reduzir quantidade na origem
-          const newQuantity = selectedItem.quantity - quantityToTransfer;
-          await api.patch(`/invoice/shopping-lists/item/${selectedItem.id}/quantity`, {
-            quantity: newQuantity,
-          });
+          // Modo transferir: remover ou atualizar quantidade na origem
+          if (isFullyPurchased) {
+            // Item totalmente comprado - deletar completamente ao transferir tudo
+            await api.delete(`/invoice/shopping-lists/item/${selectedItem.id}`);
+          } else if (quantityToTransfer >= pendingQuantity) {
+            // Transferindo toda quantidade pendente - remover item OU atualizar quantidade se ainda tem comprado
+            if (selectedItem.receivedQuantity > 0) {
+              // Item parcialmente comprado - apenas reduzir quantidade (mantém receivedQuantity)
+              const newQuantity = Number(selectedItem.receivedQuantity) || 0; // Manter apenas a quantidade comprada
+              if (newQuantity > 0) {
+                await api.patch(`/invoice/shopping-lists/item/${selectedItem.id}/quantity`, {
+                  quantity: newQuantity,
+                });
+              } else {
+                // Se não há quantidade comprada, deletar o item
+                await api.delete(`/invoice/shopping-lists/item/${selectedItem.id}`);
+              }
+            } else {
+              // Item totalmente pendente - deletar completamente
+              await api.delete(`/invoice/shopping-lists/item/${selectedItem.id}`);
+            }
+          } else {
+            // Transferindo parte da quantidade pendente - reduzir quantidade na origem
+            const newQuantity = Number(selectedItem.quantity) - Number(quantityToTransfer);
+            if (newQuantity > 0) {
+              await api.patch(`/invoice/shopping-lists/item/${selectedItem.id}/quantity`, {
+                quantity: newQuantity,
+              });
+            } else {
+              // Se a nova quantidade seria zero ou negativa, deletar o item
+              await api.delete(`/invoice/shopping-lists/item/${selectedItem.id}`);
+            }
+          }
         }
       }
 
       setOpenNotification({
         type: "success",
         title: "Sucesso!",
-        notification: wasPurchased
-          ? "Item transferido com sucesso! Status de comprado mantido."
-          : "Item transferido com sucesso!",
+        notification:
+          transferMode === "duplicate"
+            ? wasPurchased
+              ? "Item duplicado com sucesso! Status de comprado mantido."
+              : "Item duplicado com sucesso!"
+            : wasPurchased
+            ? "Item transferido com sucesso! Status de comprado mantido."
+            : "Item transferido com sucesso!",
       });
 
       setShowTransferModal(false);
@@ -2169,6 +2279,7 @@ export function ShoppingListsTab() {
       setTransferAddToExisting(true);
       setTransferSelectedItemToMerge(null);
       setExistingItemsInTargetList([]);
+      setTransferMode("transfer"); // Resetar para modo padrão
       setIsTransferring(false);
       await fetchData();
     } catch (error) {
@@ -3525,9 +3636,19 @@ export function ShoppingListsTab() {
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
             <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full mx-4 max-h-[90vh] flex flex-col">
               <div className="p-6 border-b border-gray-200 flex justify-between items-center">
-                <h3 className="text-xl font-semibold text-gray-800">📋 Histórico de Listas Deletadas</h3>
-                <div className="flex gap-2 items-center">
+                <div className="flex items-center gap-4 flex-1">
+                  <h3 className="text-xl font-semibold text-gray-800">📋 Histórico de Listas Deletadas</h3>
                   <button
+                    onClick={handleDeleteAllDeletedHistory}
+                    className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 font-semibold transition-colors"
+                  >
+                    <Trash2 size={18} />
+                    Apagar Histórico de Deletadas
+                  </button>
+                </div>
+                <div className="flex gap-2 items-center">
+                  {/* Botão de atualizar comentado - não funciona */}
+                  {/* <button
                     onClick={async () => {
                       await fetchDeletedLists();
                     }}
@@ -3535,7 +3656,7 @@ export function ShoppingListsTab() {
                     title="Atualizar lista"
                   >
                     <RefreshCw size={20} />
-                  </button>
+                  </button> */}
                   <button
                     onClick={() => {
                       setShowDeletedLists(false);
@@ -3645,7 +3766,9 @@ export function ShoppingListsTab() {
             return (
               <div
                 key={list.id}
-                className={`border rounded-lg overflow-hidden transition-all duration-300 ${
+                className={`border rounded-lg ${
+                  openManageMenu === list.id ? "overflow-visible" : "overflow-hidden"
+                } transition-all duration-300 ${
                   list.status === "concluida"
                     ? "bg-green-50 border-green-200"
                     : list.status === "comprando"
@@ -3734,116 +3857,192 @@ export function ShoppingListsTab() {
                       </p>
                     </div>
                   </div>
-                  <div className="flex gap-2 flex-wrap" onClick={(e) => e.stopPropagation()}>
-                    {/* Botão de migração - aparece para listas antigas ou que precisam migração */}
-                    {(!list.shoppingListItems ||
-                      list.shoppingListItems.length === 0 ||
-                      list.name.includes("18/11") ||
-                      list.name.includes("NOVOS 18/11")) && (
-                      <Tooltip
-                        content="Migrar lista para o novo modelo (preserva todos os dados)"
-                        position="bottom"
-                        maxWidth="200px"
-                      >
-                        <button
-                          onClick={() => handleMigrateList(list.id, list.name)}
-                          className="bg-indigo-500 hover:bg-indigo-600 text-white px-3 py-1 rounded text-sm flex items-center"
-                        >
-                          <RefreshCw size={14} className="mr-1" />
-                          Migrar
-                        </button>
-                      </Tooltip>
-                    )}
-                    <Tooltip
-                      content="Duplicar lista (cria uma cópia com produtos resetados)"
-                      position="bottom"
-                      maxWidth="200px"
-                    >
+                  <div className="relative manage-menu-container" onClick={(e) => e.stopPropagation()}>
+                    <Tooltip content="Gerenciar lista" position="bottom" maxWidth="120px">
                       <button
-                        onClick={() => handleDuplicateList(list.id, list.name)}
-                        className="bg-teal-500 hover:bg-teal-600 text-white px-3 py-1 rounded text-sm flex items-center"
+                        ref={(el) => {
+                          manageMenuButtonRefs.current[list.id] = el;
+                        }}
+                        onClick={() => {
+                          if (openManageMenu === list.id) {
+                            setOpenManageMenu(null);
+                            setManageMenuPosition(null);
+                          } else {
+                            const button = manageMenuButtonRefs.current[list.id];
+                            if (button) {
+                              const rect = button.getBoundingClientRect();
+                              setManageMenuPosition({
+                                top: rect.bottom + window.scrollY + 4,
+                                left: rect.right + window.scrollX - 200, // Ajusta para alinhar à direita
+                              });
+                            }
+                            setOpenManageMenu(list.id);
+                          }
+                        }}
+                        className="bg-gray-700 hover:bg-gray-800 text-white px-4 py-2 rounded text-sm flex items-center gap-2 font-semibold transition-colors"
                       >
-                        <Copy size={14} className="mr-1" />
-                        Duplicar
-                      </button>
-                    </Tooltip>
-                    <Tooltip
-                      content="Criar backup manual da lista (salva versão atual)"
-                      position="bottom"
-                      maxWidth="200px"
-                    >
-                      <button
-                        onClick={() => handleCreateBackup(list.id, list.name)}
-                        className="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded text-sm flex items-center"
-                      >
-                        <Save size={14} className="mr-1" />
-                        Backup
-                      </button>
-                    </Tooltip>
-                    <Tooltip content="Restaurar lista de um backup anterior" position="bottom" maxWidth="200px">
-                      <button
-                        onClick={() => handleRestoreBackup(list.id, list.name)}
-                        className="bg-orange-500 hover:bg-orange-600 text-white px-3 py-1 rounded text-sm flex items-center"
-                      >
-                        <History size={14} className="mr-1" />
-                        Restaurar
-                      </button>
-                    </Tooltip>
-                    <Tooltip content="Editar lista: adicionar/remover produtos" position="bottom" maxWidth="160px">
-                      <button
-                        onClick={() => handleEditList(list)}
-                        className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-sm flex items-center"
-                      >
-                        <Edit size={14} className="mr-1" />
-                        Editar
-                      </button>
-                    </Tooltip>
-                    <Tooltip content="Visualizar PDF na tela" position="bottom" maxWidth="140px">
-                      <button
-                        onClick={() => handleViewPDF(list.id, list.name, false)}
-                        className="bg-purple-500 hover:bg-purple-600 text-white px-3 py-1 rounded text-sm flex items-center"
-                      >
-                        <FileText size={14} className="mr-1" />
-                        Ver PDF
-                      </button>
-                    </Tooltip>
-                    <Tooltip content="Visualizar apenas pendentes" position="bottom" maxWidth="160px">
-                      <button
-                        onClick={() => handleViewPDF(list.id, list.name, true)}
-                        className="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded text-sm flex items-center"
-                      >
-                        <FileText size={14} className="mr-1" />
-                        Ver Pendentes
-                      </button>
-                    </Tooltip>
-                    <Tooltip content="Baixar lista em PDF" position="bottom" maxWidth="120px">
-                      <button
-                        onClick={() => handleDownloadPDF(list.id, list.name)}
-                        className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm flex items-center"
-                      >
-                        <Download size={14} className="mr-1" />
-                        Baixar
-                      </button>
-                    </Tooltip>
-                    <Tooltip content="Baixar lista em CSV" position="bottom" maxWidth="120px">
-                      <button
-                        onClick={() => handleDownloadExcel(list.id, list.name)}
-                        className="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded text-sm flex items-center"
-                      >
-                        <FileSpreadsheet size={14} className="mr-1" />
-                        CSV
-                      </button>
-                    </Tooltip>
-                    <Tooltip content="Deletar lista permanentemente" position="bottom" maxWidth="140px">
-                      <button
-                        onClick={() => handleDeleteList(list.id)}
-                        className="bg-gray-500 hover:bg-gray-600 text-white px-3 py-1 rounded text-sm flex items-center"
-                      >
-                        <Trash2 size={14} className="mr-1" />
-                        Deletar
+                        <Settings size={16} />
+                        Gerenciar
+                        <ChevronDown
+                          size={14}
+                          className={`transition-transform duration-200 ${
+                            openManageMenu === list.id ? "rotate-180" : ""
+                          }`}
+                        />
                       </button>
                     </Tooltip>
                   </div>
+
+                  {/* Menu Dropdown via Portal - Ordem Alfabética */}
+                  {openManageMenu === list.id &&
+                    manageMenuPosition &&
+                    createPortal(
+                      <div
+                        data-manage-menu
+                        className="fixed bg-white border border-gray-200 rounded-lg shadow-xl z-[9999] min-w-[200px] py-1"
+                        style={{
+                          top: `${manageMenuPosition.top}px`,
+                          left: `${manageMenuPosition.left}px`,
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {/* Backup */}
+                        <button
+                          onClick={() => {
+                            handleCreateBackup(list.id, list.name);
+                            setOpenManageMenu(null);
+                            setManageMenuPosition(null);
+                          }}
+                          className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-green-50 hover:text-green-700 flex items-center gap-2"
+                        >
+                          <Save size={16} />
+                          Backup
+                        </button>
+
+                        {/* Baixar CSV */}
+                        <button
+                          onClick={() => {
+                            handleDownloadExcel(list.id, list.name);
+                            setOpenManageMenu(null);
+                            setManageMenuPosition(null);
+                          }}
+                          className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-green-50 hover:text-green-700 flex items-center gap-2"
+                        >
+                          <FileSpreadsheet size={16} />
+                          Baixar CSV
+                        </button>
+
+                        {/* Baixar PDF */}
+                        <button
+                          onClick={() => {
+                            handleDownloadPDF(list.id, list.name);
+                            setOpenManageMenu(null);
+                            setManageMenuPosition(null);
+                          }}
+                          className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-red-50 hover:text-red-700 flex items-center gap-2"
+                        >
+                          <Download size={16} />
+                          Baixar PDF
+                        </button>
+
+                        {/* Duplicar */}
+                        <button
+                          onClick={() => {
+                            handleDuplicateList(list.id, list.name);
+                            setOpenManageMenu(null);
+                            setManageMenuPosition(null);
+                          }}
+                          className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-teal-50 hover:text-teal-700 flex items-center gap-2"
+                        >
+                          <Copy size={16} />
+                          Duplicar
+                        </button>
+
+                        {/* Editar */}
+                        <button
+                          onClick={() => {
+                            handleEditList(list);
+                            setOpenManageMenu(null);
+                            setManageMenuPosition(null);
+                          }}
+                          className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 flex items-center gap-2"
+                        >
+                          <Edit size={16} />
+                          Editar
+                        </button>
+
+                        {/* Excluir */}
+                        <button
+                          onClick={() => {
+                            handleDeleteList(list.id);
+                            setOpenManageMenu(null);
+                            setManageMenuPosition(null);
+                          }}
+                          className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-red-50 hover:text-red-700 flex items-center gap-2"
+                        >
+                          <Trash2 size={16} />
+                          Excluir
+                        </button>
+
+                        {/* Migrar - apenas para listas antigas */}
+                        {(!list.shoppingListItems ||
+                          list.shoppingListItems.length === 0 ||
+                          list.name.includes("18/11") ||
+                          list.name.includes("NOVOS 18/11")) && (
+                          <button
+                            onClick={() => {
+                              handleMigrateList(list.id, list.name);
+                              setOpenManageMenu(null);
+                              setManageMenuPosition(null);
+                            }}
+                            className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-indigo-50 hover:text-indigo-700 flex items-center gap-2"
+                          >
+                            <RefreshCw size={16} />
+                            Migrar
+                          </button>
+                        )}
+
+                        {/* Restaurar */}
+                        <button
+                          onClick={() => {
+                            handleRestoreBackup(list.id, list.name);
+                            setOpenManageMenu(null);
+                            setManageMenuPosition(null);
+                          }}
+                          className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-orange-50 hover:text-orange-700 flex items-center gap-2"
+                        >
+                          <History size={16} />
+                          Restaurar
+                        </button>
+
+                        {/* Ver PDF */}
+                        <button
+                          onClick={() => {
+                            handleViewPDF(list.id, list.name, false);
+                            setOpenManageMenu(null);
+                            setManageMenuPosition(null);
+                          }}
+                          className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-purple-50 hover:text-purple-700 flex items-center gap-2"
+                        >
+                          <FileText size={16} />
+                          Ver PDF
+                        </button>
+
+                        {/* Ver Pendentes */}
+                        <button
+                          onClick={() => {
+                            handleViewPDF(list.id, list.name, true);
+                            setOpenManageMenu(null);
+                            setManageMenuPosition(null);
+                          }}
+                          className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-yellow-50 hover:text-yellow-700 flex items-center gap-2"
+                        >
+                          <FileText size={16} />
+                          Ver Pendentes
+                        </button>
+                      </div>,
+                      document.body
+                    )}
                 </div>
 
                 {/* Conteúdo colapsável */}
@@ -3923,6 +4122,9 @@ export function ShoppingListsTab() {
                                         // Inicializar quantidade de transferência como vazio (cliente não gosta de zero)
                                         setTransferQuantity("");
                                         setSelectedListForTransfer("");
+                                        // Inicializar modo de transferência: se totalmente comprado, padrão é duplicar
+                                        const isFullyPurchased = (item.receivedQuantity || 0) >= item.quantity;
+                                        setTransferMode(isFullyPurchased ? "duplicate" : "transfer");
                                         setShowTransferModal(true);
                                       }}
                                       className="bg-purple-500 hover:bg-purple-600 text-white px-2 py-1 rounded text-xs flex items-center"
@@ -4987,6 +5189,10 @@ export function ShoppingListsTab() {
                     // Resetar quantidade ao trocar de lista (deixar vazio)
                     setTransferQuantity("");
 
+                    // Resetar modo de transferência ao trocar de lista
+                    const isFullyPurchased = selectedItem.receivedQuantity >= selectedItem.quantity;
+                    setTransferMode(isFullyPurchased ? "duplicate" : "transfer");
+
                     // Verificar se há itens com o mesmo produto na lista destino
                     if (listId) {
                       try {
@@ -5074,16 +5280,94 @@ export function ShoppingListsTab() {
               )}
 
               {selectedItem.status !== "PENDING" && (
-                <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
-                  <div className="text-sm text-gray-700">
-                    <div>Quantidade total: {selectedItem.quantity}</div>
-                    {selectedItem.receivedQuantity > 0 && (
-                      <div className="text-green-600">Comprado: {selectedItem.receivedQuantity}</div>
-                    )}
-                    <p className="text-xs text-gray-500 mt-1">
-                      O item completo será transferido mantendo o status de comprado.
-                    </p>
+                <div>
+                  <div className="bg-blue-50 border border-blue-200 rounded-md p-3 mb-2">
+                    <div className="text-sm text-gray-700">
+                      <div>Quantidade total: {selectedItem.quantity}</div>
+                      {selectedItem.receivedQuantity > 0 && (
+                        <div className="text-green-600">Comprado: {selectedItem.receivedQuantity}</div>
+                      )}
+                      <p className="text-xs text-blue-600 mt-1 font-semibold">
+                        O item será transferido mantendo o status de comprado.
+                      </p>
+                    </div>
                   </div>
+
+                  {/* Opção de Transferir ou Duplicar quando totalmente comprado */}
+                  {selectedItem.receivedQuantity >= selectedItem.quantity && (
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3 mb-2">
+                      <p className="text-sm font-medium text-yellow-800 mb-2">Escolha o modo de transferência:</p>
+                      <div className="space-y-2">
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="radio"
+                            name="transferMode"
+                            value="transfer"
+                            checked={transferMode === "transfer"}
+                            onChange={() => setTransferMode("transfer")}
+                            className="text-blue-600"
+                          />
+                          <span className="text-sm text-gray-700">
+                            <strong>Transferir</strong> - Remove da lista atual e adiciona na lista destino
+                          </span>
+                        </label>
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="radio"
+                            name="transferMode"
+                            value="duplicate"
+                            checked={transferMode === "duplicate"}
+                            onChange={() => setTransferMode("duplicate")}
+                            className="text-blue-600"
+                          />
+                          <span className="text-sm text-gray-700">
+                            <strong>Duplicar</strong> - Mantém na lista atual e cria uma cópia na lista destino
+                          </span>
+                        </label>
+                      </div>
+                      <p className="text-xs text-yellow-700 mt-2 font-semibold">
+                        ⚠️ Item totalmente comprado será transferido/duplicado completamente ({selectedItem.quantity}{" "}
+                        unidades).
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Input de quantidade apenas para itens parcialmente comprados */}
+                  {selectedItem.receivedQuantity < selectedItem.quantity && (
+                    <>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Quantidade a Transferir</label>
+                      <input
+                        type="number"
+                        value={transferQuantity === "" ? "" : transferQuantity}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          // Permitir campo vazio
+                          if (value === "") {
+                            setTransferQuantity("");
+                            return;
+                          }
+                          // Remover caracteres não numéricos
+                          const cleanValue = value.replace(/[^0-9.]/g, "");
+                          if (cleanValue === "") {
+                            setTransferQuantity("");
+                            return;
+                          }
+                          const qty = parseFloat(cleanValue);
+                          if (!isNaN(qty) && qty > 0) {
+                            const pendingQty = selectedItem.quantity - (selectedItem.receivedQuantity || 0);
+                            setTransferQuantity(Math.min(qty, pendingQty));
+                          }
+                        }}
+                        min="1"
+                        max={selectedItem.quantity - (selectedItem.receivedQuantity || 0)}
+                        className="w-full border border-gray-300 rounded-md p-2"
+                        placeholder="Digite a quantidade"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">
+                        Máximo: {selectedItem.quantity - (selectedItem.receivedQuantity || 0)} unidades pendentes
+                      </p>
+                    </>
+                  )}
                 </div>
               )}
 
