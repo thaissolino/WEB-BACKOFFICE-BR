@@ -361,11 +361,11 @@ export function ShoppingListsTab() {
             status: updatedItem.status,
           });
           setSelectedItem(updatedItem);
-          // IMPORTANTE: Se já comprou mais que o pedido, usar a quantidade comprada atual
-          // Não resetar para vazio se já tem quantidade comprada
+          // Sempre iniciar com a quantidade pedida (máximo)
           const receivedQty = updatedItem.receivedQuantity || 0;
-          setPurchasedQuantity(receivedQty > 0 ? receivedQty : "");
-          setAdditionalQuantity(""); // Reset quantidade adicional (vazio)
+          // Se já comprou algo, manter a quantidade comprada; senão, usar a quantidade pedida
+          setPurchasedQuantity(receivedQty > 0 ? receivedQty : 0);
+          setAdditionalQuantity(receivedQty > 0 ? 0 : updatedItem.quantity); // Se não comprou nada, mostrar quantidade pedida
           setUpdateOrderedQuantity(false); // Reset opção de atualizar
           setShowPurchaseModal(true);
           return;
@@ -383,8 +383,9 @@ export function ShoppingListsTab() {
       console.log("Usando item original:", item.id);
       setSelectedItem(item);
       const receivedQty = item.receivedQuantity || 0;
-      setPurchasedQuantity(receivedQty > 0 ? receivedQty : "");
-      setAdditionalQuantity(""); // Reset quantidade adicional (vazio)
+      // Sempre iniciar com a quantidade pedida (máximo)
+      setPurchasedQuantity(receivedQty > 0 ? receivedQty : 0);
+      setAdditionalQuantity(receivedQty > 0 ? 0 : item.quantity); // Se não comprou nada, mostrar quantidade pedida
       setUpdateOrderedQuantity(false); // Reset opção de atualizar
       setShowPurchaseModal(true);
     } catch (error) {
@@ -392,8 +393,9 @@ export function ShoppingListsTab() {
       // Em caso de erro, usar o item original
       setSelectedItem(item);
       const receivedQty = item.receivedQuantity || 0;
-      setPurchasedQuantity(receivedQty > 0 ? receivedQty : "");
-      setAdditionalQuantity(""); // Reset quantidade adicional (vazio)
+      // Sempre iniciar com a quantidade pedida (máximo)
+      setPurchasedQuantity(receivedQty > 0 ? receivedQty : 0);
+      setAdditionalQuantity(receivedQty > 0 ? 0 : item.quantity); // Se não comprou nada, mostrar quantidade pedida
       setUpdateOrderedQuantity(false); // Reset opção de atualizar
       setShowPurchaseModal(true);
     }
@@ -3380,6 +3382,18 @@ export function ShoppingListsTab() {
 
                                         if (result.isConfirmed) {
                                           try {
+                                            // PRESERVAR status e quantidades compradas ANTES de deletar
+                                            const itemsToPreserve =
+                                              list.shoppingListItems
+                                                ?.filter((i) => i.id !== item.id)
+                                                .map((i: ShoppingListItem) => ({
+                                                  originalId: i.id,
+                                                  productId: i.productId,
+                                                  quantity: i.quantity,
+                                                  status: i.status,
+                                                  receivedQuantity: i.receivedQuantity || 0,
+                                                })) || [];
+
                                             // Remover item da lista editando a lista
                                             const currentItems =
                                               list.shoppingListItems?.filter((i) => i.id !== item.id) || [];
@@ -3392,6 +3406,56 @@ export function ShoppingListsTab() {
                                                 notes: i.notes,
                                               })),
                                             });
+
+                                            // Buscar lista atualizada após deletar
+                                            const updatedListResponse = await api.get(
+                                              `/invoice/shopping-lists/${list.id}`
+                                            );
+                                            const updatedList = updatedListResponse.data;
+
+                                            // Restaurar status e quantidades compradas de todos os itens que estavam comprados
+                                            const restorePromises: Promise<any>[] = [];
+                                            const restoredItemIds = new Set<string>();
+
+                                            for (const preservedItem of itemsToPreserve) {
+                                              // Apenas restaurar se estava comprado
+                                              const wasPurchased =
+                                                (preservedItem.status === "PURCHASED" ||
+                                                  preservedItem.status === "RECEIVED") &&
+                                                preservedItem.receivedQuantity > 0;
+
+                                              if (wasPurchased) {
+                                                // Buscar o item recriado por productId + quantity
+                                                const restoredItem = updatedList.shoppingListItems?.find(
+                                                  (i: ShoppingListItem) =>
+                                                    !restoredItemIds.has(i.id) &&
+                                                    i.productId === preservedItem.productId &&
+                                                    i.quantity === preservedItem.quantity &&
+                                                    (i.receivedQuantity || 0) === 0 // Ainda não foi restaurado
+                                                );
+
+                                                if (restoredItem) {
+                                                  restoredItemIds.add(restoredItem.id);
+                                                  restorePromises.push(
+                                                    api
+                                                      .patch("/invoice/shopping-lists/update-purchased-quantity", {
+                                                        itemId: restoredItem.id,
+                                                        purchasedQuantity: preservedItem.receivedQuantity,
+                                                      })
+                                                      .catch((error) => {
+                                                        console.warn(
+                                                          `❌ Erro ao restaurar status de compra para item ${restoredItem.id}:`,
+                                                          error
+                                                        );
+                                                      })
+                                                  );
+                                                }
+                                              }
+                                            }
+
+                                            // Aguardar todas as restaurações
+                                            await Promise.allSettled(restorePromises);
+
                                             setOpenNotification({
                                               type: "success",
                                               title: "Sucesso!",
@@ -3474,6 +3538,18 @@ export function ShoppingListsTab() {
 
                                         if (result.isConfirmed) {
                                           try {
+                                            // PRESERVAR status e quantidades compradas ANTES de deletar
+                                            const itemsToPreserve =
+                                              list.shoppingListItems
+                                                ?.filter((i) => i.id !== item.id)
+                                                .map((i: ShoppingListItem) => ({
+                                                  originalId: i.id,
+                                                  productId: i.productId,
+                                                  quantity: i.quantity,
+                                                  status: i.status,
+                                                  receivedQuantity: i.receivedQuantity || 0,
+                                                })) || [];
+
                                             // Remover item da lista editando a lista
                                             const currentItems =
                                               list.shoppingListItems?.filter((i) => i.id !== item.id) || [];
@@ -3486,6 +3562,56 @@ export function ShoppingListsTab() {
                                                 notes: i.notes,
                                               })),
                                             });
+
+                                            // Buscar lista atualizada após deletar
+                                            const updatedListResponse = await api.get(
+                                              `/invoice/shopping-lists/${list.id}`
+                                            );
+                                            const updatedList = updatedListResponse.data;
+
+                                            // Restaurar status e quantidades compradas de todos os itens que estavam comprados
+                                            const restorePromises: Promise<any>[] = [];
+                                            const restoredItemIds = new Set<string>();
+
+                                            for (const preservedItem of itemsToPreserve) {
+                                              // Apenas restaurar se estava comprado
+                                              const wasPurchased =
+                                                (preservedItem.status === "PURCHASED" ||
+                                                  preservedItem.status === "RECEIVED") &&
+                                                preservedItem.receivedQuantity > 0;
+
+                                              if (wasPurchased) {
+                                                // Buscar o item recriado por productId + quantity
+                                                const restoredItem = updatedList.shoppingListItems?.find(
+                                                  (i: ShoppingListItem) =>
+                                                    !restoredItemIds.has(i.id) &&
+                                                    i.productId === preservedItem.productId &&
+                                                    i.quantity === preservedItem.quantity &&
+                                                    (i.receivedQuantity || 0) === 0 // Ainda não foi restaurado
+                                                );
+
+                                                if (restoredItem) {
+                                                  restoredItemIds.add(restoredItem.id);
+                                                  restorePromises.push(
+                                                    api
+                                                      .patch("/invoice/shopping-lists/update-purchased-quantity", {
+                                                        itemId: restoredItem.id,
+                                                        purchasedQuantity: preservedItem.receivedQuantity,
+                                                      })
+                                                      .catch((error) => {
+                                                        console.warn(
+                                                          `❌ Erro ao restaurar status de compra para item ${restoredItem.id}:`,
+                                                          error
+                                                        );
+                                                      })
+                                                  );
+                                                }
+                                              }
+                                            }
+
+                                            // Aguardar todas as restaurações
+                                            await Promise.allSettled(restorePromises);
+
                                             setOpenNotification({
                                               type: "success",
                                               title: "Sucesso!",
@@ -3603,6 +3729,18 @@ export function ShoppingListsTab() {
 
                                     if (result.isConfirmed) {
                                       try {
+                                        // PRESERVAR status e quantidades compradas ANTES de deletar
+                                        const itemsToPreserve =
+                                          list.shoppingListItems
+                                            ?.filter((i) => i.id !== item.id)
+                                            .map((i: ShoppingListItem) => ({
+                                              originalId: i.id,
+                                              productId: i.productId,
+                                              quantity: i.quantity,
+                                              status: i.status,
+                                              receivedQuantity: i.receivedQuantity || 0,
+                                            })) || [];
+
                                         // Remover item da lista editando a lista
                                         const currentItems =
                                           list.shoppingListItems?.filter((i) => i.id !== item.id) || [];
@@ -3615,6 +3753,54 @@ export function ShoppingListsTab() {
                                             notes: i.notes,
                                           })),
                                         });
+
+                                        // Buscar lista atualizada após deletar
+                                        const updatedListResponse = await api.get(`/invoice/shopping-lists/${list.id}`);
+                                        const updatedList = updatedListResponse.data;
+
+                                        // Restaurar status e quantidades compradas de todos os itens que estavam comprados
+                                        const restorePromises: Promise<any>[] = [];
+                                        const restoredItemIds = new Set<string>();
+
+                                        for (const preservedItem of itemsToPreserve) {
+                                          // Apenas restaurar se estava comprado
+                                          const wasPurchased =
+                                            (preservedItem.status === "PURCHASED" ||
+                                              preservedItem.status === "RECEIVED") &&
+                                            preservedItem.receivedQuantity > 0;
+
+                                          if (wasPurchased) {
+                                            // Buscar o item recriado por productId + quantity
+                                            const restoredItem = updatedList.shoppingListItems?.find(
+                                              (i: ShoppingListItem) =>
+                                                !restoredItemIds.has(i.id) &&
+                                                i.productId === preservedItem.productId &&
+                                                i.quantity === preservedItem.quantity &&
+                                                (i.receivedQuantity || 0) === 0 // Ainda não foi restaurado
+                                            );
+
+                                            if (restoredItem) {
+                                              restoredItemIds.add(restoredItem.id);
+                                              restorePromises.push(
+                                                api
+                                                  .patch("/invoice/shopping-lists/update-purchased-quantity", {
+                                                    itemId: restoredItem.id,
+                                                    purchasedQuantity: preservedItem.receivedQuantity,
+                                                  })
+                                                  .catch((error) => {
+                                                    console.warn(
+                                                      `❌ Erro ao restaurar status de compra para item ${restoredItem.id}:`,
+                                                      error
+                                                    );
+                                                  })
+                                              );
+                                            }
+                                          }
+                                        }
+
+                                        // Aguardar todas as restaurações
+                                        await Promise.allSettled(restorePromises);
+
                                         setOpenNotification({
                                           type: "success",
                                           title: "Sucesso!",
@@ -3787,6 +3973,18 @@ export function ShoppingListsTab() {
 
                                     if (result.isConfirmed) {
                                       try {
+                                        // PRESERVAR status e quantidades compradas ANTES de deletar
+                                        const itemsToPreserve =
+                                          list.shoppingListItems
+                                            ?.filter((i) => i.id !== item.id)
+                                            .map((i: ShoppingListItem) => ({
+                                              originalId: i.id,
+                                              productId: i.productId,
+                                              quantity: i.quantity,
+                                              status: i.status,
+                                              receivedQuantity: i.receivedQuantity || 0,
+                                            })) || [];
+
                                         const currentItems =
                                           list.shoppingListItems?.filter((i) => i.id !== item.id) || [];
                                         await api.put(`/invoice/shopping-lists/${list.id}`, {
@@ -3798,6 +3996,54 @@ export function ShoppingListsTab() {
                                             notes: i.notes,
                                           })),
                                         });
+
+                                        // Buscar lista atualizada após deletar
+                                        const updatedListResponse = await api.get(`/invoice/shopping-lists/${list.id}`);
+                                        const updatedList = updatedListResponse.data;
+
+                                        // Restaurar status e quantidades compradas de todos os itens que estavam comprados
+                                        const restorePromises: Promise<any>[] = [];
+                                        const restoredItemIds = new Set<string>();
+
+                                        for (const preservedItem of itemsToPreserve) {
+                                          // Apenas restaurar se estava comprado
+                                          const wasPurchased =
+                                            (preservedItem.status === "PURCHASED" ||
+                                              preservedItem.status === "RECEIVED") &&
+                                            preservedItem.receivedQuantity > 0;
+
+                                          if (wasPurchased) {
+                                            // Buscar o item recriado por productId + quantity
+                                            const restoredItem = updatedList.shoppingListItems?.find(
+                                              (i: ShoppingListItem) =>
+                                                !restoredItemIds.has(i.id) &&
+                                                i.productId === preservedItem.productId &&
+                                                i.quantity === preservedItem.quantity &&
+                                                (i.receivedQuantity || 0) === 0 // Ainda não foi restaurado
+                                            );
+
+                                            if (restoredItem) {
+                                              restoredItemIds.add(restoredItem.id);
+                                              restorePromises.push(
+                                                api
+                                                  .patch("/invoice/shopping-lists/update-purchased-quantity", {
+                                                    itemId: restoredItem.id,
+                                                    purchasedQuantity: preservedItem.receivedQuantity,
+                                                  })
+                                                  .catch((error) => {
+                                                    console.warn(
+                                                      `❌ Erro ao restaurar status de compra para item ${restoredItem.id}:`,
+                                                      error
+                                                    );
+                                                  })
+                                              );
+                                            }
+                                          }
+                                        }
+
+                                        // Aguardar todas as restaurações
+                                        await Promise.allSettled(restorePromises);
+
                                         setOpenNotification({
                                           type: "success",
                                           title: "Sucesso!",
