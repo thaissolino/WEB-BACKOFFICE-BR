@@ -5237,16 +5237,46 @@ export function ShoppingListsTab() {
               )}
 
               {selectedItem.status !== "PENDING" && (
-                <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
-                  <div className="text-sm text-gray-700">
-                    <div>Quantidade total: {selectedItem.quantity}</div>
-                    {selectedItem.receivedQuantity > 0 && (
-                      <div className="text-green-600">Comprado: {selectedItem.receivedQuantity}</div>
-                    )}
-                    <p className="text-xs text-gray-500 mt-1">
-                      O item completo será transferido mantendo o status de comprado.
-                    </p>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Quantidade a Transferir</label>
+                  <div className="bg-blue-50 border border-blue-200 rounded-md p-3 mb-2">
+                    <div className="text-sm text-gray-700">
+                      <div>Quantidade total: {selectedItem.quantity}</div>
+                      {selectedItem.receivedQuantity > 0 && (
+                        <div className="text-green-600">Comprado: {selectedItem.receivedQuantity}</div>
+                      )}
+                      <p className="text-xs text-blue-600 mt-1 font-semibold">
+                        O item será transferido mantendo o status de comprado.
+                      </p>
+                    </div>
                   </div>
+                  <input
+                    type="number"
+                    value={transferQuantity === "" ? "" : transferQuantity}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      // Permitir campo vazio
+                      if (value === "") {
+                        setTransferQuantity("");
+                        return;
+                      }
+                      // Remover caracteres não numéricos
+                      const cleanValue = value.replace(/[^0-9.]/g, "");
+                      if (cleanValue === "") {
+                        setTransferQuantity("");
+                        return;
+                      }
+                      const qty = parseFloat(cleanValue);
+                      if (!isNaN(qty) && qty > 0) {
+                        setTransferQuantity(Math.min(qty, selectedItem.quantity));
+                      }
+                    }}
+                    min="1"
+                    max={selectedItem.quantity}
+                    className="w-full border border-gray-300 rounded-md p-2"
+                    placeholder="Digite a quantidade"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Máximo: {selectedItem.quantity} unidades</p>
                 </div>
               )}
 
