@@ -20,13 +20,22 @@ export function ProductsTab() {
   const [currentProduct, setCurrentProduct] = useState<Product | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [sortBy, setSortBy] = useState<"name" | "code">("name"); // Padrão: ordenação alfabética
   const { setOpenNotification } = useNotification();
 
   const fetchData = async () => {
     setIsLoading(true);
     try {
       const response = await api.get<Product[]>("/invoice/product");
-      setProducts(response.data);
+      // Ordenar por nome alfabético por padrão
+      const sortedProducts = [...response.data].sort((a, b) => {
+        if (sortBy === "name") {
+          return a.name.localeCompare(b.name, "pt-BR", { sensitivity: "base" });
+        } else {
+          return a.code.localeCompare(b.code, "pt-BR", { sensitivity: "base" });
+        }
+      });
+      setProducts(sortedProducts);
     } catch (error) {
       console.error("Erro ao buscar produtos:", error);
     } finally {
@@ -36,7 +45,7 @@ export function ProductsTab() {
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [sortBy]);
 
   const handleEdit = (product: Product) => {
     setCurrentProduct(product);
@@ -190,7 +199,19 @@ export function ProductsTab() {
           <Boxes className="mr-2 inline" size={18} />
           Cadastro de Produtos
         </h2>
-        <button
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <label className="text-sm font-medium text-gray-700">Ordenar por:</label>
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as "name" | "code")}
+              className="border border-gray-300 rounded-md px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="name">Nome (Alfabético)</option>
+              <option value="code">Código</option>
+            </select>
+          </div>
+          <button
           onClick={() => {
             let maiorCodigo = 0;
 
@@ -217,6 +238,7 @@ export function ProductsTab() {
           {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2" size={16} />}
           Novo Produto
         </button>
+        </div>
       </div>
 
       {isLoading ? (
