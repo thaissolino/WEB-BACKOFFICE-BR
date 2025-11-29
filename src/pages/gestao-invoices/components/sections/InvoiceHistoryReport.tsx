@@ -149,7 +149,8 @@ export function InvoiceHistoryReport({
         api.get("/invoice/exchange-records"),
       ]);
       setExchangeResponse(exchangeResponse.data);
-      setProducts(productsResponse.data);
+      // O backend agora retorna { products: [...], totalProducts: ..., page: ..., limit: ..., totalPages: ... }
+      setProducts(Array.isArray(productsResponse.data) ? productsResponse.data : productsResponse.data.products || []);
       setInvoices(invoiceResponse.data);
       setSuppliers(supplierResponse.data);
     } catch (error) {

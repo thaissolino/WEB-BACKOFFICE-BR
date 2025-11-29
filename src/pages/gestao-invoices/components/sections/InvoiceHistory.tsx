@@ -127,7 +127,8 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
       ]);
 
       console.log(invoiceResponse);
-      setProducts(productsResponse.data);
+      // O backend agora retorna { products: [...], totalProducts: ..., page: ..., limit: ..., totalPages: ... }
+      setProducts(Array.isArray(productsResponse.data) ? productsResponse.data : productsResponse.data.products || []);
       setInvoices(invoiceResponse.data);
       setSuppliers(supplierResponse.data);
     } catch (error) {

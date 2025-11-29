@@ -26,14 +26,33 @@ export function ProductsTab() {
   const fetchData = async () => {
     setIsLoading(true);
     try {
-      const response = await api.get<Product[]>("/invoice/product");
+      // Solicitar todos os produtos (limite de 1000 para garantir que todos sejam retornados)
+      const response = await api.get<any>("/invoice/product", {
+        params: { limit: 1000 },
+      });
+      // O backend agora retorna { products: [...], totalProducts: ..., page: ..., limit: ..., totalPages: ... }
+      const productsData = Array.isArray(response.data) ? response.data : response.data.products || [];
+      console.log("Total de produtos recebidos:", productsData.length);
+      console.log(
+        "Produtos acima de código 148:",
+        productsData.filter((p: Product) => {
+          const code = parseInt(p.code);
+          return !isNaN(code) && code > 148;
+        }).length
+      );
       // Sempre ordenar por nome alfabético (padrão)
-      const sortedProducts = [...response.data].sort((a, b) => {
+      const sortedProducts = [...productsData].sort((a, b) => {
         if (sortBy === "name") {
           // Ordenação alfabética por nome (case-insensitive)
           return a.name.localeCompare(b.name, "pt-BR", { sensitivity: "base", numeric: true });
         } else {
-          // Ordenação por código
+          // Ordenação numérica por código (trata como número se possível)
+          const codeA = parseInt(a.code);
+          const codeB = parseInt(b.code);
+          if (!isNaN(codeA) && !isNaN(codeB)) {
+            return codeA - codeB; // Ordenação numérica
+          }
+          // Fallback para ordenação alfabética se não for número
           return a.code.localeCompare(b.code, "pt-BR", { sensitivity: "base", numeric: true });
         }
       });
@@ -310,39 +329,38 @@ export function ProductsTab() {
                   </td>
                 </tr>
               ) : (
-                products.map(
-                  (product) =>
-                    product.active !== false && (
-                      <tr key={product.id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                          {product.name}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{product.code}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right">
-                          R$ {product.priceweightAverage.toFixed(2)}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right">
-                          {product.weightAverage.toFixed(2)} kg
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                          <button
-                            onClick={() => handleEdit(product)}
-                            className="text-blue-600 hover:text-blue-900 mr-3"
-                            disabled={isSubmitting}
-                          >
-                            <Edit size={16} />
-                          </button>
-                          <button
-                            onClick={() => handleDelete(product.id)}
-                            className="text-red-600 hover:text-red-900"
-                            disabled={isSubmitting}
-                          >
-                            {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 size={16} />}
-                          </button>
-                        </td>
-                      </tr>
-                    )
-                )
+                products.map((product) => {
+                  // Renderizar todos os produtos, independente do active
+                  // (o filtro active !== false estava escondendo produtos)
+                  return (
+                    <tr key={product.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{product.name}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{product.code}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right">
+                        R$ {product.priceweightAverage.toFixed(2)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right">
+                        {product.weightAverage.toFixed(2)} kg
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <button
+                          onClick={() => handleEdit(product)}
+                          className="text-blue-600 hover:text-blue-900 mr-3"
+                          disabled={isSubmitting}
+                        >
+                          <Edit size={16} />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(product.id)}
+                          className="text-red-600 hover:text-red-900"
+                          disabled={isSubmitting}
+                        >
+                          {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 size={16} />}
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>
