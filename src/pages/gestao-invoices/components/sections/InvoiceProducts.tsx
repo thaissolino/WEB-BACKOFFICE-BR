@@ -61,7 +61,8 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
           api.get("/invoice/carriers"),
         ]);
         console.log(productsResponse.data);
-        setProducts(productsResponse.data);
+        // O backend agora retorna { products: [...], totalProducts: ..., page: ..., limit: ..., totalPages: ... }
+        setProducts(Array.isArray(productsResponse.data) ? productsResponse.data : productsResponse.data.products || []);
         setCarriers(carriersResponse.data);
       } catch (error) {
         console.error("Erro ao carregar dados:", error);

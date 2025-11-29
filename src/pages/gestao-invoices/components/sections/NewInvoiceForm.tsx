@@ -26,7 +26,8 @@ export function NewInvoiceForm({ currentInvoice, setCurrentInvoice }: NewInvoice
 
         setSuppliers(suppliersResponse.data);
         setCarriers(carriersResponse.data);
-        setProducts(productsResponse.data);
+        // O backend agora retorna { products: [...], totalProducts: ..., page: ..., limit: ..., totalPages: ... }
+        setProducts(Array.isArray(productsResponse.data) ? productsResponse.data : productsResponse.data.products || []);
       } catch (error) {
         console.error("Erro ao buscar dados:", error);
       }
