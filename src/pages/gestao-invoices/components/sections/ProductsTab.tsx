@@ -32,16 +32,19 @@ export function ProductsTab() {
       });
       // O backend agora retorna { products: [...], totalProducts: ..., page: ..., limit: ..., totalPages: ... }
       const productsData = Array.isArray(response.data) ? response.data : response.data.products || [];
+      // Filtrar apenas produtos ativos (o backend faz soft delete, marcando active: false)
+      const activeProducts = productsData.filter((p: Product) => p.active !== false);
       console.log("Total de produtos recebidos:", productsData.length);
+      console.log("Produtos ativos:", activeProducts.length);
       console.log(
         "Produtos acima de código 148:",
-        productsData.filter((p: Product) => {
+        activeProducts.filter((p: Product) => {
           const code = parseInt(p.code);
           return !isNaN(code) && code > 148;
         }).length
       );
       // Sempre ordenar por nome alfabético (padrão)
-      const sortedProducts = [...productsData].sort((a, b) => {
+      const sortedProducts = [...activeProducts].sort((a, b) => {
         if (sortBy === "name") {
           // Ordenação alfabética por nome (case-insensitive)
           return a.name.localeCompare(b.name, "pt-BR", { sensitivity: "base", numeric: true });
