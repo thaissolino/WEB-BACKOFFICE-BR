@@ -144,7 +144,8 @@ export const CaixasTab = () => {
       // Calculate total balance from all entities
       let total = 0
       combined.forEach((entity) => {
-        if (entity.balance && entity.balance.balance) {
+        // Verificar se tem balance configurado antes de somar
+        if (entity.balance && typeof entity.balance.balance === 'number' && !isNaN(entity.balance.balance)) {
           total += entity.balance.balance
         }
       })
@@ -670,7 +671,7 @@ export const CaixasTab = () => {
                 {loadingFetch2 ? (
                   <Loader2 className="inline w-4 h-4 animate-spin" />
                 ) : (
-                  `$ ${getTotalBalance().toLocaleString("pt-BR", {
+                  `$ ${(getTotalBalance() || 0).toLocaleString("pt-BR", {
                     minimumFractionDigits: 2,
                     maximumFractionDigits: 2,
                   })}`

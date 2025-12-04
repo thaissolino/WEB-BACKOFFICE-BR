@@ -383,7 +383,18 @@ export function ProductsTab() {
                 <input
                   type="text"
                   value={currentProduct.name}
-                  onChange={(e) => setCurrentProduct({ ...currentProduct, name: e.target.value.toUpperCase() })}
+                  onChange={(e) => {
+                    const cursorPosition = e.target.selectionStart;
+                    const newValue = e.target.value.toUpperCase();
+                    setCurrentProduct({ ...currentProduct, name: newValue });
+                    // Restaurar posição do cursor após atualização
+                    setTimeout(() => {
+                      const input = e.target as HTMLInputElement;
+                      if (input) {
+                        input.setSelectionRange(cursorPosition, cursorPosition);
+                      }
+                    }, 0);
+                  }}
                   className="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500"
                   disabled={isSubmitting}
                 />
@@ -442,7 +453,18 @@ export function ProductsTab() {
                 <textarea
                   rows={3}
                   value={currentProduct.description}
-                  onChange={(e) => setCurrentProduct({ ...currentProduct, description: e.target.value.toUpperCase() })}
+                  onChange={(e) => {
+                    const cursorPosition = e.target.selectionStart;
+                    const newValue = e.target.value.toUpperCase();
+                    setCurrentProduct({ ...currentProduct, description: newValue });
+                    // Restaurar posição do cursor após atualização
+                    setTimeout(() => {
+                      const textarea = e.target as HTMLTextAreaElement;
+                      if (textarea) {
+                        textarea.setSelectionRange(cursorPosition, cursorPosition);
+                      }
+                    }, 0);
+                  }}
                   className="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500"
                   disabled={isSubmitting}
                 ></textarea>

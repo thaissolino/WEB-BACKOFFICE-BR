@@ -24,6 +24,12 @@ export interface FinancialTransaction {
   rate: number;
   description: string;
   invoiceId: string;
+  userId?: string | null;
+  user?: {
+    id: string;
+    name: string;
+    email: string;
+  } | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -31,10 +37,12 @@ export interface FinancialTransaction {
 export function ExchangeTab() {
   const [invoices, setInvoices] = useState<InvoiceData[]>([]);
   const [suppliers, setSuppliers] = useState<{ id: string; name: string }[]>([]);
+  const [carriers, setCarriers] = useState<any[]>([]);
 
   const [products, setProducts] = useState<Product[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [isSaving2, setIsSaving2] = useState(false);
+  const [isSaving3, setIsSaving3] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const [historyPaymentBuy, setHistoryPaymentBuy] = useState<FinancialTransaction[] | undefined>(undefined);
@@ -52,6 +60,13 @@ export function ExchangeTab() {
   const { setOpenNotification } = useNotification();
 
   const [valueRaw3, setValorRaw3] = useState("");
+  const [valueRaw4, setValorRaw4] = useState("");
+
+  const [dataCarrierPayment, setDataCarrierPayment] = useState({
+    carrierId: "",
+    date: new Date().toLocaleDateString("en-CA"),
+    usd: 0,
+  });
 
   const [addBalance, setAddBalance] = useState<{
     date: string;
@@ -91,15 +106,33 @@ export function ExchangeTab() {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [invoiceResponse, getBalance, history] = await Promise.all([
+      const [invoiceResponse, getBalance, history, carriersResponse] = await Promise.all([
         api.get("/invoice/get"),
         api.get("/invoice/exchange-balance"),
         api.get("/invoice/exchange-records"),
+        api.get("/invoice/carriers"),
       ]);
 
       setBalance(getBalance.data);
       setHistoryPaymentBuy(history.data);
       setInvoices(invoiceResponse.data);
+      
+      // Buscar saldos dos freteiros
+      const carriersWithBalance = await Promise.all(
+        carriersResponse.data.map(async (carrier: any) => {
+          try {
+            const balanceRes = await api.get(`/invoice/box/transaction/${carrier.id}`);
+            const transactions = balanceRes.data.TransactionBoxUserInvoice || [];
+            const balance = transactions.reduce((acc: number, t: any) => {
+              return acc + (t.direction === "IN" ? t.value : -t.value);
+            }, 0);
+            return { ...carrier, balance: balance || 0 };
+          } catch (error) {
+            return { ...carrier, balance: 0 };
+          }
+        })
+      );
+      setCarriers(carriersWithBalance);
     } catch (error) {
       console.error("Erro ao buscar dados:", error);
     } finally {
@@ -606,9 +639,175 @@ export function ExchangeTab() {
         </div>
       </div>
 
+      {/* Seção de Pagamentos de Caixas de Freteiros */}
+      <div className="mt-6 p-4 bg-gray-50 rounded">
+        <h3 className="text-lg font-medium mb-4 text-blue-700 border-b pb-2">Pagar Caixas de Freteiros</h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Freteiro</label>
+            <select
+              onChange={(e) => {
+                const carrierId = e.target.value;
+                if (!carrierId) {
+                  return setDataCarrierPayment({ carrierId: "", date: new Date().toLocaleDateString("en-CA"), usd: 0 });
+                }
+                const carrier = carriers.find((item) => item.id === carrierId);
+                const balance = carrier?.balance || 0;
+                setValorRaw4(
+                  balance > 0
+                    ? balance.toLocaleString("en-US", {
+                        style: "currency",
+                        currency: "USD",
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })
+                    : ""
+                );
+                setDataCarrierPayment((prev) => ({
+                  ...prev,
+                  carrierId: carrierId,
+                  usd: balance || 0,
+                }));
+              }}
+              className="w-full h-11 border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="">Selecione um freteiro</option>
+              {loading ? (
+                <option>Carregando...</option>
+              ) : (
+                <>
+                  {carriers
+                    .filter((carrier) => (carrier.balance || 0) > 0)
+                    .map((carrier) => (
+                      <option key={carrier.id} value={carrier.id}>
+                        {carrier.name.toUpperCase()} - Saldo: {formatCurrency(carrier.balance || 0, 2, "USD")}
+                      </option>
+                    ))}
+                </>
+              )}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Data do Pagamento</label>
+            <input
+              type="date"
+              value={dataCarrierPayment.date}
+              onChange={(e) => setDataCarrierPayment({ ...dataCarrierPayment, date: e.target.value })}
+              className="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500"
+            />
+          </div>
+          <div>
+            <label className="h-22 block text-sm font-medium text-gray-700 mb-1">Valor a Pagar ($)</label>
+            <input
+              type="text"
+              step="0.01"
+              value={valueRaw4}
+              readOnly
+              className="w-full border border-gray-300 rounded-md p-2 bg-gray-100 focus:ring-blue-500 focus:border-blue-500"
+            />
+          </div>
+        </div>
+        <div className="mt-4">
+          <button
+            onClick={async () => {
+              if (!dataCarrierPayment.carrierId) {
+                Swal.fire({
+                  icon: "warning",
+                  title: "Atenção",
+                  text: "Selecione um freteiro!",
+                  confirmButtonText: "Ok",
+                  buttonsStyling: false,
+                  customClass: {
+                    confirmButton: "bg-green-600 text-white hover:bg-green-700 px-4 py-2 rounded font-semibold",
+                  },
+                });
+                return;
+              }
+
+              if (!balance || dataCarrierPayment.usd > balance.balance) {
+                Swal.fire({
+                  icon: "warning",
+                  title: "Atenção",
+                  text: "Saldo insuficiente!",
+                  confirmButtonText: "Ok",
+                  buttonsStyling: false,
+                  customClass: {
+                    confirmButton: "bg-green-600 text-white hover:bg-green-700 px-4 py-2 rounded font-semibold",
+                  },
+                });
+                return;
+              }
+
+              try {
+                setIsSaving3(true);
+                const carrier = carriers.find((c) => c.id === dataCarrierPayment.carrierId);
+                
+                // Criar transação no caixa do freteiro
+                await api.post("/invoice/box/transaction", {
+                  value: Math.abs(dataCarrierPayment.usd),
+                  entityId: dataCarrierPayment.carrierId,
+                  direction: "OUT",
+                  date: new Date(`${dataCarrierPayment.date}T${new Date().toTimeString().split(" ")[0]}`).toISOString(),
+                  description: `PAGAMENTO CAIXA FRETEIRO - ${carrier?.name.toUpperCase()}`,
+                  entityType: "CARRIER",
+                });
+
+                // Registrar pagamento na média dólar
+                await api.post("/invoice/exchange-records", {
+                  date: new Date(`${dataCarrierPayment.date}T${new Date().toTimeString().split(" ")[0]}`),
+                  usd: Number(dataCarrierPayment.usd),
+                  rate: balance?.averageRate,
+                  type: "PAYMENT",
+                  invoiceId: "",
+                  description: `PAGAMENTO CAIXA FRETEIRO - ${carrier?.name.toUpperCase()}`,
+                });
+
+                setOpenNotification({
+                  type: "success",
+                  title: "Sucesso!",
+                  notification: "Pagamento do caixa do freteiro realizado com sucesso!",
+                });
+                setValorRaw4("");
+                setDataCarrierPayment({
+                  carrierId: "",
+                  date: new Date().toLocaleDateString("en-CA"),
+                  usd: 0,
+                });
+
+                await fetchData();
+              } catch (error) {
+                console.log("error");
+                Swal.fire({
+                  icon: "error",
+                  title: "Atenção",
+                  text: "Erro ao realizar pagamento",
+                  confirmButtonText: "Ok",
+                  buttonsStyling: false,
+                  customClass: {
+                    confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
+                  },
+                });
+              } finally {
+                setIsSaving3(false);
+              }
+            }}
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded flex items-center justify-center"
+          >
+            {isSaving3 ? (
+              <>
+                <Loader2 className="animate-spin mr-2" size={18} />
+                Salvando...
+              </>
+            ) : (
+              <>Pagar Caixa do Freteiro</>
+            )}
+          </button>
+        </div>
+      </div>
+
       {/* Seção de Pagamentos */}
       <div className="mt-6 p-4 bg-gray-50 rounded">
-        <h3 className="text-lg font-medium mb-4 text-blue-700 border-b pb-2">Registrar Pagamento</h3>
+        <h3 className="text-lg font-medium mb-4 text-blue-700 border-b pb-2">Registrar Pagamento de Invoice</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Invoice</label>
@@ -731,13 +930,14 @@ export function ExchangeTab() {
                 <th className="py-2 px-4 border">USD</th>
                 <th className="py-2 px-4 border">Taxa</th>
                 <th className="py-2 px-4 border">Descrição</th>
+                <th className="py-2 px-4 border">Usuário</th>
                 <th className="py-2 px-4 border">Ações</th>
               </tr>
             </thead>
             <tbody>
               {historyPaymentBuy && historyPaymentBuy.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-4 text-center text-gray-500">
+                  <td colSpan={8} className="py-4 text-center text-gray-500">
                     Nenhuma transação registrada
                   </td>
                 </tr>
@@ -777,6 +977,15 @@ export function ExchangeTab() {
                       </td>
                       <td className={`py-2 px-4 border ${rowClass} text-center`}>
                         {transacao.description.toUpperCase()}
+                      </td>
+                      <td className={`py-2 px-4 border ${rowClass} text-center text-sm`}>
+                        {transacao.user ? (
+                          <span title={transacao.user.email}>
+                            {transacao.user.name || transacao.user.email || "Usuário"}
+                          </span>
+                        ) : (
+                          <span className="text-gray-400">-</span>
+                        )}
                       </td>
                       <td className={`py-2 px-4 border ${rowClass} text-center`}>
                         <button
