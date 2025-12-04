@@ -391,7 +391,7 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
                 </tr>
               ) : (
                 invoices
-                  .filter((invoice) => !invoice.paid && !invoice.completed) // ✅ Filtro aplicado antes
+                  .filter((invoice) => !invoice.completed) // ✅ Mostrar todas exceto concluídas (incluindo pagas)
                   .slice(currentPage * itemsPerPage, (currentPage + 1) * itemsPerPage) // ✅ Paginação
                   .map((invoice) => {
                     const supplier = suppliers.find((s) => s.id === invoice.supplierId);
@@ -433,19 +433,32 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
                         </td>
                         <td className="px-6  py-4 whitespace-nowrap text-right text-sm font-medium">
                           <div className="flex justify-end gap-2">
-                          
-                          <button
-                            onClick={() => openModal(invoice, true)}
-                            className="text-green-600 hover:text-green-900"
-                          >
-                            <Edit size={16} />
-                          </button>
-                          <button
-                            onClick={() => deleteInvoice(invoice.id)}
-                            className="text-red-600 hover:text-red-900"
-                          >
-                            <Trash size={16} />
-                          </button>
+                          {invoice.paid ? (
+                            <button
+                              onClick={() => openModal(invoice, false)}
+                              className="text-blue-600 hover:text-blue-900"
+                              title="Visualizar"
+                            >
+                              <Eye size={16} />
+                            </button>
+                          ) : (
+                            <>
+                              <button
+                                onClick={() => openModal(invoice, true)}
+                                className="text-green-600 hover:text-green-900"
+                                title="Editar"
+                              >
+                                <Edit size={16} />
+                              </button>
+                              <button
+                                onClick={() => deleteInvoice(invoice.id)}
+                                className="text-red-600 hover:text-red-900"
+                                title="Deletar"
+                              >
+                                <Trash size={16} />
+                              </button>
+                            </>
+                          )}
                           </div>
                         </td>
                       </tr>
@@ -712,7 +725,18 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
             </div>
 
             <div className="mb-6">
-              <h4 className="font-medium mb-2 text-blue-700 border-b pb-2">Produtos Pendentes</h4>
+              <h4 className="font-medium mb-2 text-blue-700 border-b pb-2">
+                Produtos Pendentes
+                {selectedInvoice.products.filter((item) => !item.received).length > 0 && (
+                  <span className="ml-2 text-sm font-normal text-gray-600">
+                    (Subtotal: {formatCurrency(
+                      selectedInvoice.products
+                        .filter((item) => !item.received)
+                        .reduce((sum, product) => sum + product.total, 0)
+                    )})
+                  </span>
+                )}
+              </h4>
               <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">

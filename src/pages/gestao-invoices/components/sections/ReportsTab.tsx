@@ -33,8 +33,15 @@ export function ReportsTab() {
     fetchData();
   }, []);
 
+  // Calcular data de 2 meses atrás
+  const getTwoMonthsAgo = () => {
+    const date = new Date();
+    date.setMonth(date.getMonth() - 2);
+    return date.toISOString().split("T")[0];
+  };
+
   const [filters, setFilters] = useState({
-    startDate: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split("T")[0],
+    startDate: getTwoMonthsAgo(),
     endDate: new Date().toLocaleDateString("en-CA"),
     status: "all",
     supplier: "all",
