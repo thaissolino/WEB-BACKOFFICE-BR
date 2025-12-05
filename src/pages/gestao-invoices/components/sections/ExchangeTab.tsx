@@ -123,10 +123,35 @@ export function ExchangeTab() {
           try {
             const balanceRes = await api.get(`/invoice/box/transaction/${carrier.id}`);
             const transactions = balanceRes.data.TransactionBoxUserInvoice || [];
-            const balance = transactions.reduce((acc: number, t: any) => {
+            
+            // Buscar invoices do freteiro
+            let invoices: any[] = [];
+            try {
+              const { data: listInvoicesByCarrier } = await api.get(`/invoice/list/carrier/${carrier.id}`);
+              invoices = listInvoicesByCarrier.map((invoice: any) => ({
+                id: invoice.id,
+                date: invoice.date,
+                description: invoice.number,
+                value: invoice.subAmount,
+                isInvoice: true,
+                direction: "OUT", // Invoices são sempre saídas
+              }));
+            } catch (error) {
+              console.error("Erro ao buscar invoices do freteiro:", error);
+            }
+            
+            // Calcular saldo considerando transações e invoices
+            const transactionBalance = transactions.reduce((acc: number, t: any) => {
               return acc + (t.direction === "IN" ? t.value : -t.value);
             }, 0);
-            return { ...carrier, balance: balance || 0 };
+            
+            // Subtrair invoices (sempre saídas)
+            const invoiceBalance = invoices.reduce((acc: number, invoice: any) => {
+              return acc - invoice.value;
+            }, 0);
+            
+            const totalBalance = transactionBalance + invoiceBalance;
+            return { ...carrier, balance: totalBalance };
           } catch (error) {
             return { ...carrier, balance: 0 };
           }

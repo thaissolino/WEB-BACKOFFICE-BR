@@ -54,6 +54,11 @@ export const CaixasTabBrl = () => {
   const [caixaUser, setCaixaUser] = useState<Caixa>();
   // const [showModal, setShowModal] = useState(false);
   const [selectedEntity, setSelectedEntity] = useState<any | null>(null);
+  const [selectedFilter, setSelectedFilter] = useState<"all" | "partners" | null>(null);
+  const [filteredBalances, setFilteredBalances] = useState({
+    partners: 0,
+    general: 0,
+  });
   const [totalBalance, setTotalBalance] = useState<number>(0);
 
   const [transactionHistoryList, setTransactionHistoryList] = useState<TransactionHistory[]>([]);
@@ -113,8 +118,14 @@ export const CaixasTabBrl = () => {
   useEffect(() => {
     fetchAllData();
     getBalances();
-    // getPermissions()
+    getPermissions();
   }, []);
+
+  useEffect(() => {
+    if (combinedItems.length > 0 && permissions && user) {
+      calculateFilteredBalances();
+    }
+  }, [combinedItems, permissions, user, selectedEntity, selectedFilter]);
 
   console.log(selectedUserId);
 
@@ -246,6 +257,104 @@ export const CaixasTabBrl = () => {
         return acc - transaction.value;
       }
     }, 0);
+  };
+
+  const getFilteredItems = () => {
+    if (user?.role === "MASTER" || user?.role === "ADMIN") {
+      return combinedItems;
+    }
+    return combinedItems.filter((item) => 
+      permissions?.GERENCIAR_INVOICES?.CAIXAS_BR_PERMITIDOS?.includes(item.name)
+    );
+  };
+
+  const calculateFilteredBalances = async () => {
+    // Se tiver um filtro de categoria selecionado (Todos, Parceiros)
+    if (selectedFilter && !selectedEntity) {
+      const filteredItems = getFilteredItems();
+      
+      let totalPartners = 0;
+
+      // Filtrar por categoria se necessário
+      const itemsToProcess = selectedFilter === "all" 
+        ? filteredItems 
+        : filteredItems.filter((item) => {
+            if (selectedFilter === "partners") return item.typeInvoice === "parceiro";
+            return true;
+          });
+
+      await Promise.all(
+        itemsToProcess.map(async (item) => {
+          try {
+            const balanceRes = await api.get(`/invoice/box/transaction/${item.id}`);
+            const transactions = balanceRes.data.TransactionBoxUserInvoice || [];
+
+            const transactionBalance = transactions.reduce((acc: number, t: any) => {
+              return acc + (t.direction === "IN" ? t.value : -t.value);
+            }, 0);
+
+            totalPartners += transactionBalance;
+          } catch (error) {
+            console.error(`Erro ao buscar saldo de ${item.name}:`, error);
+          }
+        })
+      );
+
+      setFilteredBalances({
+        partners: totalPartners,
+        general: totalPartners
+      });
+      return;
+    }
+
+    // Se tiver um item selecionado, calcular apenas daquele item
+    if (selectedEntity) {
+      try {
+        const balanceRes = await api.get(`/invoice/box/transaction/${selectedEntity.id}`);
+        const transactions = balanceRes.data.TransactionBoxUserInvoice || [];
+        
+        const transactionBalance = transactions.reduce((acc: number, t: any) => {
+          return acc + (t.direction === "IN" ? t.value : -t.value);
+        }, 0);
+
+        if (selectedEntity.typeInvoice === "parceiro") {
+          setFilteredBalances({
+            partners: transactionBalance,
+            general: transactionBalance
+          });
+        }
+        return;
+      } catch (error) {
+        console.error(`Erro ao buscar saldo de ${selectedEntity.name}:`, error);
+      }
+    }
+
+    // Se não tiver item selecionado, calcular de todos os itens permitidos
+    const filteredItems = getFilteredItems();
+    
+    let totalPartners = 0;
+
+    await Promise.all(
+      filteredItems.map(async (item) => {
+        try {
+          const balanceRes = await api.get(`/invoice/box/transaction/${item.id}`);
+          const transactions = balanceRes.data.TransactionBoxUserInvoice || [];
+
+          const transactionBalance = transactions.reduce((acc: number, t: any) => {
+            return acc + (t.direction === "IN" ? t.value : -t.value);
+          }, 0);
+
+          totalPartners += transactionBalance;
+        } catch (error) {
+          console.error(`Erro ao buscar saldo de ${item.name}:`, error);
+        }
+      })
+    );
+
+    setFilteredBalances({
+      partners: totalPartners,
+      general: totalPartners
+    });
   };
 
   const salvarCaixa = async (nome: string, description: string) => {
@@ -482,39 +591,123 @@ export const CaixasTabBrl = () => {
       </h2>
       {/* Resumo */}
       <div className="mb-6 grid grid-cols-1 md:grid-cols-4 gap-4">
-        <motion.div whileHover={{ scale: 1.02 }} className="bg-teal-50 p-4 rounded-lg shadow relative group">
-          <div className="flex items-center gap-2 mb-2">
-            <Handshake className="text-teal-600 w-5 h-5" />
-            <h3 className="font-medium truncate max-w-[180px]">TOTAL DE PARCEIROS</h3>
-          </div>
+        {selectedEntity ? (
+          // Quando tem item selecionado, mostrar apenas o card relevante
+          <>
+            {selectedEntity.typeInvoice === "parceiro" && (
+              <motion.div whileHover={{ scale: 1.02 }} className="bg-teal-50 p-4 rounded-lg shadow relative group">
+                <div className="flex items-center gap-2 mb-2">
+                  <Handshake className="text-teal-600 w-5 h-5" />
+                  <h3 className="font-medium truncate max-w-[180px]">
+                    {selectedEntity.name.toUpperCase()} - PARCEIRO
+                  </h3>
+                </div>
+                <p className="text-2xl font-bold text-teal-600 truncate" title={formatCurrency(filteredBalances.partners || 0)}>
+                  {formatCurrency(filteredBalances.partners || 0)}
+                </p>
+                <div className="absolute hidden group-hover:block bg-gray-800 text-white text-xs p-2 rounded z-10 bottom-full mb-2 whitespace-nowrap">
+                  {formatCurrency(filteredBalances.partners || 0)}
+                </div>
+              </motion.div>
+            )}
+            <motion.div whileHover={{ scale: 1.02 }} className="bg-purple-50 p-4 rounded-lg shadow relative group">
+              <div className="flex items-center gap-2 mb-2">
+                <CircleDollarSign className="text-purple-600 w-5 h-5" />
+                <h3 className="font-medium truncate max-w-[180px]">
+                  TOTAL GERAL: {selectedEntity.name.toUpperCase()}
+                </h3>
+              </div>
+              <p className="text-2xl font-bold text-purple-600 truncate" title={formatCurrency(filteredBalances.general || 0)}>
+                {formatCurrency(filteredBalances.general || 0)}
+              </p>
+              {formatCurrency(filteredBalances.general || 0).length > 12 && (
+                <div className="absolute hidden group-hover:block bg-gray-800 text-white text-xs p-2 rounded z-10 bottom-full mb-2 whitespace-nowrap">
+                  {formatCurrency(filteredBalances.general || 0)}
+                </div>
+              )}
+            </motion.div>
+          </>
+        ) : selectedFilter ? (
+          // Quando tem filtro de grupo selecionado, mostrar apenas o card do grupo
+          <>
+            {selectedFilter === "partners" && (
+              <motion.div whileHover={{ scale: 1.02 }} className="bg-teal-50 p-4 rounded-lg shadow relative group">
+                <div className="flex items-center gap-2 mb-2">
+                  <Handshake className="text-teal-600 w-5 h-5" />
+                  <h3 className="font-medium truncate max-w-[180px]">TOTAL PARCEIROS</h3>
+                </div>
+                <p className="text-2xl font-bold text-teal-600 truncate" title={formatCurrency(filteredBalances.partners || 0)}>
+                  {formatCurrency(filteredBalances.partners || 0)}
+                </p>
+                <div className="absolute hidden group-hover:block bg-gray-800 text-white text-xs p-2 rounded z-10 bottom-full mb-2 whitespace-nowrap">
+                  {formatCurrency(filteredBalances.partners || 0)}
+                </div>
+              </motion.div>
+            )}
+            {selectedFilter === "all" && (
+              <>
+                <motion.div whileHover={{ scale: 1.02 }} className="bg-teal-50 p-4 rounded-lg shadow relative group">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Handshake className="text-teal-600 w-5 h-5" />
+                    <h3 className="font-medium truncate max-w-[180px]">TOTAL PARCEIROS</h3>
+                  </div>
+                  <p className="text-2xl font-bold text-teal-600 truncate" title={formatCurrency(filteredBalances.partners || 0)}>
+                    {formatCurrency(filteredBalances.partners || 0)}
+                  </p>
+                  <div className="absolute hidden group-hover:block bg-gray-800 text-white text-xs p-2 rounded z-10 bottom-full mb-2 whitespace-nowrap">
+                    {formatCurrency(filteredBalances.partners || 0)}
+                  </div>
+                </motion.div>
 
-          <p className="text-2xl font-bold text-teal-600 truncate ml-10" title={formatCurrency(balancePartnerBRL || 0)}>
-            {combinedItems.length}{" "}
-          </p>
-          {combinedItems.length > 1 && (
-            <div className="absolute hidden group-hover:block bg-gray-800 text-white text-xs p-2 rounded z-10 bottom-full mb-2 whitespace-nowrap">
-              {combinedItems.length || 0}
-            </div>
-          )}
-        </motion.div>
+                <motion.div whileHover={{ scale: 1.02 }} className="bg-purple-50 p-4 rounded-lg shadow relative group">
+                  <div className="flex items-center gap-2 mb-2">
+                    <CircleDollarSign className="text-purple-600 w-5 h-5" />
+                    <h3 className="font-medium truncate max-w-[180px]">BALANÇO GERAL</h3>
+                  </div>
+                  <p className="text-2xl font-bold text-purple-600 truncate" title={formatCurrency(filteredBalances.general || 0)}>
+                    {formatCurrency(filteredBalances.general || 0)}
+                  </p>
+                  {formatCurrency(filteredBalances.general || 0).length > 1 && (
+                    <div className="absolute hidden group-hover:block bg-gray-800 text-white text-xs p-2 rounded z-10 bottom-full mb-2 whitespace-nowrap">
+                      {formatCurrency(filteredBalances.general || 0)}
+                    </div>
+                  )}
+                </motion.div>
+              </>
+            )}
+          </>
+        ) : (
+          // Quando não tem item selecionado, mostrar todos os totais
+          <>
+            <motion.div whileHover={{ scale: 1.02 }} className="bg-teal-50 p-4 rounded-lg shadow relative group">
+              <div className="flex items-center gap-2 mb-2">
+                <Handshake className="text-teal-600 w-5 h-5" />
+                <h3 className="font-medium truncate max-w-[180px]">TOTAL PARCEIROS</h3>
+              </div>
+              <p className="text-2xl font-bold text-teal-600 truncate" title={formatCurrency(filteredBalances.partners || 0)}>
+                {formatCurrency(filteredBalances.partners || 0)}
+              </p>
+              <div className="absolute hidden group-hover:block bg-gray-800 text-white text-xs p-2 rounded z-10 bottom-full mb-2 whitespace-nowrap">
+                {formatCurrency(filteredBalances.partners || 0)}
+              </div>
+            </motion.div>
 
-        <motion.div whileHover={{ scale: 1.02 }} className="bg-purple-50 p-4 rounded-lg shadow relative group">
-          <div className="flex items-center gap-2 mb-2">
-            <CircleDollarSign className="text-purple-600 w-5 h-5" />
-            <h3 className="font-medium truncate max-w-[180px]">BALANÇO GERAL</h3>
-          </div>
-          <p className="text-2xl font-bold text-purple-600 truncate" title={formatCurrency(balancePartnerBRL || 0)}>
-            {/* {formatCurrency(balancePartnerBRL || 0).length > 12
-              ? `${formatCurrency(balancePartnerBRL || 0).substring(0, 12)}...`
-              : formatCurrency(balancePartnerBRL || 0)} */}
-            {formatCurrency(balancePartnerBRL || 0)}
-          </p>
-          {formatCurrency(balancePartnerBRL || 0).length > 1 && (
-            <div className="absolute hidden group-hover:block bg-gray-800 text-white text-xs p-2 rounded z-10 bottom-full mb-2 whitespace-nowrap">
-              {formatCurrency(balancePartnerBRL || 0)}
-            </div>
-          )}
-        </motion.div>
+            <motion.div whileHover={{ scale: 1.02 }} className="bg-purple-50 p-4 rounded-lg shadow relative group">
+              <div className="flex items-center gap-2 mb-2">
+                <CircleDollarSign className="text-purple-600 w-5 h-5" />
+                <h3 className="font-medium truncate max-w-[180px]">BALANÇO GERAL</h3>
+              </div>
+              <p className="text-2xl font-bold text-purple-600 truncate" title={formatCurrency(filteredBalances.general || 0)}>
+                {formatCurrency(filteredBalances.general || 0)}
+              </p>
+              {formatCurrency(filteredBalances.general || 0).length > 1 && (
+                <div className="absolute hidden group-hover:block bg-gray-800 text-white text-xs p-2 rounded z-10 bottom-full mb-2 whitespace-nowrap">
+                  {formatCurrency(filteredBalances.general || 0)}
+                </div>
+              )}
+            </motion.div>
+          </>
+        )}
       </div>
       <div className="bg-white p-6 rounded-lg shadow mb-6">
         <div className="flex items-center mb-4">
@@ -529,11 +722,30 @@ export const CaixasTabBrl = () => {
         ) : (
           <div className="flex items-center space-x-4">
             <GenericSearchSelect
-              items={user?.role === "MASTER" || user?.role === "ADMIN" ? combinedItems : combinedItems.filter((item) =>permissions?.GERENCIAR_INVOICES?.CAIXAS_BR_PERMITIDOS?.includes(item.name))}
-              value={selectedEntity?.id || ""}
-              getSearchString={(p) => `${p.name} ${p.typeInvoice}`}
-              getLabel={(p) => {
+              items={[
+                // Opções especiais de filtro
+                { id: "filter_all", name: "TODOS", typeInvoice: "all" as any, isFilter: true },
+                { id: "filter_partners", name: "PARCEIROS", typeInvoice: "parceiro" as any, isFilter: true },
+                // Entidades reais
+                ...(user?.role === "MASTER" || user?.role === "ADMIN" 
+                  ? combinedItems 
+                  : combinedItems.filter((item) => permissions?.GERENCIAR_INVOICES?.CAIXAS_BR_PERMITIDOS?.includes(item.name))
+                )
+              ]}
+              value={selectedFilter ? `filter_${selectedFilter}` : selectedEntity?.id || ""}
+              getSearchString={(p: any) => p.name}
+              getLabel={(p: any) => {
                 if (!p) return <span>Item inválido</span>;
+                
+                if (p.isFilter) {
+                  return (
+                    <span className="flex items-center font-semibold">
+                      {p.typeInvoice === "parceiro" && <i className="fas fa-handshake mr-2 text-red-600"></i>}
+                      {p.typeInvoice === "all" && <i className="fas fa-list mr-2 text-purple-600"></i>}
+                      {p.name}
+                    </span>
+                  )
+                }
 
                 return (
                   <span className="flex items-center">
@@ -554,17 +766,29 @@ export const CaixasTabBrl = () => {
                   </span>
                 );
               }}
-              getId={(p) => p?.id ?? ""}
+              getId={(p: any) => p?.id ?? ""}
               onChange={(id) => {
                 if (!id) return;
 
+                // Verificar se é um filtro
+                if (id.startsWith("filter_")) {
+                  const filterType = id.replace("filter_", "") as "all" | "partners"
+                  setSelectedFilter(filterType)
+                  setSelectedEntity(null)
+                  return
+                }
+                
+                // É uma entidade real
+                setSelectedFilter(null)
                 const entity = combinedItems?.find((item) => item?.id === id);
                 if (entity) {
                   setSelectedEntity(entity);
                   fetchEntityData(id);
+                } else {
+                  setSelectedEntity(null);
                 }
               }}
-              label="Selecione um usuário"
+              label="Selecione um filtro ou entidade"
             />
           </div>
         )}

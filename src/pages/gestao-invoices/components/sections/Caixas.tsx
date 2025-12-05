@@ -54,6 +54,7 @@ export const CaixasTab = () => {
   const [caixaUser, setCaixaUser] = useState<Caixa>()
   // const [showModal, setShowModal] = useState(false);
   const [selectedEntity, setSelectedEntity] = useState<any | null>(null)
+  const [selectedFilter, setSelectedFilter] = useState<"all" | "suppliers" | "carriers" | "partners" | null>(null)
   const [totalBalance, setTotalBalance] = useState<number>(0)
   const [filterStartDate, setFilterStartDate] = useState<string>(new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split("T")[0])
   const [filterEndDate, setFilterEndDate] = useState<string>(new Date().toLocaleDateString("en-CA"))
@@ -82,6 +83,243 @@ export const CaixasTab = () => {
   const [activeFilterEndDate, setActiveFilterEndDate] = useState<string>("")
   const {getPermissions, permissions, user} = usePermissionStore()
 
+  const [filteredBalances, setFilteredBalances] = useState({
+    suppliers: 0,
+    carriers: 0,
+    partners: 0,
+    general: 0
+  });
+
+  // Calcular totais baseado apenas nos itens permitidos
+  const getFilteredItems = () => {
+    if (user?.role === "MASTER" || user?.role === "ADMIN") {
+      return combinedItems;
+    }
+    return combinedItems.filter((item) => 
+      permissions?.GERENCIAR_INVOICES?.CAIXAS_PERMITIDOS?.includes(item.name)
+    );
+  };
+
+  const calculateFilteredBalances = async () => {
+    // Se tiver um filtro de categoria selecionado (Todos, Fornecedores, Freteiros, Parceiros)
+    if (selectedFilter && !selectedEntity) {
+      const filteredItems = getFilteredItems();
+      
+      let totalSuppliers = 0;
+      let totalCarriers = 0;
+      let totalPartners = 0;
+
+      // Filtrar por categoria se necessário
+      const itemsToProcess = selectedFilter === "all" 
+        ? filteredItems 
+        : filteredItems.filter((item) => {
+            if (selectedFilter === "suppliers") return item.typeInvoice === "fornecedor";
+            if (selectedFilter === "carriers") return item.typeInvoice === "freteiro";
+            if (selectedFilter === "partners") return item.typeInvoice === "parceiro";
+            return true;
+          });
+
+      await Promise.all(
+        itemsToProcess.map(async (item) => {
+          try {
+            const balanceRes = await api.get(`/invoice/box/transaction/${item.id}`);
+            const transactions = balanceRes.data.TransactionBoxUserInvoice || [];
+            
+            let invoices: any[] = [];
+            if (item.typeInvoice === "fornecedor") {
+              try {
+                const { data: listInvoicesBySupplier } = await api.get(`/invoice/list/supplier/${item.id}`);
+                invoices = listInvoicesBySupplier.map((invoice: any) => ({
+                  value: invoice.subAmount,
+                  direction: "OUT",
+                }));
+              } catch (error) {
+                console.error("Erro ao buscar invoices do fornecedor:", error);
+              }
+            } else if (item.typeInvoice === "freteiro") {
+              try {
+                const { data: listInvoicesByCarrier } = await api.get(`/invoice/list/carrier/${item.id}`);
+                invoices = listInvoicesByCarrier.map((invoice: any) => ({
+                  value: invoice.subAmount,
+                  direction: "OUT",
+                }));
+              } catch (error) {
+                console.error("Erro ao buscar invoices do freteiro:", error);
+              }
+            }
+
+            const transactionBalance = transactions.reduce((acc: number, t: any) => {
+              return acc + (t.direction === "IN" ? t.value : -t.value);
+            }, 0);
+            
+            const invoiceBalance = invoices.reduce((acc: number, invoice: any) => {
+              return acc - invoice.value;
+            }, 0);
+            
+            const totalBalance = transactionBalance + invoiceBalance;
+
+            if (item.typeInvoice === "fornecedor") {
+              totalSuppliers += totalBalance;
+            } else if (item.typeInvoice === "freteiro") {
+              totalCarriers += totalBalance;
+            } else if (item.typeInvoice === "parceiro") {
+              totalPartners += totalBalance;
+            }
+          } catch (error) {
+            console.error(`Erro ao buscar saldo de ${item.name}:`, error);
+          }
+        })
+      );
+
+      setFilteredBalances({
+        suppliers: totalSuppliers,
+        carriers: totalCarriers,
+        partners: totalPartners,
+        general: totalSuppliers + totalCarriers + totalPartners
+      });
+      return;
+    }
+
+    // Se tiver um item selecionado, calcular apenas daquele item
+    if (selectedEntity) {
+      try {
+        const balanceRes = await api.get(`/invoice/box/transaction/${selectedEntity.id}`);
+        const transactions = balanceRes.data.TransactionBoxUserInvoice || [];
+        
+        // Buscar invoices baseado no tipo
+        let invoices: any[] = [];
+        if (selectedEntity.typeInvoice === "fornecedor") {
+          try {
+            const { data: listInvoicesBySupplier } = await api.get(`/invoice/list/supplier/${selectedEntity.id}`);
+            invoices = listInvoicesBySupplier.map((invoice: any) => ({
+              value: invoice.subAmount,
+              direction: "OUT",
+            }));
+          } catch (error) {
+            console.error("Erro ao buscar invoices do fornecedor:", error);
+          }
+        } else if (selectedEntity.typeInvoice === "freteiro") {
+          try {
+            const { data: listInvoicesByCarrier } = await api.get(`/invoice/list/carrier/${selectedEntity.id}`);
+            invoices = listInvoicesByCarrier.map((invoice: any) => ({
+              value: invoice.subAmount,
+              direction: "OUT",
+            }));
+          } catch (error) {
+            console.error("Erro ao buscar invoices do freteiro:", error);
+          }
+        }
+
+        // Calcular saldo considerando transações e invoices
+        const transactionBalance = transactions.reduce((acc: number, t: any) => {
+          return acc + (t.direction === "IN" ? t.value : -t.value);
+        }, 0);
+        
+        const invoiceBalance = invoices.reduce((acc: number, invoice: any) => {
+          return acc - invoice.value;
+        }, 0);
+        
+        const totalBalance = transactionBalance + invoiceBalance;
+
+        // Mostrar apenas o valor do item selecionado na categoria correspondente
+        if (selectedEntity.typeInvoice === "fornecedor") {
+          setFilteredBalances({
+            suppliers: totalBalance,
+            carriers: 0,
+            partners: 0,
+            general: totalBalance
+          });
+        } else if (selectedEntity.typeInvoice === "freteiro") {
+          setFilteredBalances({
+            suppliers: 0,
+            carriers: totalBalance,
+            partners: 0,
+            general: totalBalance
+          });
+        } else if (selectedEntity.typeInvoice === "parceiro") {
+          setFilteredBalances({
+            suppliers: 0,
+            carriers: 0,
+            partners: totalBalance,
+            general: totalBalance
+          });
+        }
+        return;
+      } catch (error) {
+        console.error(`Erro ao buscar saldo de ${selectedEntity.name}:`, error);
+      }
+    }
+
+    // Se não tiver item selecionado, calcular de todos os itens permitidos
+    const filteredItems = getFilteredItems();
+    
+    let totalSuppliers = 0;
+    let totalCarriers = 0;
+    let totalPartners = 0;
+
+    // Buscar saldos de cada item permitido
+    await Promise.all(
+      filteredItems.map(async (item) => {
+        try {
+          const balanceRes = await api.get(`/invoice/box/transaction/${item.id}`);
+          const transactions = balanceRes.data.TransactionBoxUserInvoice || [];
+          
+          // Buscar invoices baseado no tipo
+          let invoices: any[] = [];
+          if (item.typeInvoice === "fornecedor") {
+            try {
+              const { data: listInvoicesBySupplier } = await api.get(`/invoice/list/supplier/${item.id}`);
+              invoices = listInvoicesBySupplier.map((invoice: any) => ({
+                value: invoice.subAmount,
+                direction: "OUT",
+              }));
+            } catch (error) {
+              console.error("Erro ao buscar invoices do fornecedor:", error);
+            }
+          } else if (item.typeInvoice === "freteiro") {
+            try {
+              const { data: listInvoicesByCarrier } = await api.get(`/invoice/list/carrier/${item.id}`);
+              invoices = listInvoicesByCarrier.map((invoice: any) => ({
+                value: invoice.subAmount,
+                direction: "OUT",
+              }));
+            } catch (error) {
+              console.error("Erro ao buscar invoices do freteiro:", error);
+            }
+          }
+
+          // Calcular saldo considerando transações e invoices
+          const transactionBalance = transactions.reduce((acc: number, t: any) => {
+            return acc + (t.direction === "IN" ? t.value : -t.value);
+          }, 0);
+          
+          const invoiceBalance = invoices.reduce((acc: number, invoice: any) => {
+            return acc - invoice.value;
+          }, 0);
+          
+          const totalBalance = transactionBalance + invoiceBalance;
+
+          if (item.typeInvoice === "fornecedor") {
+            totalSuppliers += totalBalance;
+          } else if (item.typeInvoice === "freteiro") {
+            totalCarriers += totalBalance;
+          } else if (item.typeInvoice === "parceiro") {
+            totalPartners += totalBalance;
+          }
+        } catch (error) {
+          console.error(`Erro ao buscar saldo de ${item.name}:`, error);
+        }
+      })
+    );
+
+    setFilteredBalances({
+      suppliers: totalSuppliers,
+      carriers: totalCarriers,
+      partners: totalPartners,
+      general: totalSuppliers + totalCarriers + totalPartners
+    });
+  };
+
   const filterTransactionsByDate = () => {
     if (!activeFilterStartDate || !activeFilterEndDate) return transactionHistoryList
 
@@ -102,7 +340,14 @@ export const CaixasTab = () => {
     console.log("foi?")
     fetchAllData()
     getBalances()
+    getPermissions()
   }, [])
+
+  useEffect(() => {
+    if (combinedItems.length > 0 && permissions && user) {
+      calculateFilteredBalances()
+    }
+  }, [combinedItems, permissions, user, selectedEntity, selectedFilter])
 
   console.log(selectedUserId)
 
@@ -140,16 +385,6 @@ export const CaixasTab = () => {
       setCombinedItems(combined)
 
       console.log("combined", combined)
-
-      // Calculate total balance from all entities
-      let total = 0
-      combined.forEach((entity) => {
-        // Verificar se tem balance configurado antes de somar
-        if (entity.balance && typeof entity.balance.balance === 'number' && !isNaN(entity.balance.balance)) {
-          total += entity.balance.balance
-        }
-      })
-      setTotalBalance(total)
 
       console.log("All data fetched:", combined)
     } catch (error) {
@@ -500,80 +735,251 @@ export const CaixasTab = () => {
       </h2>
       {/* Resumo */}
       <div className="mb-6 grid grid-cols-1 md:grid-cols-4 gap-4">
-        <motion.div whileHover={{ scale: 1.02 }} className="bg-yellow-50 p-4 rounded-lg shadow relative group">
-          <div className="flex items-center gap-2 mb-2">
-            <HandCoins className="text-yellow-600 w-5 h-5" />
-            <h3 className="font-medium truncate max-w-[180px]">TOTAL FORNECEDORES</h3>
-          </div>
-          <p className="text-2xl font-bold text-yellow-600 truncate" title={formatCurrency(balanceSupplier || 0)}>
-            {/* {formatCurrency(balanceSupplier || 0).length > 12
-              ? `${formatCurrency(balanceSupplier || 0).substring(0, 12)}...`
-              : formatCurrency(balanceSupplier || 0)} */}
-            {formatCurrency(balanceSupplier || 0)}
-          </p>
-          {formatCurrency(balanceSupplier || 0).length > 12 && (
-            <div className="absolute hidden group-hover:block bg-gray-800 text-white text-xs p-2 rounded z-10 bottom-full mb-2 whitespace-nowrap">
-              {formatCurrency(balanceSupplier || 0)}
-            </div>
-          )}
-        </motion.div>
+        {selectedEntity ? (
+          // Quando tem item selecionado, mostrar apenas o card relevante
+          <>
+            {selectedEntity.typeInvoice === "fornecedor" && (
+              <motion.div whileHover={{ scale: 1.02 }} className="bg-yellow-50 p-4 rounded-lg shadow relative group">
+                <div className="flex items-center gap-2 mb-2">
+                  <HandCoins className="text-yellow-600 w-5 h-5" />
+                  <h3 className="font-medium truncate max-w-[180px]">
+                    {selectedEntity.name.toUpperCase()} - FORNECEDOR
+                  </h3>
+                </div>
+                <p className="text-2xl font-bold text-yellow-600 truncate" title={formatCurrency(filteredBalances.suppliers || 0)}>
+                  {formatCurrency(filteredBalances.suppliers || 0)}
+                </p>
+                {formatCurrency(filteredBalances.suppliers || 0).length > 12 && (
+                  <div className="absolute hidden group-hover:block bg-gray-800 text-white text-xs p-2 rounded z-10 bottom-full mb-2 whitespace-nowrap">
+                    {formatCurrency(filteredBalances.suppliers || 0)}
+                  </div>
+                )}
+              </motion.div>
+            )}
+            {selectedEntity.typeInvoice === "freteiro" && (
+              <motion.div whileHover={{ scale: 1.02 }} className="bg-blue-50 p-4 rounded-lg shadow relative group">
+                <div className="flex items-center gap-2 mb-2">
+                  <Truck className="text-blue-600 w-5 h-5" />
+                  <h3 className="font-medium truncate max-w-[180px]">
+                    {selectedEntity.name.toUpperCase()} - TRANSPORTADORA
+                  </h3>
+                </div>
+                <p className="text-2xl font-bold text-blue-600 truncate" title={formatCurrency(filteredBalances.carriers || 0)}>
+                  {formatCurrency(filteredBalances.carriers || 0)}
+                </p>
+                {formatCurrency(filteredBalances.carriers || 0).length > 5 && (
+                  <div className="absolute hidden group-hover:block bg-gray-800 text-white text-xs p-2 rounded z-10 bottom-full mb-2 whitespace-nowrap">
+                    {formatCurrency(filteredBalances.carriers || 0)}
+                  </div>
+                )}
+              </motion.div>
+            )}
+            {selectedEntity.typeInvoice === "parceiro" && (
+              <motion.div whileHover={{ scale: 1.02 }} className="bg-teal-50 p-4 rounded-lg shadow relative group">
+                <div className="flex items-center gap-2 mb-2">
+                  <Handshake className="text-teal-600 w-5 h-5" />
+                  <h3 className="font-medium truncate max-w-[180px]">
+                    {selectedEntity.name.toUpperCase()} - PARCEIRO
+                  </h3>
+                </div>
+                <p className="text-2xl font-bold text-teal-600 truncate" title={formatCurrency(filteredBalances.partners || 0)}>
+                  {formatCurrency(filteredBalances.partners || 0)}
+                </p>
+                <div className="absolute hidden group-hover:block bg-gray-800 text-white text-xs p-2 rounded z-10 bottom-full mb-2 whitespace-nowrap">
+                  {formatCurrency(filteredBalances.partners || 0)}
+                </div>
+              </motion.div>
+            )}
+            <motion.div whileHover={{ scale: 1.02 }} className="bg-purple-50 p-4 rounded-lg shadow relative group">
+              <div className="flex items-center gap-2 mb-2">
+                <CircleDollarSign className="text-purple-600 w-5 h-5" />
+                <h3 className="font-medium truncate max-w-[180px]">
+                  TOTAL GERAL: {selectedEntity.name.toUpperCase()}
+                </h3>
+              </div>
+              <p className="text-2xl font-bold text-purple-600 truncate" title={formatCurrency(filteredBalances.general || 0)}>
+                {formatCurrency(filteredBalances.general || 0)}
+              </p>
+              {formatCurrency(filteredBalances.general || 0).length > 12 && (
+                <div className="absolute hidden group-hover:block bg-gray-800 text-white text-xs p-2 rounded z-10 bottom-full mb-2 whitespace-nowrap">
+                  {formatCurrency(filteredBalances.general || 0)}
+                </div>
+              )}
+            </motion.div>
+          </>
+        ) : selectedFilter ? (
+          // Quando tem filtro de grupo selecionado, mostrar apenas o card do grupo
+          <>
+            {selectedFilter === "suppliers" && (
+              <motion.div whileHover={{ scale: 1.02 }} className="bg-yellow-50 p-4 rounded-lg shadow relative group">
+                <div className="flex items-center gap-2 mb-2">
+                  <HandCoins className="text-yellow-600 w-5 h-5" />
+                  <h3 className="font-medium truncate max-w-[180px]">TOTAL FORNECEDORES</h3>
+                </div>
+                <p className="text-2xl font-bold text-yellow-600 truncate" title={formatCurrency(filteredBalances.suppliers || 0)}>
+                  {formatCurrency(filteredBalances.suppliers || 0)}
+                </p>
+                {formatCurrency(filteredBalances.suppliers || 0).length > 12 && (
+                  <div className="absolute hidden group-hover:block bg-gray-800 text-white text-xs p-2 rounded z-10 bottom-full mb-2 whitespace-nowrap">
+                    {formatCurrency(filteredBalances.suppliers || 0)}
+                  </div>
+                )}
+              </motion.div>
+            )}
+            {selectedFilter === "carriers" && (
+              <motion.div whileHover={{ scale: 1.02 }} className="bg-blue-50 p-4 rounded-lg shadow relative group">
+                <div className="flex items-center gap-2 mb-2">
+                  <Truck className="text-blue-600 w-5 h-5" />
+                  <h3 className="font-medium truncate max-w-[180px]">TOTAL FRETES</h3>
+                </div>
+                <p className="text-2xl font-bold text-blue-600 truncate" title={formatCurrency(filteredBalances.carriers || 0)}>
+                  {formatCurrency(filteredBalances.carriers || 0)}
+                </p>
+                {formatCurrency(filteredBalances.carriers || 0).length > 5 && (
+                  <div className="absolute hidden group-hover:block bg-gray-800 text-white text-xs p-2 rounded z-10 bottom-full mb-2 whitespace-nowrap">
+                    {formatCurrency(filteredBalances.carriers || 0)}
+                  </div>
+                )}
+              </motion.div>
+            )}
+            {selectedFilter === "partners" && (
+              <motion.div whileHover={{ scale: 1.02 }} className="bg-teal-50 p-4 rounded-lg shadow relative group">
+                <div className="flex items-center gap-2 mb-2">
+                  <Handshake className="text-teal-600 w-5 h-5" />
+                  <h3 className="font-medium truncate max-w-[180px]">TOTAL PARCEIROS</h3>
+                </div>
+                <p className="text-2xl font-bold text-teal-600 truncate" title={formatCurrency(filteredBalances.partners || 0)}>
+                  {formatCurrency(filteredBalances.partners || 0)}
+                </p>
+                <div className="absolute hidden group-hover:block bg-gray-800 text-white text-xs p-2 rounded z-10 bottom-full mb-2 whitespace-nowrap">
+                  {formatCurrency(filteredBalances.partners || 0)}
+                </div>
+              </motion.div>
+            )}
+            {selectedFilter === "all" && (
+              <>
+                <motion.div whileHover={{ scale: 1.02 }} className="bg-yellow-50 p-4 rounded-lg shadow relative group">
+                  <div className="flex items-center gap-2 mb-2">
+                    <HandCoins className="text-yellow-600 w-5 h-5" />
+                    <h3 className="font-medium truncate max-w-[180px]">TOTAL FORNECEDORES</h3>
+                  </div>
+                  <p className="text-2xl font-bold text-yellow-600 truncate" title={formatCurrency(filteredBalances.suppliers || 0)}>
+                    {formatCurrency(filteredBalances.suppliers || 0)}
+                  </p>
+                  {formatCurrency(filteredBalances.suppliers || 0).length > 12 && (
+                    <div className="absolute hidden group-hover:block bg-gray-800 text-white text-xs p-2 rounded z-10 bottom-full mb-2 whitespace-nowrap">
+                      {formatCurrency(filteredBalances.suppliers || 0)}
+                    </div>
+                  )}
+                </motion.div>
 
-        <motion.div whileHover={{ scale: 1.02 }} className="bg-blue-50 p-4 rounded-lg shadow relative group">
-          <div className="flex items-center gap-2 mb-2">
-            <Truck className="text-blue-600 w-5 h-5" />
-            <h3 className="font-medium truncate max-w-[180px]">TOTAL FRETES</h3>
-          </div>
-          <p className="text-2xl font-bold text-blue-600 truncate" title={formatCurrency(balanceCarrier || 0)}>
-            {/* {formatCurrency(balanceCarrier || 0).length > 12
-              ? `${formatCurrency(balanceCarrier || 0).substring(0, 12)}...`
-              : formatCurrency(balanceCarrier || 0)} */}
-            {formatCurrency(balanceCarrier || 0)}
-          </p>
-          {formatCurrency(balanceCarrier || 0).length > 5 && (
-            <div className="absolute hidden group-hover:block bg-gray-800 text-white text-xs p-2 rounded z-10 bottom-full mb-2 whitespace-nowrap">
-              {formatCurrency(balanceCarrier || 0)}
-            </div>
-          )}
-        </motion.div>
+                <motion.div whileHover={{ scale: 1.02 }} className="bg-blue-50 p-4 rounded-lg shadow relative group">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Truck className="text-blue-600 w-5 h-5" />
+                    <h3 className="font-medium truncate max-w-[180px]">TOTAL FRETES</h3>
+                  </div>
+                  <p className="text-2xl font-bold text-blue-600 truncate" title={formatCurrency(filteredBalances.carriers || 0)}>
+                    {formatCurrency(filteredBalances.carriers || 0)}
+                  </p>
+                  {formatCurrency(filteredBalances.carriers || 0).length > 5 && (
+                    <div className="absolute hidden group-hover:block bg-gray-800 text-white text-xs p-2 rounded z-10 bottom-full mb-2 whitespace-nowrap">
+                      {formatCurrency(filteredBalances.carriers || 0)}
+                    </div>
+                  )}
+                </motion.div>
 
-        <motion.div whileHover={{ scale: 1.02 }} className="bg-teal-50 p-4 rounded-lg shadow relative group">
-          <div className="flex items-center gap-2 mb-2">
-            <Handshake className="text-teal-600 w-5 h-5" />
-            <h3 className="font-medium truncate max-w-[180px]">TOTAL PARCEIROS</h3>
-          </div>
-          <p className="text-2xl font-bold text-teal-600 truncate" title={formatCurrency(balancePartnerUSD || 0)}>
-            {/* {formatCurrency(balancePartnerUSD || 0).length > 12
-              ? `${formatCurrency(balancePartnerUSD || 0).substring(0, 12)}...`
-              : formatCurrency(balancePartnerUSD || 0)} */}
-            {formatCurrency(balancePartnerUSD || 0)}
-          </p>
-          {/* {formatCurrency(balancePartnerUSD || 0).length > 12 && (
-            <div className="absolute hidden group-hover:block bg-gray-800 text-white text-xs p-2 rounded z-10 bottom-full mb-2 whitespace-nowrap">
-              {formatCurrency(balancePartnerUSD || 0)}
-            </div>
-          )} */}
-          <div className="absolute hidden group-hover:block bg-gray-800 text-white text-xs p-2 rounded z-10 bottom-full mb-2 whitespace-nowrap">
-            {formatCurrency(balancePartnerUSD || 0)}
-          </div>
-        </motion.div>
+                <motion.div whileHover={{ scale: 1.02 }} className="bg-teal-50 p-4 rounded-lg shadow relative group">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Handshake className="text-teal-600 w-5 h-5" />
+                    <h3 className="font-medium truncate max-w-[180px]">TOTAL PARCEIROS</h3>
+                  </div>
+                  <p className="text-2xl font-bold text-teal-600 truncate" title={formatCurrency(filteredBalances.partners || 0)}>
+                    {formatCurrency(filteredBalances.partners || 0)}
+                  </p>
+                  <div className="absolute hidden group-hover:block bg-gray-800 text-white text-xs p-2 rounded z-10 bottom-full mb-2 whitespace-nowrap">
+                    {formatCurrency(filteredBalances.partners || 0)}
+                  </div>
+                </motion.div>
 
-        <motion.div whileHover={{ scale: 1.02 }} className="bg-purple-50 p-4 rounded-lg shadow relative group">
-          <div className="flex items-center gap-2 mb-2">
-            <CircleDollarSign className="text-purple-600 w-5 h-5" />
-            <h3 className="font-medium truncate max-w-[180px]">TOTAL GERAL</h3>
-          </div>
-          <p className="text-2xl font-bold text-purple-600 truncate" title={formatCurrency(balanceGeneralUSD || 0)}>
-            {/* {formatCurrency(balanceGeneralUSD || 0).length > 12
-              ? `${formatCurrency(balanceGeneralUSD || 0).substring(0, 12)}...`
-              : formatCurrency(balanceGeneralUSD || 0)} */}
-            {formatCurrency(balanceGeneralUSD || 0)}
-          </p>
-          {formatCurrency(balanceGeneralUSD || 0).length > 12 && (
-            <div className="absolute hidden group-hover:block bg-gray-800 text-white text-xs p-2 rounded z-10 bottom-full mb-2 whitespace-nowrap">
-              {formatCurrency(balanceGeneralUSD || 0)}
-            </div>
-          )}
-        </motion.div>
+                <motion.div whileHover={{ scale: 1.02 }} className="bg-purple-50 p-4 rounded-lg shadow relative group">
+                  <div className="flex items-center gap-2 mb-2">
+                    <CircleDollarSign className="text-purple-600 w-5 h-5" />
+                    <h3 className="font-medium truncate max-w-[180px]">TOTAL GERAL</h3>
+                  </div>
+                  <p className="text-2xl font-bold text-purple-600 truncate" title={formatCurrency(filteredBalances.general || 0)}>
+                    {formatCurrency(filteredBalances.general || 0)}
+                  </p>
+                  {formatCurrency(filteredBalances.general || 0).length > 12 && (
+                    <div className="absolute hidden group-hover:block bg-gray-800 text-white text-xs p-2 rounded z-10 bottom-full mb-2 whitespace-nowrap">
+                      {formatCurrency(filteredBalances.general || 0)}
+                    </div>
+                  )}
+                </motion.div>
+              </>
+            )}
+          </>
+        ) : (
+          // Quando não tem item selecionado, mostrar todos os totais
+          <>
+            <motion.div whileHover={{ scale: 1.02 }} className="bg-yellow-50 p-4 rounded-lg shadow relative group">
+              <div className="flex items-center gap-2 mb-2">
+                <HandCoins className="text-yellow-600 w-5 h-5" />
+                <h3 className="font-medium truncate max-w-[180px]">TOTAL FORNECEDORES</h3>
+              </div>
+              <p className="text-2xl font-bold text-yellow-600 truncate" title={formatCurrency(filteredBalances.suppliers || 0)}>
+                {formatCurrency(filteredBalances.suppliers || 0)}
+              </p>
+              {formatCurrency(filteredBalances.suppliers || 0).length > 12 && (
+                <div className="absolute hidden group-hover:block bg-gray-800 text-white text-xs p-2 rounded z-10 bottom-full mb-2 whitespace-nowrap">
+                  {formatCurrency(filteredBalances.suppliers || 0)}
+                </div>
+              )}
+            </motion.div>
+
+            <motion.div whileHover={{ scale: 1.02 }} className="bg-blue-50 p-4 rounded-lg shadow relative group">
+              <div className="flex items-center gap-2 mb-2">
+                <Truck className="text-blue-600 w-5 h-5" />
+                <h3 className="font-medium truncate max-w-[180px]">TOTAL FRETES</h3>
+              </div>
+              <p className="text-2xl font-bold text-blue-600 truncate" title={formatCurrency(filteredBalances.carriers || 0)}>
+                {formatCurrency(filteredBalances.carriers || 0)}
+              </p>
+              {formatCurrency(filteredBalances.carriers || 0).length > 5 && (
+                <div className="absolute hidden group-hover:block bg-gray-800 text-white text-xs p-2 rounded z-10 bottom-full mb-2 whitespace-nowrap">
+                  {formatCurrency(filteredBalances.carriers || 0)}
+                </div>
+              )}
+            </motion.div>
+
+            <motion.div whileHover={{ scale: 1.02 }} className="bg-teal-50 p-4 rounded-lg shadow relative group">
+              <div className="flex items-center gap-2 mb-2">
+                <Handshake className="text-teal-600 w-5 h-5" />
+                <h3 className="font-medium truncate max-w-[180px]">TOTAL PARCEIROS</h3>
+              </div>
+              <p className="text-2xl font-bold text-teal-600 truncate" title={formatCurrency(filteredBalances.partners || 0)}>
+                {formatCurrency(filteredBalances.partners || 0)}
+              </p>
+              <div className="absolute hidden group-hover:block bg-gray-800 text-white text-xs p-2 rounded z-10 bottom-full mb-2 whitespace-nowrap">
+                {formatCurrency(filteredBalances.partners || 0)}
+              </div>
+            </motion.div>
+
+            <motion.div whileHover={{ scale: 1.02 }} className="bg-purple-50 p-4 rounded-lg shadow relative group">
+              <div className="flex items-center gap-2 mb-2">
+                <CircleDollarSign className="text-purple-600 w-5 h-5" />
+                <h3 className="font-medium truncate max-w-[180px]">TOTAL GERAL</h3>
+              </div>
+              <p className="text-2xl font-bold text-purple-600 truncate" title={formatCurrency(filteredBalances.general || 0)}>
+                {formatCurrency(filteredBalances.general || 0)}
+              </p>
+              {formatCurrency(filteredBalances.general || 0).length > 12 && (
+                <div className="absolute hidden group-hover:block bg-gray-800 text-white text-xs p-2 rounded z-10 bottom-full mb-2 whitespace-nowrap">
+                  {formatCurrency(filteredBalances.general || 0)}
+                </div>
+              )}
+            </motion.div>
+          </>
+        )}
       </div>
       <div className="bg-white p-6 rounded-lg shadow mb-6">
         <div className="flex items-center mb-4">
@@ -588,36 +994,72 @@ export const CaixasTab = () => {
         ) : (
           <div className="flex items-center space-x-4">
             <GenericSearchSelect
-              items={user?.role === "MASTER" || user?.role === "ADMIN" ? combinedItems : combinedItems.filter((item) =>permissions?.GERENCIAR_INVOICES?.CAIXAS_BR_PERMITIDOS?.includes(item.name))}
-              value={selectedEntity?.id || ""}
-              getLabel={(p) => (
-                <span className="flex items-center">
-                  {p.typeInvoice === "freteiro" && <i className="fas fa-truck mr-2 text-blue-600"></i>}
-                  {p.typeInvoice === "fornecedor" && <i className="fas fa-hand-holding-usd mr-2 text-green-600"></i>}
-                  {p.typeInvoice === "parceiro" && <i className="fas fa-handshake mr-2 text-red-600"></i>}
-                  {p.name} (
-                  {
-                    (
-                      {
-                        freteiro: "Transportadora",
-                        fornecedor: "Fornecedor",
-                        parceiro: "Parceiro",
-                      } as const
-                    )[p.typeInvoice as "freteiro" | "fornecedor" | "parceiro"]
-                  }
+              items={[
+                // Opções especiais de filtro
+                { id: "filter_all", name: "TODOS", typeInvoice: "all" as any, isFilter: true },
+                { id: "filter_suppliers", name: "FORNECEDORES", typeInvoice: "fornecedor" as any, isFilter: true },
+                { id: "filter_carriers", name: "FRETEIROS", typeInvoice: "freteiro" as any, isFilter: true },
+                { id: "filter_partners", name: "PARCEIROS", typeInvoice: "parceiro" as any, isFilter: true },
+                // Entidades reais
+                ...(user?.role === "MASTER" || user?.role === "ADMIN" 
+                  ? combinedItems 
+                  : combinedItems.filter((item) => permissions?.GERENCIAR_INVOICES?.CAIXAS_BR_PERMITIDOS?.includes(item.name))
+                )
+              ]}
+              value={selectedFilter ? `filter_${selectedFilter}` : selectedEntity?.id || ""}
+              getLabel={(p: any) => {
+                if (p.isFilter) {
+                  return (
+                    <span className="flex items-center font-semibold">
+                      {p.typeInvoice === "freteiro" && <i className="fas fa-truck mr-2 text-blue-600"></i>}
+                      {p.typeInvoice === "fornecedor" && <i className="fas fa-hand-holding-usd mr-2 text-green-600"></i>}
+                      {p.typeInvoice === "parceiro" && <i className="fas fa-handshake mr-2 text-red-600"></i>}
+                      {p.typeInvoice === "all" && <i className="fas fa-list mr-2 text-purple-600"></i>}
+                      {p.name}
+                    </span>
                   )
-                </span>
-              )}
-              getSearchString={(p) => p.name}
-              getId={(p) => p.id}
+                }
+                return (
+                  <span className="flex items-center">
+                    {p.typeInvoice === "freteiro" && <i className="fas fa-truck mr-2 text-blue-600"></i>}
+                    {p.typeInvoice === "fornecedor" && <i className="fas fa-hand-holding-usd mr-2 text-green-600"></i>}
+                    {p.typeInvoice === "parceiro" && <i className="fas fa-handshake mr-2 text-red-600"></i>}
+                    {p.name} (
+                    {
+                      (
+                        {
+                          freteiro: "Transportadora",
+                          fornecedor: "Fornecedor",
+                          parceiro: "Parceiro",
+                        } as const
+                      )[p.typeInvoice as "freteiro" | "fornecedor" | "parceiro"]
+                    }
+                    )
+                  </span>
+                )
+              }}
+              getSearchString={(p: any) => p.name}
+              getId={(p: any) => p.id}
               onChange={(id) => {
+                // Verificar se é um filtro
+                if (id.startsWith("filter_")) {
+                  const filterType = id.replace("filter_", "") as "all" | "suppliers" | "carriers" | "partners"
+                  setSelectedFilter(filterType)
+                  setSelectedEntity(null)
+                  return
+                }
+                
+                // É uma entidade real
+                setSelectedFilter(null)
                 const entity = combinedItems.find((item) => item.id === id)
                 if (entity) {
                   setSelectedEntity(entity)
                   fetchEntityData(id)
+                } else {
+                  setSelectedEntity(null)
                 }
               }}
-              label="Selecione um usuário"
+              label="Selecione um filtro ou entidade"
             />
           </div>
         )}
