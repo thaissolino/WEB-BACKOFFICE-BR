@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 interface Product {
   id: string;
   name: string;
+  code?: string;
 }
 
 interface Props {
@@ -17,9 +18,23 @@ export function ProductSearchSelect({ products, value, onChange, inline = false 
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const filtered = products.filter(p =>
-    p.name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filtered = products
+    .filter(p => {
+      const searchLower = searchTerm.toLowerCase().trim();
+      if (!searchLower) return true;
+      
+      // Busca por nome ou código
+      const nameLower = p.name.toLowerCase();
+      const codeLower = p.code?.toLowerCase() || "";
+      const words = nameLower.split(/\s+/);
+      
+      // Verifica se alguma palavra começa com o termo de busca OU se o código corresponde
+      return words.some(word => word.startsWith(searchLower)) || 
+             nameLower.startsWith(searchLower) ||
+             codeLower === searchLower ||
+             codeLower.startsWith(searchLower);
+    })
+    .slice(0, 20); // Limita a 20 resultados para melhor performance
 
   const selectedName = products.find(p => p.id === value)?.name || "";
 
@@ -45,7 +60,7 @@ export function ProductSearchSelect({ products, value, onChange, inline = false 
   }, []);
 
   return (
-    <div ref={dropdownRef} className={`relative ${inline ? 'mb-0' : 'mb-4'}`}>
+    <div ref={dropdownRef} className={`relative ${inline ? 'mb-0' : 'mb-1'}`}>
       <label className="block text-sm font-medium text-gray-700 mb-1">Produto</label>
 
       <div
