@@ -434,13 +434,22 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
                         <td className="px-6  py-4 whitespace-nowrap text-right text-sm font-medium">
                           <div className="flex justify-end gap-2">
                           {invoice.paid ? (
-                            <button
-                              onClick={() => openModal(invoice, false)}
-                              className="text-blue-600 hover:text-blue-900"
-                              title="Visualizar"
-                            >
-                              <Eye size={16} />
-                            </button>
+                            <>
+                              <button
+                                onClick={() => openModal(invoice, false)}
+                                className="text-blue-600 hover:text-blue-900"
+                                title="Visualizar"
+                              >
+                                <Eye size={16} />
+                              </button>
+                              <button
+                                onClick={() => openModal(invoice, true)}
+                                className="text-green-600 hover:text-green-900"
+                                title="Editar"
+                              >
+                                <Edit size={16} />
+                              </button>
+                            </>
                           ) : (
                             <>
                               <button
@@ -507,10 +516,11 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
           >
             {/* Seção para adicionar novo produto */}
             <div className="mb-6">
-              {!showAddProductForm ? (
+              {!isEditMode && !showAddProductForm ? null : !showAddProductForm ? (
                 <button
                   onClick={() => setShowAddProductForm(true)}
                   className="flex items-center gap-2 text-blue-600 hover:text-blue-800 mb-4"
+                  disabled={!isEditMode}
                 >
                   <PlusCircle className="inline" size={16} /> Adicionar Novo Produto
                 </button>
@@ -774,24 +784,26 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
                           <td className="px-4 py-2 text-sm text-right">{product.weight.toFixed(2)}</td>
                           <td className="px-4 py-2 text-sm text-right">{product.total.toFixed(2)}</td>
                           <td className="px-4 py-2 text-sm text-right">
-                            <div className="flex justify-end items-center ">
-                              <button
-                                onClick={() => handleDeleteProduct(product.id)}
-                                disabled={isSaving}
-                                className={`flex items-center justify-center gap-2 text-sm font-medium px-3 py-1 rounded-md shadow-sm transition 
-    ${isSaving ? "bg-gray-400 cursor-not-allowed opacity-60 text-white" : "bg-red-600 hover:bg-red-500 text-white"}`}
-                              >
-                                {isSaving ? (
-                                  <>
-                                    <Loader2 className="animate-spin" size={16} /> Removendo...
-                                  </>
-                                ) : (
-                                  <>
-                                    <XIcon size={16} /> Remover
-                                  </>
-                                )}
-                              </button>
-                            </div>
+                            {isEditMode && (
+                              <div className="flex justify-end items-center ">
+                                <button
+                                  onClick={() => handleDeleteProduct(product.id)}
+                                  disabled={isSaving}
+                                  className={`flex items-center justify-center gap-2 text-sm font-medium px-3 py-1 rounded-md shadow-sm transition 
+      ${isSaving ? "bg-gray-400 cursor-not-allowed opacity-60 text-white" : "bg-red-600 hover:bg-red-500 text-white"}`}
+                                >
+                                  {isSaving ? (
+                                    <>
+                                      <Loader2 className="animate-spin" size={16} /> Removendo...
+                                    </>
+                                  ) : (
+                                    <>
+                                      <XIcon size={16} /> Remover
+                                    </>
+                                  )}
+                                </button>
+                              </div>
+                            )}
                           </td>
                         </tr>
                       ))}

@@ -60,9 +60,16 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
           api.get("/invoice/product"),
           api.get("/invoice/carriers"),
         ]);
-        console.log(productsResponse.data);
+        console.log("Produtos recebidos do backend:", productsResponse.data);
         // O backend agora retorna { products: [...], totalProducts: ..., page: ..., limit: ..., totalPages: ... }
-        setProducts(Array.isArray(productsResponse.data) ? productsResponse.data : productsResponse.data.products || []);
+        const productsList = Array.isArray(productsResponse.data) ? productsResponse.data : productsResponse.data.products || [];
+        console.log("Lista de produtos processada:", productsList);
+        // Verificar se os produtos têm priceweightAverage
+        if (productsList.length > 0) {
+          console.log("Primeiro produto exemplo:", productsList[0]);
+          console.log("Preço do primeiro produto:", productsList[0].priceweightAverage);
+        }
+        setProducts(productsList);
         setCarriers(carriersResponse.data);
       } catch (error) {
         console.error("Erro ao carregar dados:", error);
@@ -372,16 +379,128 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
       {showProductForm && (
         <div className="mb-6 p-4 bg-gray-50 rounded-lg border">
           <h3 className="font-medium mb-3 text-blue-700 border-b pb-2">Adicionar Produto</h3>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
-            <div className="relative">
+          <div className="grid grid-cols-1 md:grid-cols-6 gap-2 mb-4">
+            <div className="relative md:col-span-2">
               {/* <label className="block text-sm font-medium text-gray-700 mb-1">Produto</label> */}
               <ProductSearchSelect
                 products={products}
                 value={productForm.productId}
                 onChange={(e: any) => {
-                 
-                setProductForm({ ...productForm, productId: e })}}
+                  const selectedProduct = products.find((p) => p.id === e);
+                  
+                  console.log("Produto selecionado:", selectedProduct);
+                  
+                  if (selectedProduct) {
+                    // Preencher preço automaticamente
+                    const price = selectedProduct.priceweightAverage ?? 0;
+                    console.log("Preço do produto:", price);
+                    const priceString = price > 0 ? price.toString() : "";
+                    
+                    // Atualizar valorRaw com o preço (sem formatação inicial, será formatado no onBlur)
+                    setValorRaw(priceString);
+                    
+                    // Preencher peso automaticamente
+                    const weight = selectedProduct.weightAverage ?? 0;
+                    console.log("Peso do produto:", weight);
+                    const weightString = weight > 0 ? weight.toString() : "";
+                    
+                    const newForm = { 
+                      ...productForm, 
+                      productId: e,
+                      value: priceString,
+                      weight: weightString
+                    };
+                    
+                    // Recalcular total automaticamente se houver quantidade
+                    if (price > 0 && productForm.quantity) {
+                      const quantity = parseFloat(productForm.quantity) || 0;
+                      const total = quantity * price;
+                      newForm.total = total.toFixed(2);
+                    }
+                    
+                    setProductForm(newForm);
+                    console.log("Form atualizado:", newForm);
+                  } else {
+                    setProductForm({ ...productForm, productId: e });
+                    setValorRaw("");
+                  }
+                }}
               ></ProductSearchSelect>
+            </div>
+            <div className="relative">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Código</label>
+              <input
+                type="text"
+                placeholder="Código"
+                value={(() => {
+                  const selectedProduct = products.find((p) => p.id === productForm.productId);
+                  return selectedProduct?.code || "";
+                })()}
+                className="w-full border border-gray-300 rounded-md p-2 text-sm focus:ring-blue-500 focus:border-blue-500"
+                onChange={(e) => {
+                  const code = e.target.value.trim();
+                  if (code) {
+                    const productByCode = products.find((p) => p.code === code || p.code?.toLowerCase() === code.toLowerCase());
+                    if (productByCode) {
+                      // Preencher produto automaticamente
+                      const price = productByCode.priceweightAverage ?? 0;
+                      const priceString = price > 0 ? price.toString() : "";
+                      setValorRaw(priceString);
+                      
+                      const weight = productByCode.weightAverage ?? 0;
+                      const weightString = weight > 0 ? weight.toString() : "";
+                      
+                      const newForm = { 
+                        ...productForm, 
+                        productId: productByCode.id,
+                        value: priceString,
+                        weight: weightString
+                      };
+                      
+                      if (price > 0 && productForm.quantity) {
+                        const quantity = parseFloat(productForm.quantity) || 0;
+                        const total = quantity * price;
+                        newForm.total = total.toFixed(2);
+                      }
+                      
+                      setProductForm(newForm);
+                    }
+                  }
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    const code = e.currentTarget.value.trim();
+                    if (code) {
+                      const productByCode = products.find((p) => p.code === code || p.code?.toLowerCase() === code.toLowerCase());
+                      if (productByCode) {
+                        // Preencher produto automaticamente
+                        const price = productByCode.priceweightAverage ?? 0;
+                        const priceString = price > 0 ? price.toString() : "";
+                        setValorRaw(priceString);
+                        
+                        const weight = productByCode.weightAverage ?? 0;
+                        const weightString = weight > 0 ? weight.toString() : "";
+                        
+                        const newForm = { 
+                          ...productForm, 
+                          productId: productByCode.id,
+                          value: priceString,
+                          weight: weightString
+                        };
+                        
+                        if (price > 0 && productForm.quantity) {
+                          const quantity = parseFloat(productForm.quantity) || 0;
+                          const total = quantity * price;
+                          newForm.total = total.toFixed(2);
+                        }
+                        
+                        setProductForm(newForm);
+                      }
+                    }
+                  }
+                }}
+              />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Quantidade</label>
@@ -392,7 +511,7 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
                   console.log(e.target.value);
                   setProductForm({ ...productForm, quantity: e.target.value });
                 }}
-                className="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500 appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                className="w-full border border-gray-300 rounded-md p-2 text-sm focus:ring-blue-500 focus:border-blue-500 appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                 placeholder="Qtd"
               />
             </div>
@@ -453,7 +572,7 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
                 }
               }}
 
-                className="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500 appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                className="w-full border border-gray-300 rounded-md p-2 text-sm focus:ring-blue-500 focus:border-blue-500 appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                 placeholder="$"
               />
             </div>
@@ -466,7 +585,7 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
                 onChange={(e) => {
                   setProductForm({ ...productForm, weight: e.target.value });
                 }}
-                className="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500 appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                className="w-full border border-gray-300 rounded-md p-2 text-sm focus:ring-blue-500 focus:border-blue-500 appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                 placeholder="kg"
               />
             </div>
