@@ -613,9 +613,11 @@ export function InvoiceHistoryReport({
                       <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                         {selectedInvoice.paid ? "Total ($)" : "Total ($)"}
                       </th>
-                      <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Ações
-                      </th>
+                      {isEditMode && (
+                        <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Ações
+                        </th>
+                      )}
                     </tr>
                   </thead>
                   <tbody id="modalInvoicePendingProducts" className="bg-white divide-y divide-gray-200">
@@ -632,9 +634,9 @@ export function InvoiceHistoryReport({
                           <td className="px-4 py-2 text-sm text-right">{product.value.toFixed(2)}</td>
                           <td className="px-4 py-2 text-sm text-right">{product.weight.toFixed(2)}</td>
                           <td className="px-4 py-2 text-sm text-right">{product.total.toFixed(2)}</td>
-                          <td className="px-4 py-2 text-sm text-right">
-                            <div className="flex justify-end items-center">
-                              {!isOnlyViewMode && (
+                          {isEditMode && (
+                            <td className="px-4 py-2 text-sm text-right">
+                              <div className="flex justify-end items-center">
                                 <button
                                   onClick={() => setSelectedProductToAnalyze(product)}
                                   disabled={
@@ -651,9 +653,9 @@ export function InvoiceHistoryReport({
                                 >
                                   <Check size={18} /> Analisar
                                 </button>
-                              )}
-                            </div>
-                          </td>
+                              </div>
+                            </td>
+                          )}
                         </tr>
                       ))}
                     <tr className="bg-yellow-100 font-semibold">
@@ -688,7 +690,7 @@ export function InvoiceHistoryReport({
                             maximumFractionDigits: 2,
                           })}
                       </td>
-                      <td className="px-4 py-2 text-sm text-right text-gray-800">—</td>
+                      {isEditMode && <td className="px-4 py-2 text-sm text-right text-gray-800">—</td>}
                     </tr>
                   </tbody>
                 </table>
@@ -716,9 +718,11 @@ export function InvoiceHistoryReport({
                       <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                         {selectedInvoice.paid ? "Total (R$)" : "Total ($)"}
                       </th>
-                      <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Ações
-                      </th>
+                      {isEditMode && (
+                        <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Ações
+                        </th>
+                      )}
                     </tr>
                   </thead>
                   <tbody id="modalInvoicePendingProducts" className="bg-white divide-y divide-gray-200">
@@ -774,36 +778,34 @@ export function InvoiceHistoryReport({
                               });
                             })()}
                           </td>
-                          <td className="px-4 py-2 text-sm text-right">
-                            <div className="flex justify-end items-center">
-                              {!isOnlyViewMode && (
-                                <td className="px-4 py-2 text-sm text-right">
-                                  <div className="flex justify-center items-center w-full h-full">
-                                    <button
-                                      onClick={() => handleReturnToPending(product)}
-                                      disabled={isSavingReturnId === product.id}
-                                      className={`-mr-4 flex items-center gap-2 px-3 py-1 rounded-md text-sm font-medium shadow-sm transition
+                          {isEditMode && (
+                            <td className="px-4 py-2 text-sm text-right">
+                              <div className="flex justify-end items-center">
+                                <div className="flex justify-center items-center w-full h-full">
+                                  <button
+                                    onClick={() => handleReturnToPending(product)}
+                                    disabled={isSavingReturnId === product.id}
+                                    className={`-mr-4 flex items-center gap-2 px-3 py-1 rounded-md text-sm font-medium shadow-sm transition
                                       ${
                                         isSavingReturnId === product.id
                                           ? "bg-gray-400 cursor-not-allowed opacity-60 text-white"
                                           : "bg-red-600 hover:bg-red-500 text-white"
                                       }`}
-                                    >
-                                      {isSavingReturnId === product.id ? (
-                                        <>
-                                          <Loader2 className="animate-spin" size={16} /> Removendo...
-                                        </>
-                                      ) : (
-                                        <>
-                                          <RotateCcw size={16} /> Devolver
-                                        </>
-                                      )}
-                                    </button>
-                                  </div>
-                                </td>
-                              )}
-                            </div>
-                          </td>
+                                  >
+                                    {isSavingReturnId === product.id ? (
+                                      <>
+                                        <Loader2 className="animate-spin" size={16} /> Removendo...
+                                      </>
+                                    ) : (
+                                      <>
+                                        <RotateCcw size={16} /> Devolver
+                                      </>
+                                    )}
+                                  </button>
+                                </div>
+                              </div>
+                            </td>
+                          )}
                         </tr>
                       ))}
                     <tr className="bg-green-100 font-semibold">
@@ -850,50 +852,52 @@ export function InvoiceHistoryReport({
                           return total.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
                         })()}
                       </td>
-                      <td className="px-4 py-2 text-sm text-right">
-                        <button
-                          onClick={async () => {
-                            setIsSavingId("all");
-                            const productsToReceive = selectedInvoice.products.filter(
-                              (item) => item.analising && !item.received
-                            );
+                      {isEditMode && (
+                        <td className="px-4 py-2 text-sm text-right">
+                          <button
+                            onClick={async () => {
+                              setIsSavingId("all");
+                              const productsToReceive = selectedInvoice.products.filter(
+                                (item) => item.analising && !item.received
+                              );
 
-                            for (const item of productsToReceive) {
-                              const allreceived = item.receivedQuantity + item.quantityAnalizer >= item.quantity;
-                              await api.patch("/invoice/update/product", {
-                                idProductInvoice: item.id,
-                                bodyupdate: {
-                                  received: allreceived,
-                                  receivedQuantity: item.receivedQuantity + item.quantityAnalizer,
-                                  quantityAnalizer: 0,
-                                },
-                              });
-                            }
+                              for (const item of productsToReceive) {
+                                const allreceived = item.receivedQuantity + item.quantityAnalizer >= item.quantity;
+                                await api.patch("/invoice/update/product", {
+                                  idProductInvoice: item.id,
+                                  bodyupdate: {
+                                    received: allreceived,
+                                    receivedQuantity: item.receivedQuantity + item.quantityAnalizer,
+                                    quantityAnalizer: 0,
+                                  },
+                                });
+                              }
 
-                            const { data: updatedInvoices } = await api.get("/invoice/get");
-                            setInvoices(updatedInvoices);
-                            setSelectedInvoice(updatedInvoices.find((i: any) => i.id === selectedInvoice.id) || null);
-                            setIsSavingId(""); // encerra loading
-                          }}
-                          disabled={isSavingId === "all"}
-                          className={`ml-auto flex items-center gap-2 px-3 py-1 rounded-md text-sm font-medium shadow-sm transition
+                              const { data: updatedInvoices } = await api.get("/invoice/get");
+                              setInvoices(updatedInvoices);
+                              setSelectedInvoice(updatedInvoices.find((i: any) => i.id === selectedInvoice.id) || null);
+                              setIsSavingId(""); // encerra loading
+                            }}
+                            disabled={isSavingId === "all"}
+                            className={`ml-auto flex items-center gap-2 px-3 py-1 rounded-md text-sm font-medium shadow-sm transition
     ${
       isSavingId === "all"
         ? "bg-gray-400 cursor-not-allowed opacity-60 text-white"
         : "bg-green-600 hover:bg-green-500 text-white"
     }`}
-                        >
-                          {isSavingId === "all" ? (
-                            <>
-                              <Loader2 className="animate-spin" size={16} /> Recebendo...
-                            </>
-                          ) : (
-                            <>
-                              <Check size={16} /> Receber Todos
-                            </>
-                          )}
-                        </button>
-                      </td>
+                          >
+                            {isSavingId === "all" ? (
+                              <>
+                                <Loader2 className="animate-spin" size={16} /> Recebendo...
+                              </>
+                            ) : (
+                              <>
+                                <Check size={16} /> Receber Todos
+                              </>
+                            )}
+                          </button>
+                        </td>
+                      )}
                     </tr>
                   </tbody>
                 </table>
