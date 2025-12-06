@@ -141,15 +141,19 @@ export function ExchangeTab() {
             }
             
             // Calcular saldo considerando transações e invoices
+            // IN = entrada de dinheiro para o freteiro (ele recebe, então ele nos deve) = saldo positivo
+            // OUT = saída de dinheiro do freteiro (pagamento a ele, então nós devemos a ele) = saldo negativo
             const transactionBalance = transactions.reduce((acc: number, t: any) => {
               return acc + (t.direction === "IN" ? t.value : -t.value);
             }, 0);
             
-            // Subtrair invoices (sempre saídas)
+            // Invoices são dívidas do freteiro conosco (ele nos deve)
+            // Então somamos ao saldo (saldo fica mais positivo = ele nos deve mais)
             const invoiceBalance = invoices.reduce((acc: number, invoice: any) => {
-              return acc - invoice.value;
+              return acc + invoice.value; // Soma porque invoice aumenta o que ele nos deve
             }, 0);
             
+            // Saldo final: positivo = freteiro nos deve, negativo = nós devemos ao freteiro
             const totalBalance = transactionBalance + invoiceBalance;
             return { ...carrier, balance: totalBalance };
           } catch (error) {
@@ -678,9 +682,12 @@ export function ExchangeTab() {
                 }
                 const carrier = carriers.find((item) => item.id === carrierId);
                 const balance = carrier?.balance || 0;
+                // Se o saldo for negativo, devemos pagar (preencher com valor absoluto)
+                // Se o saldo for positivo, ele nos deve (não precisa pagar, mas pode pagar parcialmente)
+                const valueToPay = balance < 0 ? Math.abs(balance) : 0;
                 setValorRaw4(
-                  balance > 0
-                    ? balance.toLocaleString("en-US", {
+                  valueToPay > 0
+                    ? valueToPay.toLocaleString("en-US", {
                         style: "currency",
                         currency: "USD",
                         minimumFractionDigits: 2,
@@ -691,7 +698,7 @@ export function ExchangeTab() {
                 setDataCarrierPayment((prev) => ({
                   ...prev,
                   carrierId: carrierId,
-                  usd: balance || 0,
+                  usd: valueToPay,
                 }));
               }}
               className="w-full h-11 border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500"
@@ -702,12 +709,20 @@ export function ExchangeTab() {
               ) : (
                 <>
                   {carriers
-                    .filter((carrier) => (carrier.balance || 0) > 0)
-                    .map((carrier) => (
-                      <option key={carrier.id} value={carrier.id}>
-                        {carrier.name.toUpperCase()} - Saldo: {formatCurrency(carrier.balance || 0, 2, "USD")}
-                      </option>
-                    ))}
+                    .sort((a, b) => (a.balance || 0) - (b.balance || 0)) // Ordenar: negativos primeiro (devemos pagar)
+                    .map((carrier) => {
+                      const balance = carrier.balance || 0;
+                      const balanceText = balance < 0 
+                        ? `Devemos: ${formatCurrency(Math.abs(balance), 2, "USD")}` 
+                        : balance > 0 
+                        ? `Nos deve: ${formatCurrency(balance, 2, "USD")}`
+                        : "Saldo: $0.00";
+                      return (
+                        <option key={carrier.id} value={carrier.id}>
+                          {carrier.name.toUpperCase()} - {balanceText}
+                        </option>
+                      );
+                    })}
                 </>
               )}
             </select>
@@ -727,8 +742,45 @@ export function ExchangeTab() {
               type="text"
               step="0.01"
               value={valueRaw4}
-              readOnly
-              className="w-full border border-gray-300 rounded-md p-2 bg-gray-100 focus:ring-blue-500 focus:border-blue-500"
+              onChange={(e) => {
+                const cleanedValue = e.target.value.replace(/[^0-9.-]/g, "");
+                let newValue = cleanedValue;
+                if ((cleanedValue.match(/-/g) || []).length > 1) {
+                  newValue = cleanedValue.replace(/-/g, "");
+                }
+                if ((cleanedValue.match(/\./g) || []).length > 1) {
+                  const parts = cleanedValue.split(".");
+                  newValue = parts[0] + "." + parts.slice(1).join("");
+                }
+                setValorRaw4(newValue);
+                const numericValue = parseFloat(newValue) || 0;
+                setDataCarrierPayment({ ...dataCarrierPayment, usd: numericValue });
+              }}
+              onBlur={(e) => {
+                if (valueRaw4) {
+                  const numericValue = parseFloat(valueRaw4.replace(/[^0-9.-]/g, ""));
+                  if (!isNaN(numericValue)) {
+                    const formattedValue = numericValue.toLocaleString("en-US", {
+                      style: "currency",
+                      currency: "USD",
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    });
+                    setValorRaw4(formattedValue);
+                    setDataCarrierPayment({ ...dataCarrierPayment, usd: numericValue });
+                  }
+                }
+              }}
+              onFocus={(e) => {
+                if (valueRaw4) {
+                  const numericValue = parseFloat(valueRaw4.replace(/[^0-9.-]/g, ""));
+                  if (!isNaN(numericValue)) {
+                    setValorRaw4(numericValue.toString());
+                  }
+                }
+              }}
+              placeholder="Digite o valor"
+              className="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500"
             />
           </div>
         </div>
@@ -749,11 +801,27 @@ export function ExchangeTab() {
                 return;
               }
 
+              // Validar apenas se o valor digitado é válido
+              if (!dataCarrierPayment.usd || dataCarrierPayment.usd <= 0) {
+                Swal.fire({
+                  icon: "warning",
+                  title: "Atenção",
+                  text: "Informe um valor válido para pagamento!",
+                  confirmButtonText: "Ok",
+                  buttonsStyling: false,
+                  customClass: {
+                    confirmButton: "bg-green-600 text-white hover:bg-green-700 px-4 py-2 rounded font-semibold",
+                  },
+                });
+                return;
+              }
+              
+              // Validar saldo da média dólar
               if (!balance || dataCarrierPayment.usd > balance.balance) {
                 Swal.fire({
                   icon: "warning",
                   title: "Atenção",
-                  text: "Saldo insuficiente!",
+                  text: "Saldo insuficiente na média dólar!",
                   confirmButtonText: "Ok",
                   buttonsStyling: false,
                   customClass: {
@@ -827,6 +895,139 @@ export function ExchangeTab() {
               <>Pagar Caixa do Freteiro</>
             )}
           </button>
+        </div>
+      </div>
+
+      {/* Seção de Estorno de Pagamentos de Freteiros */}
+      <div className="mt-6 p-4 bg-gray-50 rounded">
+        <h3 className="text-lg font-medium mb-4 text-blue-700 border-b pb-2">Estornar Pagamentos de Freteiros</h3>
+        <div className="overflow-x-auto">
+          <table className="min-w-full bg-white">
+            <thead>
+              <tr className="bg-gray-200">
+                <th className="py-2 px-4 border">Data</th>
+                <th className="py-2 px-4 border">Freteiro</th>
+                <th className="py-2 px-4 border">Valor (USD)</th>
+                <th className="py-2 px-4 border">Taxa</th>
+                <th className="py-2 px-4 border">Usuário</th>
+                <th className="py-2 px-4 border">Ações</th>
+              </tr>
+            </thead>
+            <tbody>
+              {historyPaymentBuy && historyPaymentBuy.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="py-4 text-center text-gray-500">
+                    Nenhum pagamento de freteiro encontrado
+                  </td>
+                </tr>
+              ) : (
+                (historyPaymentBuy ?? [])
+                  .filter((transacao) => 
+                    transacao.type === "PAYMENT" && 
+                    transacao.description.includes("PAGAMENTO CAIXA FRETEIRO")
+                  )
+                  .map((transacao) => {
+                    const carrierName = transacao.description.replace("PAGAMENTO CAIXA FRETEIRO - ", "").trim();
+                    return (
+                      <tr key={transacao.id} className="hover:bg-gray-50 bg-blue-50">
+                        <td className="py-2 px-4 border text-center">
+                          {new Date(new Date(transacao.date).getTime() + 3 * 60 * 60 * 1000).toLocaleDateString("pt-BR")}
+                        </td>
+                        <td className="py-2 px-4 border text-center font-semibold">
+                          {carrierName}
+                        </td>
+                        <td className="py-2 px-4 border text-center font-mono text-red-600">
+                          -{formatCurrency(transacao.usd, 2, "USD")}
+                        </td>
+                        <td className="py-2 px-4 border text-center font-mono">
+                          {formatCurrency(transacao.rate, 4)}
+                        </td>
+                        <td className="py-2 px-4 border text-center text-sm">
+                          {transacao.user ? (
+                            <span title={transacao.user.email}>
+                              {transacao.user.name || transacao.user.email || "Usuário"}
+                            </span>
+                          ) : (
+                            <span className="text-gray-400">-</span>
+                          )}
+                        </td>
+                        <td className="py-2 px-4 border text-center">
+                          <button
+                            onClick={async () => {
+                              const result = await Swal.fire({
+                                title: "Tem certeza?",
+                                text: `Deseja estornar o pagamento de ${carrierName} no valor de ${formatCurrency(transacao.usd, 2, "USD")}?`,
+                                icon: "warning",
+                                showCancelButton: true,
+                                confirmButtonText: "Sim, estornar!",
+                                cancelButtonText: "Cancelar",
+                                customClass: {
+                                  confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
+                                  cancelButton: "bg-gray-300 text-gray-800 hover:bg-gray-400 px-4 py-2 rounded font-semibold",
+                                },
+                              });
+
+                              if (result.isConfirmed) {
+                                try {
+                                  // Buscar a transação do caixa do freteiro pela descrição
+                                  const carrier = carriers.find((c) => 
+                                    transacao.description.includes(c.name.toUpperCase())
+                                  );
+                                  
+                                  if (carrier) {
+                                    const balanceRes = await api.get(`/invoice/box/transaction/${carrier.id}`);
+                                    const transactions = balanceRes.data.TransactionBoxUserInvoice || [];
+                                    
+                                    // Encontrar a transação de pagamento correspondente
+                                    const boxTransaction = transactions.find((t: any) => 
+                                      t.description === transacao.description &&
+                                      t.direction === "OUT" &&
+                                      Math.abs(t.value - transacao.usd) < 0.01
+                                    );
+
+                                    if (boxTransaction) {
+                                      // Deletar transação do caixa
+                                      await api.delete(`/invoice/box/trasnsaction/user/${boxTransaction.id}`);
+                                    }
+                                  }
+
+                                  // Deletar registro de exchange e recalcular
+                                  await api.delete(`/invoice/exchange-records/${transacao.id}/recalculate`);
+
+                                  setOpenNotification({
+                                    type: "success",
+                                    title: "Sucesso!",
+                                    notification: "Pagamento estornado com sucesso!",
+                                  });
+
+                                  await fetchData();
+                                } catch (error) {
+                                  console.error("Erro ao estornar pagamento:", error);
+                                  Swal.fire({
+                                    icon: "error",
+                                    title: "Erro",
+                                    text: "Erro ao estornar pagamento. Tente novamente.",
+                                    confirmButtonText: "Ok",
+                                    buttonsStyling: false,
+                                    customClass: {
+                                      confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
+                                    },
+                                  });
+                                }
+                              }
+                            }}
+                            className="bg-red-600 hover:bg-red-800 text-white px-3 py-1 rounded text-sm font-semibold transition-colors duration-200"
+                            title="Estornar pagamento"
+                          >
+                            ↶ Estornar
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
 
