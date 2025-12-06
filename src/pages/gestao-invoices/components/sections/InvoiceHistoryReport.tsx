@@ -1,4 +1,4 @@
-import { History, Eye, Edit, XIcon, RotateCcw, Check, Loader2, Trash, Undo2  } from "lucide-react";
+import { History, Eye, Edit, XIcon, RotateCcw, Check, Loader2, Trash, Undo2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { api } from "../../../../services/api";
 import { Invoice } from "../types/invoice"; // Se necessário, ajuste o caminho do tipo
@@ -20,7 +20,6 @@ export type exchange = {
   createdAt: Date;
   updatedAt: Date;
 };
-
 
 export type Carrier = {
   id: string;
@@ -89,6 +88,11 @@ export type InvoiceData = {
     value: number;
     active: boolean;
   };
+  user?: {
+    id: string;
+    name: string;
+    email: string;
+  } | null;
 };
 
 type ProductData = {
@@ -183,24 +187,24 @@ export function InvoiceHistoryReport({
     setIsModalOpen(true);
   };
 
-     const UndoInvoicePaid = (idInvoice: string) => {
-        if (!idInvoice) return;
-    
-        Swal.fire({
-          title: "Tem certeza?",
-          text: "Você não poderá reverter isso!",
-          icon: "warning",
-          showCancelButton: true,
-          confirmButtonText: "Sim, estornar!",
-          cancelButtonText: "Cancelar",
-          customClass: {
-            confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
-            cancelButton: "bg-gray-300 text-gray-800 hover:bg-gray-400 px-4 py-2 rounded font-semibold",
-          },
-        }).then((result) => {
-          if (result.isConfirmed) {
-            api
-          .post(`/invoice/return-paid`,{
+  const UndoInvoicePaid = (idInvoice: string) => {
+    if (!idInvoice) return;
+
+    Swal.fire({
+      title: "Tem certeza?",
+      text: "Você não poderá reverter isso!",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonText: "Sim, estornar!",
+      cancelButtonText: "Cancelar",
+      customClass: {
+        confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
+        cancelButton: "bg-gray-300 text-gray-800 hover:bg-gray-400 px-4 py-2 rounded font-semibold",
+      },
+    }).then((result) => {
+      if (result.isConfirmed) {
+        api
+          .post(`/invoice/return-paid`, {
             idInvoice: idInvoice,
           })
           .then(() => {
@@ -218,22 +222,20 @@ export function InvoiceHistoryReport({
           })
           .catch((error) => {
             console.error("Erro ao deletar invoice:", error);
-                  Swal.fire({
-            icon: "error",
-            title: "Error ",
-            text: "Erro ao estornar invoice. Tente novamente.",
-            confirmButtonText: "Ok",
-            buttonsStyling: false,
-            customClass: {
-              confirmButton: "bg-green-600 text-white hover:bg-green-700 px-4 py-2 rounded font-semibold",
-            },
+            Swal.fire({
+              icon: "error",
+              title: "Error ",
+              text: "Erro ao estornar invoice. Tente novamente.",
+              confirmButtonText: "Ok",
+              buttonsStyling: false,
+              customClass: {
+                confirmButton: "bg-green-600 text-white hover:bg-green-700 px-4 py-2 rounded font-semibold",
+              },
+            });
           });
-          });
-          }
-        });
-    
-        
       }
+    });
+  };
 
   const deleteInvoice = (idInvoice: string) => {
     if (!idInvoice) return;
@@ -252,38 +254,36 @@ export function InvoiceHistoryReport({
     }).then((result) => {
       if (result.isConfirmed) {
         api
-      .delete(`/invoice/delete/${idInvoice}`)
-      .then(() => {
-        setInvoices((prevInvoices) => prevInvoices.filter((invoice) => invoice.id !== idInvoice));
-        Swal.fire({
-          icon: "success",
-          title: "Deletado!",
-          text: "Invoice deletada com sucesso.",
-          confirmButtonText: "Ok",
-          buttonsStyling: false,
-          customClass: {
-            confirmButton: "bg-green-600 text-white hover:bg-green-700 px-4 py-2 rounded font-semibold",
-          },
-        });
-      })
-      .catch((error) => {
-        console.error("Erro ao deletar invoice:", error);
-              Swal.fire({
-        icon: "error",
-        title: "Error ",
-        text: "Erro ao deletar invoice. Tente novamente.",
-        confirmButtonText: "Ok",
-        buttonsStyling: false,
-        customClass: {
-          confirmButton: "bg-green-600 text-white hover:bg-green-700 px-4 py-2 rounded font-semibold",
-        },
-      });
-      });
+          .delete(`/invoice/delete/${idInvoice}`)
+          .then(() => {
+            setInvoices((prevInvoices) => prevInvoices.filter((invoice) => invoice.id !== idInvoice));
+            Swal.fire({
+              icon: "success",
+              title: "Deletado!",
+              text: "Invoice deletada com sucesso.",
+              confirmButtonText: "Ok",
+              buttonsStyling: false,
+              customClass: {
+                confirmButton: "bg-green-600 text-white hover:bg-green-700 px-4 py-2 rounded font-semibold",
+              },
+            });
+          })
+          .catch((error) => {
+            console.error("Erro ao deletar invoice:", error);
+            Swal.fire({
+              icon: "error",
+              title: "Error ",
+              text: "Erro ao deletar invoice. Tente novamente.",
+              confirmButtonText: "Ok",
+              buttonsStyling: false,
+              customClass: {
+                confirmButton: "bg-green-600 text-white hover:bg-green-700 px-4 py-2 rounded font-semibold",
+              },
+            });
+          });
       }
     });
-
-    
-  }
+  };
 
   const closeModal = () => {
     setIsModalOpen(false);
@@ -303,11 +303,11 @@ export function InvoiceHistoryReport({
     }
   };
 
-    const shippingStrategies: Record<string, (carrierSelectedType: Carrier, item: any) => number> = {
-      percentage: (carrierSelectedType, item) =>item.value * (carrierSelectedType.value / 100) ,
-      perKg: (carrierSelectedType, item) => item.weight * carrierSelectedType.value,
-      perUnit: (carrierSelectedType, item) => carrierSelectedType.value ,
-    };
+  const shippingStrategies: Record<string, (carrierSelectedType: Carrier, item: any) => number> = {
+    percentage: (carrierSelectedType, item) => item.value * (carrierSelectedType.value / 100),
+    perKg: (carrierSelectedType, item) => item.weight * carrierSelectedType.value,
+    perUnit: (carrierSelectedType, item) => carrierSelectedType.value,
+  };
 
   const sendUpdateProductStatus = async (product: ProductData) => {
     if (!product) return;
@@ -410,6 +410,9 @@ export function InvoiceHistoryReport({
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Status
                 </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Usuário
+                </th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Ações
                 </th>
@@ -418,7 +421,7 @@ export function InvoiceHistoryReport({
             <tbody className="bg-white divide-y divide-gray-200">
               {invoices.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-4 text-center text-gray-500">
+                  <td colSpan={7} className="px-6 py-4 text-center text-gray-500">
                     Nenhuma invoice encontrada
                   </td>
                 </tr>
@@ -462,6 +465,13 @@ export function InvoiceHistoryReport({
                           {getStatusText(invoice)}
                         </span>
                       </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {invoice.user ? (
+                          <span title={invoice.user.email}>{invoice.user.name || invoice.user.email || "Usuário"}</span>
+                        ) : (
+                          <span className="text-gray-400">-</span>
+                        )}
+                      </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                         <div className="flex justify-end items-center">
                           {invoice.completed ? (
@@ -480,13 +490,13 @@ export function InvoiceHistoryReport({
                               >
                                 <Undo2 size={16} />
                               </button>
-                              {/* <button
+                              <button
                                 onClick={() => openModal(invoice, true)}
                                 className="text-green-600 hover:text-green-900"
                                 title="Editar"
                               >
                                 <Edit size={16} />
-                              </button> */}
+                              </button>
                               <button
                                 onClick={() => openModal(invoice, false)}
                                 className="text-blue-600 hover:text-blue-900"
@@ -618,9 +628,11 @@ export function InvoiceHistoryReport({
                       <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                         {selectedInvoice.paid ? "Total ($)" : "Total ($)"}
                       </th>
-                      <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Ações
-                      </th>
+                      {isEditMode && (
+                        <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Ações
+                        </th>
+                      )}
                     </tr>
                   </thead>
                   <tbody id="modalInvoicePendingProducts" className="bg-white divide-y divide-gray-200">
@@ -637,24 +649,28 @@ export function InvoiceHistoryReport({
                           <td className="px-4 py-2 text-sm text-right">{product.value.toFixed(2)}</td>
                           <td className="px-4 py-2 text-sm text-right">{product.weight.toFixed(2)}</td>
                           <td className="px-4 py-2 text-sm text-right">{product.total.toFixed(2)}</td>
-                          <td className="px-4 py-2 text-sm text-right">
-                            <div className="flex justify-end items-center">
-                              {!isOnlyViewMode && (
+                          {isEditMode && (
+                            <td className="px-4 py-2 text-sm text-right">
+                              <div className="flex justify-end items-center">
                                 <button
                                   onClick={() => setSelectedProductToAnalyze(product)}
-                                  disabled={(product.quantityAnalizer + product.quantityAnalizer) >= product.quantity || product.receivedQuantity >= product.quantity}
+                                  disabled={
+                                    product.quantityAnalizer + product.quantityAnalizer >= product.quantity ||
+                                    product.receivedQuantity >= product.quantity
+                                  }
                                   className={`ml-auto flex items-center gap-1 text-white px-2 py-1 rounded-md text-sm transition font-medium shadow-sm 
                       ${
-                        (product.quantityAnalizer + product.quantityAnalizer) >= product.quantity || product.receivedQuantity >= product.quantity
+                        product.quantityAnalizer + product.quantityAnalizer >= product.quantity ||
+                        product.receivedQuantity >= product.quantity
                           ? "bg-gray-400 cursor-not-allowed opacity-60"
                           : "bg-yellow-600 hover:bg-yellow-500"
                       }`}
                                 >
                                   <Check size={18} /> Analisar
                                 </button>
-                              )}
-                            </div>
-                          </td>
+                              </div>
+                            </td>
+                          )}
                         </tr>
                       ))}
                     <tr className="bg-yellow-100 font-semibold">
@@ -664,13 +680,20 @@ export function InvoiceHistoryReport({
                       <td className="px-4 py-2 text-sm text-right text-gray-800">
                         {selectedInvoice.products
                           .filter((item) => !item.received)
-                          .reduce((sum, item) => sum + (item.quantity - item.quantityAnalizer - item.receivedQuantity), 0)}
+                          .reduce(
+                            (sum, item) => sum + (item.quantity - item.quantityAnalizer - item.receivedQuantity),
+                            0
+                          )}
                       </td>
                       <td className="px-4 py-2 text-sm text-right text-gray-800">—</td>
                       <td className="px-4 py-2 text-sm text-right text-gray-800">
                         {selectedInvoice.products
                           .filter((item) => !item.received)
-                          .reduce((sum, item) => sum + item.weight * (item.quantity - item.quantityAnalizer - item.receivedQuantity), 0)
+                          .reduce(
+                            (sum, item) =>
+                              sum + item.weight * (item.quantity - item.quantityAnalizer - item.receivedQuantity),
+                            0
+                          )
                           .toFixed(2)}
                       </td>
                       <td className="px-4 py-2 text-sm text-right text-gray-800">
@@ -682,7 +705,7 @@ export function InvoiceHistoryReport({
                             maximumFractionDigits: 2,
                           })}
                       </td>
-                      <td className="px-4 py-2 text-sm text-right text-gray-800">—</td>
+                      {isEditMode && <td className="px-4 py-2 text-sm text-right text-gray-800">—</td>}
                     </tr>
                   </tbody>
                 </table>
@@ -710,9 +733,11 @@ export function InvoiceHistoryReport({
                       <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                         {selectedInvoice.paid ? "Total (R$)" : "Total ($)"}
                       </th>
-                      <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Ações
-                      </th>
+                      {isEditMode && (
+                        <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Ações
+                        </th>
+                      )}
                     </tr>
                   </thead>
                   <tbody id="modalInvoicePendingProducts" className="bg-white divide-y divide-gray-200">
@@ -726,13 +751,18 @@ export function InvoiceHistoryReport({
                           <td className="px-4 py-2 text-sm text-right">{Math.abs(product.quantityAnalizer)}</td>
                           <td className="px-4 py-2 text-sm text-right">
                             {(() => {
-                              const taxCarrie = selectedInvoice.carrier? shippingStrategies[selectedInvoice.carrier?.type]((selectedInvoice.carrier), product):0
-                              const taxCarrie2 = selectedInvoice.carrier2? shippingStrategies[selectedInvoice.carrier2?.type]((selectedInvoice.carrier2), product):0
-                              const valorUnitarioComTaxasFrete = product.value + taxCarrie + taxCarrie2
+                              const taxCarrie = selectedInvoice.carrier
+                                ? shippingStrategies[selectedInvoice.carrier?.type](selectedInvoice.carrier, product)
+                                : 0;
+                              const taxCarrie2 = selectedInvoice.carrier2
+                                ? shippingStrategies[selectedInvoice.carrier2?.type](selectedInvoice.carrier2, product)
+                                : 0;
+                              const valorUnitarioComTaxasFrete = product.value + taxCarrie + taxCarrie2;
 
                               const totalQtdProdutos = selectedInvoice.products.reduce((acc, p) => acc + p.quantity, 0);
                               const freteSpEsRate = selectedInvoice.amountTaxSpEs / totalQtdProdutos;
-                              const valorBaseReal = valorUnitarioComTaxasFrete * (taxInvoice?.rate ?? 1) + freteSpEsRate;
+                              const valorBaseReal =
+                                valorUnitarioComTaxasFrete * (taxInvoice?.rate ?? 1) + freteSpEsRate;
 
                               return valorBaseReal.toLocaleString("pt-BR", {
                                 minimumFractionDigits: 2,
@@ -743,13 +773,18 @@ export function InvoiceHistoryReport({
                           <td className="px-4 py-2 text-sm text-right">{product.weight.toFixed(2)}</td>
                           <td className="px-4 py-2 text-sm text-right">
                             {(() => {
-                              const taxCarrie = selectedInvoice.carrier? shippingStrategies[selectedInvoice.carrier?.type]((selectedInvoice.carrier), product):0
-                              const taxCarrie2 = selectedInvoice.carrier2? shippingStrategies[selectedInvoice.carrier2?.type]((selectedInvoice.carrier2), product):0
-                              const valorUnitarioComTaxasFrete = product.value + taxCarrie + taxCarrie2
+                              const taxCarrie = selectedInvoice.carrier
+                                ? shippingStrategies[selectedInvoice.carrier?.type](selectedInvoice.carrier, product)
+                                : 0;
+                              const taxCarrie2 = selectedInvoice.carrier2
+                                ? shippingStrategies[selectedInvoice.carrier2?.type](selectedInvoice.carrier2, product)
+                                : 0;
+                              const valorUnitarioComTaxasFrete = product.value + taxCarrie + taxCarrie2;
 
                               const totalQtdProdutos = selectedInvoice.products.reduce((acc, p) => acc + p.quantity, 0);
                               const freteSpEsRate = selectedInvoice.amountTaxSpEs / totalQtdProdutos;
-                              const valorBaseReal = valorUnitarioComTaxasFrete * (taxInvoice?.rate ?? 1) + freteSpEsRate;
+                              const valorBaseReal =
+                                valorUnitarioComTaxasFrete * (taxInvoice?.rate ?? 1) + freteSpEsRate;
                               const custoFinal = valorBaseReal * product.quantityAnalizer;
 
                               return custoFinal.toLocaleString("pt-BR", {
@@ -758,36 +793,34 @@ export function InvoiceHistoryReport({
                               });
                             })()}
                           </td>
-                          <td className="px-4 py-2 text-sm text-right">
-                            <div className="flex justify-end items-center">
-                              {!isOnlyViewMode && (
-                                <td className="px-4 py-2 text-sm text-right">
-                                  <div className="flex justify-center items-center w-full h-full">
-                                    <button
-                                      onClick={() => handleReturnToPending(product)}
-                                      disabled={isSavingReturnId === product.id}
-                                      className={`-mr-4 flex items-center gap-2 px-3 py-1 rounded-md text-sm font-medium shadow-sm transition
+                          {isEditMode && (
+                            <td className="px-4 py-2 text-sm text-right">
+                              <div className="flex justify-end items-center">
+                                <div className="flex justify-center items-center w-full h-full">
+                                  <button
+                                    onClick={() => handleReturnToPending(product)}
+                                    disabled={isSavingReturnId === product.id}
+                                    className={`-mr-4 flex items-center gap-2 px-3 py-1 rounded-md text-sm font-medium shadow-sm transition
                                       ${
                                         isSavingReturnId === product.id
                                           ? "bg-gray-400 cursor-not-allowed opacity-60 text-white"
                                           : "bg-red-600 hover:bg-red-500 text-white"
                                       }`}
-                                    >
-                                      {isSavingReturnId === product.id ? (
-                                        <>
-                                          <Loader2 className="animate-spin" size={16} /> Removendo...
-                                        </>
-                                      ) : (
-                                        <>
-                                          <RotateCcw size={16} /> Devolver
-                                        </>
-                                      )}
-                                    </button>
-                                  </div>
-                                </td>
-                              )}
-                            </div>
-                          </td>
+                                  >
+                                    {isSavingReturnId === product.id ? (
+                                      <>
+                                        <Loader2 className="animate-spin" size={16} /> Removendo...
+                                      </>
+                                    ) : (
+                                      <>
+                                        <RotateCcw size={16} /> Devolver
+                                      </>
+                                    )}
+                                  </button>
+                                </div>
+                              </div>
+                            </td>
+                          )}
                         </tr>
                       ))}
                     <tr className="bg-green-100 font-semibold">
@@ -816,63 +849,70 @@ export function InvoiceHistoryReport({
                           const total = selectedInvoice.products
                             .filter((item) => item.analising && !item.received)
                             .reduce((sum, item) => {
-                                                                                          const taxCarrie = selectedInvoice.carrier? shippingStrategies[selectedInvoice.carrier?.type]((selectedInvoice.carrier), item):0
-                              const taxCarrie2 = selectedInvoice.carrier2? shippingStrategies[selectedInvoice.carrier2?.type]((selectedInvoice.carrier2), item):0
-                              const valorUnitarioComTaxasFrete = item.value + taxCarrie + taxCarrie2
+                              const taxCarrie = selectedInvoice.carrier
+                                ? shippingStrategies[selectedInvoice.carrier?.type](selectedInvoice.carrier, item)
+                                : 0;
+                              const taxCarrie2 = selectedInvoice.carrier2
+                                ? shippingStrategies[selectedInvoice.carrier2?.type](selectedInvoice.carrier2, item)
+                                : 0;
+                              const valorUnitarioComTaxasFrete = item.value + taxCarrie + taxCarrie2;
 
                               const totalQtdProdutos = selectedInvoice.products.reduce((acc, p) => acc + p.quantity, 0);
                               const freteSpEsRate = selectedInvoice.amountTaxSpEs / totalQtdProdutos;
-                              const valorBaseReal = valorUnitarioComTaxasFrete * (taxInvoice?.rate ?? 1) + freteSpEsRate;
+                              const valorBaseReal =
+                                valorUnitarioComTaxasFrete * (taxInvoice?.rate ?? 1) + freteSpEsRate;
                               return sum + valorBaseReal * item.quantityAnalizer;
                             }, 0);
 
                           return total.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
                         })()}
                       </td>
-                      <td className="px-4 py-2 text-sm text-right">
-                        <button
-                          onClick={async () => {
-                            setIsSavingId("all");
-                            const productsToReceive = selectedInvoice.products.filter(
-                              (item) => item.analising && !item.received
-                            );
+                      {isEditMode && (
+                        <td className="px-4 py-2 text-sm text-right">
+                          <button
+                            onClick={async () => {
+                              setIsSavingId("all");
+                              const productsToReceive = selectedInvoice.products.filter(
+                                (item) => item.analising && !item.received
+                              );
 
-                            for (const item of productsToReceive) {
-                              const allreceived = (item.receivedQuantity + item.quantityAnalizer) >= item.quantity;
-                              await api.patch("/invoice/update/product", {
-                                idProductInvoice: item.id,
-                                bodyupdate: {
-                                  received: allreceived,
-                                  receivedQuantity: item.receivedQuantity + item.quantityAnalizer,
-                                  quantityAnalizer: 0,
-                                },
-                              });
-                            }
+                              for (const item of productsToReceive) {
+                                const allreceived = item.receivedQuantity + item.quantityAnalizer >= item.quantity;
+                                await api.patch("/invoice/update/product", {
+                                  idProductInvoice: item.id,
+                                  bodyupdate: {
+                                    received: allreceived,
+                                    receivedQuantity: item.receivedQuantity + item.quantityAnalizer,
+                                    quantityAnalizer: 0,
+                                  },
+                                });
+                              }
 
-                            const { data: updatedInvoices } = await api.get("/invoice/get");
-                            setInvoices(updatedInvoices);
-                            setSelectedInvoice(updatedInvoices.find((i: any) => i.id === selectedInvoice.id) || null);
-                            setIsSavingId(""); // encerra loading
-                          }}
-                          disabled={isSavingId === "all"}
-                          className={`ml-auto flex items-center gap-2 px-3 py-1 rounded-md text-sm font-medium shadow-sm transition
+                              const { data: updatedInvoices } = await api.get("/invoice/get");
+                              setInvoices(updatedInvoices);
+                              setSelectedInvoice(updatedInvoices.find((i: any) => i.id === selectedInvoice.id) || null);
+                              setIsSavingId(""); // encerra loading
+                            }}
+                            disabled={isSavingId === "all"}
+                            className={`ml-auto flex items-center gap-2 px-3 py-1 rounded-md text-sm font-medium shadow-sm transition
     ${
       isSavingId === "all"
         ? "bg-gray-400 cursor-not-allowed opacity-60 text-white"
         : "bg-green-600 hover:bg-green-500 text-white"
     }`}
-                        >
-                          {isSavingId === "all" ? (
-                            <>
-                              <Loader2 className="animate-spin" size={16} /> Recebendo...
-                            </>
-                          ) : (
-                            <>
-                              <Check size={16} /> Receber Todos
-                            </>
-                          )}
-                        </button>
-                      </td>
+                          >
+                            {isSavingId === "all" ? (
+                              <>
+                                <Loader2 className="animate-spin" size={16} /> Recebendo...
+                              </>
+                            ) : (
+                              <>
+                                <Check size={16} /> Receber Todos
+                              </>
+                            )}
+                          </button>
+                        </td>
+                      )}
                     </tr>
                   </tbody>
                 </table>
@@ -915,15 +955,18 @@ export function InvoiceHistoryReport({
                           </td>
                           <td className="px-4 py-2 text-sm text-right">
                             {(() => {
-
-
-                              const taxCarrie = selectedInvoice.carrier? shippingStrategies[selectedInvoice.carrier?.type]((selectedInvoice.carrier), product):0
-                              const taxCarrie2 = selectedInvoice.carrier2? shippingStrategies[selectedInvoice.carrier2?.type]((selectedInvoice.carrier2), product):0
-                              const valorUnitarioComTaxasFrete = product.value + taxCarrie + taxCarrie2
+                              const taxCarrie = selectedInvoice.carrier
+                                ? shippingStrategies[selectedInvoice.carrier?.type](selectedInvoice.carrier, product)
+                                : 0;
+                              const taxCarrie2 = selectedInvoice.carrier2
+                                ? shippingStrategies[selectedInvoice.carrier2?.type](selectedInvoice.carrier2, product)
+                                : 0;
+                              const valorUnitarioComTaxasFrete = product.value + taxCarrie + taxCarrie2;
 
                               const totalQtdProdutos = selectedInvoice.products.reduce((acc, p) => acc + p.quantity, 0);
                               const freteSpEsRate = selectedInvoice.amountTaxSpEs / totalQtdProdutos;
-                              const valorBaseReal = valorUnitarioComTaxasFrete * (taxInvoice?.rate ?? 1) + freteSpEsRate;
+                              const valorBaseReal =
+                                valorUnitarioComTaxasFrete * (taxInvoice?.rate ?? 1) + freteSpEsRate;
 
                               return valorBaseReal.toLocaleString("pt-BR", {
                                 minimumFractionDigits: 2,
@@ -934,14 +977,18 @@ export function InvoiceHistoryReport({
                           <td className="px-4 py-2 text-sm text-right">{product.weight.toFixed(2)}</td>
                           <td className="px-4 py-2 text-sm text-right">
                             {(() => {
-
-                              const taxCarrie = selectedInvoice.carrier? shippingStrategies[selectedInvoice.carrier?.type]((selectedInvoice.carrier), product):0
-                              const taxCarrie2 = selectedInvoice.carrier2? shippingStrategies[selectedInvoice.carrier2?.type]((selectedInvoice.carrier2), product):0
-                              const valorUnitarioComTaxasFrete = product.value + taxCarrie + taxCarrie2
+                              const taxCarrie = selectedInvoice.carrier
+                                ? shippingStrategies[selectedInvoice.carrier?.type](selectedInvoice.carrier, product)
+                                : 0;
+                              const taxCarrie2 = selectedInvoice.carrier2
+                                ? shippingStrategies[selectedInvoice.carrier2?.type](selectedInvoice.carrier2, product)
+                                : 0;
+                              const valorUnitarioComTaxasFrete = product.value + taxCarrie + taxCarrie2;
 
                               const totalQtdProdutos = selectedInvoice.products.reduce((acc, p) => acc + p.quantity, 0);
                               const freteSpEsRate = selectedInvoice.amountTaxSpEs / totalQtdProdutos;
-                              const valorBaseReal = valorUnitarioComTaxasFrete * (taxInvoice?.rate ?? 1) + freteSpEsRate;
+                              const valorBaseReal =
+                                valorUnitarioComTaxasFrete * (taxInvoice?.rate ?? 1) + freteSpEsRate;
 
                               return (valorBaseReal * product.receivedQuantity).toLocaleString("pt-BR", {
                                 minimumFractionDigits: 2,
@@ -977,13 +1024,18 @@ export function InvoiceHistoryReport({
                           const total = selectedInvoice.products
                             .filter((item) => item.receivedQuantity > 0)
                             .reduce((sum, item) => {
-                                                            const taxCarrie = selectedInvoice.carrier? shippingStrategies[selectedInvoice.carrier?.type]((selectedInvoice.carrier), item):0
-                              const taxCarrie2 = selectedInvoice.carrier2? shippingStrategies[selectedInvoice.carrier2?.type]((selectedInvoice.carrier2), item):0
-                              const valorUnitarioComTaxasFrete = item.value + taxCarrie + taxCarrie2
+                              const taxCarrie = selectedInvoice.carrier
+                                ? shippingStrategies[selectedInvoice.carrier?.type](selectedInvoice.carrier, item)
+                                : 0;
+                              const taxCarrie2 = selectedInvoice.carrier2
+                                ? shippingStrategies[selectedInvoice.carrier2?.type](selectedInvoice.carrier2, item)
+                                : 0;
+                              const valorUnitarioComTaxasFrete = item.value + taxCarrie + taxCarrie2;
 
                               const totalQtdProdutos = selectedInvoice.products.reduce((acc, p) => acc + p.quantity, 0);
                               const freteSpEsRate = selectedInvoice.amountTaxSpEs / totalQtdProdutos;
-                              const valorBaseReal = valorUnitarioComTaxasFrete * (taxInvoice?.rate ?? 1) + freteSpEsRate;
+                              const valorBaseReal =
+                                valorUnitarioComTaxasFrete * (taxInvoice?.rate ?? 1) + freteSpEsRate;
                               return sum + valorBaseReal * item.receivedQuantity;
                             }, 0);
 

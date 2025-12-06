@@ -92,11 +92,11 @@ export const CaixasTab = () => {
 
   // Calcular totais baseado apenas nos itens permitidos
   const getFilteredItems = () => {
-    if (user?.role === "MASTER" || user?.role === "ADMIN") {
-      return combinedItems;
+    if (!permissions?.GERENCIAR_INVOICES?.CAIXAS_PERMITIDOS || permissions.GERENCIAR_INVOICES.CAIXAS_PERMITIDOS.length === 0) {
+      return [];
     }
     return combinedItems.filter((item) => 
-      permissions?.GERENCIAR_INVOICES?.CAIXAS_PERMITIDOS?.includes(item.name)
+      permissions.GERENCIAR_INVOICES.CAIXAS_PERMITIDOS.includes(item.name)
     );
   };
 
@@ -344,7 +344,7 @@ export const CaixasTab = () => {
   }, [])
 
   useEffect(() => {
-    if (combinedItems.length > 0 && permissions && user) {
+    if (combinedItems.length > 0 && permissions && user && permissions?.GERENCIAR_INVOICES?.CAIXAS_PERMITIDOS && permissions.GERENCIAR_INVOICES.CAIXAS_PERMITIDOS.length > 0) {
       calculateFilteredBalances()
     }
   }, [combinedItems, permissions, user, selectedEntity, selectedFilter])
@@ -734,6 +734,7 @@ export const CaixasTab = () => {
         <i className="fas fa-chart-line mr-2"></i> CONTROLE CENTRAL DE CAIXAS
       </h2>
       {/* Resumo */}
+      {(permissions?.GERENCIAR_INVOICES?.CAIXAS_PERMITIDOS && permissions?.GERENCIAR_INVOICES?.CAIXAS_PERMITIDOS.length > 0) && (
       <div className="mb-6 grid grid-cols-1 md:grid-cols-4 gap-4">
         {selectedEntity ? (
           // Quando tem item selecionado, mostrar apenas o card relevante
@@ -981,6 +982,7 @@ export const CaixasTab = () => {
           </>
         )}
       </div>
+      )}
       <div className="bg-white p-6 rounded-lg shadow mb-6">
         <div className="flex items-center mb-4">
           <i className="fas fa-search text-blue-600 mr-2"></i>
@@ -1001,10 +1003,7 @@ export const CaixasTab = () => {
                 { id: "filter_carriers", name: "FRETEIROS", typeInvoice: "freteiro" as any, isFilter: true },
                 { id: "filter_partners", name: "PARCEIROS", typeInvoice: "parceiro" as any, isFilter: true },
                 // Entidades reais
-                ...(user?.role === "MASTER" || user?.role === "ADMIN" 
-                  ? combinedItems 
-                  : combinedItems.filter((item) => permissions?.GERENCIAR_INVOICES?.CAIXAS_BR_PERMITIDOS?.includes(item.name))
-                )
+                ...getFilteredItems()
               ]}
               value={selectedFilter ? `filter_${selectedFilter}` : selectedEntity?.id || ""}
               getLabel={(p: any) => {
@@ -1065,7 +1064,7 @@ export const CaixasTab = () => {
         )}
       </div>
       {/* Dados do caixa selecionado */}
-      {selectedEntity && (
+      {selectedEntity && permissions?.GERENCIAR_INVOICES?.CAIXAS_PERMITIDOS?.includes(selectedEntity.name) && (
         <div className="bg-white p-6 rounded-lg shadow mb-6">
           <div className="flex justify-between items-start mb-4">
             <h2 className="text-blue-600 font-semibold text-lg flex items-center space-x-2">
