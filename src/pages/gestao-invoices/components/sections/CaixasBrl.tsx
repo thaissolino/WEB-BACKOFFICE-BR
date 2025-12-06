@@ -590,6 +590,7 @@ export const CaixasTabBrl = () => {
         <i className="fas fa-chart-line mr-2"></i> CONTROLE CENTRAL DE CAIXAS INDIVIDUAIS BRL
       </h2>
       {/* Resumo */}
+      {(user?.role === "MASTER" || user?.role === "ADMIN" || (permissions?.GERENCIAR_INVOICES?.CAIXAS_BR_PERMITIDOS && permissions?.GERENCIAR_INVOICES?.CAIXAS_BR_PERMITIDOS.length > 0)) && (
       <div className="mb-6 grid grid-cols-1 md:grid-cols-4 gap-4">
         {selectedEntity ? (
           // Quando tem item selecionado, mostrar apenas o card relevante
@@ -709,6 +710,7 @@ export const CaixasTabBrl = () => {
           </>
         )}
       </div>
+      )}
       <div className="bg-white p-6 rounded-lg shadow mb-6">
         <div className="flex items-center mb-4">
           <i className="fas fa-search text-blue-600 mr-2"></i>
@@ -729,7 +731,7 @@ export const CaixasTabBrl = () => {
                 // Entidades reais
                 ...(user?.role === "MASTER" || user?.role === "ADMIN" 
                   ? combinedItems 
-                  : combinedItems.filter((item) => permissions?.GERENCIAR_INVOICES?.CAIXAS_BR_PERMITIDOS?.includes(item.name))
+                  : getFilteredItems()
                 )
               ]}
               value={selectedFilter ? `filter_${selectedFilter}` : selectedEntity?.id || ""}
@@ -794,7 +796,7 @@ export const CaixasTabBrl = () => {
         )}
       </div>
       {/* Dados do caixa selecionado */}
-      {selectedEntity && (
+      {selectedEntity && (user?.role === "MASTER" || user?.role === "ADMIN" || permissions?.GERENCIAR_INVOICES?.CAIXAS_BR_PERMITIDOS?.includes(selectedEntity.name)) && (
         <div className="bg-white p-6 rounded-lg shadow mb-6">
           <div className="flex justify-between items-start mb-4">
             <h2 className="text-blue-600 font-semibold text-lg flex items-center space-x-2">
