@@ -63,6 +63,11 @@ export type InvoiceData = {
     value: number;
     active: boolean;
   };
+  user?: {
+    id: string;
+    name: string;
+    email: string;
+  } | null;
 };
 
 type ProductData = {
@@ -112,7 +117,7 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
     // total será calculado no momento do envio
     // received e receivedQuantity têm valores padrão
   });
-  const [valorRaw, setValorRaw] = useState(""); 
+  const [valorRaw, setValorRaw] = useState("");
 
   useEffect(() => {
     fetchInvoicesAndSuppliers();
@@ -155,55 +160,53 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
     };
   }, []);
 
-   const deleteInvoice = (idInvoice: string) => {
-      if (!idInvoice) return;
-  
-      Swal.fire({
-        title: "Tem certeza?",
-        text: "Você não poderá reverter isso!",
-        icon: "warning",
-        showCancelButton: true,
-        confirmButtonText: "Sim, deletar!",
-        cancelButtonText: "Cancelar",
-        customClass: {
-          confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
-          cancelButton: "bg-gray-300 text-gray-800 hover:bg-gray-400 px-4 py-2 rounded font-semibold",
-        },
-      }).then((result) => {
-        if (result.isConfirmed) {
-          api
-        .delete(`/invoice/delete/${idInvoice}`)
-        .then(() => {
-          setInvoices((prevInvoices) => prevInvoices.filter((invoice) => invoice.id !== idInvoice));
-          Swal.fire({
-            icon: "success",
-            title: "Deletado!",
-            text: "Invoice deletada com sucesso.",
-            confirmButtonText: "Ok",
-            buttonsStyling: false,
-            customClass: {
-              confirmButton: "bg-green-600 text-white hover:bg-green-700 px-4 py-2 rounded font-semibold",
-            },
+  const deleteInvoice = (idInvoice: string) => {
+    if (!idInvoice) return;
+
+    Swal.fire({
+      title: "Tem certeza?",
+      text: "Você não poderá reverter isso!",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonText: "Sim, deletar!",
+      cancelButtonText: "Cancelar",
+      customClass: {
+        confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
+        cancelButton: "bg-gray-300 text-gray-800 hover:bg-gray-400 px-4 py-2 rounded font-semibold",
+      },
+    }).then((result) => {
+      if (result.isConfirmed) {
+        api
+          .delete(`/invoice/delete/${idInvoice}`)
+          .then(() => {
+            setInvoices((prevInvoices) => prevInvoices.filter((invoice) => invoice.id !== idInvoice));
+            Swal.fire({
+              icon: "success",
+              title: "Deletado!",
+              text: "Invoice deletada com sucesso.",
+              confirmButtonText: "Ok",
+              buttonsStyling: false,
+              customClass: {
+                confirmButton: "bg-green-600 text-white hover:bg-green-700 px-4 py-2 rounded font-semibold",
+              },
+            });
+          })
+          .catch((error) => {
+            console.error("Erro ao deletar invoice:", error);
+            Swal.fire({
+              icon: "error",
+              title: "Error ",
+              text: "Erro ao deletar invoice. Tente novamente.",
+              confirmButtonText: "Ok",
+              buttonsStyling: false,
+              customClass: {
+                confirmButton: "bg-green-600 text-white hover:bg-green-700 px-4 py-2 rounded font-semibold",
+              },
+            });
           });
-        })
-        .catch((error) => {
-          console.error("Erro ao deletar invoice:", error);
-                Swal.fire({
-          icon: "error",
-          title: "Error ",
-          text: "Erro ao deletar invoice. Tente novamente.",
-          confirmButtonText: "Ok",
-          buttonsStyling: false,
-          customClass: {
-            confirmButton: "bg-green-600 text-white hover:bg-green-700 px-4 py-2 rounded font-semibold",
-          },
-        });
-        });
-        }
-      });
-  
-      
-    }
+      }
+    });
+  };
 
   const getStatusText = (invoice: InvoiceData) => {
     if (invoice.completed && invoice.paid) return "Paga";
@@ -377,6 +380,9 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Status
                 </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Usuário
+                </th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Ações
                 </th>
@@ -385,7 +391,7 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
             <tbody className="bg-white divide-y divide-gray-200">
               {invoices.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-4 text-center text-gray-500">
+                  <td colSpan={7} className="px-6 py-4 text-center text-gray-500">
                     Nenhuma invoice encontrada
                   </td>
                 </tr>
@@ -431,43 +437,52 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
                             {getStatusText(invoice)}
                           </span>
                         </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {invoice.user ? (
+                            <span title={invoice.user.email}>
+                              {invoice.user.name || invoice.user.email || "Usuário"}
+                            </span>
+                          ) : (
+                            <span className="text-gray-400">-</span>
+                          )}
+                        </td>
                         <td className="px-6  py-4 whitespace-nowrap text-right text-sm font-medium">
                           <div className="flex justify-end gap-2">
-                          {invoice.paid ? (
-                            <>
-                              <button
-                                onClick={() => openModal(invoice, false)}
-                                className="text-blue-600 hover:text-blue-900"
-                                title="Visualizar"
-                              >
-                                <Eye size={16} />
-                              </button>
-                              <button
-                                onClick={() => openModal(invoice, true)}
-                                className="text-green-600 hover:text-green-900"
-                                title="Editar"
-                              >
-                                <Edit size={16} />
-                              </button>
-                            </>
-                          ) : (
-                            <>
-                              <button
-                                onClick={() => openModal(invoice, true)}
-                                className="text-green-600 hover:text-green-900"
-                                title="Editar"
-                              >
-                                <Edit size={16} />
-                              </button>
-                              <button
-                                onClick={() => deleteInvoice(invoice.id)}
-                                className="text-red-600 hover:text-red-900"
-                                title="Deletar"
-                              >
-                                <Trash size={16} />
-                              </button>
-                            </>
-                          )}
+                            {invoice.paid ? (
+                              <>
+                                <button
+                                  onClick={() => openModal(invoice, false)}
+                                  className="text-blue-600 hover:text-blue-900"
+                                  title="Visualizar"
+                                >
+                                  <Eye size={16} />
+                                </button>
+                                <button
+                                  onClick={() => openModal(invoice, true)}
+                                  className="text-green-600 hover:text-green-900"
+                                  title="Editar"
+                                >
+                                  <Edit size={16} />
+                                </button>
+                              </>
+                            ) : (
+                              <>
+                                <button
+                                  onClick={() => openModal(invoice, true)}
+                                  className="text-green-600 hover:text-green-900"
+                                  title="Editar"
+                                >
+                                  <Edit size={16} />
+                                </button>
+                                <button
+                                  onClick={() => deleteInvoice(invoice.id)}
+                                  className="text-red-600 hover:text-red-900"
+                                  title="Deletar"
+                                >
+                                  <Trash size={16} />
+                                </button>
+                              </>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -537,12 +552,14 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
                           const product = products.find((p) => p.id === selectedId);
 
                           const price = product?.priceweightAverage ?? 0;
-                          setValorRaw(product?.priceweightAverage?.toLocaleString("en-US", {
-                                  style: "currency",
-                                  currency: "USD",
-                                  minimumFractionDigits: 2,
-                                  maximumFractionDigits: 2,
-                                }) ?? "")
+                          setValorRaw(
+                            product?.priceweightAverage?.toLocaleString("en-US", {
+                              style: "currency",
+                              currency: "USD",
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            }) ?? ""
+                          );
 
                           setNewProduct({
                             ...newProduct,
@@ -614,32 +631,32 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
                         //   }
                         // }}
 
-                          onBlur={(e) => {
-                            // Formata apenas se houver valor
-                            if (valorRaw) {
-                              const numericValue = parseFloat(valorRaw);
-                              if (!isNaN(numericValue)) {
-                                // Formata mantendo o sinal negativo se existir
-                                const formattedValue = numericValue.toLocaleString("en-US", {
-                                  style: "currency",
-                                  currency: "USD",
-                                  minimumFractionDigits: 2,
-                                  maximumFractionDigits: 2,
-                                });
-                                setValorRaw(formattedValue);
-                                setNewProduct({ ...newProduct, value: numericValue.toString() });
-                              }
+                        onBlur={(e) => {
+                          // Formata apenas se houver valor
+                          if (valorRaw) {
+                            const numericValue = parseFloat(valorRaw);
+                            if (!isNaN(numericValue)) {
+                              // Formata mantendo o sinal negativo se existir
+                              const formattedValue = numericValue.toLocaleString("en-US", {
+                                style: "currency",
+                                currency: "USD",
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2,
+                              });
+                              setValorRaw(formattedValue);
+                              setNewProduct({ ...newProduct, value: numericValue.toString() });
                             }
-                          }}
-                          onFocus={(e) => {
-                            // Remove formatação quando o input recebe foco
-                            if (valorRaw) {
-                              const numericValue = parseFloat(valorRaw.replace(/[^0-9.-]/g, ""));
-                              if (!isNaN(numericValue)) {
-                                setValorRaw(numericValue.toString());
-                              }
+                          }
+                        }}
+                        onFocus={(e) => {
+                          // Remove formatação quando o input recebe foco
+                          if (valorRaw) {
+                            const numericValue = parseFloat(valorRaw.replace(/[^0-9.-]/g, ""));
+                            if (!isNaN(numericValue)) {
+                              setValorRaw(numericValue.toString());
                             }
-                          }}
+                          }
+                        }}
                       />
                     </div>
 
@@ -739,11 +756,13 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
                 Produtos Pendentes
                 {selectedInvoice.products.filter((item) => !item.received).length > 0 && (
                   <span className="ml-2 text-sm font-normal text-gray-600">
-                    (Subtotal: {formatCurrency(
+                    (Subtotal:{" "}
+                    {formatCurrency(
                       selectedInvoice.products
                         .filter((item) => !item.received)
                         .reduce((sum, product) => sum + product.total, 0)
-                    )})
+                    )}
+                    )
                   </span>
                 )}
               </h4>

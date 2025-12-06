@@ -88,6 +88,11 @@ export type InvoiceData = {
     value: number;
     active: boolean;
   };
+  user?: {
+    id: string;
+    name: string;
+    email: string;
+  } | null;
 };
 
 type ProductData = {
@@ -405,6 +410,9 @@ export function InvoiceHistoryReport({
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Status
                 </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Usuário
+                </th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Ações
                 </th>
@@ -413,7 +421,7 @@ export function InvoiceHistoryReport({
             <tbody className="bg-white divide-y divide-gray-200">
               {invoices.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-4 text-center text-gray-500">
+                  <td colSpan={7} className="px-6 py-4 text-center text-gray-500">
                     Nenhuma invoice encontrada
                   </td>
                 </tr>
@@ -456,6 +464,13 @@ export function InvoiceHistoryReport({
                         >
                           {getStatusText(invoice)}
                         </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {invoice.user ? (
+                          <span title={invoice.user.email}>{invoice.user.name || invoice.user.email || "Usuário"}</span>
+                        ) : (
+                          <span className="text-gray-400">-</span>
+                        )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                         <div className="flex justify-end items-center">
