@@ -140,21 +140,37 @@ export function ExchangeTab() {
               console.error("Erro ao buscar invoices do freteiro:", error);
             }
             
-            // Calcular saldo considerando transações e invoices
-            // IN = entrada de dinheiro para o freteiro (ele recebe, então ele nos deve) = saldo positivo
-            // OUT = saída de dinheiro do freteiro (pagamento a ele, então nós devemos a ele) = saldo negativo
+            // Calcular saldo: seguindo a mesma lógica do componente Caixas.tsx
+            // - Invoices = freteiro trabalhou, nós devemos = subtrai (negativo)
+            // - Transações: IN soma (+), OUT subtrai (-)
+            // Saldo negativo = devemos pagar (deve aparecer na lista)
+            
+            // Calcular transações do caixa (igual ao Caixas.tsx)
             const transactionBalance = transactions.reduce((acc: number, t: any) => {
               return acc + (t.direction === "IN" ? t.value : -t.value);
             }, 0);
             
-            // Invoices são dívidas do freteiro conosco (ele nos deve)
-            // Então somamos ao saldo (saldo fica mais positivo = ele nos deve mais)
+            // Calcular total de invoices (nós devemos ao freteiro = subtrai)
             const invoiceBalance = invoices.reduce((acc: number, invoice: any) => {
-              return acc + invoice.value; // Soma porque invoice aumenta o que ele nos deve
+              return acc - invoice.value; // Subtrai porque devemos
             }, 0);
             
-            // Saldo final: positivo = freteiro nos deve, negativo = nós devemos ao freteiro
+            // Saldo final: negativo = devemos pagar, positivo = ele nos deve ou já pagamos demais
             const totalBalance = transactionBalance + invoiceBalance;
+            
+            // Debug log
+            console.log(`[${carrier.name}] Invoices: ${invoices.length}, Total: ${invoices.reduce((s, i) => s + i.value, 0).toFixed(2)}, Balance: ${invoiceBalance.toFixed(2)} | Transações: ${transactions.length}, Balance: ${transactionBalance.toFixed(2)} | TOTAL: ${totalBalance.toFixed(2)} ${totalBalance < 0 ? '← APARECE' : '← NÃO APARECE'}`);
+            
+            // Debug log
+            console.log(`Freteiro ${carrier.name}:`, {
+              invoices: invoices.length,
+              invoiceTotal: invoices.reduce((sum, inv) => sum + inv.value, 0),
+              invoiceBalance,
+              transactions: transactions.length,
+              transactionBalance,
+              totalBalance,
+              shouldAppear: totalBalance < 0
+            });
             return { ...carrier, balance: totalBalance };
           } catch (error) {
             return { ...carrier, balance: 0 };
@@ -162,6 +178,14 @@ export function ExchangeTab() {
         })
       );
       setCarriers(carriersWithBalance);
+      
+      // Debug: mostrar todos os freteiros e seus saldos
+      console.log("=== TODOS OS FRETEIROS E SEUS SALDOS ===");
+      carriersWithBalance.forEach((carrier: any) => {
+        console.log(`${carrier.name}: ${carrier.balance?.toFixed(2)} ${carrier.balance < 0 ? '← DEVEMOS PAGAR' : carrier.balance > 0 ? '← ELE NOS DEVE' : '← ZERADO'}`);
+      });
+      const withNegativeBalance = carriersWithBalance.filter((c: any) => (c.balance || 0) < 0);
+      console.log(`Total com saldo negativo (devem aparecer): ${withNegativeBalance.length}`);
     } catch (error) {
       console.error("Erro ao buscar dados:", error);
     } finally {
@@ -669,6 +693,11 @@ export function ExchangeTab() {
       </div>
 
       {/* Seção de Pagamentos de Caixas de Freteiros */}
+      <style>{`
+        .carrier-payment-select option:not(:first-child) {
+          color: #dc2626 !important;
+        }
+      `}</style>
       <div className="mt-6 p-4 bg-gray-50 rounded">
         <h3 className="text-lg font-medium mb-4 text-blue-700 border-b pb-2">Pagar Caixas de Freteiros</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -701,28 +730,37 @@ export function ExchangeTab() {
                   usd: valueToPay,
                 }));
               }}
-              className="w-full h-11 border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full h-11 border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500 carrier-payment-select"
             >
               <option value="">Selecione um freteiro</option>
               {loading ? (
                 <option>Carregando...</option>
               ) : (
                 <>
-                  {carriers
-                    .sort((a, b) => (a.balance || 0) - (b.balance || 0)) // Ordenar: negativos primeiro (devemos pagar)
-                    .map((carrier) => {
+                  {(() => {
+                    const filteredCarriers = carriers.filter((carrier) => {
                       const balance = carrier.balance || 0;
-                      const balanceText = balance < 0 
-                        ? `Devemos: ${formatCurrency(Math.abs(balance), 2, "USD")}` 
-                        : balance > 0 
-                        ? `Nos deve: ${formatCurrency(balance, 2, "USD")}`
-                        : "Saldo: $0.00";
-                      return (
-                        <option key={carrier.id} value={carrier.id}>
-                          {carrier.name.toUpperCase()} - {balanceText}
-                        </option>
-                      );
-                    })}
+                      const shouldShow = balance < 0;
+                      if (!shouldShow && balance !== 0) {
+                        console.log(`[FILTRO] ${carrier.name} não aparece - saldo: ${balance.toFixed(2)}`);
+                      }
+                      return shouldShow;
+                    });
+                    console.log(`[FILTRO] Total de freteiros com saldo negativo: ${filteredCarriers.length} de ${carriers.length}`);
+                    return filteredCarriers
+                      .sort((a, b) => (a.balance || 0) - (b.balance || 0)) // Ordenar: mais negativos primeiro
+                      .map((carrier) => {
+                        const balance = carrier.balance || 0;
+                        const balanceValue = formatCurrency(Math.abs(balance), 2, "USD");
+                        const balanceText = `Devemos: -${balanceValue}`;
+                        console.log(`[LISTA] ${carrier.name} aparece - ${balanceText}`);
+                        return (
+                          <option key={carrier.id} value={carrier.id} className="text-red-600">
+                            {carrier.name.toUpperCase()} - {balanceText}
+                          </option>
+                        );
+                      });
+                  })()}
                 </>
               )}
             </select>

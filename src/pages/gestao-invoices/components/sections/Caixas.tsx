@@ -92,6 +92,11 @@ export const CaixasTab = () => {
 
   // Calcular totais baseado apenas nos itens permitidos
   const getFilteredItems = () => {
+    // MASTER e ADMIN veem todos os itens
+    if (user?.role === "MASTER" || user?.role === "ADMIN") {
+      return combinedItems;
+    }
+    // Outros usuários veem apenas os permitidos
     if (!permissions?.GERENCIAR_INVOICES?.CAIXAS_PERMITIDOS || permissions.GERENCIAR_INVOICES.CAIXAS_PERMITIDOS.length === 0) {
       return [];
     }
@@ -344,7 +349,7 @@ export const CaixasTab = () => {
   }, [])
 
   useEffect(() => {
-    if (combinedItems.length > 0 && permissions && user && permissions?.GERENCIAR_INVOICES?.CAIXAS_PERMITIDOS && permissions.GERENCIAR_INVOICES.CAIXAS_PERMITIDOS.length > 0) {
+    if (combinedItems.length > 0 && permissions && user && (user?.role === "MASTER" || user?.role === "ADMIN" || (permissions?.GERENCIAR_INVOICES?.CAIXAS_PERMITIDOS && permissions.GERENCIAR_INVOICES.CAIXAS_PERMITIDOS.length > 0))) {
       calculateFilteredBalances()
     }
   }, [combinedItems, permissions, user, selectedEntity, selectedFilter])
@@ -734,7 +739,7 @@ export const CaixasTab = () => {
         <i className="fas fa-chart-line mr-2"></i> CONTROLE CENTRAL DE CAIXAS
       </h2>
       {/* Resumo */}
-      {(permissions?.GERENCIAR_INVOICES?.CAIXAS_PERMITIDOS && permissions?.GERENCIAR_INVOICES?.CAIXAS_PERMITIDOS.length > 0) && (
+      {(user?.role === "MASTER" || user?.role === "ADMIN" || (permissions?.GERENCIAR_INVOICES?.CAIXAS_PERMITIDOS && permissions?.GERENCIAR_INVOICES?.CAIXAS_PERMITIDOS.length > 0)) && (
       <div className="mb-6 grid grid-cols-1 md:grid-cols-4 gap-4">
         {selectedEntity ? (
           // Quando tem item selecionado, mostrar apenas o card relevante
@@ -920,66 +925,68 @@ export const CaixasTab = () => {
             )}
           </>
         ) : (
-          // Quando não tem item selecionado, mostrar todos os totais
-          <>
-            <motion.div whileHover={{ scale: 1.02 }} className="bg-yellow-50 p-4 rounded-lg shadow relative group">
-              <div className="flex items-center gap-2 mb-2">
-                <HandCoins className="text-yellow-600 w-5 h-5" />
-                <h3 className="font-medium truncate max-w-[180px]">TOTAL FORNECEDORES</h3>
-              </div>
-              <p className="text-2xl font-bold text-yellow-600 truncate" title={formatCurrency(filteredBalances.suppliers || 0)}>
-                {formatCurrency(filteredBalances.suppliers || 0)}
-              </p>
-              {formatCurrency(filteredBalances.suppliers || 0).length > 12 && (
-                <div className="absolute hidden group-hover:block bg-gray-800 text-white text-xs p-2 rounded z-10 bottom-full mb-2 whitespace-nowrap">
+          // Quando não tem item selecionado, mostrar todos os totais apenas para MASTER e ADMIN
+          (user?.role === "MASTER" || user?.role === "ADMIN") ? (
+            <>
+              <motion.div whileHover={{ scale: 1.02 }} className="bg-yellow-50 p-4 rounded-lg shadow relative group">
+                <div className="flex items-center gap-2 mb-2">
+                  <HandCoins className="text-yellow-600 w-5 h-5" />
+                  <h3 className="font-medium truncate max-w-[180px]">TOTAL FORNECEDORES</h3>
+                </div>
+                <p className="text-2xl font-bold text-yellow-600 truncate" title={formatCurrency(filteredBalances.suppliers || 0)}>
                   {formatCurrency(filteredBalances.suppliers || 0)}
-                </div>
-              )}
-            </motion.div>
+                </p>
+                {formatCurrency(filteredBalances.suppliers || 0).length > 12 && (
+                  <div className="absolute hidden group-hover:block bg-gray-800 text-white text-xs p-2 rounded z-10 bottom-full mb-2 whitespace-nowrap">
+                    {formatCurrency(filteredBalances.suppliers || 0)}
+                  </div>
+                )}
+              </motion.div>
 
-            <motion.div whileHover={{ scale: 1.02 }} className="bg-blue-50 p-4 rounded-lg shadow relative group">
-              <div className="flex items-center gap-2 mb-2">
-                <Truck className="text-blue-600 w-5 h-5" />
-                <h3 className="font-medium truncate max-w-[180px]">TOTAL FRETES</h3>
-              </div>
-              <p className="text-2xl font-bold text-blue-600 truncate" title={formatCurrency(filteredBalances.carriers || 0)}>
-                {formatCurrency(filteredBalances.carriers || 0)}
-              </p>
-              {formatCurrency(filteredBalances.carriers || 0).length > 5 && (
-                <div className="absolute hidden group-hover:block bg-gray-800 text-white text-xs p-2 rounded z-10 bottom-full mb-2 whitespace-nowrap">
+              <motion.div whileHover={{ scale: 1.02 }} className="bg-blue-50 p-4 rounded-lg shadow relative group">
+                <div className="flex items-center gap-2 mb-2">
+                  <Truck className="text-blue-600 w-5 h-5" />
+                  <h3 className="font-medium truncate max-w-[180px]">TOTAL FRETES</h3>
+                </div>
+                <p className="text-2xl font-bold text-blue-600 truncate" title={formatCurrency(filteredBalances.carriers || 0)}>
                   {formatCurrency(filteredBalances.carriers || 0)}
+                </p>
+                {formatCurrency(filteredBalances.carriers || 0).length > 5 && (
+                  <div className="absolute hidden group-hover:block bg-gray-800 text-white text-xs p-2 rounded z-10 bottom-full mb-2 whitespace-nowrap">
+                    {formatCurrency(filteredBalances.carriers || 0)}
+                  </div>
+                )}
+              </motion.div>
+
+              <motion.div whileHover={{ scale: 1.02 }} className="bg-teal-50 p-4 rounded-lg shadow relative group">
+                <div className="flex items-center gap-2 mb-2">
+                  <Handshake className="text-teal-600 w-5 h-5" />
+                  <h3 className="font-medium truncate max-w-[180px]">TOTAL PARCEIROS</h3>
                 </div>
-              )}
-            </motion.div>
-
-            <motion.div whileHover={{ scale: 1.02 }} className="bg-teal-50 p-4 rounded-lg shadow relative group">
-              <div className="flex items-center gap-2 mb-2">
-                <Handshake className="text-teal-600 w-5 h-5" />
-                <h3 className="font-medium truncate max-w-[180px]">TOTAL PARCEIROS</h3>
-              </div>
-              <p className="text-2xl font-bold text-teal-600 truncate" title={formatCurrency(filteredBalances.partners || 0)}>
-                {formatCurrency(filteredBalances.partners || 0)}
-              </p>
-              <div className="absolute hidden group-hover:block bg-gray-800 text-white text-xs p-2 rounded z-10 bottom-full mb-2 whitespace-nowrap">
-                {formatCurrency(filteredBalances.partners || 0)}
-              </div>
-            </motion.div>
-
-            <motion.div whileHover={{ scale: 1.02 }} className="bg-purple-50 p-4 rounded-lg shadow relative group">
-              <div className="flex items-center gap-2 mb-2">
-                <CircleDollarSign className="text-purple-600 w-5 h-5" />
-                <h3 className="font-medium truncate max-w-[180px]">TOTAL GERAL</h3>
-              </div>
-              <p className="text-2xl font-bold text-purple-600 truncate" title={formatCurrency(filteredBalances.general || 0)}>
-                {formatCurrency(filteredBalances.general || 0)}
-              </p>
-              {formatCurrency(filteredBalances.general || 0).length > 12 && (
+                <p className="text-2xl font-bold text-teal-600 truncate" title={formatCurrency(filteredBalances.partners || 0)}>
+                  {formatCurrency(filteredBalances.partners || 0)}
+                </p>
                 <div className="absolute hidden group-hover:block bg-gray-800 text-white text-xs p-2 rounded z-10 bottom-full mb-2 whitespace-nowrap">
-                  {formatCurrency(filteredBalances.general || 0)}
+                  {formatCurrency(filteredBalances.partners || 0)}
                 </div>
-              )}
-            </motion.div>
-          </>
+              </motion.div>
+
+              <motion.div whileHover={{ scale: 1.02 }} className="bg-purple-50 p-4 rounded-lg shadow relative group">
+                <div className="flex items-center gap-2 mb-2">
+                  <CircleDollarSign className="text-purple-600 w-5 h-5" />
+                  <h3 className="font-medium truncate max-w-[180px]">TOTAL GERAL</h3>
+                </div>
+                <p className="text-2xl font-bold text-purple-600 truncate" title={formatCurrency(filteredBalances.general || 0)}>
+                  {formatCurrency(filteredBalances.general || 0)}
+                </p>
+                {formatCurrency(filteredBalances.general || 0).length > 12 && (
+                  <div className="absolute hidden group-hover:block bg-gray-800 text-white text-xs p-2 rounded z-10 bottom-full mb-2 whitespace-nowrap">
+                    {formatCurrency(filteredBalances.general || 0)}
+                  </div>
+                )}
+              </motion.div>
+            </>
+          ) : null
         )}
       </div>
       )}
@@ -997,12 +1004,14 @@ export const CaixasTab = () => {
           <div className="flex items-center space-x-4">
             <GenericSearchSelect
               items={[
-                // Opções especiais de filtro
-                { id: "filter_all", name: "TODOS", typeInvoice: "all" as any, isFilter: true },
-                { id: "filter_suppliers", name: "FORNECEDORES", typeInvoice: "fornecedor" as any, isFilter: true },
-                { id: "filter_carriers", name: "FRETEIROS", typeInvoice: "freteiro" as any, isFilter: true },
-                { id: "filter_partners", name: "PARCEIROS", typeInvoice: "parceiro" as any, isFilter: true },
-                // Entidades reais
+                // Opções especiais de filtro - apenas para MASTER e ADMIN
+                ...(user?.role === "MASTER" || user?.role === "ADMIN" ? [
+                  { id: "filter_all", name: "TODOS", typeInvoice: "all" as any, isFilter: true },
+                  { id: "filter_suppliers", name: "FORNECEDORES", typeInvoice: "fornecedor" as any, isFilter: true },
+                  { id: "filter_carriers", name: "FRETEIROS", typeInvoice: "freteiro" as any, isFilter: true },
+                  { id: "filter_partners", name: "PARCEIROS", typeInvoice: "parceiro" as any, isFilter: true },
+                ] : []),
+                // Entidades reais - baseado nas permissões
                 ...getFilteredItems()
               ]}
               value={selectedFilter ? `filter_${selectedFilter}` : selectedEntity?.id || ""}
@@ -1040,12 +1049,14 @@ export const CaixasTab = () => {
               getSearchString={(p: any) => p.name}
               getId={(p: any) => p.id}
               onChange={(id) => {
-                // Verificar se é um filtro
+                // Verificar se é um filtro - apenas MASTER e ADMIN podem usar filtros
                 if (id.startsWith("filter_")) {
-                  const filterType = id.replace("filter_", "") as "all" | "suppliers" | "carriers" | "partners"
-                  setSelectedFilter(filterType)
-                  setSelectedEntity(null)
-                  return
+                  if (user?.role === "MASTER" || user?.role === "ADMIN") {
+                    const filterType = id.replace("filter_", "") as "all" | "suppliers" | "carriers" | "partners"
+                    setSelectedFilter(filterType)
+                    setSelectedEntity(null)
+                    return
+                  }
                 }
                 
                 // É uma entidade real
@@ -1064,7 +1075,7 @@ export const CaixasTab = () => {
         )}
       </div>
       {/* Dados do caixa selecionado */}
-      {selectedEntity && permissions?.GERENCIAR_INVOICES?.CAIXAS_PERMITIDOS?.includes(selectedEntity.name) && (
+      {selectedEntity && (user?.role === "MASTER" || user?.role === "ADMIN" || permissions?.GERENCIAR_INVOICES?.CAIXAS_PERMITIDOS?.includes(selectedEntity.name)) && (
         <div className="bg-white p-6 rounded-lg shadow mb-6">
           <div className="flex justify-between items-start mb-4">
             <h2 className="text-blue-600 font-semibold text-lg flex items-center space-x-2">
