@@ -117,6 +117,18 @@ export function ExchangeTab() {
       setHistoryPaymentBuy(history.data);
       setInvoices(invoiceResponse.data);
       
+      // Debug: verificar invoices pendentes
+      const pendingInvoices = invoiceResponse.data.filter((inv: any) => !inv.completed && !inv.paid);
+      console.log("📋 [EXCHANGE TAB] Total de invoices recebidas:", invoiceResponse.data.length);
+      console.log("📋 [EXCHANGE TAB] Invoices pendentes (não pagas e não completas):", pendingInvoices.length);
+      console.log("📋 [EXCHANGE TAB] Detalhes das invoices pendentes:", pendingInvoices.map((inv: any) => ({
+        id: inv.id,
+        number: inv.number,
+        subAmount: inv.subAmount,
+        paid: inv.paid,
+        completed: inv.completed
+      })));
+      
       // Buscar saldos dos freteiros
       const carriersWithBalance = await Promise.all(
         carriersResponse.data.map(async (carrier: any) => {
@@ -442,6 +454,9 @@ export function ExchangeTab() {
         // Recarregar dados
         await Promise.all([getBalance(), fetchData()]);
 
+        // Disparar evento customizado para atualizar outras abas
+        window.dispatchEvent(new CustomEvent('invoiceUpdated'));
+
         setOpenNotification({
           type: "success",
           title: "Sucesso!",
@@ -486,6 +501,9 @@ export function ExchangeTab() {
 
         // Recarregar dados
         await Promise.all([getBalance(), fetchData()]);
+
+        // Disparar evento customizado para atualizar outras abas
+        window.dispatchEvent(new CustomEvent('invoiceUpdated'));
 
         setOpenNotification({
           type: "success",
@@ -1044,6 +1062,8 @@ export function ExchangeTab() {
                                   });
 
                                   await fetchData();
+                                  // Disparar evento customizado para atualizar outras abas
+                                  window.dispatchEvent(new CustomEvent('invoiceUpdated'));
                                 } catch (error) {
                                   console.error("Erro ao estornar pagamento:", error);
                                   Swal.fire({
@@ -1112,14 +1132,31 @@ export function ExchangeTab() {
                 <option>Carregando...</option>
               ) : (
                 <>
-                  {invoices
-                    .filter((item) => !item.completed && !item.paid)
-                    .map((invoice) => (
+                  {(() => {
+                    const filteredInvoices = invoices.filter((item) => {
+                      // Verificar se tem supplier e subAmount válido
+                      const hasValidSupplier = item.supplier && item.supplier.name;
+                      const hasValidAmount = item.subAmount !== undefined && item.subAmount !== null && item.subAmount > 0;
+                      const isPending = !item.completed && !item.paid;
+                      return hasValidSupplier && hasValidAmount && isPending;
+                    });
+                    console.log("📋 [EXCHANGE TAB] Invoices no dropdown:", filteredInvoices.length);
+                    console.log("📋 [EXCHANGE TAB] Invoices no dropdown (detalhes):", filteredInvoices.map((inv: any) => ({
+                      id: inv.id,
+                      number: inv.number,
+                      subAmount: inv.subAmount,
+                      paid: inv.paid,
+                      completed: inv.completed,
+                      hasSupplier: !!inv.supplier,
+                      supplierName: inv.supplier?.name
+                    })));
+                    return filteredInvoices.map((invoice) => (
                       <option key={invoice.id} value={invoice.id}>
-                        {invoice.number.toUpperCase()} - {invoice.supplier.name.toUpperCase()} (
-                        {formatCurrency(invoice.subAmount)})
+                        {invoice.number.toUpperCase()} - {(invoice.supplier?.name || "Sem fornecedor").toUpperCase()} (
+                        {formatCurrency(invoice.subAmount || 0)})
                       </option>
-                    ))}
+                    ));
+                  })()}
                 </>
               )}
             </select>
