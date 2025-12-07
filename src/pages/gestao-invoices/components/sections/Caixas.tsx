@@ -1004,13 +1004,6 @@ export const CaixasTab = () => {
           <div className="flex items-center space-x-4">
             <GenericSearchSelect
               items={[
-                // Opções especiais de filtro - apenas para MASTER e ADMIN
-                ...(user?.role === "MASTER" || user?.role === "ADMIN" ? [
-                  { id: "filter_all", name: "TODOS", typeInvoice: "all" as any, isFilter: true },
-                  { id: "filter_suppliers", name: "FORNECEDORES", typeInvoice: "fornecedor" as any, isFilter: true },
-                  { id: "filter_carriers", name: "FRETEIROS", typeInvoice: "freteiro" as any, isFilter: true },
-                  { id: "filter_partners", name: "PARCEIROS", typeInvoice: "parceiro" as any, isFilter: true },
-                ] : []),
                 // Entidades reais - baseado nas permissões
                 ...getFilteredItems()
               ]}
@@ -1049,16 +1042,6 @@ export const CaixasTab = () => {
               getSearchString={(p: any) => p.name}
               getId={(p: any) => p.id}
               onChange={(id) => {
-                // Verificar se é um filtro - apenas MASTER e ADMIN podem usar filtros
-                if (id.startsWith("filter_")) {
-                  if (user?.role === "MASTER" || user?.role === "ADMIN") {
-                    const filterType = id.replace("filter_", "") as "all" | "suppliers" | "carriers" | "partners"
-                    setSelectedFilter(filterType)
-                    setSelectedEntity(null)
-                    return
-                  }
-                }
-                
                 // É uma entidade real
                 setSelectedFilter(null)
                 const entity = combinedItems.find((item) => item.id === id)
@@ -1069,7 +1052,7 @@ export const CaixasTab = () => {
                   setSelectedEntity(null)
                 }
               }}
-              label="Selecione um filtro ou entidade"
+              label="Selecione uma entidade"
             />
           </div>
         )}

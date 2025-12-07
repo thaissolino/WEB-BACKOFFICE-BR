@@ -209,6 +209,8 @@ export function InvoiceHistoryReport({
           })
           .then(() => {
             fetchInvoicesAndSuppliers();
+            // Disparar evento customizado para atualizar outras abas
+            window.dispatchEvent(new CustomEvent("invoiceUpdated"));
             Swal.fire({
               icon: "success",
               title: "Estornado!",

@@ -122,6 +122,20 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
   useEffect(() => {
     fetchInvoicesAndSuppliers();
   }, [reloadTrigger]); // atualiza quando for alterado
+
+  // Escutar eventos de atualização de invoice de outras abas
+  useEffect(() => {
+    const handleInvoiceUpdate = () => {
+      console.log("🔄 [INVOICE HISTORY] Evento invoiceUpdated recebido, recarregando lista...");
+      fetchInvoicesAndSuppliers();
+    };
+
+    window.addEventListener("invoiceUpdated", handleInvoiceUpdate);
+
+    return () => {
+      window.removeEventListener("invoiceUpdated", handleInvoiceUpdate);
+    };
+  }, []);
   const fetchInvoicesAndSuppliers = async () => {
     try {
       setLoading(true);
@@ -131,7 +145,20 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
         api.get("/invoice/product"),
       ]);
 
-      console.log(invoiceResponse);
+      console.log("📋 [INVOICE HISTORY] Resposta completa:", invoiceResponse);
+      // Debug: verificar se invoices têm user
+      if (invoiceResponse.data && invoiceResponse.data.length > 0) {
+        console.log("📋 [INVOICE HISTORY] Total de invoices recebidas:", invoiceResponse.data.length);
+        console.log("📋 [INVOICE HISTORY] Primeira invoice:", invoiceResponse.data[0]);
+        console.log("📋 [INVOICE HISTORY] User da primeira invoice:", invoiceResponse.data[0]?.user);
+        // Debug: verificar invoices não completas
+        const notCompleted = invoiceResponse.data.filter((inv: any) => !inv.completed);
+        console.log("📋 [INVOICE HISTORY] Invoices não completas:", notCompleted.length);
+        console.log(
+          "📋 [INVOICE HISTORY] Invoices não completas (detalhes):",
+          notCompleted.map((inv: any) => ({ id: inv.id, number: inv.number, paid: inv.paid, completed: inv.completed }))
+        );
+      }
       // O backend agora retorna { products: [...], totalProducts: ..., page: ..., limit: ..., totalPages: ... }
       setProducts(Array.isArray(productsResponse.data) ? productsResponse.data : productsResponse.data.products || []);
       setInvoices(invoiceResponse.data);
@@ -209,9 +236,9 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
   };
 
   const getStatusText = (invoice: InvoiceData) => {
-    if (invoice.completed && invoice.paid) return "Paga";
+    if (invoice.paid) return "Paga"; // Se está paga, sempre mostra "Paga"
     if (invoice.completed) return "Concluída";
-    return "Pendente";
+    return "Pendente"; // Só é pendente se não está paga e não está concluída
   };
 
   const getStatusClass = (invoice: InvoiceData) => {
@@ -397,7 +424,7 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
                 </tr>
               ) : (
                 invoices
-                  .filter((invoice) => !invoice.completed) // ✅ Mostrar todas exceto concluídas (incluindo pagas)
+                  .filter((invoice) => !invoice.completed && !invoice.paid) // ✅ Mostrar apenas não concluídas E não pagas (apenas pendentes)
                   .slice(currentPage * itemsPerPage, (currentPage + 1) * itemsPerPage) // ✅ Paginação
                   .map((invoice) => {
                     const supplier = suppliers.find((s) => s.id === invoice.supplierId);
@@ -448,7 +475,17 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
                         </td>
                         <td className="px-6  py-4 whitespace-nowrap text-right text-sm font-medium">
                           <div className="flex justify-end gap-2">
-                            {invoice.paid ? (
+                            {/* Se está paga E concluída: apenas visualizar (read-only) */}
+                            {invoice.paid && invoice.completed ? (
+                              <button
+                                onClick={() => openModal(invoice, false)}
+                                className="text-blue-600 hover:text-blue-900"
+                                title="Visualizar"
+                              >
+                                <Eye size={16} />
+                              </button>
+                            ) : invoice.paid ? (
+                              /* Se está paga mas não concluída: visualizar + editar */
                               <>
                                 <button
                                   onClick={() => openModal(invoice, false)}
@@ -466,6 +503,7 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
                                 </button>
                               </>
                             ) : (
+                              /* Se não está paga: editar + deletar */
                               <>
                                 <button
                                   onClick={() => openModal(invoice, true)}
@@ -714,31 +752,36 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
                   ID: <span id="modalInvoiceSupplier">{selectedInvoice.id}</span>
                 </p>
                 <p className="text-sm text-gray-600">
-                  Fornecedor: <span id="modalInvoiceSupplier">{selectedInvoice.supplier.name}</span>
+                  Fornecedor: <span id="modalInvoiceSupplier">{selectedInvoice.supplier?.name || "Não informado"}</span>
                 </p>
                 <p className="text-sm text-gray-600">
                   Data:{" "}
                   <span id="modalInvoiceDate">
                     {" "}
-                    {new Date(new Date(selectedInvoice.date).getTime() + 3 * 60 * 60 * 1000).toLocaleDateString(
-                      "pt-BR"
-                    )}
+                    {selectedInvoice.date
+                      ? new Date(new Date(selectedInvoice.date).getTime() + 3 * 60 * 60 * 1000).toLocaleDateString(
+                          "pt-BR"
+                        )
+                      : "Não informado"}
                   </span>
                 </p>
                 <p className="text-sm text-gray-600">
                   Freteiro:{" "}
                   <span id="modalInvoiceCarrier">
-                    {selectedInvoice.carrier.name} - {selectedInvoice.carrier?.value}{" "}
-                    {getShippingTypeText(selectedInvoice.carrier?.type)}
+                    {selectedInvoice.carrier?.name
+                      ? `${selectedInvoice.carrier.name} - ${selectedInvoice.carrier?.value || 0} ${getShippingTypeText(
+                          selectedInvoice.carrier?.type || ""
+                        )}`
+                      : "Não informado"}
                   </span>
                 </p>
                 <p className="text-sm text-gray-600">
                   Freteiro 2:{" "}
                   <span id="modalInvoiceCarrier">
                     {selectedInvoice.carrier2
-                      ? `${selectedInvoice.carrier2.name} - ${selectedInvoice.carrier2.value} ${getShippingTypeText(
-                          selectedInvoice.carrier2.type
-                        )}`
+                      ? `${selectedInvoice.carrier2.name} - ${
+                          selectedInvoice.carrier2.value || 0
+                        } ${getShippingTypeText(selectedInvoice.carrier2.type || "")}`
                       : "não existe"}
                   </span>
                 </p>
