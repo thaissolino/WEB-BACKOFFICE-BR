@@ -905,7 +905,12 @@ export function ExchangeTab() {
                   usd: 0,
                 });
 
+                // Recarregar dados para atualizar o histórico
                 await fetchData();
+                
+                // Garantir que o histórico seja atualizado
+                const updatedHistory = await api.get("/invoice/exchange-records");
+                setHistoryPaymentBuy(updatedHistory.data);
               } catch (error) {
                 console.log("error");
                 Swal.fire({
