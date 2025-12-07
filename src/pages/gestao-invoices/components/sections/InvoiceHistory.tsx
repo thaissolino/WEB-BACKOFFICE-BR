@@ -131,7 +131,12 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
         api.get("/invoice/product"),
       ]);
 
-      console.log(invoiceResponse);
+      console.log("📋 [INVOICE HISTORY] Resposta completa:", invoiceResponse);
+      // Debug: verificar se invoices têm user
+      if (invoiceResponse.data && invoiceResponse.data.length > 0) {
+        console.log("📋 [INVOICE HISTORY] Primeira invoice:", invoiceResponse.data[0]);
+        console.log("📋 [INVOICE HISTORY] User da primeira invoice:", invoiceResponse.data[0]?.user);
+      }
       // O backend agora retorna { products: [...], totalProducts: ..., page: ..., limit: ..., totalPages: ... }
       setProducts(Array.isArray(productsResponse.data) ? productsResponse.data : productsResponse.data.products || []);
       setInvoices(invoiceResponse.data);
