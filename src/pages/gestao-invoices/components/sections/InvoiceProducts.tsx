@@ -264,43 +264,84 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
             ? "0"
             : currentInvoice.taxaSpEs.toString().trim(),
       });
-      // Swal.fire({
-      //   icon: "success",
-      //   title: "Sucesso!",
-      //   text: "Invoice salva com sucesso!",
-      //   confirmButtonText: "Ok",
-      //   buttonsStyling: false,
-      //   customClass: {
-      //     confirmButton: "bg-blue-600 text-white hover:bg-blue-700 px-4 py-2 rounded font-semibold",
-      //   },
-      // });
 
-      setOpenNotification({
-        type: 'success',
-        title: 'Sucesso!',
-        notification: 'Invoice salva com sucesso!'
-      });
+      // Verificar se o número foi ajustado automaticamente
+      if (response.data?.numberWasAdjusted) {
+        const originalNumber = response.data.originalNumber || currentInvoice.number;
+        const newNumber = response.data.number;
+        
+        Swal.fire({
+          icon: "info",
+          title: "Número Ajustado Automaticamente",
+          html: `
+            <p>O número da invoice foi ajustado automaticamente devido a duplicidade:</p>
+            <p><strong>Número original:</strong> ${originalNumber}</p>
+            <p><strong>Novo número:</strong> <span style="color: #2563eb; font-weight: bold;">${newNumber}</span></p>
+            <p style="margin-top: 10px; font-size: 0.9em; color: #666;">A invoice foi salva com sucesso!</p>
+          `,
+          confirmButtonText: "Entendi",
+          buttonsStyling: false,
+          customClass: {
+            confirmButton: "bg-blue-600 text-white hover:bg-blue-700 px-4 py-2 rounded font-semibold",
+          },
+        });
+      } else {
+        setOpenNotification({
+          type: 'success',
+          title: 'Sucesso!',
+          notification: 'Invoice salva com sucesso!'
+        });
+      }
 
-      setCurrentInvoice({
-        id: null,
-        number: "",
-        date: new Date().toLocaleDateString('en-CA'),
-        supplierId: "",
-        products: [],
-        carrierId: "",
-        carrier2Id: "",
-        taxaSpEs: 0.0,
-        paid: false,
-        paidDate: null,
-        paidDollarRate: null,
-        completed: false,
-        completedDate: null,
-        amountTaxcarrier: 0,
-        amountTaxcarrier2: 0,
-        amountTaxSpEs: 0,
-        overallValue: 0,
-        subAmount: 0,
-      });
+      // Buscar o próximo número de invoice automaticamente
+      try {
+        const nextNumberResponse = await api.get("/invoice/next-number");
+        const nextNumber = nextNumberResponse.data?.nextNumber || `INV-${Date.now()}`;
+        
+        setCurrentInvoice({
+          id: null,
+          number: nextNumber,
+          date: new Date().toLocaleDateString('en-CA'),
+          supplierId: "",
+          products: [],
+          carrierId: "",
+          carrier2Id: "",
+          taxaSpEs: 0.0,
+          paid: false,
+          paidDate: null,
+          paidDollarRate: null,
+          completed: false,
+          completedDate: null,
+          amountTaxcarrier: 0,
+          amountTaxcarrier2: 0,
+          amountTaxSpEs: 0,
+          overallValue: 0,
+          subAmount: 0,
+        });
+      } catch (error) {
+        console.error("Erro ao buscar próximo número:", error);
+        // Em caso de erro, usar número baseado em timestamp
+        setCurrentInvoice({
+          id: null,
+          number: `INV-${Date.now()}`,
+          date: new Date().toLocaleDateString('en-CA'),
+          supplierId: "",
+          products: [],
+          carrierId: "",
+          carrier2Id: "",
+          taxaSpEs: 0.0,
+          paid: false,
+          paidDate: null,
+          paidDollarRate: null,
+          completed: false,
+          completedDate: null,
+          amountTaxcarrier: 0,
+          amountTaxcarrier2: 0,
+          amountTaxSpEs: 0,
+          overallValue: 0,
+          subAmount: 0,
+        });
+      }
 
       // setCurrentInvoice({
       //   id: null,
@@ -325,12 +366,15 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
       if (props.onInvoiceSaved) {
         props.onInvoiceSaved();
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Erro ao salvar a invoice:", error);
+      
+      const errorMessage = error?.response?.data?.message || error?.message || "Erro ao salvar a invoice";
+      
       Swal.fire({
         icon: "error",
         title: "Erro",
-        text: "Erro ao salvar a invoice",
+        text: errorMessage,
         confirmButtonText: "Ok",
         buttonsStyling: false,
         customClass: {

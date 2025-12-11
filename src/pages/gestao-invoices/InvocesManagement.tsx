@@ -12,6 +12,7 @@ import { Invoice } from "./components/types/invoice";
 import CaixasTabBrl from "./components/sections/CaixasBrl";
 import { ShoppingListsTab } from "./components/sections/ShoppingListsTab";
 import { usePermissionStore } from "../../store/permissionsStore";
+import { api } from "../../services/api";
 
 export type TabType =
   | "invoices"
@@ -43,7 +44,7 @@ export default function InvocesManagement() {
   const { getPermissions, permissions, user } = usePermissionStore();
   const [currentInvoice, setCurrentInvoice] = useState<Invoice>({
     id: null,
-    number: `INV-${Date.now()}`,
+    number: "",
     date: new Date().toLocaleDateString("en-CA"),
     supplierId: "",
     products: [],
@@ -62,8 +63,30 @@ export default function InvocesManagement() {
     subAmount: 0,
   });
 
+  // Função para buscar o próximo número de invoice
+  const fetchNextInvoiceNumber = async () => {
+    try {
+      const response = await api.get("/invoice/next-number");
+      if (response.data?.nextNumber) {
+        setCurrentInvoice((prev) => ({
+          ...prev,
+          number: response.data.nextNumber,
+        }));
+      }
+    } catch (error) {
+      console.error("Erro ao buscar próximo número de invoice:", error);
+      // Em caso de erro, usar um número baseado em timestamp como fallback
+      setCurrentInvoice((prev) => ({
+        ...prev,
+        number: `INV-${Date.now()}`,
+      }));
+    }
+  };
+
   useEffect(() => {
     getPermissions();
+    // Buscar o próximo número quando o componente for montado
+    fetchNextInvoiceNumber();
   }, []);
 
   useEffect(() => {
