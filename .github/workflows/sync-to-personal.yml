@@ -1,0 +1,26 @@
+name: Sync Mirror Repository
+
+on:
+  push:
+    branches:
+      - main
+      - dev
+      - "**"
+  workflow_dispatch:
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout original repo
+        uses: actions/checkout@v3
+        with:
+          repository: WDS-Services/WEB-BACKOFFICE-BR
+          token: ${{ secrets.MIRROR_TOKEN }}
+          fetch-depth: 0
+
+      - name: Push to personal mirror
+        run: |
+          git remote set-url origin https://token:${{ secrets.MIRROR_TOKEN }}@github.com/thaissolino/WEB-BACKOFFICE-BR.git
+          git push --mirror
