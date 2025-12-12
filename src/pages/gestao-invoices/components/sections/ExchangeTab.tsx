@@ -892,10 +892,12 @@ export function ExchangeTab() {
                 const carrier = carriers.find((c) => c.id === dataCarrierPayment.carrierId);
                 
                 // Criar transação no caixa do freteiro
+                // Quando pagamos um freteiro, estamos reduzindo a dívida (saldo negativo)
+                // Então é uma entrada (IN) no caixa dele, não uma saída (OUT)
                 await api.post("/invoice/box/transaction", {
                   value: Math.abs(dataCarrierPayment.usd),
                   entityId: dataCarrierPayment.carrierId,
-                  direction: "OUT",
+                  direction: "IN",
                   date: new Date(`${dataCarrierPayment.date}T${new Date().toTimeString().split(" ")[0]}`).toISOString(),
                   description: `PAGAMENTO CAIXA FRETEIRO - ${carrier?.name.toUpperCase()}`,
                   entityType: "CARRIER",
@@ -1040,9 +1042,10 @@ export function ExchangeTab() {
                                     const transactions = balanceRes.data.TransactionBoxUserInvoice || [];
                                     
                                     // Encontrar a transação de pagamento correspondente
+                                    // Agora os pagamentos são criados com direction "IN" (corrigido)
                                     const boxTransaction = transactions.find((t: any) => 
                                       t.description === transacao.description &&
-                                      t.direction === "OUT" &&
+                                      t.direction === "IN" &&
                                       Math.abs(t.value - transacao.usd) < 0.01
                                     );
 
