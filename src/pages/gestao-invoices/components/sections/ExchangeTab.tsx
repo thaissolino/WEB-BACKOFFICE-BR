@@ -116,26 +116,29 @@ export function ExchangeTab() {
       setBalance(getBalance.data);
       setHistoryPaymentBuy(history.data);
       setInvoices(invoiceResponse.data);
-      
+
       // Debug: verificar invoices pendentes
       const pendingInvoices = invoiceResponse.data.filter((inv: any) => !inv.completed && !inv.paid);
       console.log("📋 [EXCHANGE TAB] Total de invoices recebidas:", invoiceResponse.data.length);
       console.log("📋 [EXCHANGE TAB] Invoices pendentes (não pagas e não completas):", pendingInvoices.length);
-      console.log("📋 [EXCHANGE TAB] Detalhes das invoices pendentes:", pendingInvoices.map((inv: any) => ({
-        id: inv.id,
-        number: inv.number,
-        subAmount: inv.subAmount,
-        paid: inv.paid,
-        completed: inv.completed
-      })));
-      
+      console.log(
+        "📋 [EXCHANGE TAB] Detalhes das invoices pendentes:",
+        pendingInvoices.map((inv: any) => ({
+          id: inv.id,
+          number: inv.number,
+          subAmount: inv.subAmount,
+          paid: inv.paid,
+          completed: inv.completed,
+        }))
+      );
+
       // Buscar saldos dos freteiros
       const carriersWithBalance = await Promise.all(
         carriersResponse.data.map(async (carrier: any) => {
           try {
             const balanceRes = await api.get(`/invoice/box/transaction/${carrier.id}`);
             const transactions = balanceRes.data.TransactionBoxUserInvoice || [];
-            
+
             // Buscar invoices do freteiro
             let invoices: any[] = [];
             try {
@@ -151,28 +154,36 @@ export function ExchangeTab() {
             } catch (error) {
               console.error("Erro ao buscar invoices do freteiro:", error);
             }
-            
+
             // Calcular saldo: seguindo a mesma lógica do componente Caixas.tsx
             // - Invoices = freteiro trabalhou, nós devemos = subtrai (negativo)
             // - Transações: IN soma (+), OUT subtrai (-)
             // Saldo negativo = devemos pagar (deve aparecer na lista)
-            
+
             // Calcular transações do caixa (igual ao Caixas.tsx)
             const transactionBalance = transactions.reduce((acc: number, t: any) => {
               return acc + (t.direction === "IN" ? t.value : -t.value);
             }, 0);
-            
+
             // Calcular total de invoices (nós devemos ao freteiro = subtrai)
             const invoiceBalance = invoices.reduce((acc: number, invoice: any) => {
               return acc - invoice.value; // Subtrai porque devemos
             }, 0);
-            
+
             // Saldo final: negativo = devemos pagar, positivo = ele nos deve ou já pagamos demais
             const totalBalance = transactionBalance + invoiceBalance;
-            
+
             // Debug log
-            console.log(`[${carrier.name}] Invoices: ${invoices.length}, Total: ${invoices.reduce((s, i) => s + i.value, 0).toFixed(2)}, Balance: ${invoiceBalance.toFixed(2)} | Transações: ${transactions.length}, Balance: ${transactionBalance.toFixed(2)} | TOTAL: ${totalBalance.toFixed(2)} ${totalBalance < 0 ? '← APARECE' : '← NÃO APARECE'}`);
-            
+            console.log(
+              `[${carrier.name}] Invoices: ${invoices.length}, Total: ${invoices
+                .reduce((s, i) => s + i.value, 0)
+                .toFixed(2)}, Balance: ${invoiceBalance.toFixed(2)} | Transações: ${
+                transactions.length
+              }, Balance: ${transactionBalance.toFixed(2)} | TOTAL: ${totalBalance.toFixed(2)} ${
+                totalBalance < 0 ? "← APARECE" : "← NÃO APARECE"
+              }`
+            );
+
             // Debug log
             console.log(`Freteiro ${carrier.name}:`, {
               invoices: invoices.length,
@@ -181,7 +192,7 @@ export function ExchangeTab() {
               transactions: transactions.length,
               transactionBalance,
               totalBalance,
-              shouldAppear: totalBalance < 0
+              shouldAppear: totalBalance < 0,
             });
             return { ...carrier, balance: totalBalance };
           } catch (error) {
@@ -190,11 +201,15 @@ export function ExchangeTab() {
         })
       );
       setCarriers(carriersWithBalance);
-      
+
       // Debug: mostrar todos os freteiros e seus saldos
       console.log("=== TODOS OS FRETEIROS E SEUS SALDOS ===");
       carriersWithBalance.forEach((carrier: any) => {
-        console.log(`${carrier.name}: ${carrier.balance?.toFixed(2)} ${carrier.balance < 0 ? '← DEVEMOS PAGAR' : carrier.balance > 0 ? '← ELE NOS DEVE' : '← ZERADO'}`);
+        console.log(
+          `${carrier.name}: ${carrier.balance?.toFixed(2)} ${
+            carrier.balance < 0 ? "← DEVEMOS PAGAR" : carrier.balance > 0 ? "← ELE NOS DEVE" : "← ZERADO"
+          }`
+        );
       });
       const withNegativeBalance = carriersWithBalance.filter((c: any) => (c.balance || 0) < 0);
       console.log(`Total com saldo negativo (devem aparecer): ${withNegativeBalance.length}`);
@@ -455,7 +470,7 @@ export function ExchangeTab() {
         await Promise.all([getBalance(), fetchData()]);
 
         // Disparar evento customizado para atualizar outras abas
-        window.dispatchEvent(new CustomEvent('invoiceUpdated'));
+        window.dispatchEvent(new CustomEvent("invoiceUpdated"));
 
         setOpenNotification({
           type: "success",
@@ -503,7 +518,7 @@ export function ExchangeTab() {
         await Promise.all([getBalance(), fetchData()]);
 
         // Disparar evento customizado para atualizar outras abas
-        window.dispatchEvent(new CustomEvent('invoiceUpdated'));
+        window.dispatchEvent(new CustomEvent("invoiceUpdated"));
 
         setOpenNotification({
           type: "success",
@@ -517,6 +532,92 @@ export function ExchangeTab() {
         type: "error",
         title: "Erro!",
         notification: "Erro ao deletar transação",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const reverseTransaction = async (transacao: FinancialTransaction) => {
+    try {
+      const isCarrierPayment = transacao.description.includes("PAGAMENTO CAIXA FRETEIRO");
+      const carrierName = isCarrierPayment
+        ? transacao.description.replace("PAGAMENTO CAIXA FRETEIRO - ", "").trim()
+        : "";
+
+      const result = await Swal.fire({
+        title: "Confirmar Estorno",
+        text: `Tem certeza que deseja estornar esta transação? ${
+          isCarrierPayment
+            ? `O pagamento de ${carrierName} será revertido e a dívida voltará.`
+            : "O saldo será recalculado automaticamente."
+        }`,
+        icon: "warning",
+        showCancelButton: true,
+        confirmButtonColor: "#dc2626",
+        cancelButtonColor: "#6b7280",
+        confirmButtonText: "Sim, estornar!",
+        cancelButtonText: "Cancelar",
+        buttonsStyling: false,
+        customClass: {
+          confirmButton: "bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded font-semibold mx-2",
+          cancelButton: "bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded font-semibold mx-2",
+        },
+      });
+
+      if (result.isConfirmed) {
+        setLoading(true);
+
+        // Se for pagamento de freteiro, deletar também a transação do caixa
+        if (isCarrierPayment) {
+          try {
+            const carrier = carriers.find((c) => transacao.description.includes(c.name.toUpperCase()));
+
+            if (carrier) {
+              const balanceRes = await api.get(`/invoice/box/transaction/${carrier.id}`);
+              const transactions = balanceRes.data.TransactionBoxUserInvoice || [];
+
+              // Encontrar a transação de pagamento correspondente
+              const boxTransaction = transactions.find(
+                (t: any) =>
+                  t.description === transacao.description &&
+                  t.direction === "IN" &&
+                  Math.abs(t.value - transacao.usd) < 0.01
+              );
+
+              if (boxTransaction) {
+                // Deletar transação do caixa
+                await api.delete(`/invoice/box/trasnsaction/user/${boxTransaction.id}`);
+              }
+            }
+          } catch (error) {
+            console.error("Erro ao deletar transação do caixa:", error);
+          }
+        }
+
+        // Deletar registro de exchange e recalcular
+        await api.delete(`/invoice/exchange-records/${transacao.id}/recalculate`);
+
+        // Recarregar dados
+        await Promise.all([getBalance(), fetchData()]);
+
+        // Disparar evento customizado para atualizar outras abas
+        window.dispatchEvent(new CustomEvent("invoiceUpdated"));
+
+        setOpenNotification({
+          type: "success",
+          title: "Sucesso!",
+          notification: isCarrierPayment
+            ? "Pagamento estornado e dívida revertida com sucesso!"
+            : "Transação estornada e saldo recalculado com sucesso!",
+        });
+      }
+    } catch (error) {
+      console.error("Erro ao estornar transação:", error);
+      setOpenNotification({
+        type: "error",
+        title: "Erro!",
+        notification: "Erro ao estornar transação",
       });
     } finally {
       setLoading(false);
@@ -764,7 +865,9 @@ export function ExchangeTab() {
                       }
                       return shouldShow;
                     });
-                    console.log(`[FILTRO] Total de freteiros com saldo negativo: ${filteredCarriers.length} de ${carriers.length}`);
+                    console.log(
+                      `[FILTRO] Total de freteiros com saldo negativo: ${filteredCarriers.length} de ${carriers.length}`
+                    );
                     return filteredCarriers
                       .sort((a, b) => (a.balance || 0) - (b.balance || 0)) // Ordenar: mais negativos primeiro
                       .map((carrier) => {
@@ -871,7 +974,7 @@ export function ExchangeTab() {
                 });
                 return;
               }
-              
+
               // Validar saldo da média dólar
               if (!balance || dataCarrierPayment.usd > balance.balance) {
                 Swal.fire({
@@ -890,7 +993,7 @@ export function ExchangeTab() {
               try {
                 setIsSaving3(true);
                 const carrier = carriers.find((c) => c.id === dataCarrierPayment.carrierId);
-                
+
                 // Criar transação no caixa do freteiro
                 // Quando pagamos um freteiro, estamos reduzindo a dívida (saldo negativo)
                 // Então é uma entrada (IN) no caixa dele, não uma saída (OUT)
@@ -904,10 +1007,22 @@ export function ExchangeTab() {
                 });
 
                 // Registrar pagamento na média dólar
-                await api.post("/invoice/exchange-records", {
-                  date: new Date(`${dataCarrierPayment.date}T${new Date().toTimeString().split(" ")[0]}`),
+                const paymentDate = new Date(`${dataCarrierPayment.date}T${new Date().toTimeString().split(" ")[0]}`);
+                const rateValue = balance?.averageRate ? Number(balance.averageRate) : 0;
+
+                console.log("💸 [PAGAMENTO FRETEIRO] Dados do pagamento:", {
+                  date: paymentDate.toISOString(),
                   usd: Number(dataCarrierPayment.usd),
-                  rate: balance?.averageRate,
+                  rate: rateValue,
+                  type: "PAYMENT",
+                  invoiceId: "",
+                  description: `PAGAMENTO CAIXA FRETEIRO - ${carrier?.name.toUpperCase()}`,
+                });
+
+                await api.post("/invoice/exchange-records", {
+                  date: paymentDate.toISOString(),
+                  usd: Number(dataCarrierPayment.usd),
+                  rate: rateValue,
                   type: "PAYMENT",
                   invoiceId: "",
                   description: `PAGAMENTO CAIXA FRETEIRO - ${carrier?.name.toUpperCase()}`,
@@ -927,16 +1042,23 @@ export function ExchangeTab() {
 
                 // Recarregar dados para atualizar o histórico
                 await fetchData();
-                
+
                 // Garantir que o histórico seja atualizado
                 const updatedHistory = await api.get("/invoice/exchange-records");
                 setHistoryPaymentBuy(updatedHistory.data);
-              } catch (error) {
-                console.log("error");
+              } catch (error: any) {
+                console.error("❌ [PAGAMENTO FRETEIRO] Erro ao realizar pagamento:", error);
+                console.error("❌ [PAGAMENTO FRETEIRO] Resposta do erro:", error?.response?.data);
+
+                const errorMessage = error?.response?.data?.message || error?.message || "Erro ao realizar pagamento";
+                const errorDetails = error?.response?.data?.issues
+                  ? `Detalhes: ${JSON.stringify(error.response.data.issues)}`
+                  : "";
+
                 Swal.fire({
                   icon: "error",
                   title: "Atenção",
-                  text: "Erro ao realizar pagamento",
+                  text: `${errorMessage}${errorDetails ? `\n\n${errorDetails}` : ""}`,
                   confirmButtonText: "Ok",
                   buttonsStyling: false,
                   customClass: {
@@ -958,142 +1080,6 @@ export function ExchangeTab() {
               <>Pagar Caixa do Freteiro</>
             )}
           </button>
-        </div>
-      </div>
-
-      {/* Seção de Estorno de Pagamentos de Freteiros */}
-      <div className="mt-6 p-4 bg-gray-50 rounded">
-        <h3 className="text-lg font-medium mb-4 text-blue-700 border-b pb-2">Estornar Pagamentos de Freteiros</h3>
-        <div className="overflow-x-auto">
-          <table className="min-w-full bg-white">
-            <thead>
-              <tr className="bg-gray-200">
-                <th className="py-2 px-4 border">Data</th>
-                <th className="py-2 px-4 border">Freteiro</th>
-                <th className="py-2 px-4 border">Valor (USD)</th>
-                <th className="py-2 px-4 border">Taxa</th>
-                <th className="py-2 px-4 border">Usuário</th>
-                <th className="py-2 px-4 border">Ações</th>
-              </tr>
-            </thead>
-            <tbody>
-              {historyPaymentBuy && historyPaymentBuy.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="py-4 text-center text-gray-500">
-                    Nenhum pagamento de freteiro encontrado
-                  </td>
-                </tr>
-              ) : (
-                (historyPaymentBuy ?? [])
-                  .filter((transacao) => 
-                    transacao.type === "PAYMENT" && 
-                    transacao.description.includes("PAGAMENTO CAIXA FRETEIRO")
-                  )
-                  .map((transacao) => {
-                    const carrierName = transacao.description.replace("PAGAMENTO CAIXA FRETEIRO - ", "").trim();
-                    return (
-                      <tr key={transacao.id} className="hover:bg-gray-50 bg-blue-50">
-                        <td className="py-2 px-4 border text-center">
-                          {new Date(new Date(transacao.date).getTime() + 3 * 60 * 60 * 1000).toLocaleDateString("pt-BR")}
-                        </td>
-                        <td className="py-2 px-4 border text-center font-semibold">
-                          {carrierName}
-                        </td>
-                        <td className="py-2 px-4 border text-center font-mono text-red-600">
-                          -{formatCurrency(transacao.usd, 2, "USD")}
-                        </td>
-                        <td className="py-2 px-4 border text-center font-mono">
-                          {formatCurrency(transacao.rate, 4)}
-                        </td>
-                        <td className="py-2 px-4 border text-center text-sm">
-                          {transacao.user ? (
-                            <span title={transacao.user.email}>
-                              {transacao.user.name || transacao.user.email || "Usuário"}
-                            </span>
-                          ) : (
-                            <span className="text-gray-400">-</span>
-                          )}
-                        </td>
-                        <td className="py-2 px-4 border text-center">
-                          <button
-                            onClick={async () => {
-                              const result = await Swal.fire({
-                                title: "Tem certeza?",
-                                text: `Deseja estornar o pagamento de ${carrierName} no valor de ${formatCurrency(transacao.usd, 2, "USD")}?`,
-                                icon: "warning",
-                                showCancelButton: true,
-                                confirmButtonText: "Sim, estornar!",
-                                cancelButtonText: "Cancelar",
-                                customClass: {
-                                  confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
-                                  cancelButton: "bg-gray-300 text-gray-800 hover:bg-gray-400 px-4 py-2 rounded font-semibold",
-                                },
-                              });
-
-                              if (result.isConfirmed) {
-                                try {
-                                  // Buscar a transação do caixa do freteiro pela descrição
-                                  const carrier = carriers.find((c) => 
-                                    transacao.description.includes(c.name.toUpperCase())
-                                  );
-                                  
-                                  if (carrier) {
-                                    const balanceRes = await api.get(`/invoice/box/transaction/${carrier.id}`);
-                                    const transactions = balanceRes.data.TransactionBoxUserInvoice || [];
-                                    
-                                    // Encontrar a transação de pagamento correspondente
-                                    // Agora os pagamentos são criados com direction "IN" (corrigido)
-                                    const boxTransaction = transactions.find((t: any) => 
-                                      t.description === transacao.description &&
-                                      t.direction === "IN" &&
-                                      Math.abs(t.value - transacao.usd) < 0.01
-                                    );
-
-                                    if (boxTransaction) {
-                                      // Deletar transação do caixa
-                                      await api.delete(`/invoice/box/trasnsaction/user/${boxTransaction.id}`);
-                                    }
-                                  }
-
-                                  // Deletar registro de exchange e recalcular
-                                  await api.delete(`/invoice/exchange-records/${transacao.id}/recalculate`);
-
-                                  setOpenNotification({
-                                    type: "success",
-                                    title: "Sucesso!",
-                                    notification: "Pagamento estornado com sucesso!",
-                                  });
-
-                                  await fetchData();
-                                  // Disparar evento customizado para atualizar outras abas
-                                  window.dispatchEvent(new CustomEvent('invoiceUpdated'));
-                                } catch (error) {
-                                  console.error("Erro ao estornar pagamento:", error);
-                                  Swal.fire({
-                                    icon: "error",
-                                    title: "Erro",
-                                    text: "Erro ao estornar pagamento. Tente novamente.",
-                                    confirmButtonText: "Ok",
-                                    buttonsStyling: false,
-                                    customClass: {
-                                      confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
-                                    },
-                                  });
-                                }
-                              }
-                            }}
-                            className="bg-red-600 hover:bg-red-800 text-white px-3 py-1 rounded text-sm font-semibold transition-colors duration-200"
-                            title="Estornar pagamento"
-                          >
-                            ↶ Estornar
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })
-              )}
-            </tbody>
-          </table>
         </div>
       </div>
 
@@ -1139,20 +1125,24 @@ export function ExchangeTab() {
                     const filteredInvoices = invoices.filter((item) => {
                       // Verificar se tem supplier e subAmount válido
                       const hasValidSupplier = item.supplier && item.supplier.name;
-                      const hasValidAmount = item.subAmount !== undefined && item.subAmount !== null && item.subAmount > 0;
+                      const hasValidAmount =
+                        item.subAmount !== undefined && item.subAmount !== null && item.subAmount > 0;
                       const isPending = !item.completed && !item.paid;
                       return hasValidSupplier && hasValidAmount && isPending;
                     });
                     console.log("📋 [EXCHANGE TAB] Invoices no dropdown:", filteredInvoices.length);
-                    console.log("📋 [EXCHANGE TAB] Invoices no dropdown (detalhes):", filteredInvoices.map((inv: any) => ({
-                      id: inv.id,
-                      number: inv.number,
-                      subAmount: inv.subAmount,
-                      paid: inv.paid,
-                      completed: inv.completed,
-                      hasSupplier: !!inv.supplier,
-                      supplierName: inv.supplier?.name
-                    })));
+                    console.log(
+                      "📋 [EXCHANGE TAB] Invoices no dropdown (detalhes):",
+                      filteredInvoices.map((inv: any) => ({
+                        id: inv.id,
+                        number: inv.number,
+                        subAmount: inv.subAmount,
+                        paid: inv.paid,
+                        completed: inv.completed,
+                        hasSupplier: !!inv.supplier,
+                        supplierName: inv.supplier?.name,
+                      }))
+                    );
                     return filteredInvoices.map((invoice) => (
                       <option key={invoice.id} value={invoice.id}>
                         {invoice.number.toUpperCase()} - {(invoice.supplier?.name || "Sem fornecedor").toUpperCase()} (
@@ -1186,22 +1176,20 @@ export function ExchangeTab() {
             />
           </div>
         </div>
-        <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <button
-              onClick={registrarPagamento}
-              className="w-full bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded flex items-center justify-center"
-            >
-              {isSaving2 ? (
-                <>
-                  <Loader2 className="animate-spin mr-2" size={18} />
-                  Salvando...
-                </>
-              ) : (
-                <>Registrar Pagamento</>
-              )}
-            </button>
-          </div>
+        <div className="mt-4">
+          <button
+            onClick={registrarPagamento}
+            className="w-full bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded flex items-center justify-center"
+          >
+            {isSaving2 ? (
+              <>
+                <Loader2 className="animate-spin mr-2" size={18} />
+                Salvando...
+              </>
+            ) : (
+              <>Registrar Pagamento</>
+            )}
+          </button>
           <div className="bg-blue-100 p-2 rounded hidden" id="infoAlocacao"></div>
         </div>
       </div>
@@ -1297,13 +1285,22 @@ export function ExchangeTab() {
                         )}
                       </td>
                       <td className={`py-2 px-4 border ${rowClass} text-center`}>
-                        <button
-                          onClick={() => deleteTransaction(transacao.id)}
-                          className="bg-red-600 hover:bg-red-800 text-white px-3 py-1 rounded text-sm font-semibold transition-colors duration-200"
-                          title="Deletar transação e recalcular saldo"
-                        >
-                          🗑️
-                        </button>
+                        <div className="flex items-center justify-center gap-2">
+                          <button
+                            onClick={() => deleteTransaction(transacao.id)}
+                            className="bg-red-600 hover:bg-red-800 text-white px-3 py-1 rounded text-sm font-semibold transition-colors duration-200"
+                            title="Deletar transação e recalcular saldo"
+                          >
+                            🗑️
+                          </button>
+                          <button
+                            onClick={() => reverseTransaction(transacao)}
+                            className="bg-orange-600 hover:bg-orange-800 text-white px-3 py-1 rounded text-sm font-semibold transition-colors duration-200"
+                            title="Estornar transação e reverter valores"
+                          >
+                            ↶
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
