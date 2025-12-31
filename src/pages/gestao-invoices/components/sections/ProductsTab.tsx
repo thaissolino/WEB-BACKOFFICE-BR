@@ -21,6 +21,7 @@ export function ProductsTab() {
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [sortBy, setSortBy] = useState<"name" | "code">("name"); // Padrão: ordenação alfabética
+  const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
   const { setOpenNotification } = useNotification();
 
   const fetchData = async () => {
@@ -74,6 +75,66 @@ export function ProductsTab() {
   const handleEdit = (product: Product) => {
     setCurrentProduct(product);
     setShowModal(true);
+  };
+
+  const handleSelectProduct = (id: string) => {
+    setSelectedProducts((prev) =>
+      prev.includes(id) ? prev.filter((pId) => pId !== id) : [...prev, id]
+    );
+  };
+
+  const handleSelectAll = () => {
+    if (selectedProducts.length === products.length) {
+      setSelectedProducts([]);
+    } else {
+      setSelectedProducts(products.map((p) => p.id));
+    }
+  };
+
+  const handleDeleteMultiple = async () => {
+    if (selectedProducts.length === 0) return;
+
+    const result = await Swal.fire({
+      title: "Tem certeza?",
+      text: `Você está prestes a excluir ${selectedProducts.length} produto(s). Esta ação não pode ser revertida!`,
+      icon: "warning",
+      showCancelButton: true,
+      buttonsStyling: false,
+      customClass: {
+        confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold mr-2",
+        cancelButton: "bg-gray-500 text-white hover:bg-gray-600 px-4 py-2 rounded font-semibold",
+      },
+      confirmButtonText: `Sim, excluir ${selectedProducts.length} produto(s)!`,
+      cancelButtonText: "Cancelar",
+    });
+
+    if (result.isConfirmed) {
+      setIsSubmitting(true);
+      try {
+        await Promise.all(selectedProducts.map((id) => api.delete(`/invoice/product/${id}`)));
+        await fetchData();
+        setSelectedProducts([]);
+        setOpenNotification({
+          type: "success",
+          title: "Sucesso!",
+          notification: `${selectedProducts.length} produto(s) excluído(s) com sucesso!`,
+        });
+      } catch (error) {
+        console.error("Erro ao excluir produtos:", error);
+        Swal.fire({
+          icon: "error",
+          title: "Erro!",
+          text: "Não foi possível excluir os produtos.",
+          confirmButtonText: "Ok",
+          buttonsStyling: false,
+          customClass: {
+            confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
+          },
+        });
+      } finally {
+        setIsSubmitting(false);
+      }
+    }
   };
 
   const handleDelete = async (id: string) => {
@@ -259,6 +320,20 @@ export function ProductsTab() {
           Cadastro de Produtos
         </h2>
         <div className="flex items-center gap-4">
+          {selectedProducts.length > 0 && (
+            <button
+              onClick={handleDeleteMultiple}
+              className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded flex items-center"
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Trash2 className="mr-2" size={16} />
+              )}
+              Excluir Selecionados ({selectedProducts.length})
+            </button>
+          )}
           <div className="flex items-center gap-2">
             <label className="text-sm font-medium text-gray-700">Ordenar por:</label>
             <select
@@ -309,6 +384,14 @@ export function ProductsTab() {
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <input
+                    type="checkbox"
+                    checked={selectedProducts.length === products.length && products.length > 0}
+                    onChange={handleSelectAll}
+                    className="rounded"
+                  />
+                </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nome</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Código
@@ -327,7 +410,7 @@ export function ProductsTab() {
             <tbody className="bg-white divide-y divide-gray-200">
               {products.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-4 text-center text-gray-500">
+                  <td colSpan={6} className="px-6 py-4 text-center text-gray-500">
                     {isLoading ? "Carregando..." : "Nenhum produto cadastrado"}
                   </td>
                 </tr>
@@ -337,6 +420,14 @@ export function ProductsTab() {
                   // (o filtro active !== false estava escondendo produtos)
                   return (
                     <tr key={product.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <input
+                          type="checkbox"
+                          checked={selectedProducts.includes(product.id)}
+                          onChange={() => handleSelectProduct(product.id)}
+                          className="rounded"
+                        />
+                      </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{product.name}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{product.code}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right">

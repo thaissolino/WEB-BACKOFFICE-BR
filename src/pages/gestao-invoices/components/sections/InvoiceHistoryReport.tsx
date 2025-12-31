@@ -125,6 +125,17 @@ export function InvoiceHistoryReport({
   invoiceHistory: invoices,
   setInvoiceHistory: setInvoices,
 }: InvoiceHistoryReportProps) {
+  const [receiptHistoryModal, setReceiptHistoryModal] = useState<{
+    open: boolean;
+    invoiceProductId: string | null;
+    productName: string;
+  }>({
+    open: false,
+    invoiceProductId: null,
+    productName: "",
+  });
+  const [receiptHistory, setReceiptHistory] = useState<any[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
   // const [invoices, setInvoices] = useState<InvoiceData[]>([]);
   const [suppliers, setSuppliers] = useState<{ id: string; name: string }[]>([]);
   const [loading, setLoading] = useState(true);
@@ -640,6 +651,13 @@ export function InvoiceHistoryReport({
                   <tbody id="modalInvoicePendingProducts" className="bg-white divide-y divide-gray-200">
                     {selectedInvoice.products
                       .filter((item) => !item.received)
+                      .sort((a, b) => {
+                        const productA = products.find((p) => p.id === a.productId);
+                        const productB = products.find((p) => p.id === b.productId);
+                        const nameA = productA?.name || "";
+                        const nameB = productB?.name || "";
+                        return nameA.localeCompare(nameB, "pt-BR", { sensitivity: "base" });
+                      })
                       .map((product, index) => (
                         <tr key={index}>
                           <td className="px-4 py-2 text-sm text-gray-700">
@@ -745,6 +763,13 @@ export function InvoiceHistoryReport({
                   <tbody id="modalInvoicePendingProducts" className="bg-white divide-y divide-gray-200">
                     {selectedInvoice.products
                       .filter((item) => item.analising && item.quantityAnalizer > 0)
+                      .sort((a, b) => {
+                        const productA = products.find((p) => p.id === a.productId);
+                        const productB = products.find((p) => p.id === b.productId);
+                        const nameA = productA?.name || "";
+                        const nameB = productB?.name || "";
+                        return nameA.localeCompare(nameB, "pt-BR", { sensitivity: "base" });
+                      })
                       .map((product, index) => (
                         <tr key={index}>
                           <td className="px-4 py-2 text-sm text-gray-700">
@@ -878,8 +903,11 @@ export function InvoiceHistoryReport({
                                 (item) => item.analising && !item.received
                               );
 
+                              const today = new Date().toISOString();
                               for (const item of productsToReceive) {
                                 const allreceived = item.receivedQuantity + item.quantityAnalizer >= item.quantity;
+                                const quantityReceived = item.quantityAnalizer;
+                                
                                 await api.patch("/invoice/update/product", {
                                   idProductInvoice: item.id,
                                   bodyupdate: {
@@ -888,6 +916,19 @@ export function InvoiceHistoryReport({
                                     quantityAnalizer: 0,
                                   },
                                 });
+                                
+                                // Registrar no histórico de recebimentos
+                                if (quantityReceived > 0) {
+                                  try {
+                                    await api.post("/invoice/product/receipt-history", {
+                                      invoiceProductId: item.id,
+                                      date: today,
+                                      quantity: quantityReceived,
+                                    });
+                                  } catch (error) {
+                                    console.error("Erro ao registrar histórico de recebimento:", error);
+                                  }
+                                }
                               }
 
                               const { data: updatedInvoices } = await api.get("/invoice/get");
@@ -942,11 +983,21 @@ export function InvoiceHistoryReport({
                       <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                         {selectedInvoice.paid ? "Total (R$)" : "Total ($)"}
                       </th>
+                      <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Histórico
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
                     {selectedInvoice.products
                       .filter((item) => item.receivedQuantity > 0)
+                      .sort((a, b) => {
+                        const productA = products.find((p) => p.id === a.productId);
+                        const productB = products.find((p) => p.id === b.productId);
+                        const nameA = productA?.name || "";
+                        const nameB = productB?.name || "";
+                        return nameA.localeCompare(nameB, "pt-BR", { sensitivity: "base" });
+                      })
                       .map((product, index) => (
                         <tr key={index}>
                           <td className="px-4 py-2 text-sm text-gray-700">
@@ -997,6 +1048,31 @@ export function InvoiceHistoryReport({
                                 maximumFractionDigits: 2,
                               });
                             })()}
+                          </td>
+                          <td className="px-4 py-2 text-sm text-center">
+                            <button
+                              onClick={async () => {
+                                setReceiptHistoryModal({
+                                  open: true,
+                                  invoiceProductId: product.id,
+                                  productName: products.find((item) => item.id === product.productId)?.name || "",
+                                });
+                                setLoadingHistory(true);
+                                try {
+                                  const response = await api.get(`/invoice/product/receipt-history/${product.id}`);
+                                  setReceiptHistory(response.data || []);
+                                } catch (error) {
+                                  console.error("Erro ao buscar histórico:", error);
+                                  setReceiptHistory([]);
+                                } finally {
+                                  setLoadingHistory(false);
+                                }
+                              }}
+                              className="text-blue-600 hover:text-blue-800 p-1 rounded hover:bg-blue-50"
+                              title="Ver histórico de recebimentos"
+                            >
+                              <Eye size={18} />
+                            </button>
                           </td>
                         </tr>
                       ))}
@@ -1233,6 +1309,77 @@ export function InvoiceHistoryReport({
                             <i className="fas fa-check mr-2"></i>Marcar como Concluída
                         </button> */}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Histórico de Recebimentos */}
+      {receiptHistoryModal.open && (
+        <div
+          className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50"
+          onClick={() => setReceiptHistoryModal({ open: false, invoiceProductId: null, productName: "" })}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white p-6 rounded-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto mx-4"
+          >
+            <div className="flex justify-between items-start mb-4">
+              <div>
+                <h3 className="text-lg font-medium text-blue-700">
+                  Histórico de Recebimentos
+                </h3>
+                <p className="text-sm text-gray-600">
+                  Produto: <span className="font-semibold">{receiptHistoryModal.productName}</span>
+                </p>
+              </div>
+              <button
+                onClick={() => setReceiptHistoryModal({ open: false, invoiceProductId: null, productName: "" })}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <XIcon size={24} />
+              </button>
+            </div>
+
+            {loadingHistory ? (
+              <div className="flex justify-center items-center py-8">
+                <Loader2 className="h-8 w-8 text-blue-500 animate-spin" />
+              </div>
+            ) : receiptHistory.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                Nenhum registro de recebimento encontrado.
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Data
+                      </th>
+                      <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Quantidade Recebida
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {receiptHistory.map((item, index) => (
+                      <tr key={index} className="hover:bg-gray-50">
+                        <td className="px-4 py-2 text-sm text-gray-700">
+                          {new Date(item.date).toLocaleDateString("pt-BR", {
+                            day: "2-digit",
+                            month: "2-digit",
+                            year: "numeric",
+                          })}
+                        </td>
+                        <td className="px-4 py-2 text-sm text-right font-semibold text-green-600">
+                          {item.quantity}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </div>
       )}

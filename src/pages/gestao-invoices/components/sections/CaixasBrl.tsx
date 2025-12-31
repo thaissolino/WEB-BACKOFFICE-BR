@@ -873,8 +873,11 @@ export const CaixasTabBrl = () => {
                     className="w-full border border-gray-300 rounded-md p-2"
                     value={valorRaw}
                     onChange={(e) => {
-                      // Permite números, ponto decimal e sinal negativo
-                      const cleanedValue = e.target.value.replace(/[^0-9.-]/g, "");
+                      // Permite números, vírgula, ponto decimal e sinal negativo
+                      let cleanedValue = e.target.value.replace(/[^0-9.,-]/g, "");
+
+                      // Converte vírgula para ponto (padrão internacional)
+                      cleanedValue = cleanedValue.replace(/,/g, ".");
 
                       // Garante que há apenas um sinal negativo no início
                       let newValue = cleanedValue;
