@@ -6,9 +6,11 @@ import { Invoice } from "../types/invoice";
 interface NewInvoiceFormProps {
   currentInvoice: Invoice;
   setCurrentInvoice: (invoice: Invoice) => void;
+  isActionLoading?: boolean;
+  setIsActionLoading?: (loading: boolean) => void;
 }
 
-export function NewInvoiceForm({ currentInvoice, setCurrentInvoice }: NewInvoiceFormProps) {
+export function NewInvoiceForm({ currentInvoice, setCurrentInvoice, isActionLoading = false }: NewInvoiceFormProps) {
   const [suppliers, setSuppliers] = useState<any[]>([]);
   const [carriers, setCarriers] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);

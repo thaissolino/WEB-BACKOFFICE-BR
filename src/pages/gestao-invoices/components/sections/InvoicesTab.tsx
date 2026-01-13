@@ -12,8 +12,8 @@ interface NewInvoiceFormProps {
 export function InvoicesTab({ currentInvoice, setCurrentInvoice }: NewInvoiceFormProps) {
   const [reload, setReload] = useState(false);
   const [reloadInvoices, setReloadInvoices] = useState(false);
-
-  const [reloadInvoiceHistory, setReloadInvoiceHistory] = useState(false) 
+  const [reloadInvoiceHistory, setReloadInvoiceHistory] = useState(false);
+  const [isActionLoading, setIsActionLoading] = useState(false); 
 
   // const [currentInvoice, setCurrentInvoice] = useState<Invoice>({
   //   id: null,
@@ -45,11 +45,18 @@ export function InvoicesTab({ currentInvoice, setCurrentInvoice }: NewInvoiceFor
   return (
     <div className="space-y-8">
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <NewInvoiceForm currentInvoice={currentInvoice} setCurrentInvoice={setCurrentInvoice} />
+        <NewInvoiceForm 
+          currentInvoice={currentInvoice} 
+          setCurrentInvoice={setCurrentInvoice}
+          isActionLoading={isActionLoading}
+          setIsActionLoading={setIsActionLoading}
+        />
         <InvoiceProducts
           currentInvoice={currentInvoice}
           setCurrentInvoice={setCurrentInvoice}
           onInvoiceSaved={() => setReloadInvoices((prev) => !prev)}
+          isActionLoading={isActionLoading}
+          setIsActionLoading={setIsActionLoading}
         />
       </div>
       <InvoiceHistory reloadTrigger={reloadInvoices} />

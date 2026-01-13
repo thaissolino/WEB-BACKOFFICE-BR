@@ -22,7 +22,9 @@ export type InvoiceProduct = {
 interface InvoiceProductsProps {
   currentInvoice: Invoice;
   setCurrentInvoice: (invoice: any) => void;
-  onInvoiceSaved?: () => void; // 👈 Adicione isso
+  onInvoiceSaved?: () => void;
+  isActionLoading?: boolean;
+  setIsActionLoading?: (loading: boolean) => void;
   [key: string]: any;
 }
 type CarrierEnum = "percentage" | "perKg" | "perUnit";
@@ -35,7 +37,7 @@ export type Carrier = {
   active: true;
 };
 
-export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }: InvoiceProductsProps) {
+export function InvoiceProducts({ currentInvoice, setCurrentInvoice, isActionLoading = false, setIsActionLoading, ...props }: InvoiceProductsProps) {
   const [showProductForm, setShowProductForm] = useState(false);
   const [products, setProducts] = useState<any[]>([]);
   const [carriers, setCarriers] = useState<Carrier[]>([]);
@@ -147,6 +149,8 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
   }, [taxSpEs, amountTaxCarrieFrete1, amountTaxCarrieFrete2, subTotal]);
 
   const addProduct = () => {
+    if (isActionLoading || isSaving) return;
+
     const product = products.find((p) => p.id === productForm.productId);
     if (!product) return;
 
@@ -165,35 +169,43 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
       return;
     }
 
-    const invoiceProduct = {
-      id: productForm.productId,
-      name: product.name,
-      quantity,
-      value,
-      weight,
-      total,
-      received: false,
-      receivedQuantity: 0,
-    };
+    setIsActionLoading?.(true);
+    
+    try {
+      const invoiceProduct = {
+        id: productForm.productId,
+        name: product.name,
+        quantity,
+        value,
+        weight,
+        total,
+        received: false,
+        receivedQuantity: 0,
+      };
 
-    setCurrentInvoice({
-      ...currentInvoice,
-      products: [...currentInvoice.products, invoiceProduct],
-    });
+      setCurrentInvoice({
+        ...currentInvoice,
+        products: [...currentInvoice.products, invoiceProduct],
+      });
 
-    setProductForm({
-      productId: "",
-      price: "",
-      quantity: "",
-      value: "",
-      weight: "",
-      total: "",
-    });
+      setProductForm({
+        productId: "",
+        price: "",
+        quantity: "",
+        value: "",
+        weight: "",
+        total: "",
+      });
 
-    setShowProductForm(false);
+      setShowProductForm(false);
+    } finally {
+      setIsActionLoading?.(false);
+    }
   };
 
   const saveInvoice = async () => {
+    if (isActionLoading || isSaving) return;
+
     if (currentInvoice.products.length === 0) {
       Swal.fire({
         icon: "warning",
@@ -251,6 +263,7 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
     }
 
     setIsSaving(true);
+    setIsActionLoading?.(true);
     try {
       const now = new Date();
       const time = now.toTimeString().split(' ')[0]; // "HH:MM:SS"
@@ -383,6 +396,7 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
       });
     } finally {
       setIsSaving(false);
+      setIsActionLoading?.(false);
     }
   };
 
@@ -411,11 +425,20 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
         {!showProductForm && (
           <button
             onClick={() => setShowProductForm(true)}
-            className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded text-sm flex items-center"
-            disabled={isSaving}
+            className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded text-sm flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={isSaving || isActionLoading}
           >
-            <Plus className="mr-1 inline" size={16} />
-            Adicionar Produto
+            {isActionLoading ? (
+              <>
+                <Loader2 className="animate-spin mr-1 inline" size={16} />
+                Carregando...
+              </>
+            ) : (
+              <>
+                <Plus className="mr-1 inline" size={16} />
+                Adicionar Produto
+              </>
+            )}
           </button>
         )}
       </div>
@@ -649,17 +672,28 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
             <div className="flex items-end">
               <button
                 onClick={() => setShowProductForm(false)}
-                className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 py-2 px-4 rounded mr-2"
+                className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 py-2 px-4 rounded mr-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={isSaving || isActionLoading}
               >
                 <X className="mr-1 inline" size={16} />
                 Cancelar
               </button>
               <button
                 onClick={addProduct}
-                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded"
+                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+                disabled={isSaving || isActionLoading}
               >
-                <Plus className="mr-1 inline" size={16} />
-                Adicionar
+                {isActionLoading ? (
+                  <>
+                    <Loader2 className="animate-spin mr-1 inline" size={16} />
+                    Adicionando...
+                  </>
+                ) : (
+                  <>
+                    <Plus className="mr-1 inline" size={16} />
+                    Adicionar
+                  </>
+                )}
               </button>
             </div>
           </div>
@@ -711,7 +745,11 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
                     {product.total.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </td>
                   <td className="px-4 py-2 text-center">
-                    <button onClick={() => deleteProduct(index)} className="text-red-600 hover:text-red-800">
+                    <button 
+                      onClick={() => deleteProduct(index)} 
+                      className="text-red-600 hover:text-red-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                      disabled={isSaving || isActionLoading}
+                    >
                       <Trash2 size={16} />
                     </button>
                   </td>
@@ -810,10 +848,10 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
         </div>
         <button
           onClick={saveInvoice}
-          className="w-full bg-blue-600 mt-4 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md flex items-center justify-center"
-          disabled={isSaving}
+          className="w-full bg-blue-600 mt-4 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+          disabled={isSaving || isActionLoading}
         >
-          {isSaving ? (
+          {isSaving || isActionLoading ? (
             <>
               <Loader2 className="animate-spin mr-2" size={18} />
               Salvando...
