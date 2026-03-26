@@ -1,6 +1,7 @@
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { Layout as BackofficeLayout } from "../pages/backoffice/Layout/base";
 import { SignIn as BackofficeSignIn } from "../pages/backoffice/SignIn";
+import { SessionExpiredBackoffice } from "../pages/backoffice/SessionExpiredBackoffice";
 import { useAuthBackoffice } from "../hooks/authBackoffice";
 import { Logout } from "../pages/backoffice/Logout";
 import GuardedRoute from "./GuardedRoute";
@@ -12,11 +13,9 @@ import Invoices from "../pages/invoices";
 import FormGroup from "../pages/form-group";
 import FormRoom from "../pages/form-room";
 import FormUser from "../pages/form-user";
-import SpreadsheetApp from "../pages/spreadsheets";
 import { CambioPage } from "../pages/cambiobackoffice/CambioPage";
 import InvocesManagement from "../pages/gestao-invoices/InvocesManagement";
 import TokensManagement from "../pages/tokens-management/TokensManagement";
-import BillsManagement from "../pages/bills-management";
 import OperatorsManagement from "../pages/form-operators/OperatorsManagement";
 import OperatorManager2 from "../pages/form-operators-two/OperatorsManagement2";
 import OperatorManager from "../pages/form-operators/OperatorsManagement";
@@ -28,9 +27,7 @@ const LOGIN_ROUTE = "/signin/backoffice";
 
 function RequireAuthBackoffice({ children }: { children: JSX.Element }) {
   useEffect(() => {
-    const session = sessionStorage.getItem("registerbackoffice");
-    if (!session) {
-      localStorage.clear();
+    if (!sessionStorage.getItem("registerbackoffice")) {
       sessionStorage.setItem("registerbackoffice", "2");
     }
   }, []);
@@ -43,6 +40,9 @@ export function Router() {
 
   return (
     <Routes>
+      {/* Rota pública: sessão expirada (sem proteção de auth) */}
+      <Route path="session-expired/backoffice" element={<SessionExpiredBackoffice />} />
+
       {/* Rotas quando faz o login */}
 
       <Route
@@ -70,7 +70,6 @@ export function Router() {
           <Route path="users" element={<Contacts />} />
           <Route path="operators-management" element={<OperatorManager />} />
           {/* <Route path="operators-management2" element={<OperatorManager2 />} /> */}
-          <Route path="spreadsheets" element={<SpreadsheetApp />} />
           <Route path="invoices" element={<Invoices />} />
           <Route path="create-form-group" element={<FormGroup />} />
           <Route path="create-form-room" element={<FormRoom />} />
@@ -78,7 +77,6 @@ export function Router() {
           <Route path="cambioPage" element={<CambioPage />} />
           <Route path="invoices-management" element={<InvocesManagement />} />
           <Route path="tokens-management" element={<TokensManagement />} />
-          <Route path="billets-management" element={<BillsManagement />} />
           <Route path="meu-perfil-operator" element={<OperatorsManagementPerfilEdit />} />
           <Route path="meu-perfil-master" element={<AdmManagementPerfilEdit />} />
           {/* <Route path="/backoffice/plans" element={<Plans />} />

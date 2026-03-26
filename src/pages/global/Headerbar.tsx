@@ -192,25 +192,10 @@ const HeaderMenu: React.FC<HeaderMenuProps> = () => {
             </MenuItem>
           )}
 
-          {canShowTab("GERENCIAR_PLANILHAS") && (
-            <MenuItem
-              onClick={() => {
-                setPendingNavigation("/spreadsheets");
-                setOpenModal(true);
-                handleMenuClose();
-              }}
-              sx={{ color: colors.grey[100] }}
-            >
-              <TableChartOutlinedIcon sx={{ mr: 1, color: colors.greenAccent[500] }} />
-              Gerenciar Planilhas
-            </MenuItem>
-          )}
-
           {canShowTab("GERENCIAR_INVOICES") && (
             <MenuItem
               onClick={() => {
-                setPendingNavigation("/invoices-management");
-                setOpenModal(true);
+                navigate("/invoices-management");
                 handleMenuClose();
               }}
               sx={{ color: colors.grey[100] }}
@@ -223,8 +208,7 @@ const HeaderMenu: React.FC<HeaderMenuProps> = () => {
           {canShowTab("GERENCIAR_TOKENS") && (
             <MenuItem
               onClick={() => {
-                setPendingNavigation("/tokens-management");
-                setOpenModal(true);
+                navigate("/tokens-management");
                 handleMenuClose();
               }}
               sx={{ color: colors.grey[100] }}
@@ -234,29 +218,16 @@ const HeaderMenu: React.FC<HeaderMenuProps> = () => {
             </MenuItem>
           )}
 
-          {canShowTab("GERENCIAR_BOLETOS") && (
-            <MenuItem
-              onClick={() => {
-                setPendingNavigation("/billets-management");
-                setOpenModal(true);
-                handleMenuClose();
-              }}
-              sx={{ color: colors.grey[100] }}
-            >
-              <TableChartOutlinedIcon sx={{ mr: 1, color: colors.greenAccent[500] }} />
-              Gerenciar Boletos
-            </MenuItem>
-          )}
         </Menu>
 
-        {/* Enhanced Modal Component */}
-        <EnhancedModal
+        {/* Enhanced Modal Component - DESABILITADO */}
+        {/* <EnhancedModal
           open={openModal}
           onClose={handleCloseModal}
           onSave={handleSaveSpreadsheetModal}
           title="Digite a senha de acesso"
           label="Code"
-        />
+        /> */}
 
         {/* Error Toast */}
         <Snackbar

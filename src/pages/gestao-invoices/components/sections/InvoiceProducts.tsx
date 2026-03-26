@@ -1,10 +1,14 @@
 import { useState, useEffect } from "react";
-import { Box, Loader2, Plus, Save, Trash2, X } from "lucide-react";
+import { Box, Loader2, Plus, Save, Trash2, X, Upload, Edit2 } from "lucide-react";
 import { api } from "../../../../services/api";
 import { Invoice } from "../types/invoice";
 import Swal from "sweetalert2";
 import { ProductSearchSelect } from "./SupplierSearchSelect";
 import { useNotification } from "../../../../hooks/notification";
+import { useActionLoading } from "../../context/ActionLoadingContext";
+import { ImportPdfModal } from "../modals/ImportPdfModal";
+import { ReviewPdfModal } from "../modals/ReviewPdfModal";
+import { MultiInvoiceReviewModal } from "../modals/MultiInvoiceReviewModal";
 
 export type InvoiceProduct = {
   id: string;
@@ -17,14 +21,20 @@ export type InvoiceProduct = {
   total: number;
   received: boolean;
   receivedQuantity: number;
+  /** Nome do produto (vindo da relação product ou do PDF) */
+  name?: string;
+  /** Campo temporário: IMEIs vindos do PDF antes de salvar no backend */
+  _imeis?: string[];
 };
 
 interface InvoiceProductsProps {
   currentInvoice: Invoice;
   setCurrentInvoice: (invoice: any) => void;
   onInvoiceSaved?: () => void;
-  isActionLoading?: boolean;
-  setIsActionLoading?: (loading: boolean) => void;
+  /** Quando múltiplas invoices vêm do modal (Enviar para a tela), preencher drafts e abas */
+  onAddDraftInvoices?: (invoices: Invoice[]) => void;
+  /** Após salvar uma invoice que era draft (aba), remover da lista de drafts e ir para a próxima */
+  onDraftSaved?: () => void;
   [key: string]: any;
 }
 type CarrierEnum = "percentage" | "perKg" | "perUnit";
@@ -37,11 +47,19 @@ export type Carrier = {
   active: true;
 };
 
-export function InvoiceProducts({ currentInvoice, setCurrentInvoice, isActionLoading = false, setIsActionLoading, ...props }: InvoiceProductsProps) {
+export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }: InvoiceProductsProps) {
   const [showProductForm, setShowProductForm] = useState(false);
   const [products, setProducts] = useState<any[]>([]);
   const [carriers, setCarriers] = useState<Carrier[]>([]);
-  const [valorRaw, setValorRaw] = useState(""); 
+  const [valorRaw, setValorRaw] = useState("");
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [showReviewModal, setShowReviewModal] = useState(false);
+  const [showTabsModal, setShowTabsModal] = useState(false);
+  const [pdfData, setPdfData] = useState<any>(null);
+  /** Fila de PDFs restantes ao importar em massa (revisão um a um) — usado só quando 1 PDF */
+  const [pdfDataQueue, setPdfDataQueue] = useState<any[]>([]);
+  /** Lista de PDFs para o modal com abas (2+ PDFs = cada um em uma aba) */
+  const [pdfDataList, setPdfDataList] = useState<any[]>([]);
   const [productForm, setProductForm] = useState({
     productId: "",
     quantity: "",
@@ -50,9 +68,10 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, isActionLoa
     total: "",
     price: "",
   });
+  const [editingProductIndex, setEditingProductIndex] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isSaving, setIsSaving] = useState(false);
   const { setOpenNotification } = useNotification();
+  const { isLoading: isActionLoading, executeAction } = useActionLoading();
 
   useEffect(() => {
     const fetchData = async () => {
@@ -64,7 +83,9 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, isActionLoa
         ]);
         console.log("Produtos recebidos do backend:", productsResponse.data);
         // O backend agora retorna { products: [...], totalProducts: ..., page: ..., limit: ..., totalPages: ... }
-        const productsList = Array.isArray(productsResponse.data) ? productsResponse.data : productsResponse.data.products || [];
+        const productsList = Array.isArray(productsResponse.data)
+          ? productsResponse.data
+          : productsResponse.data.products || [];
         console.log("Lista de produtos processada:", productsList);
         // Verificar se os produtos têm priceweightAverage
         if (productsList.length > 0) {
@@ -92,6 +113,79 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, isActionLoa
     const newProducts = [...currentInvoice.products];
     newProducts.splice(index, 1);
     setCurrentInvoice({ ...currentInvoice, products: newProducts });
+  };
+
+  const editProduct = (index: number) => {
+    const product = currentInvoice.products[index];
+    setProductForm({
+      productId: product.id,
+      quantity: product.quantity.toString(),
+      value: product.value.toString(),
+      weight: product.weight.toString(),
+      total: product.total.toString(),
+      price: product.price?.toString() || product.value.toString(),
+    });
+    setValorRaw(product.value.toString());
+    setEditingProductIndex(index);
+    setShowProductForm(false); // Edição inline na própria linha, não no topo
+  };
+
+  const cancelEdit = () => {
+    setEditingProductIndex(null);
+    setProductForm({ productId: "", price: "", quantity: "", value: "", weight: "", total: "" });
+    setValorRaw("");
+  };
+
+  const updateProduct = () => {
+    if (editingProductIndex === null) return;
+    
+    const product = products.find((p) => p.id === productForm.productId);
+    if (!product) return;
+
+    const quantity = parseFloat(productForm.quantity);
+    const value = parseFloat(priceData);
+    const weight = parseFloat(weightData) || product.weight || 0;
+    const total = parseFloat(productForm.total);
+
+    if (!productForm.productId || isNaN(quantity) || isNaN(value) || isNaN(total)) {
+      Swal.fire({
+        icon: "warning",
+        title: "Atenção",
+        text: "Preencha todos os campos obrigatórios do produto!",
+        confirmButtonColor: "#3085d6",
+      });
+      return;
+    }
+
+    const updatedProduct = {
+      ...currentInvoice.products[editingProductIndex],
+      id: productForm.productId,
+      name: product.name,
+      quantity,
+      value,
+      weight,
+      total,
+      price: value,
+    };
+
+    const newProducts = [...currentInvoice.products];
+    newProducts[editingProductIndex] = updatedProduct;
+    
+    setCurrentInvoice({
+      ...currentInvoice,
+      products: newProducts,
+    });
+
+    setProductForm({
+      productId: "",
+      price: "",
+      quantity: "",
+      value: "",
+      weight: "",
+      total: "",
+    });
+    setEditingProductIndex(null);
+    setShowProductForm(false);
   };
 
   const subTotal = currentInvoice.products.reduce((acc, item) => acc + Number(item.total), 0);
@@ -149,7 +243,16 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, isActionLoa
   }, [taxSpEs, amountTaxCarrieFrete1, amountTaxCarrieFrete2, subTotal]);
 
   const addProduct = () => {
-    if (isActionLoading || isSaving) return;
+    // Proteção imediata contra cliques duplos
+    if (isActionLoading) {
+      return;
+    }
+
+    // Se estamos editando, chama updateProduct ao invés de adicionar
+    if (editingProductIndex !== null) {
+      updateProduct();
+      return;
+    }
 
     const product = products.find((p) => p.id === productForm.productId);
     if (!product) return;
@@ -169,120 +272,248 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, isActionLoa
       return;
     }
 
-    setIsActionLoading?.(true);
-    
+    const invoiceProduct = {
+      id: productForm.productId,
+      name: product.name,
+      quantity,
+      value,
+      weight,
+      total,
+      received: false,
+      receivedQuantity: 0,
+    };
+
+    setCurrentInvoice({
+      ...currentInvoice,
+      products: [...currentInvoice.products, invoiceProduct],
+    });
+
+    setProductForm({
+      productId: "",
+      price: "",
+      quantity: "",
+      value: "",
+      weight: "",
+      total: "",
+    });
+
+    setShowProductForm(false);
+  };
+
+  const handleImportSuccess = (data: any) => {
+    const list = Array.isArray(data) ? data : [data];
+    if (list.length === 0) return;
+    if (list.length === 1) {
+      setPdfData(list[0]);
+      setPdfDataQueue([]);
+      setShowReviewModal(true);
+      setShowTabsModal(false);
+    } else {
+      setPdfDataList(list);
+      setShowTabsModal(true);
+      setShowReviewModal(false);
+    }
+  };
+
+  const handleConfirmPdf = async (editedData: any) => {
     try {
-      const invoiceProduct = {
-        id: productForm.productId,
-        name: product.name,
-        quantity,
-        value,
-        weight,
-        total,
+      setShowReviewModal(false);
+
+      // ✅ Sempre usar a data de hoje (data de criação) ao importar PDF, não a data extraída do PDF
+      // A data do PDF é apenas informativa; a invoice deve ser criada com a data de hoje
+      const formattedDate = new Date().toLocaleDateString("en-CA"); // Sempre data de hoje
+      const dateFromPdf = false; // Não vem do PDF, é a data de criação
+      
+      console.log(`[Import PDF] Invoice ${editedData.invoiceData?.number} - Usando data de criação (hoje):`, formattedDate);
+
+      const supplierFromPdf = editedData.invoiceData?.supplierId;
+      // Quando vem do PDF (importação), sempre bloquear os 3 campos mesmo que não tenha vínculo de fornecedor ainda
+      const hasPdfSupplierName = !!(editedData.invoiceData?.pdfSupplierName?.trim());
+      const hasPdfNumber = !!(editedData.invoiceData?.number?.trim());
+
+      // ✅ Converter PDF em Invoice e adicionar como nova aba (nunca sobrescrever invoices existentes)
+      const newProducts = editedData.products.map((pdfProduct: any) => ({
+        id: pdfProduct.validation?.productId ?? "",
+        productId: pdfProduct.validation?.productId ?? "",
+        invoiceId: "",
+        name: pdfProduct.name,
+        quantity: pdfProduct.quantity,
+        value: pdfProduct.rate,
+        price: pdfProduct.rate,
+        weight: 0,
+        total: pdfProduct.amount,
         received: false,
         receivedQuantity: 0,
+        _imeis: pdfProduct.imeis || [],
+      }));
+
+      const newInvoice: Invoice = {
+        id: null,
+        number: editedData.invoiceData.number,
+        date: formattedDate,
+        supplierId: supplierFromPdf ?? currentInvoice.supplierId ?? "",
+        products: newProducts,
+        carrierId: currentInvoice.carrierId ?? "",
+        carrier2Id: currentInvoice.carrier2Id ?? "",
+        taxaSpEs: currentInvoice.taxaSpEs ?? "0",
+        amountTaxcarrier: 0,
+        amountTaxcarrier2: 0,
+        amountTaxSpEs: 0,
+        subAmount: 0,
+        overallValue: 0,
+        paid: false,
+        paidDate: null,
+        paidDollarRate: null,
+        completed: false,
+        completedDate: null,
+        _isDateFromPdf: dateFromPdf,
+        _isNumberFromPdf: hasPdfNumber,
+        _isSupplierFromPdf: !!supplierFromPdf || hasPdfSupplierName,
       };
 
-      setCurrentInvoice({
-        ...currentInvoice,
-        products: [...currentInvoice.products, invoiceProduct],
+      // ✅ Adicionar como nova aba (nunca sobrescrever invoices existentes)
+      if (props.onAddDraftInvoices) {
+        props.onAddDraftInvoices([newInvoice]);
+        setOpenNotification({
+          type: "success",
+          title: "Invoice adicionada!",
+          notification: `Invoice ${editedData.invoiceData.number} adicionada como nova aba. Complete os dados e salve quando estiver pronto.`,
+        });
+      } else {
+        // Fallback: se não houver onAddDraftInvoices, usar o comportamento antigo (não recomendado)
+        setCurrentInvoice(newInvoice);
+        setOpenNotification({
+          type: "success",
+          title: "Sucesso!",
+          notification: `${newProducts.length} produtos adicionados! Complete os dados e salve a invoice.`,
+        });
+      }
+      
+      // Limpar fila de PDFs se houver
+      if (pdfDataQueue.length > 0) {
+        setPdfDataQueue([]);
+      }
+    } catch (error) {
+      console.error("Erro ao processar dados do PDF:", error);
+      setOpenNotification({
+        type: "error",
+        title: "Erro",
+        notification: "Erro ao adicionar produtos do PDF",
       });
-
-      setProductForm({
-        productId: "",
-        price: "",
-        quantity: "",
-        value: "",
-        weight: "",
-        total: "",
-      });
-
-      setShowProductForm(false);
-    } finally {
-      setIsActionLoading?.(false);
     }
   };
 
   const saveInvoice = async () => {
-    if (isActionLoading || isSaving) return;
-
-    if (currentInvoice.products.length === 0) {
-      Swal.fire({
-        icon: "warning",
-        title: "Atenção",
-        text: "Adicione pelo menos um produto à invoice!",
-        confirmButtonText: "Ok",
-        buttonsStyling: false,
-        customClass: {
-          confirmButton: "bg-blue-600 text-white hover:bg-blue-700 px-4 py-2 rounded font-semibold",
-        },
-      });
+    // Proteção imediata contra cliques duplos
+    if (isActionLoading) {
       return;
     }
 
-    if (!currentInvoice.number) {
-      Swal.fire({
-        icon: "warning",
-        title: "Atenção",
-        text: "Informe o número da invoice!",
-        confirmButtonText: "Ok",
-        buttonsStyling: false,
-        customClass: {
-          confirmButton: "bg-blue-600 text-white hover:bg-blue-700 px-4 py-2 rounded font-semibold",
-        },
-      });
-      return;
-    }
+    await executeAction(async () => {
+      // Validações dentro do executeAction
+      if (currentInvoice.products.length === 0) {
+        Swal.fire({
+          icon: "warning",
+          title: "Atenção",
+          text: "Adicione pelo menos um produto à invoice!",
+          confirmButtonText: "Ok",
+          buttonsStyling: false,
+          customClass: {
+            confirmButton: "bg-blue-600 text-white hover:bg-blue-700 px-4 py-2 rounded font-semibold",
+          },
+        });
+        return;
+      }
 
-    if (!currentInvoice.date) {
-      Swal.fire({
-        icon: "warning",
-        title: "Atenção",
-        text: "Informe a data da invoice!",
-        confirmButtonText: "Ok",
-        buttonsStyling: false,
-        customClass: {
-          confirmButton: "bg-blue-600 text-white hover:bg-blue-700 px-4 py-2 rounded font-semibold",
-        },
-      });
-      return;
-    }
+      // Validação de produtos sem vínculo removida - backend cria produtos automaticamente quando necessário
 
-    if (!currentInvoice.supplierId) {
-      Swal.fire({
-        icon: "warning",
-        title: "Atenção",
-        text: "Selecione um fornecedor!",
-        confirmButtonText: "Ok",
-        buttonsStyling: false,
-        customClass: {
-          confirmButton: "bg-blue-600 text-white hover:bg-blue-700 px-4 py-2 rounded font-semibold",
-        },
-      });
-      return;
-    }
+      if (!currentInvoice.number) {
+        Swal.fire({
+          icon: "warning",
+          title: "Atenção",
+          text: "Informe o número da invoice!",
+          confirmButtonText: "Ok",
+          buttonsStyling: false,
+          customClass: {
+            confirmButton: "bg-blue-600 text-white hover:bg-blue-700 px-4 py-2 rounded font-semibold",
+          },
+        });
+        return;
+      }
 
-    setIsSaving(true);
-    setIsActionLoading?.(true);
-    try {
+      if (!currentInvoice.date) {
+        Swal.fire({
+          icon: "warning",
+          title: "Atenção",
+          text: "Informe a data da invoice!",
+          confirmButtonText: "Ok",
+          buttonsStyling: false,
+          customClass: {
+            confirmButton: "bg-blue-600 text-white hover:bg-blue-700 px-4 py-2 rounded font-semibold",
+          },
+        });
+        return;
+      }
+
+      // Validar se o número da invoice já existe
+      try {
+        const checkResponse = await api.get("/invoice/exists-by-number", {
+          params: { number: currentInvoice.number.trim() }
+        });
+        if (checkResponse.data?.exists) {
+          Swal.fire({
+            icon: "error",
+            title: "Número Duplicado",
+            text: `Já existe uma invoice com o número "${currentInvoice.number}". Por favor, use um número diferente.`,
+            confirmButtonText: "Ok",
+            buttonsStyling: false,
+            customClass: {
+              confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
+            },
+          });
+          return;
+        }
+      } catch (checkErr) {
+        // Se o endpoint não existir, continua sem validação
+        console.warn("Endpoint de validação de número não disponível, continuando...");
+      }
+
       const now = new Date();
-      const time = now.toTimeString().split(' ')[0]; // "HH:MM:SS"
-      const dateWithTime = new Date(`${currentInvoice.date}T${time}`);
+      const time = now.toTimeString().split(" ")[0]; // "HH:MM:SS"
+      // ✅ Sempre salvar com data de hoje (caixa do freteiro e transações usam essa data)
+      const dateStr = now.toLocaleDateString("en-CA");
+      const dateWithTime = new Date(`${dateStr}T${time}`);
+      const dateForApi = Number.isNaN(dateWithTime.getTime()) ? now.toISOString() : dateWithTime.toISOString();
+
+      // Preparar produtos com IMEIs incluídos no payload (salvamento automático)
+      const productsWithImeis = currentInvoice.products.map((product) => ({
+        id: product.productId || product.id,
+        name: product.name,
+        quantity: product.quantity,
+        value: product.value,
+        weight: product.weight || 0,
+        total: product.total,
+        received: product.received || false,
+        receivedQuantity: product.receivedQuantity || 0,
+        // ✅ Incluir IMEIs diretamente no payload para salvamento automático
+        imeis: product._imeis || [],
+      }));
 
       const response = await api.post("/invoice/create", {
         ...currentInvoice,
-        date: dateWithTime,
+        date: dateForApi,
         taxaSpEs:
           currentInvoice.taxaSpEs == null || currentInvoice.taxaSpEs === ""
             ? "0"
             : currentInvoice.taxaSpEs.toString().trim(),
+        products: productsWithImeis, // Usar produtos com IMEIs incluídos
       });
 
       // Verificar se o número foi ajustado automaticamente
       if (response.data?.numberWasAdjusted) {
         const originalNumber = response.data.originalNumber || currentInvoice.number;
         const newNumber = response.data.number;
-        
+
         Swal.fire({
           icon: "info",
           title: "Número Ajustado Automaticamente",
@@ -300,21 +531,38 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, isActionLoa
         });
       } else {
         setOpenNotification({
-          type: 'success',
-          title: 'Sucesso!',
-          notification: 'Invoice salva com sucesso!'
+          type: "success",
+          title: "Sucesso!",
+          notification: "Invoice salva com sucesso!",
         });
       }
 
-      // Buscar o próximo número de invoice automaticamente
+      // ✅ IMEIs já foram salvos automaticamente pelo backend quando a invoice foi criada
+      // Não é mais necessário chamar /invoice/imeis/save separadamente
+      const totalImeisCount = productsWithImeis.reduce((sum, p) => sum + (p.imeis?.length || 0), 0);
+      if (totalImeisCount > 0) {
+        console.log(`✅ ${totalImeisCount} IMEIs incluídos no payload e salvos automaticamente pelo backend`);
+      }
+
+      setPdfData(null);
+
+      // Se estamos em modo multi-draft (abas), avisar o pai para remover esta draft e mostrar a próxima; não resetar o form
+      if (props.onDraftSaved) {
+        props.onDraftSaved();
+        window.dispatchEvent(new Event("invoiceUpdated"));
+        if (props.onInvoiceSaved) props.onInvoiceSaved();
+        return;
+      }
+
+      // Modo single: buscar próximo número e resetar o formulário
       try {
         const nextNumberResponse = await api.get("/invoice/next-number");
         const nextNumber = nextNumberResponse.data?.nextNumber || `INV-${Date.now()}`;
-        
+
         setCurrentInvoice({
           id: null,
           number: nextNumber,
-          date: new Date().toLocaleDateString('en-CA'),
+          date: new Date().toLocaleDateString("en-CA"),
           supplierId: "",
           products: [],
           carrierId: "",
@@ -333,11 +581,10 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, isActionLoa
         });
       } catch (error) {
         console.error("Erro ao buscar próximo número:", error);
-        // Em caso de erro, usar número baseado em timestamp
         setCurrentInvoice({
           id: null,
           number: `INV-${Date.now()}`,
-          date: new Date().toLocaleDateString('en-CA'),
+          date: new Date().toLocaleDateString("en-CA"),
           supplierId: "",
           products: [],
           carrierId: "",
@@ -356,34 +603,22 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, isActionLoa
         });
       }
 
-      // setCurrentInvoice({
-      //   id: null,
-      //   number: '',
-      //   date: new Date().toISOString().split('T')[0],
-      //   supplierId: '',
-      //   products: [],
-      //   carrierId: '',
-      //   carrier2Id: '',
-      //   taxaSpEs: 0.0,
-      //   paid: false,
-      //   paidDate: null,
-      //   paidDollarRate: null,
-      //   completed: false,
-      //   completedDate: null,
-      //   amountTaxcarrier: 0,
-      //   amountTaxcarrier2: 0,
-      //   amountTaxSpEs: 0,
-      //   overallValue: 0,
-      //   subAmount: 0
-      // });
-      if (props.onInvoiceSaved) {
-        props.onInvoiceSaved();
-      }
-    } catch (error: any) {
+      window.dispatchEvent(new Event("invoiceUpdated"));
+      if (props.onInvoiceSaved) props.onInvoiceSaved();
+    }, "saveInvoice").catch((error: any) => {
       console.error("Erro ao salvar a invoice:", error);
-      
-      const errorMessage = error?.response?.data?.message || error?.message || "Erro ao salvar a invoice";
-      
+
+      const data = error?.response?.data;
+      let errorMessage = data?.message || error?.message || "Erro ao salvar a invoice";
+
+      // Enriquecer com detalhes do backend (productId inválido, supplierId não encontrado)
+      if (data?.invalidProductIds && Array.isArray(data.invalidProductIds) && data.invalidProductIds.length > 0) {
+        errorMessage += ` IDs/SKUs inválidos: ${data.invalidProductIds.join(", ")}.`;
+      }
+      if (data?.supplierId) {
+        errorMessage += ` Fornecedor ID: ${data.supplierId}.`;
+      }
+
       Swal.fire({
         icon: "error",
         title: "Erro",
@@ -394,10 +629,7 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, isActionLoa
           confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
         },
       });
-    } finally {
-      setIsSaving(false);
-      setIsActionLoading?.(false);
-    }
+    });
   };
 
   useEffect(() => {
@@ -422,30 +654,71 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, isActionLoa
           <Box className="mr-2 inline" size={18} />
           Produtos
         </h2>
-        {!showProductForm && (
-          <button
-            onClick={() => setShowProductForm(true)}
-            className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded text-sm flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
-            disabled={isSaving || isActionLoading}
-          >
-            {isActionLoading ? (
-              <>
-                <Loader2 className="animate-spin mr-1 inline" size={16} />
-                Carregando...
-              </>
-            ) : (
-              <>
+        <div className="flex gap-2">
+          {!showProductForm && (
+            <>
+              <button
+                onClick={() => setShowImportModal(true)}
+                className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded text-sm flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={isActionLoading}
+              >
+                <Upload className="mr-1 inline" size={16} />
+                Importar em Massa
+              </button>
+              <button
+                onClick={() => setShowProductForm(true)}
+                className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded text-sm flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={isActionLoading}
+              >
                 <Plus className="mr-1 inline" size={16} />
                 Adicionar Produto
-              </>
-            )}
-          </button>
-        )}
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
-      {showProductForm && (
+      {/* Modais */}
+      <ImportPdfModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+        onSuccess={handleImportSuccess}
+      />
+      <ReviewPdfModal
+        isOpen={showReviewModal}
+        onClose={() => {
+          setShowReviewModal(false);
+          setPdfData(null);
+          setPdfDataQueue([]);
+        }}
+        pdfData={pdfData}
+        onConfirm={handleConfirmPdf}
+      />
+      <MultiInvoiceReviewModal
+        isOpen={showTabsModal}
+        onClose={() => {
+          setShowTabsModal(false);
+          setPdfDataList([]);
+        }}
+        pdfDataList={pdfDataList}
+        defaultInvoice={currentInvoice}
+        onAllSaved={() => {
+          window.dispatchEvent(new Event("invoiceUpdated"));
+          props.onInvoiceSaved?.();
+        }}
+        onSendToScreen={(invoices) => {
+          props.onAddDraftInvoices?.(invoices);
+          setShowTabsModal(false);
+          setPdfDataList([]);
+        }}
+      />
+
+      {/* Formulário no topo só para ADICIONAR produto; edição é inline na linha */}
+      {showProductForm && editingProductIndex === null && (
         <div className="mb-6 p-4 bg-gray-50 rounded-lg border">
-          <h3 className="font-medium mb-3 text-blue-700 border-b pb-2">Adicionar Produto</h3>
+          <h3 className="font-medium mb-3 text-blue-700 border-b pb-2">
+            Adicionar Produto
+          </h3>
           <div className="grid grid-cols-1 md:grid-cols-6 gap-2 mb-4">
             <div className="relative md:col-span-2">
               {/* <label className="block text-sm font-medium text-gray-700 mb-1">Produto</label> */}
@@ -454,37 +727,37 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, isActionLoa
                 value={productForm.productId}
                 onChange={(e: any) => {
                   const selectedProduct = products.find((p) => p.id === e);
-                  
+
                   console.log("Produto selecionado:", selectedProduct);
-                  
+
                   if (selectedProduct) {
                     // Preencher preço automaticamente
                     const price = selectedProduct.priceweightAverage ?? 0;
                     console.log("Preço do produto:", price);
                     const priceString = price > 0 ? price.toString() : "";
-                    
+
                     // Atualizar valorRaw com o preço (sem formatação inicial, será formatado no onBlur)
                     setValorRaw(priceString);
-                    
+
                     // Preencher peso automaticamente
                     const weight = selectedProduct.weightAverage ?? 0;
                     console.log("Peso do produto:", weight);
                     const weightString = weight > 0 ? weight.toString() : "";
-                    
-                    const newForm = { 
-                      ...productForm, 
+
+                    const newForm = {
+                      ...productForm,
                       productId: e,
                       value: priceString,
-                      weight: weightString
+                      weight: weightString,
                     };
-                    
+
                     // Recalcular total automaticamente se houver quantidade
                     if (price > 0 && productForm.quantity) {
                       const quantity = parseFloat(productForm.quantity) || 0;
                       const total = quantity * price;
                       newForm.total = total.toFixed(2);
                     }
-                    
+
                     setProductForm(newForm);
                     console.log("Form atualizado:", newForm);
                   } else {
@@ -507,29 +780,31 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, isActionLoa
                 onChange={(e) => {
                   const code = e.target.value.trim();
                   if (code) {
-                    const productByCode = products.find((p) => p.code === code || p.code?.toLowerCase() === code.toLowerCase());
+                    const productByCode = products.find(
+                      (p) => p.code === code || p.code?.toLowerCase() === code.toLowerCase()
+                    );
                     if (productByCode) {
                       // Preencher produto automaticamente
                       const price = productByCode.priceweightAverage ?? 0;
                       const priceString = price > 0 ? price.toString() : "";
                       setValorRaw(priceString);
-                      
+
                       const weight = productByCode.weightAverage ?? 0;
                       const weightString = weight > 0 ? weight.toString() : "";
-                      
-                      const newForm = { 
-                        ...productForm, 
+
+                      const newForm = {
+                        ...productForm,
                         productId: productByCode.id,
                         value: priceString,
-                        weight: weightString
+                        weight: weightString,
                       };
-                      
+
                       if (price > 0 && productForm.quantity) {
                         const quantity = parseFloat(productForm.quantity) || 0;
                         const total = quantity * price;
                         newForm.total = total.toFixed(2);
                       }
-                      
+
                       setProductForm(newForm);
                     }
                   }
@@ -539,29 +814,31 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, isActionLoa
                     e.preventDefault();
                     const code = e.currentTarget.value.trim();
                     if (code) {
-                      const productByCode = products.find((p) => p.code === code || p.code?.toLowerCase() === code.toLowerCase());
+                      const productByCode = products.find(
+                        (p) => p.code === code || p.code?.toLowerCase() === code.toLowerCase()
+                      );
                       if (productByCode) {
                         // Preencher produto automaticamente
                         const price = productByCode.priceweightAverage ?? 0;
                         const priceString = price > 0 ? price.toString() : "";
                         setValorRaw(priceString);
-                        
+
                         const weight = productByCode.weightAverage ?? 0;
                         const weightString = weight > 0 ? weight.toString() : "";
-                        
-                        const newForm = { 
-                          ...productForm, 
+
+                        const newForm = {
+                          ...productForm,
                           productId: productByCode.id,
                           value: priceString,
-                          weight: weightString
+                          weight: weightString,
                         };
-                        
+
                         if (price > 0 && productForm.quantity) {
                           const quantity = parseFloat(productForm.quantity) || 0;
                           const total = quantity * price;
                           newForm.total = total.toFixed(2);
                         }
-                        
+
                         setProductForm(newForm);
                       }
                     }
@@ -610,35 +887,33 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, isActionLoa
                   const numericValue = parseFloat(newValue) || 0;
                   setProductForm({ ...productForm, value: isNaN(numericValue) ? "" : numericValue.toString() });
                 }}
-
                 onBlur={(e) => {
-                // Formata apenas se houver valor
-                if (valorRaw) {
-                  const numericValue = parseFloat(valorRaw);
-                  if (!isNaN(numericValue)) {
-                    // Formata mantendo o sinal negativo se existir
-                    const formattedValue = numericValue.toLocaleString("en-US", {
-                      style: "currency",
-                      currency: "USD",
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2,
-                    });
-                    setValorRaw(formattedValue);
-                    setProductForm({ ...productForm, value: numericValue.toString() });
-                    // setValorOperacao(numericValue);
+                  // Formata apenas se houver valor
+                  if (valorRaw) {
+                    const numericValue = parseFloat(valorRaw);
+                    if (!isNaN(numericValue)) {
+                      // Formata mantendo o sinal negativo se existir
+                      const formattedValue = numericValue.toLocaleString("en-US", {
+                        style: "currency",
+                        currency: "USD",
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      });
+                      setValorRaw(formattedValue);
+                      setProductForm({ ...productForm, value: numericValue.toString() });
+                      // setValorOperacao(numericValue);
+                    }
                   }
-                }
-              }}
-              onFocus={(e) => {
-                // Remove formatação quando o input recebe foco
-                if (valorRaw) {
-                  const numericValue = parseFloat(valorRaw.replace(/[^0-9.-]/g, ""));
-                  if (!isNaN(numericValue)) {
-                    setValorRaw(numericValue.toString());
+                }}
+                onFocus={(e) => {
+                  // Remove formatação quando o input recebe foco
+                  if (valorRaw) {
+                    const numericValue = parseFloat(valorRaw.replace(/[^0-9.-]/g, ""));
+                    if (!isNaN(numericValue)) {
+                      setValorRaw(numericValue.toString());
+                    }
                   }
-                }
-              }}
-
+                }}
                 className="w-full border border-gray-300 rounded-md p-2 text-sm focus:ring-blue-500 focus:border-blue-500 appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                 placeholder="$"
               />
@@ -671,29 +946,31 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, isActionLoa
             </div>
             <div className="flex items-end">
               <button
-                onClick={() => setShowProductForm(false)}
+                onClick={() => {
+                  setShowProductForm(false);
+                  setEditingProductIndex(null);
+                  setProductForm({
+                    productId: "",
+                    price: "",
+                    quantity: "",
+                    value: "",
+                    weight: "",
+                    total: "",
+                  });
+                }}
                 className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 py-2 px-4 rounded mr-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                disabled={isSaving || isActionLoading}
+                disabled={isActionLoading}
               >
                 <X className="mr-1 inline" size={16} />
                 Cancelar
               </button>
               <button
                 onClick={addProduct}
-                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
-                disabled={isSaving || isActionLoading}
+                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={isActionLoading}
               >
-                {isActionLoading ? (
-                  <>
-                    <Loader2 className="animate-spin mr-1 inline" size={16} />
-                    Adicionando...
-                  </>
-                ) : (
-                  <>
-                    <Plus className="mr-1 inline" size={16} />
-                    Adicionar
-                  </>
-                )}
+                <Plus className="mr-1 inline" size={16} />
+                Adicionar
               </button>
             </div>
           </div>
@@ -727,32 +1004,130 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, isActionLoa
                 <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Total ($)
                 </th>
-                <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"></th>
+                <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
               {currentInvoice.products.map((product, index) => (
-                <tr key={index}>
-                  <td className="px-4 py-2 text-sm text-gray-800">
-                    {products.find((item) => item.id === product.id)?.name}
-                  </td>
-                  <td className="px-4 py-2 text-sm text-right">{product.quantity}</td>
-                  <td className="px-4 py-2 text-sm text-right">
-                    {product.value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </td>
-                  <td className="px-4 py-2 text-sm text-right">{product.weight.toFixed(2)}</td>
-                  <td className="px-4 py-2 text-sm text-right">
-                    {product.total.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </td>
-                  <td className="px-4 py-2 text-center">
-                    <button 
-                      onClick={() => deleteProduct(index)} 
-                      className="text-red-600 hover:text-red-800 disabled:opacity-50 disabled:cursor-not-allowed"
-                      disabled={isSaving || isActionLoading}
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  </td>
+                <tr key={index} className={editingProductIndex === index ? "bg-blue-50" : ""}>
+                    {editingProductIndex === index ? (
+                      /* Edição inline na própria linha */
+                      <td colSpan={6} className="px-4 py-3">
+                        <div className="flex flex-wrap items-end gap-3">
+                          <div className="min-w-[200px] flex-1">
+                            <label className="block text-xs font-medium text-gray-600 mb-1">Produto</label>
+                            <ProductSearchSelect
+                              products={products}
+                              value={productForm.productId}
+                              onChange={(e: any) => {
+                                const p = products.find((x) => x.id === e);
+                                if (p) {
+                                  const price = p.priceweightAverage ?? 0;
+                                  const weight = p.weightAverage ?? 0;
+                                  setValorRaw(price > 0 ? price.toString() : "");
+                                  setProductForm({
+                                    ...productForm,
+                                    productId: e,
+                                    value: price > 0 ? price.toString() : productForm.value,
+                                    weight: weight > 0 ? weight.toString() : productForm.weight,
+                                  });
+                                } else {
+                                  setProductForm({ ...productForm, productId: e });
+                                }
+                              }}
+                            />
+                          </div>
+                          <div className="w-20">
+                            <label className="block text-xs font-medium text-gray-600 mb-1">Qtd</label>
+                            <input
+                              type="number"
+                              min="1"
+                              value={productForm.quantity}
+                              onChange={(e) => {
+                                const q = e.target.value;
+                                setProductForm({ ...productForm, quantity: q });
+                                const val = parseFloat(productForm.value) || 0;
+                                setProductForm((pf) => ({ ...pf, total: ((parseFloat(q) || 0) * val).toFixed(2) }));
+                              }}
+                              className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm"
+                            />
+                          </div>
+                          <div className="w-24">
+                            <label className="block text-xs font-medium text-gray-600 mb-1">Valor ($)</label>
+                            <input
+                              type="number"
+                              step="0.01"
+                              value={productForm.value}
+                              onChange={(e) => {
+                                const v = e.target.value;
+                                setProductForm({ ...productForm, value: v });
+                                const q = parseFloat(productForm.quantity) || 0;
+                                setProductForm((pf) => ({ ...pf, total: (q * (parseFloat(v) || 0)).toFixed(2) }));
+                              }}
+                              className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm"
+                            />
+                          </div>
+                          <div className="w-20">
+                            <label className="block text-xs font-medium text-gray-600 mb-1">Peso</label>
+                            <input
+                              type="number"
+                              step="0.01"
+                              value={productForm.weight}
+                              onChange={(e) => setProductForm({ ...productForm, weight: e.target.value })}
+                              className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm"
+                            />
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => updateProduct()}
+                              className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
+                            >
+                              Salvar
+                            </button>
+                            <button
+                              onClick={() => cancelEdit()}
+                              className="px-3 py-1.5 bg-gray-300 text-gray-700 text-sm rounded hover:bg-gray-400"
+                            >
+                              Cancelar
+                            </button>
+                          </div>
+                        </div>
+                      </td>
+                    ) : (
+                      <>
+                        <td className="px-4 py-2 text-sm text-gray-800">
+                          {product.name || products.find((item) => item.id === product.id)?.name || "-"}
+                        </td>
+                        <td className="px-4 py-2 text-sm text-right">{product.quantity}</td>
+                        <td className="px-4 py-2 text-sm text-right">
+                          {product.value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </td>
+                        <td className="px-4 py-2 text-sm text-right">{product.weight.toFixed(2)}</td>
+                        <td className="px-4 py-2 text-sm text-right">
+                          {product.total.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </td>
+                        <td className="px-4 py-2 text-center">
+                          <div className="flex items-center justify-center gap-2">
+                            <button
+                              onClick={() => editProduct(index)}
+                              className="text-blue-600 hover:text-blue-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                              disabled={isActionLoading}
+                              title="Editar produto"
+                            >
+                              <Edit2 size={16} />
+                            </button>
+                            <button
+                              onClick={() => deleteProduct(index)}
+                              className="text-red-600 hover:text-red-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                              disabled={isActionLoading}
+                              title="Excluir produto"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
+                        </td>
+                      </>
+                    )}
                 </tr>
               ))}
             </tbody>
@@ -846,23 +1221,29 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, isActionLoa
             </div>
           </div>
         </div>
-        <button
-          onClick={saveInvoice}
-          className="w-full bg-blue-600 mt-4 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
-          disabled={isSaving || isActionLoading}
-        >
-          {isSaving || isActionLoading ? (
-            <>
-              <Loader2 className="animate-spin mr-2" size={18} />
-              Salvando...
-            </>
-          ) : (
-            <>
-              <Save className="mr-2" size={18} />
-              Salvar Invoice
-            </>
-          )}
-        </button>
+        <div className="mt-4">
+          <button
+            onClick={saveInvoice}
+            title="Salva a invoice da aba atual no banco. Se houver várias abas, salva esta e mostra a próxima."
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={isActionLoading}
+          >
+            {isActionLoading ? (
+              <>
+                <Loader2 className="animate-spin mr-2" size={18} />
+                Salvando...
+              </>
+            ) : (
+              <>
+                <Save className="mr-2" size={18} />
+                Salvar Invoice
+              </>
+            )}
+          </button>
+          <p className="text-xs text-gray-500 mt-1 text-center">
+            Salva a invoice desta aba. Várias abas? Salva esta e passa para a próxima.
+          </p>
+        </div>
       </div>
     </div>
   );

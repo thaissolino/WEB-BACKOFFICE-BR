@@ -4,6 +4,7 @@ import { formatCurrency } from "../../../cambiobackoffice/formatCurrencyUtil";
 import Swal from "sweetalert2";
 import { api } from "../../../../services/api";
 import { useNotification } from "../../../../hooks/notification";
+import { useActionLoading } from "../../context/ActionLoadingContext";
 
 interface Carrier {
   id: string;
@@ -19,7 +20,9 @@ export function CarriersTab() {
   const [currentCarrier, setCurrentCarrier] = useState<Carrier | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [valueInput, setValueInput] = useState<string>(""); // Para manter o valor digitado
   const { setOpenNotification } = useNotification();
+  const { isLoading: isActionLoading, executeAction } = useActionLoading();
 
   async function fetchCarriers() {
     setIsLoading(true);
@@ -53,10 +56,13 @@ export function CarriersTab() {
 
   const handleEdit = (carrier: Carrier) => {
     setCurrentCarrier(carrier);
+    setValueInput(carrier.value > 0 ? String(carrier.value) : ""); // Inicializar o input
     setShowModal(true);
   };
 
   const handleDelete = async (id: string) => {
+    if (isActionLoading) return;
+    
     const result = await Swal.fire({
       title: "Tem certeza?",
       text: "Você não poderá reverter isso!",
@@ -72,25 +78,15 @@ export function CarriersTab() {
     });
 
     if (result.isConfirmed) {
-      try {
-        setIsSubmitting(true);
+      await executeAction(async () => {
         await api.delete(`/invoice/carriers/${id}`);
         await fetchCarriers();
-        // Swal.fire({
-        //   icon: "success",
-        //   title: "Excluído!",
-        //   text: "O freteiro foi removido com sucesso.",
-        //   buttonsStyling: false,
-        //   customClass: {
-        //     confirmButton: "bg-green-600 text-white hover:bg-green-700 px-4 py-2 rounded font-semibold",
-        //   },
-        // });
         setOpenNotification({
           type: 'success',
           title: 'Excluído!',
           notification: 'O freteiro foi removido com sucesso!'
         });
-      } catch (error) {
+      }, `deleteCarrier-${id}`).catch((error) => {
         console.error("Erro ao excluir freteiro:", error);
         Swal.fire({
           icon: "error",
@@ -101,87 +97,68 @@ export function CarriersTab() {
             confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
           },
         });
-      } finally {
-        setIsSubmitting(false);
-      }
+      });
     }
   };
 
   const handleSave = async () => {
+    if (isActionLoading) return;
     if (!currentCarrier) return;
-    try {
-      setIsSubmitting(true);
+    
+    await executeAction(async () => {
+      try {
 
-      const trimmedName = currentCarrier.name.trim();
+        const trimmedName = currentCarrier.name.trim();
 
-      const carrierExists = carriers.some(
-        (supplier) =>
-          supplier.name.toLowerCase() === trimmedName.toLowerCase() &&
-          (!currentCarrier.id || supplier.id !== currentCarrier.id) &&
-          supplier.active !== false
-      );
+        const carrierExists = carriers.some(
+          (supplier) =>
+            supplier.name.toLowerCase() === trimmedName.toLowerCase() &&
+            (!currentCarrier.id || supplier.id !== currentCarrier.id) &&
+            supplier.active !== false
+        );
 
-      if (carrierExists) {
-        Swal.fire("Erro", "Já existe um freteiro cadastrado com este nome.", "error");
-        return;
+        if (carrierExists) {
+          Swal.fire("Erro", "Já existe um freteiro cadastrado com este nome.", "error");
+          return;
+        }
+
+        if (currentCarrier.id) {
+          // Edição
+          await api.patch(`/invoice/carriers/${currentCarrier.id}`, currentCarrier);
+          setOpenNotification({
+            type: 'success',
+            title: 'Sucesso!',
+            notification: 'Freteiro atualizado com sucesso!'
+          });
+        } else {
+          // Novo
+          const response = await api.post("/invoice/carriers", currentCarrier);
+          setCarriers((prev) => [...prev, response.data]);
+          setOpenNotification({
+            type: 'success',
+            title: 'Sucesso!',
+            notification: 'Freteiro criado com sucesso!'
+          });
+        }
+
+        setShowModal(false);
+        setCurrentCarrier(null);
+        await fetchCarriers();
+      } catch (error) {
+        console.error("Erro ao salvar freteiro:", error);
+        Swal.fire({
+          icon: "error",
+          title: "Erro!",
+          text: "Ocorreu um erro ao salvar o freteiro.",
+          buttonsStyling: false,
+          customClass: {
+            confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
+          },
+        });
       }
-
-      if (currentCarrier.id) {
-        // Edição
-        await api.patch(`/invoice/carriers/${currentCarrier.id}`, currentCarrier);
-        // Swal.fire({
-        //   icon: "success",
-        //   title: "Sucesso!",
-        //   text: "Freteiro atualizado com sucesso.",
-        //   confirmButtonText: "Ok",
-        //   buttonsStyling: false,
-        //   customClass: {
-        //     confirmButton: "bg-green-600 text-white hover:bg-green-700 px-4 py-2 rounded font-semibold",
-        //   },
-        // });
-        setOpenNotification({
-        type: 'success',
-        title: 'Sucesso!',
-        notification: 'Freteiro atualizado com sucesso!'
-      });
-      } else {
-        // Novo
-        const response = await api.post("/invoice/carriers", currentCarrier);
-        setCarriers((prev) => [...prev, response.data]);
-        // Swal.fire({
-        //   icon: "success",
-        //   title: "Sucesso!",
-        //   text: "Freteiro criado com sucesso.",
-        //   confirmButtonText: "Ok",
-        //   buttonsStyling: false,
-        //   customClass: {
-        //     confirmButton: "bg-green-600 text-white hover:bg-green-700 px-4 py-2 rounded font-semibold",
-        //   },
-        // });
-        setOpenNotification({
-        type: 'success',
-        title: 'Sucesso!',
-        notification: 'Freteiro criado com sucesso!'
-      });
-      }
-
-      setShowModal(false);
-      setCurrentCarrier(null);
-      await fetchCarriers();
-    } catch (error) {
-      console.error("Erro ao salvar freteiro:", error);
-      Swal.fire({
-        icon: "error",
-        title: "Erro!",
-        text: "Ocorreu um erro ao salvar o freteiro.",
-        buttonsStyling: false,
-        customClass: {
-          confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
-        },
-      });
-    } finally {
-      setIsSubmitting(false);
-    }
+    }, "saveCarrier").catch((error) => {
+      console.error("Erro no executeAction:", error);
+    });
   };
 
   useEffect(() => {
@@ -198,7 +175,7 @@ export function CarriersTab() {
   }, []);
 
   return (
-    <div className="bg-white p-6 rounded-lg shadow">
+    <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-xl font-semibold text-blue-700">
           <Truck className="mr-2 inline" size={18} />
@@ -207,10 +184,11 @@ export function CarriersTab() {
         <button
           onClick={() => {
             setCurrentCarrier({ id: "", name: "", type: "percentage", value: 0 });
+            setValueInput(""); // Limpar o input
             setShowModal(true);
           }}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded flex items-center"
-          disabled={isLoading}
+          className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-xl flex items-center shadow-sm"
+          disabled={isLoading || isActionLoading}
         >
           {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2" size={16} />}
           Novo Freteiro
@@ -222,15 +200,15 @@ export function CarriersTab() {
           <Loader2 className="h-8 w-8 text-blue-500 animate-spin" />
         </div>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
+        <div className="overflow-x-auto rounded-2xl border border-gray-100 shadow-sm">
+          <table className="min-w-full divide-y divide-gray-100">
+            <thead className="bg-gray-50/80">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nome</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Tipo de Frete
                 </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Valor
                 </th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -238,7 +216,7 @@ export function CarriersTab() {
                 </th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody className="bg-white divide-y divide-gray-100">
               {carriers.length === 0 ? (
                 <tr>
                   <td colSpan={4} className="px-6 py-4 text-center text-gray-500">
@@ -253,24 +231,24 @@ export function CarriersTab() {
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                           {carrier.name}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
                           {getShippingTypeText(carrier.type)}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
                           {carrier.type === "percentage" ? carrier.value : formatCurrency(carrier.value)}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                           <button
                             onClick={() => handleEdit(carrier)}
                             className="text-blue-600 hover:text-blue-900 mr-3"
-                            disabled={isSubmitting}
+                            disabled={isActionLoading}
                           >
                             <Edit size={16} />
                           </button>
                           <button
                             onClick={() => handleDelete(carrier.id)}
                             className="text-red-600 hover:text-red-900"
-                            disabled={isSubmitting}
+                            disabled={isActionLoading}
                           >
                             {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 size={16} />}
                           </button>
@@ -288,9 +266,9 @@ export function CarriersTab() {
       {showModal && currentCarrier && (
         <div
           onClick={() => setShowModal(false)}
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+          className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 backdrop-blur-sm"
         >
-          <div onClick={(e) => e.stopPropagation()} className="bg-white p-6 rounded-lg w-full max-w-md">
+          <div onClick={(e) => e.stopPropagation()} className="bg-white p-6 rounded-2xl w-full max-w-md shadow-xl border border-gray-100">
             <h3 className="text-lg font-medium mb-4">{currentCarrier.id ? "Editar Freteiro" : "Adicionar Freteiro"}</h3>
             <div className="space-y-4">
               <input type="hidden" value={currentCarrier.id} />
@@ -315,7 +293,7 @@ export function CarriersTab() {
                         type: e.target.value as "percentage" | "perKg" | "perUnit",
                       })
                     }
-                    className="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full border border-gray-200 rounded-xl p-3 focus:ring-2 focus:ring-blue-400 focus:border-blue-300"
                     disabled={isSubmitting}
                   >
                     <option value="percentage">Porcentagem (%)</option>
@@ -329,17 +307,32 @@ export function CarriersTab() {
                     type="text"
                     inputMode="decimal"
                     placeholder="0.00"
-                    value={currentCarrier.value === 0 ? "" : String(currentCarrier.value)}
+                    value={valueInput}
                     onChange={(e) => {
-                      const value = e.target.value.replace(",", ".");
+                      let value = e.target.value;
+                      
+                      // Permitir vírgula e converter para ponto
+                      value = value.replace(",", ".");
+                      
+                      // Validar formato: apenas números, um ponto e até 2 decimais
                       if (/^\d*\.?\d{0,2}$/.test(value) || value === "") {
+                        setValueInput(value); // Mantém o que o usuário digitou (incluindo "5." ou "5.5")
                         setCurrentCarrier({
                           ...currentCarrier,
-                          value: value === "" ? 0 : parseFloat(value),
+                          value: value === "" || value === "." ? 0 : parseFloat(value),
                         });
                       }
                     }}
-                    className="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500"
+                    onBlur={() => {
+                      // Ao sair do campo, formatar o valor se necessário
+                      if (valueInput && !valueInput.endsWith(".")) {
+                        const num = parseFloat(valueInput);
+                        if (!isNaN(num)) {
+                          setValueInput(num.toString());
+                        }
+                      }
+                    }}
+                    className="w-full border border-gray-200 rounded-xl p-3 focus:ring-2 focus:ring-blue-400 focus:border-blue-300"
                     disabled={isSubmitting}
                   />
                 </div>
@@ -348,14 +341,14 @@ export function CarriersTab() {
             <div className="mt-6 flex justify-end space-x-3">
               <button
                 onClick={() => setShowModal(false)}
-                className="px-4 py-2 border border-gray-300 rounded-md"
+                className="px-4 py-2 border border-gray-200 rounded-xl hover:bg-gray-50"
                 disabled={isSubmitting}
               >
                 Cancelar
               </button>
               <button
                 onClick={handleSave}
-                className="px-4 py-2 bg-blue-600 text-white rounded-md flex items-center justify-center"
+                className="px-4 py-2 bg-blue-500 text-white rounded-xl flex items-center justify-center shadow-sm hover:bg-blue-600"
                 disabled={isSubmitting}
               >
                 {isSubmitting ? (

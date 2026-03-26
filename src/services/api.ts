@@ -72,15 +72,39 @@ api.interceptors.request.use(
   }
 );
 
-// Interceptor de resposta para tratar erros 401
+// Interceptor de resposta: 401 ou SESSION_EXPIRED
+// Session-expired só para quem tinha sessão e ela expirou; sem token (anônimo) → não redirecionar para session-expired
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
-      // Token inválido ou expirado - limpar e redirecionar para login
+    const status = error.response?.status;
+    const code = (error.response?.data as any)?.code;
+    const is401 = status === 401 || code === "SESSION_EXPIRED";
+
+    const requestUrl = (error.config?.url || "").toLowerCase();
+    const hadAuthHeader = !!(error.config?.headers?.Authorization ?? error.config?.headers?.authorization);
+    const isLoginRequest = requestUrl.includes("/auth/backoffice") && error.config?.method?.toLowerCase() === "post";
+    const isAuthMeRequest = requestUrl.includes("/auth/me/backoffice");
+    const currentPath = window.location.pathname || "";
+    const isOnSignInPage = currentPath.startsWith("/signin/backoffice") || currentPath === "/signin";
+    const isOnSessionExpiredPage = currentPath.startsWith("/session-expired");
+
+    // Redirecionar para session-expired só quando: 401 + requisição foi COM token (sessão expirou/rejeitada)
+    const shouldRedirectToSessionExpired =
+      is401 &&
+      hadAuthHeader &&
+      !isLoginRequest &&
+      !isAuthMeRequest &&
+      !isOnSignInPage &&
+      !isOnSessionExpiredPage;
+
+    if (shouldRedirectToSessionExpired) {
       localStorage.removeItem("@backoffice:token");
       localStorage.removeItem("@backoffice:user");
-      window.location.href = "/login";
+      localStorage.removeItem("@backoffice:account");
+      sessionStorage.clear();
+      delete api.defaults.headers.common["Authorization"];
+      window.location.href = "/session-expired/backoffice";
     }
     return Promise.reject(error);
   }

@@ -1,8 +1,9 @@
-import { useState, useEffect } from "react";
-import { Plus, Edit, Trash2, Boxes, Loader2 } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { Plus, Edit, Trash2, Boxes, Loader2, Search } from "lucide-react";
 import Swal from "sweetalert2";
 import { api } from "../../../../services/api";
 import { useNotification } from "../../../../hooks/notification";
+import { useActionLoading } from "../../context/ActionLoadingContext";
 
 export interface Product {
   id: string;
@@ -21,15 +22,21 @@ export function ProductsTab() {
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [sortBy, setSortBy] = useState<"name" | "code">("name"); // Padrão: ordenação alfabética
+  const [searchInput, setSearchInput] = useState("");
+  const [searchTerm, setSearchTerm] = useState(""); // Valor com debounce para a API
   const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
   const { setOpenNotification } = useNotification();
+  const { isLoading: isActionLoading, executeAction } = useActionLoading();
 
   const fetchData = async () => {
     setIsLoading(true);
     try {
-      // Solicitar todos os produtos (limite de 1000 para garantir que todos sejam retornados)
       const response = await api.get<any>("/invoice/product", {
-        params: { limit: 1000 },
+        params: {
+          search: searchTerm.trim() || undefined,
+          limit: 1000,
+          page: 1,
+        },
       });
       // O backend agora retorna { products: [...], totalProducts: ..., page: ..., limit: ..., totalPages: ... }
       const productsData = Array.isArray(response.data) ? response.data : response.data.products || [];
@@ -70,7 +77,20 @@ export function ProductsTab() {
 
   useEffect(() => {
     fetchData();
-  }, [sortBy]);
+  }, [sortBy, searchTerm]);
+
+  // Debounce da busca: 400ms após parar de digitar antes de enviar à API
+  const isInitialMount = useRef(true);
+  useEffect(() => {
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
+    const timer = setTimeout(() => {
+      setSearchTerm(searchInput);
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [searchInput]);
 
   const handleEdit = (product: Product) => {
     setCurrentProduct(product);
@@ -83,15 +103,8 @@ export function ProductsTab() {
     );
   };
 
-  const handleSelectAll = () => {
-    if (selectedProducts.length === products.length) {
-      setSelectedProducts([]);
-    } else {
-      setSelectedProducts(products.map((p) => p.id));
-    }
-  };
-
   const handleDeleteMultiple = async () => {
+    if (isActionLoading) return;
     if (selectedProducts.length === 0) return;
 
     const result = await Swal.fire({
@@ -109,8 +122,7 @@ export function ProductsTab() {
     });
 
     if (result.isConfirmed) {
-      setIsSubmitting(true);
-      try {
+      await executeAction(async () => {
         await Promise.all(selectedProducts.map((id) => api.delete(`/invoice/product/${id}`)));
         await fetchData();
         setSelectedProducts([]);
@@ -119,7 +131,7 @@ export function ProductsTab() {
           title: "Sucesso!",
           notification: `${selectedProducts.length} produto(s) excluído(s) com sucesso!`,
         });
-      } catch (error) {
+      }, "deleteMultipleProducts").catch((error) => {
         console.error("Erro ao excluir produtos:", error);
         Swal.fire({
           icon: "error",
@@ -131,9 +143,7 @@ export function ProductsTab() {
             confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
           },
         });
-      } finally {
-        setIsSubmitting(false);
-      }
+      });
     }
   };
 
@@ -153,8 +163,7 @@ export function ProductsTab() {
     });
 
     if (result.isConfirmed) {
-      setIsSubmitting(true);
-      try {
+      await executeAction(async () => {
         await api.delete(`/invoice/product/${id}`);
         await fetchData();
         // Swal.fire({
@@ -172,7 +181,7 @@ export function ProductsTab() {
           title: "Sucesso!",
           notification: "Produto excluído permanentemente!",
         });
-      } catch (error) {
+      }, `deleteProduct-${id}`).catch((error) => {
         console.error("Erro ao excluir produto:", error);
         Swal.fire({
           icon: "error",
@@ -184,52 +193,51 @@ export function ProductsTab() {
             confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
           },
         });
-      } finally {
-        setIsSubmitting(false);
-      }
+      });
     }
   };
 
   const handleSave = async () => {
+    if (isActionLoading) return;
     if (!currentProduct) return;
 
-    const trimmedName = currentProduct.name.trim();
-    const trimmedCode = currentProduct.code.trim();
-    if (trimmedName === "" || trimmedCode === "") {
-      Swal.fire({
-        icon: "error",
-        title: "Erro",
-        text: "Nome e código do produto são obrigatórios.",
-        buttonsStyling: false,
-        customClass: {
-          confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
-        },
-      });
-      return;
-    }
+    await executeAction(async () => {
+      const trimmedName = currentProduct.name.trim();
+      const trimmedCode = currentProduct.code.trim();
+      if (trimmedName === "" || trimmedCode === "") {
+        Swal.fire({
+          icon: "error",
+          title: "Erro",
+          text: "Nome e código do produto são obrigatórios.",
+          buttonsStyling: false,
+          customClass: {
+            confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
+          },
+        });
+        return;
+      }
 
-    // Validar se já existe produto com o mesmo nome (case-insensitive) ou código
-    const existingProduct = products.find(
-      (p) =>
-        p.id !== currentProduct.id && // Não verificar o próprio produto se estiver editando
-        (p.name.toLowerCase() === trimmedName.toLowerCase() || p.code === trimmedCode)
-    );
+      // Validar se já existe produto com o mesmo nome (case-insensitive) ou código
+      const existingProduct = products.find(
+        (p) =>
+          p.id !== currentProduct.id && // Não verificar o próprio produto se estiver editando
+          (p.name.toLowerCase() === trimmedName.toLowerCase() || p.code === trimmedCode)
+      );
 
-    if (existingProduct) {
-      Swal.fire({
-        icon: "error",
-        title: "Produto duplicado!",
-        text: `Já existe um produto com o nome "${existingProduct.name}" ou código "${existingProduct.code}".`,
-        buttonsStyling: false,
-        customClass: {
-          confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
-        },
-      });
-      return;
-    }
+      if (existingProduct) {
+        Swal.fire({
+          icon: "error",
+          title: "Produto duplicado!",
+          text: `Já existe um produto com o nome "${existingProduct.name}" ou código "${existingProduct.code}".`,
+          buttonsStyling: false,
+          customClass: {
+            confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
+          },
+        });
+        return;
+      }
 
-    setIsSubmitting(true);
-    try {
+      try {
       if (currentProduct.id) {
         await api.patch(`/invoice/product/${currentProduct.id}`, currentProduct);
         // Swal.fire({
@@ -265,38 +273,39 @@ export function ProductsTab() {
           notification: "Produto criado com sucesso!",
         });
       }
-      await fetchData();
-      setShowModal(false);
-      setCurrentProduct(null);
-    } catch (error: any) {
-      console.error("Erro ao salvar produto:", error);
-      const errorMessage = error?.response?.data?.message || error?.message || "Não foi possível salvar o produto.";
+        await fetchData();
+        setShowModal(false);
+        setCurrentProduct(null);
+      } catch (error: any) {
+        console.error("Erro ao salvar produto:", error);
+        const errorMessage = error?.response?.data?.message || error?.message || "Não foi possível salvar o produto.";
 
-      // Se o erro for de produto duplicado, mostrar mensagem específica
-      if (error?.response?.status === 409 || errorMessage.includes("já existe")) {
-        Swal.fire({
-          icon: "error",
-          title: "Produto duplicado!",
-          text: errorMessage || "Já existe um produto com este nome ou código.",
-          buttonsStyling: false,
-          customClass: {
-            confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
-          },
-        });
-      } else {
-        Swal.fire({
-          icon: "error",
-          title: "Erro!",
-          text: errorMessage,
-          buttonsStyling: false,
-          customClass: {
-            confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
-          },
-        });
+        // Se o erro for de produto duplicado, mostrar mensagem específica
+        if (error?.response?.status === 409 || errorMessage.includes("já existe")) {
+          Swal.fire({
+            icon: "error",
+            title: "Produto duplicado!",
+            text: errorMessage || "Já existe um produto com este nome ou código.",
+            buttonsStyling: false,
+            customClass: {
+              confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
+            },
+          });
+        } else {
+          Swal.fire({
+            icon: "error",
+            title: "Erro!",
+            text: errorMessage,
+            buttonsStyling: false,
+            customClass: {
+              confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
+            },
+          });
+        }
       }
-    } finally {
-      setIsSubmitting(false);
-    }
+    }, "saveProduct").catch((error: any) => {
+      console.error("Erro no executeAction:", error);
+    });
   };
 
   useEffect(() => {
@@ -312,19 +321,47 @@ export function ProductsTab() {
     };
   }, []);
 
+  const handleSelectAll = () => {
+    if (selectedProducts.length === products.length) {
+      setSelectedProducts([]);
+    } else {
+      setSelectedProducts(products.map((p) => p.id));
+    }
+  };
+
   return (
-    <div className="bg-white p-6 rounded-lg shadow">
+    <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+      {/* Barra de busca – sempre visível no topo */}
+      <div className="mb-4 p-4 bg-blue-50 rounded-xl border border-blue-200">
+        <label className="block text-sm font-medium text-blue-800 mb-2">Buscar produto por nome ou código</label>
+        <div className="flex items-center gap-3">
+          <Search size={20} className="text-blue-600 flex-shrink-0" />
+          <input
+            type="text"
+            placeholder="Digite nome ou código (ex: AIRPODS, 174)..."
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            className="flex-1 min-w-[220px] max-w-lg border border-blue-200 rounded-lg px-4 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-400"
+          />
+          {searchTerm && (
+            <span className="text-sm font-medium text-blue-700 whitespace-nowrap">
+              {products.length} resultado{products.length !== 1 ? "s" : ""}
+            </span>
+          )}
+        </div>
+      </div>
+
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-xl font-semibold text-blue-700">
           <Boxes className="mr-2 inline" size={18} />
           Cadastro de Produtos
         </h2>
-        <div className="flex items-center gap-4">
+        <div className="flex flex-wrap items-center gap-4">
           {selectedProducts.length > 0 && (
             <button
               onClick={handleDeleteMultiple}
-              className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded flex items-center"
-              disabled={isSubmitting}
+              className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-xl flex items-center shadow-sm"
+              disabled={isActionLoading}
             >
               {isSubmitting ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -339,7 +376,7 @@ export function ProductsTab() {
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value as "name" | "code")}
-              className="border border-gray-300 rounded-md px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-300"
             >
               <option value="name">Nome (Alfabético)</option>
               <option value="code">Código</option>
@@ -366,8 +403,8 @@ export function ProductsTab() {
               });
               setShowModal(true);
             }}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded flex items-center"
-            disabled={isLoading || isSubmitting}
+            className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-xl flex items-center shadow-sm"
+            disabled={isLoading || isActionLoading}
           >
             {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2" size={16} />}
             Novo Produto
@@ -380,9 +417,9 @@ export function ProductsTab() {
           <Loader2 className="h-8 w-8 text-blue-500 animate-spin" />
         </div>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
+        <div className="overflow-x-auto rounded-2xl border border-gray-100 shadow-sm">
+          <table className="min-w-full divide-y divide-gray-100">
+            <thead className="bg-gray-50/80">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   <input
@@ -407,11 +444,11 @@ export function ProductsTab() {
                 </th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody className="bg-white divide-y divide-gray-100">
               {products.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-6 py-4 text-center text-gray-500">
-                    {isLoading ? "Carregando..." : "Nenhum produto cadastrado"}
+                    {isLoading ? "Carregando..." : searchTerm ? "Nenhum produto encontrado para o filtro." : "Nenhum produto cadastrado"}
                   </td>
                 </tr>
               ) : (
@@ -440,14 +477,14 @@ export function ProductsTab() {
                         <button
                           onClick={() => handleEdit(product)}
                           className="text-blue-600 hover:text-blue-900 mr-3"
-                          disabled={isSubmitting}
+                          disabled={isActionLoading}
                         >
                           <Edit size={16} />
                         </button>
                         <button
                           onClick={() => handleDelete(product.id)}
                           className="text-red-600 hover:text-red-900"
-                          disabled={isSubmitting}
+                          disabled={isActionLoading}
                         >
                           {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 size={16} />}
                         </button>
@@ -464,9 +501,9 @@ export function ProductsTab() {
       {showModal && currentProduct && (
         <div
           onClick={() => setShowModal(false)}
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+          className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 backdrop-blur-sm"
         >
-          <div onClick={(e) => e.stopPropagation()} className="bg-white p-6 rounded-lg w-full max-w-md">
+          <div onClick={(e) => e.stopPropagation()} className="bg-white p-6 rounded-2xl w-full max-w-md shadow-xl border border-gray-100">
             <h3 className="text-lg font-medium mb-4">{currentProduct.id ? "Editar Produto" : "Novo Produto"}</h3>
             <div className="space-y-4">
               <div>
@@ -486,8 +523,8 @@ export function ProductsTab() {
                       }
                     }, 0);
                   }}
-                  className="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500"
-                  disabled={isSubmitting}
+                  className="w-full border border-gray-200 rounded-xl p-3 focus:ring-2 focus:ring-blue-400 focus:border-blue-300"
+                  disabled={isActionLoading}
                 />
               </div>
               <div>
@@ -496,7 +533,7 @@ export function ProductsTab() {
                   type="text"
                   value={currentProduct.code}
                   disabled // <- campo agora é somente leitura
-                  className="w-full border border-gray-300 rounded-md p-2 bg-gray-100 cursor-not-allowed"
+                  className="w-full border border-gray-200 rounded-xl p-3 bg-gray-50 cursor-not-allowed"
                 />
               </div>
               <div className="grid grid-cols-2 gap-4">
@@ -516,7 +553,7 @@ export function ProductsTab() {
                         });
                       }
                     }}
-                    className="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full border border-gray-200 rounded-xl p-3 focus:ring-2 focus:ring-blue-400 focus:border-blue-300"
                   />
                 </div>
                 <div>
@@ -535,7 +572,7 @@ export function ProductsTab() {
                         });
                       }
                     }}
-                    className="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full border border-gray-200 rounded-xl p-3 focus:ring-2 focus:ring-blue-400 focus:border-blue-300"
                   />
                 </div>
               </div>
@@ -556,23 +593,23 @@ export function ProductsTab() {
                       }
                     }, 0);
                   }}
-                  className="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500"
-                  disabled={isSubmitting}
+                  className="w-full border border-gray-200 rounded-xl p-3 focus:ring-2 focus:ring-blue-400 focus:border-blue-300"
+                  disabled={isActionLoading}
                 ></textarea>
               </div>
             </div>
             <div className="mt-6 flex justify-end space-x-3">
               <button
                 onClick={() => setShowModal(false)}
-                className="px-4 py-2 border border-gray-300 rounded-md"
-                disabled={isSubmitting}
+                className="px-4 py-2 border border-gray-200 rounded-xl hover:bg-gray-50"
+                disabled={isActionLoading}
               >
                 Cancelar
               </button>
               <button
                 onClick={handleSave}
-                className="px-4 py-2 bg-blue-600 text-white rounded-md flex items-center justify-center"
-                disabled={isSubmitting}
+                className="px-4 py-2 bg-blue-500 text-white rounded-xl flex items-center justify-center shadow-sm hover:bg-blue-600"
+                disabled={isActionLoading}
               >
                 {isSubmitting ? (
                   <>

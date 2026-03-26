@@ -1,9 +1,12 @@
-import { History, Eye, Edit, XIcon, RotateCcw, Check, Loader2, PlusCircle, Trash } from "lucide-react";
+import { History, Eye, Edit, XIcon, RotateCcw, Loader2, PlusCircle, Trash } from "lucide-react";
 import { useEffect, useState } from "react";
 import { api } from "../../../../services/api";
-import { Invoice } from "../types/invoice"; // Se necessário, ajuste o caminho do tipo
 import { Product } from "./ProductsTab";
 import Swal from "sweetalert2";
+import { useActionLoading } from "../../context/ActionLoadingContext";
+import { ProductSearchSelect } from "./SupplierSearchSelect";
+import { ProductImeis } from "../ProductImeis";
+import { fixInvertedDateString, formatDateToBR, formatDateTimeToBR } from "../utils/format";
 
 export type InvoiceData = {
   id: string;
@@ -103,7 +106,6 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [products, setProducts] = useState<Product[]>([]);
-  const [isSaving, setIsSaving] = useState(false);
   const [isSavingId, setIsSavingId] = useState("");
   const [showAddProductForm, setShowAddProductForm] = useState(false);
   const [currentPage, setCurrentPage] = useState(0);
@@ -118,6 +120,7 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
     // received e receivedQuantity têm valores padrão
   });
   const [valorRaw, setValorRaw] = useState("");
+  const { isLoading: isActionLoading, executeAction } = useActionLoading();
 
   useEffect(() => {
     fetchInvoicesAndSuppliers();
@@ -158,10 +161,27 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
           "📋 [INVOICE HISTORY] Invoices não completas (detalhes):",
           notCompleted.map((inv: any) => ({ id: inv.id, number: inv.number, paid: inv.paid, completed: inv.completed }))
         );
+        
+        // Debug: verificar quantas passam pelo filtro final (não completas E não pagas)
+        const notCompletedAndNotPaid = invoiceResponse.data.filter((inv: any) => !inv.completed && !inv.paid);
+        console.log("📋 [INVOICE HISTORY] Invoices não completas E não pagas (que aparecerão na lista):", notCompletedAndNotPaid.length);
+        console.log(
+          "📋 [INVOICE HISTORY] Invoices não completas E não pagas (detalhes):",
+          notCompletedAndNotPaid.map((inv: any) => ({ id: inv.id, number: inv.number, paid: inv.paid, completed: inv.completed }))
+        );
       }
       // O backend agora retorna { products: [...], totalProducts: ..., page: ..., limit: ..., totalPages: ... }
       setProducts(Array.isArray(productsResponse.data) ? productsResponse.data : productsResponse.data.products || []);
-      setInvoices(invoiceResponse.data);
+      
+      // Corrigir datas invertidas antes de salvar (YYYY-DD-MM → YYYY-MM-DD)
+      const invoicesWithFixedDates = invoiceResponse.data.map((inv: any) => ({
+        ...inv,
+        date: fixInvertedDateString(inv.date),
+        paidDate: inv.paidDate ? fixInvertedDateString(inv.paidDate) : null,
+        completedDate: inv.completedDate ? fixInvertedDateString(inv.completedDate) : null,
+      }));
+      
+      setInvoices(invoicesWithFixedDates);
       setSuppliers(supplierResponse.data);
     } catch (error) {
       console.error("Erro ao buscar dados:", error);
@@ -190,6 +210,11 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
   const deleteInvoice = (idInvoice: string) => {
     if (!idInvoice) return;
 
+    // Proteção imediata contra cliques duplos
+    if (isActionLoading) {
+      return;
+    }
+
     Swal.fire({
       title: "Tem certeza?",
       text: "Você não poderá reverter isso!",
@@ -203,42 +228,40 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
       },
     }).then((result) => {
       if (result.isConfirmed) {
-        api
-          .delete(`/invoice/delete/${idInvoice}`)
-          .then(() => {
-            setInvoices((prevInvoices) => prevInvoices.filter((invoice) => invoice.id !== idInvoice));
-            Swal.fire({
-              icon: "success",
-              title: "Deletado!",
-              text: "Invoice deletada com sucesso.",
-              confirmButtonText: "Ok",
-              buttonsStyling: false,
-              customClass: {
-                confirmButton: "bg-green-600 text-white hover:bg-green-700 px-4 py-2 rounded font-semibold",
-              },
-            });
-          })
-          .catch((error) => {
-            console.error("Erro ao deletar invoice:", error);
-            Swal.fire({
-              icon: "error",
-              title: "Error ",
-              text: "Erro ao deletar invoice. Tente novamente.",
-              confirmButtonText: "Ok",
-              buttonsStyling: false,
-              customClass: {
-                confirmButton: "bg-green-600 text-white hover:bg-green-700 px-4 py-2 rounded font-semibold",
-              },
-            });
+        executeAction(async () => {
+          await api.delete(`/invoice/delete/${idInvoice}`);
+          setInvoices((prevInvoices) => prevInvoices.filter((invoice) => invoice.id !== idInvoice));
+          Swal.fire({
+            icon: "success",
+            title: "Deletado!",
+            text: "Invoice deletada com sucesso.",
+            confirmButtonText: "Ok",
+            buttonsStyling: false,
+            customClass: {
+              confirmButton: "bg-green-600 text-white hover:bg-green-700 px-4 py-2 rounded font-semibold",
+            },
           });
+        }, `deleteInvoice-${idInvoice}`).catch((error) => {
+          console.error("Erro ao deletar invoice:", error);
+          Swal.fire({
+            icon: "error",
+            title: "Error ",
+            text: "Erro ao deletar invoice. Tente novamente.",
+            confirmButtonText: "Ok",
+            buttonsStyling: false,
+            customClass: {
+              confirmButton: "bg-green-600 text-white hover:bg-green-700 px-4 py-2 rounded font-semibold",
+            },
+          });
+        });
       }
     });
   };
 
   const getStatusText = (invoice: InvoiceData) => {
-    if (invoice.paid) return "Paga"; // Se está paga, sempre mostra "Paga"
-    if (invoice.completed) return "Concluída";
-    return "Pendente"; // Só é pendente se não está paga e não está concluída
+    if (invoice.completed && invoice.paid) return "Concluída";
+    if (!invoice.completed && invoice.paid) return "Paga";
+    return "Pendente";
   };
 
   const getStatusClass = (invoice: InvoiceData) => {
@@ -273,11 +296,15 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
   };
 
   const sendUpdateProductStatus = async (product: ProductData) => {
+    // Proteção imediata contra cliques duplos
+    if (isActionLoading) {
+      return;
+    }
+
     if (!product) return;
 
-    try {
+    await executeAction(async () => {
       setIsSavingId(product.id);
-      setIsSaving(true);
       await api.patch("/invoice/update/product", {
         idProductInvoice: product.id,
         bodyupdate: {
@@ -291,21 +318,24 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
       setSelectedInvoice(findInvoice);
 
       setInvoices(invoiceResponse.data);
-    } catch (error) {
+      setIsSavingId("");
+    }, `updateProduct-${product.id}`).catch((error) => {
       console.error("Erro ao buscar dados:", error);
-    } finally {
-      setIsSaving(false);
-    }
+      setIsSavingId("");
+    });
   };
 
   const handleDeleteProduct = async (productId: string) => {
+    // Proteção imediata contra cliques duplos
+    if (isActionLoading) {
+      return;
+    }
+
     if (!selectedInvoice) return;
 
     console.log("procuct", productId);
 
-    try {
-      setIsSaving(true);
-
+    await executeAction(async () => {
       // Chama a API para deletar o produto
       await api.delete(`/invoice/product/delete/${productId}`, {
         data: {
@@ -320,19 +350,20 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
 
       setSelectedInvoice(findInvoice);
       setInvoices(invoiceResponse.data);
-    } catch (error) {
+    }, `deleteProduct-${productId}`).catch((error) => {
       console.error("Erro ao deletar produto:", error);
-    } finally {
-      setIsSaving(false);
-    }
+    });
   };
 
   const handleAddNewProduct = async () => {
+    // Proteção imediata contra cliques duplos
+    if (isActionLoading) {
+      return;
+    }
+
     if (!selectedInvoice || !newProduct.productId) return;
 
-    try {
-      setIsSaving(true);
-
+    await executeAction(async () => {
       const total = Number(newProduct.value) * newProduct.quantity;
 
       await api.post("/invoice/product/add-invoice", {
@@ -363,16 +394,13 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
         value: "",
         weight: "",
       });
+      setValorRaw("");
       setShowAddProductForm(false);
-    } catch (error) {
+    }, "addNewProduct").catch((error) => {
       console.error("Erro ao adicionar produto:", error);
-      // Você pode adicionar tratamento de erro mais específico aqui
-    } finally {
-      setIsSaving(false);
-    }
+    });
   };
 
-  const invoicesToShow = invoices.filter((invoice) => !invoice.paid && !invoice.completed);
   const totalQuantidade = selectedInvoice?.products.reduce((sum, product) => sum + product.quantity, 0);
 
   return (
@@ -382,7 +410,11 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
           <History className="mr-2 inline" size={18} />
           Histórico de Invoices
         </div>
-        <button onClick={() => fetchInvoicesAndSuppliers()} className="flex justify-center items-center">
+        <button
+          onClick={() => fetchInvoicesAndSuppliers()}
+          className="flex justify-center items-center disabled:opacity-50 disabled:cursor-not-allowed"
+          disabled={isActionLoading}
+        >
           <RotateCcw className="mr-2 inline" size={24} />
         </button>
       </h2>
@@ -424,7 +456,7 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
                 </tr>
               ) : (
                 invoices
-                  .filter((invoice) => !invoice.completed && !invoice.paid) // ✅ Mostrar apenas não concluídas E não pagas (apenas pendentes)
+                  .filter((invoice) => !invoice.completed && !invoice.paid) // ✅ Regra de negócio: mostrar apenas não concluídas E não pagas (apenas pendentes)
                   .slice(currentPage * itemsPerPage, (currentPage + 1) * itemsPerPage) // ✅ Paginação
                   .map((invoice) => {
                     const supplier = suppliers.find((s) => s.id === invoice.supplierId);
@@ -439,18 +471,7 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{supplier?.name || "-"}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                           <i className="fas fa-clock text-green-500 mr-2"></i>
-                          {(() => {
-                            const date = new Date(invoice.date);
-                            const horas = date.getHours();
-                            const minutos = date.getMinutes();
-                            const segundos = date.getSeconds();
-                            const dataFormatada = date.toLocaleDateString("pt-BR");
-                            const horaFormatada = `${String(horas).padStart(2, "0")}:${String(minutos).padStart(
-                              2,
-                              "0"
-                            )}:${String(segundos).padStart(2, "0")}`;
-                            return horas + minutos + segundos > 0 ? `${dataFormatada} ${horaFormatada}` : dataFormatada;
-                          })()}{" "}
+                          {formatDateTimeToBR(invoice.date)}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right">
                           {formatCurrency(total)}
@@ -479,8 +500,9 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
                             {invoice.paid && invoice.completed ? (
                               <button
                                 onClick={() => openModal(invoice, false)}
-                                className="text-blue-600 hover:text-blue-900"
+                                className="text-blue-600 hover:text-blue-900 disabled:opacity-50 disabled:cursor-not-allowed"
                                 title="Visualizar"
+                                disabled={isActionLoading}
                               >
                                 <Eye size={16} />
                               </button>
@@ -489,15 +511,17 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
                               <>
                                 <button
                                   onClick={() => openModal(invoice, false)}
-                                  className="text-blue-600 hover:text-blue-900"
+                                  className="text-blue-600 hover:text-blue-900 disabled:opacity-50 disabled:cursor-not-allowed"
                                   title="Visualizar"
+                                  disabled={isActionLoading}
                                 >
                                   <Eye size={16} />
                                 </button>
                                 <button
                                   onClick={() => openModal(invoice, true)}
-                                  className="text-green-600 hover:text-green-900"
+                                  className="text-green-600 hover:text-green-900 disabled:opacity-50 disabled:cursor-not-allowed"
                                   title="Editar"
+                                  disabled={isActionLoading}
                                 >
                                   <Edit size={16} />
                                 </button>
@@ -507,15 +531,17 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
                               <>
                                 <button
                                   onClick={() => openModal(invoice, true)}
-                                  className="text-green-600 hover:text-green-900"
+                                  className="text-green-600 hover:text-green-900 disabled:opacity-50 disabled:cursor-not-allowed"
                                   title="Editar"
+                                  disabled={isActionLoading}
                                 >
                                   <Edit size={16} />
                                 </button>
                                 <button
                                   onClick={() => deleteInvoice(invoice.id)}
-                                  className="text-red-600 hover:text-red-900"
+                                  className="text-red-600 hover:text-red-900 disabled:opacity-50 disabled:cursor-not-allowed"
                                   title="Deletar"
+                                  disabled={isActionLoading}
                                 >
                                   <Trash size={16} />
                                 </button>
@@ -581,12 +607,10 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
                 <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 mb-4">
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Produto</label>
-                      <select
-                        className="w-full p-2 border border-gray-300 rounded-md text-sm"
+                      <ProductSearchSelect
+                        products={products}
                         value={newProduct.productId}
-                        onChange={(e) => {
-                          const selectedId = e.target.value;
+                        onChange={(selectedId) => {
                           const product = products.find((p) => p.id === selectedId);
 
                           const price = product?.priceweightAverage ?? 0;
@@ -606,16 +630,8 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
                             weight: price > 0 ? String(price) : "",
                           });
                         }}
-                      >
-                        <option value="">Selecione</option>
-                        {products
-                          .filter((p) => p.active)
-                          .map((product) => (
-                            <option key={product.id} value={product.id}>
-                              {product.name}
-                            </option>
-                          ))}
-                      </select>
+                        inline={true}
+                      />
                     </div>
 
                     <div>
@@ -727,10 +743,10 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
                     </button>
                     <button
                       onClick={handleAddNewProduct}
-                      disabled={!newProduct.productId || isSaving}
-                      className="px-3 py-1 text-sm bg-green-600 text-white rounded-md hover:bg-green-700 disabled:bg-green-300"
+                      disabled={!newProduct.productId || isActionLoading}
+                      className="px-3 py-1 text-sm bg-green-600 text-white rounded-md hover:bg-green-700 disabled:bg-green-300 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      {isSaving ? (
+                      {isActionLoading ? (
                         <>
                           <Loader2 className="animate-spin mr-2 inline" size={14} />
                           Salvando...
@@ -757,12 +773,7 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
                 <p className="text-sm text-gray-600">
                   Data:{" "}
                   <span id="modalInvoiceDate">
-                    {" "}
-                    {selectedInvoice.date
-                      ? new Date(new Date(selectedInvoice.date).getTime() + 3 * 60 * 60 * 1000).toLocaleDateString(
-                          "pt-BR"
-                        )
-                      : "Não informado"}
+                    {selectedInvoice.date ? formatDateToBR(selectedInvoice.date) : "Não informado"}
                   </span>
                 </p>
                 <p className="text-sm text-gray-600">
@@ -839,7 +850,13 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
                       .map((product, index) => (
                         <tr key={index}>
                           <td className="px-4 py-2 text-sm text-gray-700">
-                            {products.find((item) => item.id === product.productId)?.name}
+                            <div>
+                              {products.find((item) => item.id === product.productId)?.name}
+                              <ProductImeis
+                                invoiceProductId={product.id}
+                                productName={products.find((item) => item.id === product.productId)?.name || "Produto"}
+                              />
+                            </div>
                           </td>
                           <td className="px-4 py-2 text-sm text-right">{product.quantity}</td>
                           <td className="px-4 py-2 text-sm text-right">{product.value.toFixed(2)}</td>
@@ -850,11 +867,15 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
                               <div className="flex justify-end items-center ">
                                 <button
                                   onClick={() => handleDeleteProduct(product.id)}
-                                  disabled={isSaving}
+                                  disabled={isActionLoading}
                                   className={`flex items-center justify-center gap-2 text-sm font-medium px-3 py-1 rounded-md shadow-sm transition 
-      ${isSaving ? "bg-gray-400 cursor-not-allowed opacity-60 text-white" : "bg-red-600 hover:bg-red-500 text-white"}`}
+      ${
+        isActionLoading
+          ? "bg-gray-400 cursor-not-allowed opacity-60 text-white"
+          : "bg-red-600 hover:bg-red-500 text-white"
+      }`}
                                 >
-                                  {isSaving ? (
+                                  {isActionLoading ? (
                                     <>
                                       <Loader2 className="animate-spin" size={16} /> Removendo...
                                     </>

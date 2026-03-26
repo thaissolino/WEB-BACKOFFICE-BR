@@ -74,15 +74,8 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebar }) => {
 
     const handleClick = () => {
       setSelected(title);
-
-      if (requiresValidation) {
-        // Se requer validação, armazena a rota pendente e abre o modal
-        setPendingNavigation(to);
-        setOpenModal(true);
-      } else {
-        // Se não requer validação, navega diretamente
-        navigate(to);
-      }
+      // SEMPRE navega diretamente, ignorando a validação
+      navigate(to);
     };
 
     return (
@@ -629,24 +622,6 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebar }) => {
                 setSelected={setSelected}
               />
             )}
-            {/* Este item agora requer validação */}
-            {canShowTab("GERENCIAR_PLANILHAS") && (
-              <>
-                {!isCollapsed && (
-                  <Typography variant="h6" color={colors.greenAccent[300]} sx={{ m: "15px 0 5px 20px" }}>
-                    Planilhas:
-                  </Typography>
-                )}
-                <Item
-                  title="Gerenciar Planilhas"
-                  to="/spreadsheets"
-                  icon={<TableChartOutlinedIcon />}
-                  selected={selected}
-                  setSelected={setSelected}
-                  requiresValidation={true}
-                />
-              </>
-            )}
             {canShowTab("GERENCIAR_INVOICES") && (
               <Item
                 title="Gerenciar Invoices"
@@ -654,7 +629,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebar }) => {
                 icon={<DescriptionOutlinedIcon />}
                 selected={selected}
                 setSelected={setSelected}
-                requiresValidation={true}
+               // requiresValidation={true}
               />
             )}
             {canShowTab("GERENCIAR_TOKENS") && (
@@ -667,25 +642,6 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebar }) => {
                 requiresValidation={true}
               />
             )}
-            {/* Este item agora requer validação */}
-            {canShowTab("GERENCIAR_BOLETOS") && (
-              <>
-                {!isCollapsed && (
-                  <Typography variant="h6" color={colors.greenAccent[300]} sx={{ m: "15px 0 5px 20px" }}>
-                    Boletos:
-                  </Typography>
-                )}
-                <Item
-                  title="Gerenciar Boletos"
-                  to="/billets-management"
-                  icon={<TableChartOutlinedIcon />}
-                  selected={selected}
-                  setSelected={setSelected}
-                  requiresValidation={true}
-                />
-              </>
-            )}
-            
             {/* Botões de Snapshot - Apenas para MASTER */}
             {user?.role === "MASTER" && !isCollapsed && (
               <Box
@@ -740,14 +696,14 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebar }) => {
               </Box>
             )}
 
-            {/* Enhanced Modal Component */}
-            <EnhancedModal
+            {/* Enhanced Modal Component - DESABILITADO */}
+            {/* <EnhancedModal
               open={openModal}
               onClose={handleCloseModal}
               onSave={handleSaveSpreadsheetModal}
               title="Digite a senha de acesso"
               label="Code"
-            />
+            /> */}
             
             {/* Modal de Lista de Snapshots */}
             <Dialog

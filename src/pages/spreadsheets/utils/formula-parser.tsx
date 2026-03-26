@@ -81,7 +81,7 @@ export class FormulaParser {
         this.cache.set(cacheKey, result)
         return result
       } catch (err) {
-        console.error("Erro na fórmula:", err.message)
+        console.error("Erro na fórmula:", err instanceof Error ? err.message : String(err))
         throw err
       } finally {
         // Remove from processing stack after calculation
@@ -323,7 +323,7 @@ export class FormulaParser {
               .replace(",", ".")
           }
   
-          return Number.parseFloat(val) || 0
+          return String(Number.parseFloat(val) || 0)
         })
   
         // Use Function instead of eval for better security

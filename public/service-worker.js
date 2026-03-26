@@ -16,7 +16,7 @@ self.addEventListener('activate', (event) => {
       const cacheNames = await caches.keys();
       await Promise.all(
         cacheNames.map((name) => {
-          if (!name.startsWith(CACHE_NAME)) {
+          if (!name.startsWith('pet-store-cache-')) {
             console.log(`🧹 Deletando cache antigo: ${name}`);
             return caches.delete(name);
           }
@@ -24,18 +24,22 @@ self.addEventListener('activate', (event) => {
       );
 
       await self.clients.claim();
-
-      // 🔄 Notifica os clients para recarregarem
-      const clients = await self.clients.matchAll({ includeUncontrolled: true });
-      clients.forEach((client) => {
-        client.postMessage({ type: 'RELOAD_PAGE' });
-      });
     })()
   );
 });
 
-// 🌐 Intercepta requisições e sempre busca da rede
+// 🌐 Intercepta apenas requisições same-origin (navegação)
+// Requisições cross-origin (API calls) são ignoradas para não interferir com CORS
 self.addEventListener('fetch', (event) => {
+  const url = new URL(event.request.url);
+
+  // Deixa o browser lidar com tudo que não é same-origin
+  // (chamadas de API, CDN, etc.) — não chamar respondWith = comportamento padrão
+  if (url.origin !== self.location.origin) {
+    return;
+  }
+
+  // Para same-origin, passa direto pela rede sem cache
   event.respondWith(fetch(event.request));
 });
 
