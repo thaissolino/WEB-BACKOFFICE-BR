@@ -1,6 +1,5 @@
-import { JSX } from "react";
 import { TabType } from "../InvocesManagement";
-import { FileText, Boxes, Building, Truck, DollarSign, ChartBar, Users, Package, ShoppingCart } from "lucide-react";
+import { FileText, Boxes, Truck, DollarSign, ChartBar, Users, Package, ShoppingCart, AlertTriangle, Search } from "lucide-react";
 import { usePermissionStore } from "../../../store/permissionsStore";
 
 interface TabsProps {
@@ -25,7 +24,6 @@ const allTabs = [
     label: "Média Dólar",
     permissionKey: "MEDIA_DOLAR",
   },
-  { id: "relatorios", icon: <ChartBar className="mr-2" size={16} />, label: "Relatórios", permissionKey: "RELATORIOS" },
   { id: "caixas", icon: <Boxes className="mr-2" size={16} />, label: "Caixas", permissionKey: "CAIXAS_PERMITIDOS" },
   {
     id: "caixas-brl",
@@ -39,6 +37,25 @@ const allTabs = [
     label: "Listas de Compras",
     permissionKey: null,
   },
+  {
+    id: "lost-products",
+    icon: <AlertTriangle className="mr-2" size={16} />,
+    label: "Produtos Perdidos",
+    permissionKey: "RELATORIOS",
+  },
+  {
+    id: "imei-search",
+    icon: <Search className="mr-2" size={16} />,
+    label: "Buscar IMEI",
+    permissionKey: null, // Visível para todos
+  },
+  // {
+  //   id: "afi-imei",
+  //   icon: <Smartphone className="mr-2" size={16} />,
+  //   label: "IMEI AFI",
+  //   permissionKey: null, // Visível para todos
+  // },
+  { id: "relatorios", icon: <ChartBar className="mr-2" size={16} />, label: "Relatórios", permissionKey: "RELATORIOS" },
 ];
 
 export function Tabs({ activeTab, setActiveTab }: TabsProps) {
@@ -64,28 +81,23 @@ export function Tabs({ activeTab, setActiveTab }: TabsProps) {
   };
 
   return (
-    <div className="mb-6 border-b border-gray-200">
-      <ul className="flex flex-wrap -mb-px">
-        {allTabs
-          .filter((tab) => canShowTab(tab.permissionKey))
-          .map((tab) => (
-            <li key={tab.id} className="mr-2">
-              <button
-                onClick={() => {
-                  setActiveTab(tab.id as TabType);
-                }}
-                className={`inline-flex items-center p-4 border-b-2 rounded-t-lg ${
-                  activeTab === tab.id
-                    ? "border-blue-600 text-blue-600"
-                    : "border-transparent hover:text-gray-600 hover:border-gray-300"
-                }`}
-              >
-                {tab.icon}
-                {tab.label}
-              </button>
-            </li>
-          ))}
-      </ul>
+    <div className="mb-6 flex flex-wrap gap-2">
+      {allTabs
+        .filter((tab) => canShowTab(tab.permissionKey))
+        .map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id as TabType)}
+            className={`inline-flex items-center px-5 py-2.5 rounded-2xl text-sm font-medium transition-all ${
+              activeTab === tab.id
+                ? "bg-blue-500 text-white shadow-sm"
+                : "bg-gray-100/80 text-gray-600 hover:bg-gray-200/80 border border-gray-200/80"
+            }`}
+          >
+            {tab.icon}
+            {tab.label}
+          </button>
+        ))}
     </div>
   );
 }

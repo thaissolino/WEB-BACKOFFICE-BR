@@ -11,8 +11,12 @@ import { OtherPartnersTab } from "./components/sections/OtherPartners";
 import { Invoice } from "./components/types/invoice";
 import CaixasTabBrl from "./components/sections/CaixasBrl";
 import { ShoppingListsTab } from "./components/sections/ShoppingListsTab";
+import { LostProductsTab } from "./components/sections/LostProductsTab";
+import { ImeiSearchTab } from "./components/sections/ImeiSearchTab";
 import { usePermissionStore } from "../../store/permissionsStore";
 import { api } from "../../services/api";
+import { ActionLoadingProvider } from "./context/ActionLoadingContext";
+import { DisableButtonsWrapper } from "./components/DisableButtonsWrapper";
 
 export type TabType =
   | "invoices"
@@ -25,6 +29,8 @@ export type TabType =
   | "others"
   | "caixas-brl"
   | "shopping-lists"
+  | "lost-products"
+  | "imei-search"
   | "";
 
 export const permissionTabMap: Record<string, TabType> = {
@@ -42,7 +48,7 @@ export const permissionTabMap: Record<string, TabType> = {
 export default function InvocesManagement() {
   const [activeTab, setActiveTab] = useState<TabType>("");
   const { getPermissions, permissions, user } = usePermissionStore();
-  const [currentInvoice, setCurrentInvoice] = useState<Invoice>({
+  const defaultEmptyInvoice = (): Invoice => ({
     id: null,
     number: "",
     date: new Date().toLocaleDateString("en-CA"),
@@ -62,6 +68,54 @@ export default function InvocesManagement() {
     overallValue: 0,
     subAmount: 0,
   });
+  const [draftInvoices, setDraftInvoices] = useState<Invoice[]>([defaultEmptyInvoice()]);
+  const [activeDraftIndex, setActiveDraftIndex] = useState(0);
+  const currentInvoice = draftInvoices[activeDraftIndex] ?? defaultEmptyInvoice();
+  const setCurrentInvoice = (inv: Invoice | ((prev: Invoice) => Invoice)) => {
+    setDraftInvoices((prev) => {
+      const next = [...prev];
+      const current = next[activeDraftIndex];
+      next[activeDraftIndex] = typeof inv === "function" ? inv(current) : inv;
+      return next;
+    });
+  };
+  /** Adiciona novas invoices às abas sem remover as que já estão na tela (importar em massa de novo não afeta o que já está) */
+  const handleAddDraftInvoices = (invoices: Invoice[]) => {
+    if (invoices.length === 0) return;
+    const firstNewIndex = draftInvoices.length;
+    setDraftInvoices((prev) => [...prev, ...invoices]);
+    setActiveDraftIndex(firstNewIndex); // foca a primeira das novas
+  };
+  const handleDraftSaved = () => {
+    setDraftInvoices((prev) => {
+      const next = prev.filter((_, i) => i !== activeDraftIndex);
+      if (next.length === 0) return [defaultEmptyInvoice()];
+      return next;
+    });
+    setActiveDraftIndex((prev) => {
+      const newLen = draftInvoices.length - 1;
+      if (newLen <= 0) return 0;
+      return Math.min(prev, newLen - 1);
+    });
+  };
+
+  /** Remove uma invoice específica das abas pelo índice */
+  const handleRemoveDraftInvoice = (indexToRemove: number) => {
+    setDraftInvoices((prev) => {
+      const next = prev.filter((_, i) => i !== indexToRemove);
+      if (next.length === 0) return [defaultEmptyInvoice()];
+      return next;
+    });
+    setActiveDraftIndex((prev) => {
+      const newLen = draftInvoices.length - 1;
+      if (newLen <= 0) return 0;
+      // Se a invoice removida era a ativa ou estava antes dela, ajustar o índice
+      if (indexToRemove <= prev) {
+        return Math.max(0, prev - 1);
+      }
+      return prev;
+    });
+  };
 
   // Função para buscar o próximo número de invoice
   const fetchNextInvoiceNumber = async () => {
@@ -116,30 +170,45 @@ export default function InvocesManagement() {
   };
 
   return (
-    <div className="bg-gray-50 min-h-screen">
-      <div className="container mx-auto px-4 py-8">
-        <header className="mb-8">
-          <h1 className="text-3xl font-bold text-blue-800">Sistema de Gestão de Invoices</h1>
-          <p className="text-gray-600">Controle completo de produtos, invoices e fornecedores</p>
-        </header>
+    <ActionLoadingProvider>
+      <DisableButtonsWrapper>
+        <div className="bg-gray-50 min-h-screen">
+          <div className="w-full px-2 py-4">
+            <header className="mb-4">
+              <h1 className="text-3xl font-bold text-blue-800">Sistema de Gestão de Invoices</h1>
+              <p className="text-gray-600">Controle completo de produtos, invoices e fornecedores</p>
+            </header>
 
-        <Tabs activeTab={activeTab} setActiveTab={setActiveTab} />
+            <Tabs activeTab={activeTab} setActiveTab={setActiveTab} />
 
-        <div className="mt-6">
-          {activeTab === "invoices" && canShowTab("INVOICES") && (
-            <InvoicesTab currentInvoice={currentInvoice} setCurrentInvoice={setCurrentInvoice} />
-          )}
-          {activeTab === "products" && canShowTab("PRODUTOS") && <ProductsTab />}
-          {activeTab === "suppliers" && canShowTab("FORNECEDORES") && <SuppliersTab />}
-          {activeTab === "carriers" && canShowTab("FRETEIROS") && <CarriersTab />}
-          {activeTab === "others" && canShowTab("OUTROS") && <OtherPartnersTab />}
-          {activeTab === "media-dolar" && canShowTab("MEDIA_DOLAR") && <ExchangeTab />}
-          {activeTab === "relatorios" && canShowTab("RELATORIOS") && <ReportsTab />}
-          {activeTab === "caixas" && canShowTab("CAIXAS_PERMITIDOS") && <CaixasTab />}
-          {activeTab === "caixas-brl" && canShowTab("CAIXAS_BR_PERMITIDOS") && <CaixasTabBrl />}
-          {activeTab === "shopping-lists" && <ShoppingListsTab />}
+            <div className="mt-4">
+              {activeTab === "invoices" && canShowTab("INVOICES") && (
+                <InvoicesTab
+                  currentInvoice={currentInvoice}
+                  setCurrentInvoice={setCurrentInvoice}
+                  draftInvoices={draftInvoices}
+                  activeDraftIndex={activeDraftIndex}
+                  setActiveDraftIndex={setActiveDraftIndex}
+                  onAddDraftInvoices={handleAddDraftInvoices}
+                  onDraftSaved={handleDraftSaved}
+                  onRemoveDraftInvoice={handleRemoveDraftInvoice}
+                />
+              )}
+              {activeTab === "products" && canShowTab("PRODUTOS") && <ProductsTab />}
+              {activeTab === "suppliers" && canShowTab("FORNECEDORES") && <SuppliersTab />}
+              {activeTab === "carriers" && canShowTab("FRETEIROS") && <CarriersTab />}
+              {activeTab === "others" && canShowTab("OUTROS") && <OtherPartnersTab />}
+              {activeTab === "media-dolar" && canShowTab("MEDIA_DOLAR") && <ExchangeTab />}
+              {activeTab === "relatorios" && canShowTab("RELATORIOS") && <ReportsTab />}
+              {activeTab === "caixas" && canShowTab("CAIXAS_PERMITIDOS") && <CaixasTab />}
+              {activeTab === "caixas-brl" && canShowTab("CAIXAS_BR_PERMITIDOS") && <CaixasTabBrl />}
+              {activeTab === "shopping-lists" && <ShoppingListsTab />}
+              {activeTab === "lost-products" && canShowTab("RELATORIOS") && <LostProductsTab />}
+              {activeTab === "imei-search" && <ImeiSearchTab />}
+            </div>
+          </div>
         </div>
-      </div>
-    </div>
+      </DisableButtonsWrapper>
+    </ActionLoadingProvider>
   );
 }

@@ -1,4 +1,4 @@
-import { History, Eye, Edit, XIcon, RotateCcw, Check, Loader2, Trash, Undo2 } from "lucide-react";
+import { History, Eye, Edit, XIcon, RotateCcw, Check, Loader2, Trash, Undo2, AlertTriangle } from "lucide-react";
 import { useEffect, useState } from "react";
 import { api } from "../../../../services/api";
 import { Invoice } from "../types/invoice"; // Se necessário, ajuste o caminho do tipo
@@ -8,6 +8,7 @@ import { an } from "framer-motion/dist/types.d-B50aGbjN";
 import { ModalAnaliseProduct } from "../modals/ModalAnaliseProduct";
 import Swal from "sweetalert2";
 import { InvoiceProduct } from "./InvoiceProducts";
+import { ProductImeis } from "../ProductImeis";
 
 export type exchange = {
   id: string;
@@ -134,8 +135,15 @@ export function InvoiceHistoryReport({
     invoiceProductId: null,
     productName: "",
   });
-  const [receiptHistory, setReceiptHistory] = useState<any[]>([]);
+  const [receiptHistory, setReceiptHistory] = useState<{
+    grouped: Array<{ date: string; quantity: number; entries: any[] }>;
+    all: any[];
+    totalReceivedFromInvoice?: number;
+    invoiceNumber?: string;
+  }>({ grouped: [], all: [] });
   const [loadingHistory, setLoadingHistory] = useState(false);
+  const [expandedDate, setExpandedDate] = useState<string | null>(null);
+  const [viewingEntry, setViewingEntry] = useState<any | null>(null);
   // const [invoices, setInvoices] = useState<InvoiceData[]>([]);
   const [suppliers, setSuppliers] = useState<{ id: string; name: string }[]>([]);
   const [loading, setLoading] = useState(true);
@@ -581,7 +589,7 @@ export function InvoiceHistoryReport({
                   ID: <span id="modalInvoiceSupplier">{selectedInvoice.id}</span>
                 </p>
                 <p className="text-sm text-gray-600">
-                  Fornecedor: <span id="modalInvoiceSupplier">{selectedInvoice.supplier.name}</span>
+                  Fornecedor: <span id="modalInvoiceSupplier">{selectedInvoice.supplier?.name || "—"}</span>
                 </p>
                 <p className="text-sm text-gray-600">
                   Data:{" "}
@@ -594,8 +602,11 @@ export function InvoiceHistoryReport({
                 <p className="text-sm text-gray-600">
                   Freteiro:{" "}
                   <span id="modalInvoiceCarrier">
-                    {selectedInvoice.carrier.name} - {selectedInvoice.carrier?.value}{" "}
-                    {getShippingTypeText(selectedInvoice.carrier?.type)}
+                    {selectedInvoice.carrier
+                      ? `${selectedInvoice.carrier.name} - ${selectedInvoice.carrier.value} ${getShippingTypeText(
+                          selectedInvoice.carrier.type
+                        )}`
+                      : "não existe"}
                   </span>
                 </p>
                 <p className="text-sm text-gray-600">
@@ -650,7 +661,17 @@ export function InvoiceHistoryReport({
                   </thead>
                   <tbody id="modalInvoicePendingProducts" className="bg-white divide-y divide-gray-200">
                     {selectedInvoice.products
-                      .filter((item) => !item.received)
+                      .filter((item) => {
+                        // Não mostrar produtos recebidos
+                        if (item.received) return false;
+                        // Não mostrar produtos com quantidade disponível = 0 ou menor
+                        const availableQuantity =
+                          item.quantity - (item.quantityAnalizer || 0) - (item.receivedQuantity || 0);
+                        // Se quantidade disponível for 0 ou menor, não mostrar
+                        // Também verificar se quantity total é 0
+                        if (availableQuantity <= 0 || item.quantity <= 0) return false;
+                        return true;
+                      })
                       .sort((a, b) => {
                         const productA = products.find((p) => p.id === a.productId);
                         const productB = products.find((p) => p.id === b.productId);
@@ -661,7 +682,13 @@ export function InvoiceHistoryReport({
                       .map((product, index) => (
                         <tr key={index}>
                           <td className="px-4 py-2 text-sm text-gray-700">
-                            {products.find((item) => item.id === product.productId)?.name}
+                            <div>
+                              {products.find((item) => item.id === product.productId)?.name}
+                              <ProductImeis
+                                invoiceProductId={product.id}
+                                productName={products.find((item) => item.id === product.productId)?.name || "Produto"}
+                              />
+                            </div>
                           </td>
                           <td className="px-4 py-2 text-sm text-right">
                             {product.quantity - product.quantityAnalizer - product.receivedQuantity}
@@ -671,14 +698,14 @@ export function InvoiceHistoryReport({
                           <td className="px-4 py-2 text-sm text-right">{product.total.toFixed(2)}</td>
                           {isEditMode && (
                             <td className="px-4 py-2 text-sm text-right">
-                              <div className="flex justify-end items-center">
+                              <div className="flex justify-end items-center gap-2">
                                 <button
                                   onClick={() => setSelectedProductToAnalyze(product)}
                                   disabled={
                                     product.quantityAnalizer + product.quantityAnalizer >= product.quantity ||
                                     product.receivedQuantity >= product.quantity
                                   }
-                                  className={`ml-auto flex items-center gap-1 text-white px-2 py-1 rounded-md text-sm transition font-medium shadow-sm 
+                                  className={`flex items-center gap-1 text-white px-2 py-1 rounded-md text-sm transition font-medium shadow-sm 
                       ${
                         product.quantityAnalizer + product.quantityAnalizer >= product.quantity ||
                         product.receivedQuantity >= product.quantity
@@ -687,6 +714,175 @@ export function InvoiceHistoryReport({
                       }`}
                                 >
                                   <Check size={18} /> Analisar
+                                </button>
+                                <button
+                                  onClick={async () => {
+                                    const maxQuantity = Math.floor(
+                                      product.quantity - product.quantityAnalizer - product.receivedQuantity
+                                    );
+                                    const productName =
+                                      products.find((item) => item.id === product.productId)?.name || "";
+
+                                    const result = await Swal.fire({
+                                      title: "Marcar como Perdido",
+                                      html: `
+                                        <div style="text-align: left; padding: 0.5rem 0;">
+                                          <div style="margin-bottom: 1.5rem; padding: 0.75rem; background-color: #f3f4f6; border-radius: 0.5rem; border-left: 4px solid #ef4444;">
+                                            <p style="margin: 0; font-size: 0.875rem; color: #6b7280; margin-bottom: 0.25rem;">Produto:</p>
+                                            <p style="margin: 0; font-size: 1rem; font-weight: 600; color: #111827;">${productName}</p>
+                                          </div>
+                                          <label style="display: block; font-size: 0.875rem; font-weight: 500; color: #374151; margin-bottom: 0.5rem;">Quantidade Perdida:</label>
+                                          <input 
+                                            id="lostQuantity" 
+                                            type="text" 
+                                            inputmode="numeric" 
+                                            pattern="[0-9]*"
+                                            value="${maxQuantity}" 
+                                            style="width: 100%; padding: 0.75rem; border: 2px solid #d1d5db; border-radius: 0.5rem; font-size: 1rem; transition: border-color 0.2s; outline: none;" 
+                                            placeholder="Digite a quantidade"
+                                            onfocus="this.style.borderColor='#ef4444'"
+                                            onblur="this.style.borderColor='#d1d5db'"
+                                          />
+                                          <p style="margin: 0.5rem 0 0 0; font-size: 0.75rem; color: #6b7280;">Máximo disponível: ${maxQuantity}</p>
+                                        </div>
+                                      `,
+                                      width: "480px",
+                                      showCancelButton: true,
+                                      confirmButtonText: "Confirmar",
+                                      cancelButtonText: "Cancelar",
+                                      buttonsStyling: false,
+                                      customClass: {
+                                        confirmButton:
+                                          "bg-red-600 text-white hover:bg-red-700 px-6 py-2.5 rounded-lg font-semibold mr-2 transition-colors",
+                                        cancelButton:
+                                          "bg-gray-500 text-white hover:bg-gray-600 px-6 py-2.5 rounded-lg font-semibold transition-colors",
+                                      },
+                                      didOpen: () => {
+                                        const input = document.getElementById("lostQuantity") as HTMLInputElement;
+                                        if (input) {
+                                          input.focus();
+                                          input.select();
+                                          // Prevenir scroll do mouse no input
+                                          input.addEventListener("wheel", (e) => e.preventDefault(), {
+                                            passive: false,
+                                          });
+                                          input.addEventListener("keydown", (e) => {
+                                            // Permitir apenas números e teclas de controle
+                                            if (
+                                              !/[0-9]/.test(e.key) &&
+                                              ![
+                                                "Backspace",
+                                                "Delete",
+                                                "ArrowLeft",
+                                                "ArrowRight",
+                                                "Tab",
+                                                "Enter",
+                                              ].includes(e.key)
+                                            ) {
+                                              e.preventDefault();
+                                            }
+                                          });
+                                        }
+                                      },
+                                      preConfirm: () => {
+                                        const quantity = (document.getElementById("lostQuantity") as HTMLInputElement)
+                                          ?.value;
+                                        const quantityInt = Number.parseInt(quantity || "0", 10);
+                                        if (!quantity || quantityInt <= 0 || !Number.isInteger(quantityInt)) {
+                                          Swal.showValidationMessage(
+                                            "Informe uma quantidade inteira válida (1, 2, 3...)"
+                                          );
+                                          return false;
+                                        }
+                                        if (quantityInt > maxQuantity) {
+                                          Swal.showValidationMessage(
+                                            `A quantidade não pode ser maior que ${maxQuantity}`
+                                          );
+                                          return false;
+                                        }
+                                        return { quantity: quantityInt.toString(), freightPercentage: "0", notes: "" };
+                                      },
+                                    });
+
+                                    if (result.isConfirmed && result.value) {
+                                      try {
+                                        setIsSavingId(product.id);
+                                        setIsSaving(true);
+                                        await api.post("/invoice/lost-products", {
+                                          invoiceId: selectedInvoice.id,
+                                          productId: product.productId,
+                                          quantity: Number.parseInt(result.value.quantity, 10),
+                                          freightPercentage: 0,
+                                          notes: undefined,
+                                        });
+
+                                        Swal.fire({
+                                          icon: "success",
+                                          title: "Sucesso!",
+                                          text: "Produto marcado como perdido.",
+                                          confirmButtonText: "Ok",
+                                          buttonsStyling: false,
+                                          customClass: {
+                                            confirmButton:
+                                              "bg-green-600 text-white hover:bg-green-700 px-4 py-2 rounded font-semibold",
+                                          },
+                                        });
+
+                                        // Atualizar a lista de invoices e a invoice selecionada
+                                        const { data: updatedInvoices } = await api.get("/invoice/get");
+                                        setInvoices(updatedInvoices);
+
+                                        // Buscar a invoice atualizada usando o ID da invoice selecionada
+                                        if (selectedInvoice?.id) {
+                                          const updatedInvoice = updatedInvoices.find(
+                                            (i: InvoiceData) => i.id === selectedInvoice.id
+                                          );
+                                          if (updatedInvoice) {
+                                            setSelectedInvoice(updatedInvoice);
+
+                                            // Se invoice foi automaticamente concluída, fechar modal
+                                            if (updatedInvoice.completed && updatedInvoice.paid) {
+                                              setSelectedInvoice(null);
+                                              setIsModalOpen(false);
+                                              Swal.fire({
+                                                icon: "success",
+                                                title: "Invoice Concluída!",
+                                                text: "Todos os produtos foram processados e a invoice foi concluída automaticamente!",
+                                                confirmButtonText: "Ok",
+                                                buttonsStyling: false,
+                                                customClass: {
+                                                  confirmButton:
+                                                    "bg-green-600 text-white hover:bg-green-700 px-4 py-2 rounded font-semibold",
+                                                },
+                                              });
+                                            }
+                                          }
+                                        }
+                                      } catch (error: any) {
+                                        console.error("Erro ao marcar produto como perdido:", error);
+                                        Swal.fire({
+                                          icon: "error",
+                                          title: "Erro!",
+                                          text:
+                                            error?.response?.data?.message ||
+                                            "Não foi possível marcar o produto como perdido.",
+                                          confirmButtonText: "Ok",
+                                          buttonsStyling: false,
+                                          customClass: {
+                                            confirmButton:
+                                              "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
+                                          },
+                                        });
+                                      } finally {
+                                        setIsSaving(false);
+                                        setIsSavingId("");
+                                      }
+                                    }
+                                  }}
+                                  className="flex items-center gap-1 text-white px-2 py-1 rounded-md text-sm transition font-medium shadow-sm bg-red-600 hover:bg-red-500"
+                                  title="Marcar como perdido"
+                                >
+                                  <AlertTriangle size={18} /> Perdido
                                 </button>
                               </div>
                             </td>
@@ -699,7 +895,11 @@ export function InvoiceHistoryReport({
                       </td>
                       <td className="px-4 py-2 text-sm text-right text-gray-800">
                         {selectedInvoice.products
-                          .filter((item) => !item.received)
+                          .filter((item) => {
+                            if (item.received) return false;
+                            const availableQuantity = item.quantity - item.quantityAnalizer - item.receivedQuantity;
+                            return availableQuantity > 0;
+                          })
                           .reduce(
                             (sum, item) => sum + (item.quantity - item.quantityAnalizer - item.receivedQuantity),
                             0
@@ -708,7 +908,11 @@ export function InvoiceHistoryReport({
                       <td className="px-4 py-2 text-sm text-right text-gray-800">—</td>
                       <td className="px-4 py-2 text-sm text-right text-gray-800">
                         {selectedInvoice.products
-                          .filter((item) => !item.received)
+                          .filter((item) => {
+                            if (item.received) return false;
+                            const availableQuantity = item.quantity - item.quantityAnalizer - item.receivedQuantity;
+                            return availableQuantity > 0;
+                          })
                           .reduce(
                             (sum, item) =>
                               sum + item.weight * (item.quantity - item.quantityAnalizer - item.receivedQuantity),
@@ -718,7 +922,11 @@ export function InvoiceHistoryReport({
                       </td>
                       <td className="px-4 py-2 text-sm text-right text-gray-800">
                         {selectedInvoice.products
-                          .filter((item) => !item.received)
+                          .filter((item) => {
+                            if (item.received) return false;
+                            const availableQuantity = item.quantity - item.quantityAnalizer - item.receivedQuantity;
+                            return availableQuantity > 0;
+                          })
                           .reduce((sum, item) => sum + item.total, 0)
                           .toLocaleString("pt-BR", {
                             minimumFractionDigits: 2,
@@ -904,10 +1112,11 @@ export function InvoiceHistoryReport({
                               );
 
                               const today = new Date().toISOString();
+                              let anyDuplicate = false;
                               for (const item of productsToReceive) {
                                 const allreceived = item.receivedQuantity + item.quantityAnalizer >= item.quantity;
                                 const quantityReceived = item.quantityAnalizer;
-                                
+
                                 await api.patch("/invoice/update/product", {
                                   idProductInvoice: item.id,
                                   bodyupdate: {
@@ -916,24 +1125,56 @@ export function InvoiceHistoryReport({
                                     quantityAnalizer: 0,
                                   },
                                 });
-                                
-                                // Registrar no histórico de recebimentos
+
                                 if (quantityReceived > 0) {
                                   try {
-                                    await api.post("/invoice/product/receipt-history", {
+                                    const receiptRes = await api.post("/invoice/product/receipt-history", {
                                       invoiceProductId: item.id,
                                       date: today,
                                       quantity: quantityReceived,
                                     });
+                                    const isDuplicate = receiptRes?.headers?.["x-receipt-history-duplicate"] === "true";
+                                    if (isDuplicate) anyDuplicate = true;
                                   } catch (error) {
                                     console.error("Erro ao registrar histórico de recebimento:", error);
                                   }
                                 }
                               }
+                              if (anyDuplicate) {
+                                Swal.fire({
+                                  icon: "info",
+                                  title: "Recebimento já registrado",
+                                  text: "Algumas entradas foram tratadas como duplicata (janela de 10 segundos). Aguarde alguns segundos para registrar outro recebimento no mesmo produto.",
+                                  confirmButtonText: "Ok",
+                                  buttonsStyling: false,
+                                  customClass: {
+                                    confirmButton: "bg-blue-600 text-white hover:bg-blue-700 px-4 py-2 rounded font-semibold",
+                                  },
+                                });
+                              }
 
                               const { data: updatedInvoices } = await api.get("/invoice/get");
                               setInvoices(updatedInvoices);
-                              setSelectedInvoice(updatedInvoices.find((i: any) => i.id === selectedInvoice.id) || null);
+                              const updatedInvoice = updatedInvoices.find((i: any) => i.id === selectedInvoice.id);
+                              setSelectedInvoice(updatedInvoice || null);
+
+                              // Se invoice foi automaticamente concluída, fechar modal
+                              if (updatedInvoice?.completed && updatedInvoice?.paid) {
+                                setSelectedInvoice(null);
+                                setIsModalOpen(false);
+                                Swal.fire({
+                                  icon: "success",
+                                  title: "Invoice Concluída!",
+                                  text: "Todos os produtos foram recebidos e a invoice foi concluída automaticamente!",
+                                  confirmButtonText: "Ok",
+                                  buttonsStyling: false,
+                                  customClass: {
+                                    confirmButton:
+                                      "bg-green-600 text-white hover:bg-green-700 px-4 py-2 rounded font-semibold",
+                                  },
+                                });
+                              }
+
                               setIsSavingId(""); // encerra loading
                             }}
                             disabled={isSavingId === "all"}
@@ -963,7 +1204,92 @@ export function InvoiceHistoryReport({
             </div>
 
             <div className="mt-2">
-              <h4 className="font-medium mb-2 text-blue-700 border-b pb-2">Produtos Recebidos</h4>
+              <div className="flex justify-between items-center mb-2">
+                <h4 className="font-medium text-blue-700 border-b pb-2 flex-1">Produtos Recebidos</h4>
+                <button
+                  onClick={async () => {
+                    setReceiptHistoryModal({
+                      open: true,
+                      invoiceProductId: null,
+                      productName: "Todos os Produtos Recebidos",
+                    });
+                    setLoadingHistory(true);
+                    try {
+                      // 1 request: GET histórico da invoice inteira (mais rápido)
+                      try {
+                        const response = await api.get(
+                          `/invoice/receipt-history/by-invoice/${selectedInvoice.id}`
+                        );
+                        const data = response.data;
+                        const grouped = Array.isArray(data?.grouped) ? data.grouped : [];
+                        const all = Array.isArray(data?.all) ? data.all : [];
+                        setReceiptHistory({
+                          grouped: grouped.sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime()),
+                          all,
+                          totalReceivedFromInvoice: data?.totalReceivedFromInvoice,
+                          invoiceNumber: data?.invoiceNumber,
+                        });
+                      } catch (byInvoiceError) {
+                        // Fallback: N chamadas por produto (comportamento anterior)
+                        const allHistories: any[] = [];
+                        for (const product of selectedInvoice.products.filter((item) => item.receivedQuantity > 0)) {
+                          try {
+                            const resp = await api.get(`/invoice/product/receipt-history/${product.id}`);
+                            if (resp.data?.all) {
+                              resp.data.all.forEach((entry: any) => {
+                                allHistories.push({
+                                  ...entry,
+                                  productName: products.find((p) => p.id === product.productId)?.name || "Produto",
+                                  invoiceNumber: selectedInvoice.number,
+                                  invoiceProductId: product.id,
+                                });
+                              });
+                            }
+                          } catch (err) {
+                            console.error(`Erro ao buscar histórico do produto ${product.id}:`, err);
+                          }
+                        }
+                        const seenEntries = new Set<string>();
+                        const deduplicatedHistories: any[] = [];
+                        allHistories.forEach((entry: any) => {
+                          const entryDate = new Date(entry.date);
+                          const dateRounded = new Date(entryDate.getTime() - (entryDate.getTime() % (5 * 60 * 1000)));
+                          const dateKey = dateRounded.toISOString().substring(0, 16);
+                          const uniqueKey = entry.id
+                            ? `${entry.id}`
+                            : `${dateKey}-${entry.invoiceNumber || selectedInvoice.number}-${entry.quantity}-${entry.productName || entry.invoiceProductId}`;
+                          if (!seenEntries.has(uniqueKey)) {
+                            seenEntries.add(uniqueKey);
+                            deduplicatedHistories.push(entry);
+                          }
+                        });
+                        const grouped = deduplicatedHistories.reduce((acc: any, entry: any) => {
+                          const entryDate = new Date(entry.date);
+                          const localDate = new Date(entryDate.getTime() - entryDate.getTimezoneOffset() * 60000);
+                          const date = localDate.toISOString().split("T")[0];
+                          if (!acc[date]) acc[date] = { date, quantity: 0, entries: [] };
+                          acc[date].quantity += entry.quantity;
+                          acc[date].entries.push(entry);
+                          return acc;
+                        }, {});
+                        const groupedArray = Object.values(grouped) as Array<{ date: string; quantity: number; entries: any[] }>;
+                        setReceiptHistory({
+                          grouped: groupedArray.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()),
+                          all: allHistories,
+                        });
+                      }
+                    } catch (error) {
+                      console.error("Erro ao buscar histórico:", error);
+                      setReceiptHistory({ grouped: [], all: [] });
+                    } finally {
+                      setLoadingHistory(false);
+                    }
+                  }}
+                  className="text-blue-600 hover:text-blue-800 text-sm font-medium ml-4 border-b border-blue-600 pb-1"
+                >
+                  Meus Históricos
+                </button>
+              </div>
               <div className="overflow-x-auto bg-white p-4 rounded-2xl shadow-md border border-gray-200">
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
@@ -982,9 +1308,6 @@ export function InvoiceHistoryReport({
                       </th>
                       <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                         {selectedInvoice.paid ? "Total (R$)" : "Total ($)"}
-                      </th>
-                      <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Histórico
                       </th>
                     </tr>
                   </thead>
@@ -1048,31 +1371,6 @@ export function InvoiceHistoryReport({
                                 maximumFractionDigits: 2,
                               });
                             })()}
-                          </td>
-                          <td className="px-4 py-2 text-sm text-center">
-                            <button
-                              onClick={async () => {
-                                setReceiptHistoryModal({
-                                  open: true,
-                                  invoiceProductId: product.id,
-                                  productName: products.find((item) => item.id === product.productId)?.name || "",
-                                });
-                                setLoadingHistory(true);
-                                try {
-                                  const response = await api.get(`/invoice/product/receipt-history/${product.id}`);
-                                  setReceiptHistory(response.data || []);
-                                } catch (error) {
-                                  console.error("Erro ao buscar histórico:", error);
-                                  setReceiptHistory([]);
-                                } finally {
-                                  setLoadingHistory(false);
-                                }
-                              }}
-                              className="text-blue-600 hover:text-blue-800 p-1 rounded hover:bg-blue-50"
-                              title="Ver histórico de recebimentos"
-                            >
-                              <Eye size={18} />
-                            </button>
                           </td>
                         </tr>
                       ))}
@@ -1325,12 +1623,18 @@ export function InvoiceHistoryReport({
           >
             <div className="flex justify-between items-start mb-4">
               <div>
-                <h3 className="text-lg font-medium text-blue-700">
-                  Histórico de Recebimentos
-                </h3>
+                <h3 className="text-lg font-medium text-blue-700">Histórico de Recebimentos</h3>
                 <p className="text-sm text-gray-600">
                   Produto: <span className="font-semibold">{receiptHistoryModal.productName}</span>
                 </p>
+                {receiptHistoryModal.productName === "Todos os Produtos Recebidos" && (selectedInvoice || receiptHistory.totalReceivedFromInvoice != null) && (
+                  <p className="text-sm font-semibold text-green-700 mt-1">
+                    Quantidade total recebida (invoice):{" "}
+                    {receiptHistory.totalReceivedFromInvoice ?? selectedInvoice?.products
+                      ?.filter((item) => item.receivedQuantity > 0)
+                      .reduce((sum, item) => sum + item.receivedQuantity, 0) ?? 0}
+                  </p>
+                )}
               </div>
               <button
                 onClick={() => setReceiptHistoryModal({ open: false, invoiceProductId: null, productName: "" })}
@@ -1344,42 +1648,192 @@ export function InvoiceHistoryReport({
               <div className="flex justify-center items-center py-8">
                 <Loader2 className="h-8 w-8 text-blue-500 animate-spin" />
               </div>
-            ) : receiptHistory.length === 0 ? (
-              <div className="text-center py-8 text-gray-500">
-                Nenhum registro de recebimento encontrado.
-              </div>
+            ) : receiptHistory.grouped.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">Nenhum registro de recebimento encontrado.</div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Data
-                      </th>
-                      <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Quantidade Recebida
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {receiptHistory.map((item, index) => (
-                      <tr key={index} className="hover:bg-gray-50">
-                        <td className="px-4 py-2 text-sm text-gray-700">
-                          {new Date(item.date).toLocaleDateString("pt-BR", {
-                            day: "2-digit",
-                            month: "2-digit",
-                            year: "numeric",
-                          })}
-                        </td>
-                        <td className="px-4 py-2 text-sm text-right font-semibold text-green-600">
-                          {item.quantity}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="space-y-3">
+                {receiptHistory.grouped.map((group, index) => (
+                  <div key={index} className="border border-gray-200 rounded-lg overflow-hidden">
+                    <button
+                      onClick={() => setExpandedDate(expandedDate === group.date ? null : group.date)}
+                      className="w-full px-4 py-3 bg-gray-50 hover:bg-gray-100 flex items-center justify-between transition-colors"
+                    >
+                      <div className="flex items-center gap-3">
+                        <Eye size={18} className="text-blue-600" />
+                        <div className="text-left">
+                          <div className="font-semibold text-gray-900 flex flex-col">
+                            <span>
+                              {new Date(group.date + "T00:00:00").toLocaleDateString("pt-BR", {
+                                day: "2-digit",
+                                month: "2-digit",
+                                year: "numeric",
+                              })}
+                            </span>
+                          </div>
+                          <div className="text-sm text-gray-600">
+                            {group.entries.length} {group.entries.length === 1 ? "recebimento" : "recebimentos"}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-4">
+                        <span className="font-bold text-green-600 text-lg">Qtd: {group.quantity}</span>
+                        <span
+                          className={`transform transition-transform ${
+                            expandedDate === group.date ? "rotate-180" : ""
+                          }`}
+                        >
+                          ▼
+                        </span>
+                      </div>
+                    </button>
+                    {expandedDate === group.date && (
+                      <div className="bg-white border-t border-gray-200">
+                        <table className="min-w-full divide-y divide-gray-200">
+                          <thead className="bg-gray-50">
+                            <tr>
+                              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                                Data e Horário
+                              </th>
+                              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                                Operador
+                              </th>
+                              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                                Invoice
+                              </th>
+                              <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">
+                                Quantidade
+                              </th>
+                              <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">
+                                Visualizar
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody className="bg-white divide-y divide-gray-200">
+                            {group.entries.map((entry: any, entryIndex: number) => {
+                              const entryDate = new Date(entry.date);
+                              // Converter para timezone local
+                              const localDate = new Date(entryDate.getTime() - entryDate.getTimezoneOffset() * 60000);
+                              const dataFormatada = localDate.toLocaleDateString("pt-BR", {
+                                day: "2-digit",
+                                month: "2-digit",
+                                year: "numeric",
+                              });
+                              const horaFormatada = localDate.toLocaleTimeString("pt-BR", {
+                                hour: "2-digit",
+                                minute: "2-digit",
+                                second: "2-digit",
+                              });
+                              return (
+                                <tr key={entry.id || entryIndex} className="hover:bg-gray-50">
+                                  <td className="px-4 py-2 text-sm text-gray-700">
+                                    <div className="flex flex-col">
+                                      <span>{dataFormatada}</span>
+                                      <span className="text-gray-500 text-xs">{horaFormatada}</span>
+                                    </div>
+                                  </td>
+                                  <td className="px-4 py-2 text-sm text-gray-700">
+                                    {entry.user?.name || entry.operator?.name || entry.userName || "—"}
+                                  </td>
+                                  <td className="px-4 py-2 text-sm text-gray-700">
+                                    {entry.invoiceNumber || selectedInvoice?.number || "—"}
+                                  </td>
+                                  <td className="px-4 py-2 text-sm text-right font-semibold text-green-600">
+                                    {entry.quantity}
+                                  </td>
+                                  <td className="px-4 py-2 text-sm text-center">
+                                    <button
+                                      onClick={() => setViewingEntry(entry)}
+                                      className="text-blue-600 hover:text-blue-800 p-1 rounded hover:bg-blue-50"
+                                      title="Ver detalhes"
+                                    >
+                                      <Eye size={18} />
+                                    </button>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                ))}
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Detalhes do Recebimento */}
+      {viewingEntry && (
+        <div
+          className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50"
+          onClick={() => setViewingEntry(null)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white p-6 rounded-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto mx-4"
+          >
+            <div className="flex justify-between items-start mb-4">
+              <div>
+                <h3 className="text-lg font-medium text-blue-700">Detalhes do Recebimento</h3>
+                <p className="text-sm text-gray-600">
+                  Produto: <span className="font-semibold">{viewingEntry.productName || "—"}</span>
+                </p>
+              </div>
+              <button onClick={() => setViewingEntry(null)} className="text-gray-500 hover:text-gray-700">
+                <XIcon size={24} />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm font-medium text-gray-700">Data e Horário:</p>
+                  <p className="text-sm text-gray-900">
+                    {(() => {
+                      const entryDate = new Date(viewingEntry.date);
+                      const localDate = new Date(entryDate.getTime() - entryDate.getTimezoneOffset() * 60000);
+                      return localDate.toLocaleString("pt-BR", {
+                        day: "2-digit",
+                        month: "2-digit",
+                        year: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                        second: "2-digit",
+                      });
+                    })()}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-700">Quantidade:</p>
+                  <p className="text-sm font-semibold text-green-600">{viewingEntry.quantity}</p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-700">Operador:</p>
+                  <p className="text-sm text-gray-900">
+                    {viewingEntry.user?.name || viewingEntry.operator?.name || viewingEntry.userName || "—"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-700">Invoice:</p>
+                  <p className="text-sm text-gray-900">
+                    {viewingEntry.invoiceNumber || selectedInvoice?.number || "—"}
+                  </p>
+                </div>
+              </div>
+
+              {viewingEntry.productName && (
+                <div>
+                  <p className="text-sm font-medium text-gray-700 mb-2">Produtos Recebidos:</p>
+                  <div className="bg-gray-50 p-3 rounded">
+                    <p className="text-sm text-gray-900">
+                      <strong>{viewingEntry.productName}</strong> - Qtd: {viewingEntry.quantity}
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}

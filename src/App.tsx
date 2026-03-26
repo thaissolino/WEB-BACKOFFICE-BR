@@ -8,21 +8,12 @@ function App() {
   const [showUpdateToast, setShowUpdateToast] = useState(false);
 
   useEffect(() => {
-    // 🔁 Marca recarregamento antes de sair
+    // 🔁 Marca recarregamento antes de sair (para quem precisar)
     window.addEventListener("beforeunload", () => {
       sessionStorage.setItem("isReloading", "true");
     });
 
-    // 🔒 Limpa localStorage se não for recarregamento
-    const isReloading = sessionStorage.getItem("isReloading");
-    if (!isReloading) {
-      localStorage.removeItem("@stricv2:token");
-      localStorage.removeItem("@stricv2:account");
-      localStorage.removeItem("@stricv2:user");
-      localStorage.removeItem("@backoffice:user");
-      localStorage.removeItem("@backoffice:token");
-    }
-    sessionStorage.setItem("isReloading", "true");
+    // 🔒 Não limpar localStorage aqui: backoffice e stricv2 ficam a cargo dos respectivos fluxos de auth/logout
 
     // 📩 Listener de mensagens do Service Worker
     if ("serviceWorker" in navigator) {
