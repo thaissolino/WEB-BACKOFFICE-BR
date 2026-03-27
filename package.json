@@ -70,10 +70,10 @@
     "@nivo/core": "^0.79.0"
   },
   "scripts": {
-    "start": "react-scripts start",
-    "build": "cross-env CI=false react-scripts build",
-    "test": "react-scripts test",
-    "eject": "react-scripts eject"
+    "start": "vite",
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
   },
   "eslintConfig": {
     "extends": [
@@ -94,10 +94,12 @@
     ]
   },
   "devDependencies": {
+    "@vitejs/plugin-react": "^5.0.4",
     "@types/react": "^19.0.4",
     "@types/react-dom": "^19.0.2",
     "@types/react-router-dom": "^5.3.3",
     "cross-env": "^7.0.3",
-    "typescript": "^5.7.3"
+    "typescript": "^5.7.3",
+    "vite": "^7.1.7"
   }
 }
