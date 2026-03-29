@@ -137,7 +137,7 @@ export default function ClientRegister() {
             <Link className="client-btn client-btn-secondary" to="/signin/client">
               Já tenho conta
             </Link>
-            <Link className="client-btn client-btn-link" to="/">
+            <Link className="client-btn client-btn-link" to="/signin/backoffice/adm">
               Voltar para home
             </Link>
           </div>

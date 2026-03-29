@@ -56,7 +56,7 @@ export default function ClientForgotPassword() {
             <Link className="client-btn client-btn-secondary" to="/signin/client">
               Voltar para login
             </Link>
-            <Link className="client-btn client-btn-link" to="/">
+            <Link className="client-btn client-btn-link" to="/signin/backoffice/adm">
               Voltar para home
             </Link>
           </div>

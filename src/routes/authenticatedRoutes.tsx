@@ -47,9 +47,10 @@ export function Router() {
 
   return (
     <Routes>
-      <Route path="/" element={<Navigate to="/adm" replace />} />
-      <Route path="/adm" element={<ClientHome />} />
-      <Route path="/home" element={<ClientHome />} />
+      <Route path="/" element={<Navigate to="/signin/backoffice/adm" replace />} />
+      <Route path="/adm" element={<Navigate to="/signin/backoffice/adm" replace />} />
+      <Route path="/home" element={<Navigate to="/signin/backoffice/adm" replace />} />
+      <Route path="/signin/backoffice/adm" element={<ClientHome />} />
 
       {/* Rota pública: sessão expirada (sem proteção de auth) */}
       <Route path="session-expired/backoffice" element={<SessionExpiredBackoffice />} />
