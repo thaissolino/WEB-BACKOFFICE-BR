@@ -52,6 +52,17 @@ export interface PdfData {
   };
 }
 
+function buildSummaryFromProducts(products: PdfProduct[]) {
+  return {
+    totalProducts: products.length,
+    existingProducts: products.filter((p) => p.validation.exists).length,
+    newProducts: products.filter((p) => !p.validation.exists).length,
+    productsWithDivergences: products.filter(
+      (p) => p.validation.divergences.some((d) => d.severity === "error")
+    ).length,
+  };
+}
+
 interface ReviewPdfModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -431,8 +442,13 @@ export function ReviewPdfModal({ isOpen, onClose, pdfData, onConfirm }: ReviewPd
       }
     }
     
-    onConfirm(editedData);
+    onConfirm({
+      ...editedData,
+      summary: buildSummaryFromProducts(editedData.products),
+    });
   };
+
+  const liveSummary = buildSummaryFromProducts(editedData.products);
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("pt-BR", {
@@ -760,19 +776,19 @@ export function ReviewPdfModal({ isOpen, onClose, pdfData, onConfirm }: ReviewPd
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="bg-white border border-gray-200 rounded-lg p-4">
               <div className="text-sm text-gray-600">Total de Produtos</div>
-              <div className="text-2xl font-bold text-gray-900">{editedData.summary.totalProducts}</div>
+              <div className="text-2xl font-bold text-gray-900">{liveSummary.totalProducts}</div>
             </div>
             <div className="bg-green-50 border border-green-200 rounded-lg p-4">
               <div className="text-sm text-green-700">Existentes no Banco</div>
-              <div className="text-2xl font-bold text-green-700">{editedData.summary.existingProducts}</div>
+              <div className="text-2xl font-bold text-green-700">{liveSummary.existingProducts}</div>
             </div>
             <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
               <div className="text-sm text-yellow-700">Produtos a Vincular</div>
-              <div className="text-2xl font-bold text-yellow-700">{editedData.summary.newProducts}</div>
+              <div className="text-2xl font-bold text-yellow-700">{liveSummary.newProducts}</div>
             </div>
             <div className="bg-red-50 border border-red-200 rounded-lg p-4">
               <div className="text-sm text-red-700">Com Divergências</div>
-              <div className="text-2xl font-bold text-red-700">{editedData.summary.productsWithDivergences}</div>
+              <div className="text-2xl font-bold text-red-700">{liveSummary.productsWithDivergences}</div>
             </div>
           </div>
 
@@ -784,7 +800,9 @@ export function ReviewPdfModal({ isOpen, onClose, pdfData, onConfirm }: ReviewPd
             </h3>
             <div className="space-y-3">
               {editedData.products.map((product, index) => {
-                const hasDivergences = product.validation.divergences.length > 0;
+                const hasDivergences = product.validation.divergences.some(
+                  (d) => d.severity === "error"
+                );
                 const isNew = !product.validation.exists;
                 const isLinkPopupOpen = linkPopupIndex === index;
 

@@ -1,0 +1,169 @@
+.client-shell {
+  min-height: 100vh;
+  background: linear-gradient(180deg, #f4f7fb 0%, #eef3f7 100%);
+  color: #0f172a;
+}
+
+.client-nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px;
+}
+
+.client-brand {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.client-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+}
+
+.client-container {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 12px 16px 40px;
+}
+
+.client-hero {
+  padding: 22px;
+}
+
+.client-title {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.client-subtitle {
+  margin-top: 8px;
+  color: #475569;
+}
+
+.client-cta-row {
+  display: grid;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.client-btn {
+  border: 0;
+  border-radius: 12px;
+  padding: 12px 16px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.client-btn-primary {
+  background: #0ea5e9;
+  color: #ffffff;
+}
+
+.client-btn-primary:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.client-btn-secondary {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
+.client-btn-link {
+  background: transparent;
+  color: #0369a1;
+  padding: 0;
+  text-decoration: underline;
+}
+
+.client-form {
+  margin-top: 18px;
+  display: grid;
+  gap: 12px;
+}
+
+.client-label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.9rem;
+  color: #334155;
+}
+
+.client-input,
+.client-select {
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 0.95rem;
+  background: #ffffff;
+}
+
+.client-alert {
+  margin-top: 12px;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 0.9rem;
+}
+
+.client-alert-error {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.client-alert-success {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.client-grid {
+  margin-top: 18px;
+  display: grid;
+  gap: 12px;
+}
+
+.kpi-card {
+  padding: 14px;
+}
+
+.kpi-label {
+  margin: 0;
+  color: #64748b;
+  font-size: 0.85rem;
+}
+
+.kpi-value {
+  margin-top: 8px;
+  font-size: 1.35rem;
+  font-weight: 700;
+}
+
+.client-top-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+@media (min-width: 768px) {
+  .client-nav {
+    padding: 22px 24px;
+  }
+
+  .client-cta-row {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .client-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .client-title {
+    font-size: 2rem;
+  }
+}
