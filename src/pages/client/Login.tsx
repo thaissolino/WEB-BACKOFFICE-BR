@@ -71,7 +71,7 @@ export default function ClientLogin() {
             <Link className="client-btn client-btn-secondary" to="/forgot-password">
               Esqueci minha senha
             </Link>
-            <Link className="client-btn client-btn-link" to="/">
+            <Link className="client-btn client-btn-link" to="/signin/backoffice/adm">
               Voltar para home
             </Link>
           </div>
