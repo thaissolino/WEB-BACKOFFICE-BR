@@ -1,4 +1,4 @@
-import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
+import { Navigate, Route, Routes } from "react-router-dom";
 import { Layout as BackofficeLayout } from "../pages/backoffice/Layout/base";
 import { SignIn as BackofficeSignIn } from "../pages/backoffice/SignIn";
 import { SessionExpiredBackoffice } from "../pages/backoffice/SessionExpiredBackoffice";
@@ -21,6 +21,12 @@ import OperatorManager2 from "../pages/form-operators-two/OperatorsManagement2";
 import OperatorManager from "../pages/form-operators/OperatorsManagement";
 import OperatorsManagementPerfilEdit from "../pages/form-operators-perfil-edit/OperatorsManagementPerfilEdit";
 import AdmManagementPerfilEdit from "../pages/form-adm-perfil-edit/AdmManagementPerfilEdit";
+import { useClientAuth } from "../hooks/clientAuth";
+import ClientHome from "../pages/client/Home";
+import ClientLogin from "../pages/client/Login";
+import ClientRegister from "../pages/client/Register";
+import ClientForgotPassword from "../pages/client/ForgotPassword";
+import ClientDashboard from "../pages/client/Dashboard";
 
 const BACKOFFICE_ROUTE = "/backoffice";
 const LOGIN_ROUTE = "/signin/backoffice";
@@ -36,14 +42,41 @@ function RequireAuthBackoffice({ children }: { children: JSX.Element }) {
 }
 
 export function Router() {
-  const { isAuthenticated, onLogout } = useAuthBackoffice();
+  const { isAuthenticated } = useAuthBackoffice();
+  const { isClientAuthenticated } = useClientAuth();
 
   return (
     <Routes>
+      <Route path="/" element={<Navigate to="/adm" replace />} />
+      <Route path="/adm" element={<ClientHome />} />
+      <Route path="/home" element={<ClientHome />} />
+
       {/* Rota pública: sessão expirada (sem proteção de auth) */}
       <Route path="session-expired/backoffice" element={<SessionExpiredBackoffice />} />
 
-      {/* Rotas quando faz o login */}
+      <Route
+        element={
+          <GuardedRoute
+            isRouteAccessible={!isClientAuthenticated}
+            redirectRoute="/client/dashboard"
+          />
+        }
+      >
+        <Route path="signin/client" element={<ClientLogin />} />
+        <Route path="signup/client" element={<ClientRegister />} />
+        <Route path="forgot-password" element={<ClientForgotPassword />} />
+      </Route>
+
+      <Route
+        element={
+          <GuardedRoute
+            isRouteAccessible={isClientAuthenticated}
+            redirectRoute="/signin/client"
+          />
+        }
+      >
+        <Route path="client/dashboard" element={<ClientDashboard />} />
+      </Route>
 
       <Route
         element={
@@ -53,10 +86,17 @@ export function Router() {
           />
         }
       >
-        <Route path="/" element={<BackofficeSignIn />} />
+        <Route path="signin/backoffice" element={<BackofficeSignIn />} />
       </Route>
 
-      <Route element={<GuardedRoute isRouteAccessible={isAuthenticated} redirectRoute={"/"} />}>
+      <Route
+        element={
+          <GuardedRoute
+            isRouteAccessible={isAuthenticated}
+            redirectRoute="/signin/backoffice"
+          />
+        }
+      >
         <Route
           path="/*"
           element={
