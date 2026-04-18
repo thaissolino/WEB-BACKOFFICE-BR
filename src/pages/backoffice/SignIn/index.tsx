@@ -58,8 +58,8 @@ export function SignIn() {
       await onSignIn({ email: emailLower, password });
       // Navegar no próximo tick para o estado isAuthenticated ser commitado antes do GuardedRoute avaliar
       setTimeout(() => navigate("/backoffice"), 0);
-    } catch (err) {
-      setErrorMessage("Erro ao realizar login. Verifique suas credenciais.");
+    } catch (err: any) {
+      setErrorMessage(err?.message || "Erro ao realizar login. Verifique suas credenciais.");
       console.error(err);
       // NÃO resetamos os campos!
     } finally {
