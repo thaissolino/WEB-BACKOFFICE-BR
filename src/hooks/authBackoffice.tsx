@@ -89,11 +89,39 @@ const AuthBackofficeProvider = ({ children }: AuthBackofficeProviderProps) => {
 
       setIsAuthenticate(true);
       return response.data;
-    } catch (err) {
-      console.error(err);
+    } catch (err: any) {
+      console.error("[BACKOFFICE_LOGIN] Falha no login:", {
+        status: err?.response?.status,
+        code: err?.response?.data?.code,
+        message: err?.response?.data?.message,
+        friend: err?.response?.data?.friend,
+      });
       localStorage.removeItem("@backoffice:token");
       delete api.defaults.headers.common["Authorization"];
-      throw new Error("Credenciais inválidas");
+
+      const status = err?.response?.status;
+      const code = String(err?.response?.data?.code || "").toLowerCase();
+      const backendMessage = String(err?.response?.data?.message || "");
+      const backendFriend = String(err?.response?.data?.friend || "");
+      const fullMessage = `${backendMessage} ${backendFriend}`.toLowerCase();
+
+      if (status === 400 && fullMessage.includes("at least 6")) {
+        throw new Error("A senha deve ter no mínimo 6 caracteres.");
+      }
+
+      if (code.includes("auth.invalid_credentials")) {
+        throw new Error("Credenciais inválidas.");
+      }
+
+      if (status === 401 || status === 403) {
+        throw new Error("Credenciais inválidas ou acesso não autorizado.");
+      }
+
+      if (status === 500) {
+        throw new Error("Servidor indisponível no momento. Tente novamente em instantes.");
+      }
+
+      throw new Error(backendFriend || backendMessage || "Não foi possível realizar login.");
     }
   };
 
