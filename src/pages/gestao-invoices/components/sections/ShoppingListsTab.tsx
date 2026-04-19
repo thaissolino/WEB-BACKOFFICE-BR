@@ -21,6 +21,7 @@ import {
   Save,
   History,
   Settings,
+  Share2,
 } from "lucide-react";
 import { api } from "../../../../services/api";
 import Swal from "sweetalert2";
@@ -40,6 +41,7 @@ interface Product {
 
 interface ShoppingListItem {
   id: string;
+  shoppingListId?: string; // Lista a que este item pertence (vem do backend)
   productId: string;
   quantity: number; // Quantidade pedida
   notes?: string;
@@ -993,13 +995,16 @@ export function ShoppingListsTab() {
       let currentItem = selectedItem;
       let listId: string | undefined = undefined;
 
-      // Tentar encontrar a lista que contém este item
+      // SEMPRE resolver pelo shoppingListId do próprio item (ou pela lista em edição).
+      // NUNCA usar fallback por productId, porque o mesmo productId pode existir em várias
+      // listas e isso causa "confirmar em uma confirma em outra" (cross-list confirm).
       listId =
-        shoppingLists.find((l) =>
-          l.shoppingListItems?.some((i) => i.id === selectedItem.id || i.productId === selectedItem.productId)
-        )?.id || editingList?.id;
+        selectedItem.shoppingListId ||
+        editingList?.id ||
+        shoppingLists.find((l) => l.shoppingListItems?.some((i) => i.id === selectedItem.id))?.id;
 
-      // Se não encontrou, buscar em todas as listas (pode ter sido atualizado)
+      // Se ainda não encontrou pelo id do item, buscar nas listas carregadas pelo id em todas
+      // as páginas (sem usar productId).
       if (!listId) {
         try {
           const allListsResponse = await api.get("/invoice/shopping-lists", {
@@ -1007,11 +1012,11 @@ export function ShoppingListsTab() {
           });
           const allLists = allListsResponse.data?.data || allListsResponse.data || [];
           const foundList = allLists.find((l: ShoppingList) =>
-            l.shoppingListItems?.some((i) => i.productId === selectedItem.productId)
+            l.shoppingListItems?.some((i) => i.id === selectedItem.id)
           );
           listId = foundList?.id;
         } catch (error) {
-          console.warn("Erro ao buscar lista em todas as listas:", error);
+          console.warn("Erro ao buscar lista pelo id do item:", error);
         }
       }
 
@@ -2119,8 +2124,21 @@ export function ShoppingListsTab() {
       }
 
       // Guardar informações do item original (status e quantidade comprada)
-      const wasPurchased = selectedItem.status === "PURCHASED" || selectedItem.status === "RECEIVED";
-      const purchasedQuantity = selectedItem.receivedQuantity || 0;
+      // Considera "comprado" SEMPRE que houver receivedQuantity > 0,
+      // mesmo que o status do item ainda esteja PENDING (compra parcial).
+      const purchasedQuantity = Number(selectedItem.receivedQuantity || 0);
+      const wasPurchased =
+        purchasedQuantity > 0 ||
+        selectedItem.status === "PURCHASED" ||
+        selectedItem.status === "RECEIVED";
+      // Só leva a quantidade comprada para o destino quando o item inteiro
+      // está sendo movido/duplicado. Em transferência parcial do pendente,
+      // o "já comprado" permanece na origem.
+      const isMovingWholeItem =
+        isFullyPurchased ||
+        transferMode === "duplicate" ||
+        Number(quantityToTransfer) >= Number(selectedItem.quantity);
+      const purchasedQuantityToCarry = isMovingWholeItem ? purchasedQuantity : 0;
 
       // Buscar lista destino
       const targetListResponse = await api.get(`/invoice/shopping-lists/${selectedListForTransfer}`);
@@ -2155,8 +2173,9 @@ export function ShoppingListsTab() {
             items: currentItems,
           });
 
-          // Se o item transferido estava comprado, atualizar o status na lista destino (preservar comprado do destino + transferido)
-          if (wasPurchased && purchasedQuantity > 0) {
+          // Se o item transferido estava comprado e estamos movendo o item inteiro,
+          // somar a quantidade comprada no item destino (preserva o que já tinha lá).
+          if (wasPurchased && purchasedQuantityToCarry > 0) {
             const updatedTargetListResponse = await api.get(`/invoice/shopping-lists/${selectedListForTransfer}`);
             const updatedTargetList = updatedTargetListResponse.data;
             // Backend novo preserva ids → encontrar por id; backend antigo recria → encontrar por productId + quantidade
@@ -2169,9 +2188,7 @@ export function ShoppingListsTab() {
                   i.productId === selectedItem.productId && Number(i.quantity) === newQuantityMerged
               );
             if (mergedItem) {
-              // Usar valor esperado: comprado do item destino (itemToMerge) + comprado do item transferido (purchasedQuantity)
-              // para não depender do PUT ter preservado receivedQuantity (evita zerar itens já confirmados)
-              const newPurchasedQuantity = (itemToMerge.receivedQuantity || 0) + purchasedQuantity;
+              const newPurchasedQuantity = (itemToMerge.receivedQuantity || 0) + purchasedQuantityToCarry;
               await api.patch("/invoice/shopping-lists/update-purchased-quantity", {
                 itemId: mergedItem.id,
                 purchasedQuantity: newPurchasedQuantity,
@@ -2204,7 +2221,11 @@ export function ShoppingListsTab() {
           items: currentItems,
         });
 
-        if (wasPurchased && purchasedQuantity > 0 && (!transferAddToExisting || !transferSelectedItemToMerge)) {
+        if (
+          wasPurchased &&
+          purchasedQuantityToCarry > 0 &&
+          (!transferAddToExisting || !transferSelectedItemToMerge)
+        ) {
           const updatedTargetListResponse = await api.get(`/invoice/shopping-lists/${selectedListForTransfer}`);
           const updatedTargetList = updatedTargetListResponse.data;
           const oldItemIds = new Set((targetList.shoppingListItems || []).map((i: ShoppingListItem) => i.id));
@@ -2214,7 +2235,7 @@ export function ShoppingListsTab() {
           if (transferredItem) {
             await api.patch("/invoice/shopping-lists/update-purchased-quantity", {
               itemId: transferredItem.id,
-              purchasedQuantity: purchasedQuantity,
+              purchasedQuantity: purchasedQuantityToCarry,
             });
           }
         }
@@ -2309,104 +2330,98 @@ export function ShoppingListsTab() {
     }
   };
 
-  const handleViewPDF = async (listId: string, listName: string, onlyPending: boolean = false) => {
+  // Gera o PDF de uma lista (utilizado por visualização, download e compartilhamento)
+  const generateShoppingListPDFBlob = async (
+    listId: string,
+    onlyPending: boolean = false
+  ): Promise<{ blob: Blob; fileName: string; shoppingList: any }> => {
+    const response = await api.get(`/invoice/shopping-lists/${listId}`);
+    const shoppingList = response.data;
+
+    let itemsToInclude = shoppingList.shoppingListItems || [];
+    if (onlyPending) {
+      itemsToInclude = itemsToInclude.filter((item: any) => item.status === "PENDING");
+    }
+
+    const { jsPDF } = await import("jspdf");
+    const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+
+    doc.setFontSize(16);
+    doc.setTextColor(40, 100, 40);
+    doc.text(`Lista de Compras - ${shoppingList.name}${onlyPending ? " (Pendentes)" : ""}`, 105, 15, {
+      align: "center",
+      maxWidth: 180,
+    });
+
+    doc.setFontSize(9);
+    doc.setTextColor(0, 0, 0);
+    doc.text(`Data emissão: ${new Date().toLocaleDateString("pt-BR")}`, 15, 25);
+    doc.text(`Criada em: ${new Date(shoppingList.createdAt).toLocaleDateString("pt-BR")}`, 15, 30);
+
+    const statusCounts = {
+      PENDING: itemsToInclude.filter((item: any) => item.status === "PENDING").length,
+      PURCHASED: itemsToInclude.filter((item: any) => item.status === "PURCHASED").length,
+      RECEIVED: itemsToInclude.filter((item: any) => item.status === "RECEIVED").length,
+    };
+
+    const totalItems = itemsToInclude.length;
+    const statusText = `Pendentes: ${statusCounts.PENDING} | Comprados: ${
+      statusCounts.PURCHASED + statusCounts.RECEIVED
+    } | Total de Itens: ${totalItems}`;
+    doc.text(statusText, 195, 25, { align: "right" });
+
+    if (shoppingList.description) {
+      doc.text(`Descrição: ${shoppingList.description}`, 105, 35, { align: "center" });
+    }
+
+    const statusMap = { PENDING: "Pendente", PURCHASED: "Comprado", RECEIVED: "Comprado" };
+    const truncateText = (text: string, maxLength: number) =>
+      text.length > maxLength ? text.substring(0, maxLength - 3) + "..." : text;
+
+    const tableData = itemsToInclude.map((item: any) => [
+      truncateText(`${item.product.name} (${item.product.code})`, 35),
+      item.quantity.toString(),
+      item.receivedQuantity.toString(),
+      truncateText(statusMap[item.status as keyof typeof statusMap] || item.status, 12),
+    ]);
+
+    const { autoTable } = await import("jspdf-autotable");
+    autoTable(doc, {
+      head: [["PRODUTO", "PEDIDO", "COMPRADO", "STATUS"]],
+      body: tableData,
+      startY: 45,
+      styles: { fontSize: 8, cellPadding: 3, halign: "center" },
+      headStyles: {
+        fillColor: [229, 231, 235],
+        textColor: 0,
+        fontStyle: "bold",
+        fontSize: 9,
+        cellPadding: 4,
+        halign: "center",
+      },
+      alternateRowStyles: { fillColor: [240, 249, 255] },
+      columnStyles: {
+        0: { halign: "left", cellWidth: 60, fontStyle: "bold" },
+        1: { halign: "center", cellWidth: 30 },
+        2: { halign: "center", cellWidth: 30 },
+        3: { halign: "center", cellWidth: 30 },
+      },
+      margin: { left: 10, right: 10 },
+    });
+
+    const blob = doc.output("blob");
+    const safeName = (shoppingList.name || "lista")
+      .toString()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-zA-Z0-9-_]+/g, "_");
+    const fileName = `lista-compras-${safeName}${onlyPending ? "-pendentes" : ""}.pdf`;
+    return { blob, fileName, shoppingList };
+  };
+
+  const handleViewPDF = async (listId: string, _listName: string, onlyPending: boolean = false) => {
     try {
-      const response = await api.get(`/invoice/shopping-lists/${listId}`);
-      const shoppingList = response.data;
-
-      let itemsToInclude = shoppingList.shoppingListItems || [];
-      if (onlyPending) {
-        itemsToInclude = itemsToInclude.filter((item: any) => item.status === "PENDING");
-      }
-
-      // Gerar HTML do PDF
-      const { jsPDF } = await import("jspdf");
-      const doc = new jsPDF({
-        orientation: "portrait",
-        unit: "mm",
-        format: "a4",
-      });
-
-      doc.setFontSize(16);
-      doc.setTextColor(40, 100, 40);
-      doc.text(`Lista de Compras - ${shoppingList.name}${onlyPending ? " (Pendentes)" : ""}`, 105, 15, {
-        align: "center",
-        maxWidth: 180,
-      });
-
-      doc.setFontSize(9);
-      doc.setTextColor(0, 0, 0);
-      doc.text(`Data emissão: ${new Date().toLocaleDateString("pt-BR")}`, 15, 25);
-      doc.text(`Criada em: ${new Date(shoppingList.createdAt).toLocaleDateString("pt-BR")}`, 15, 30);
-
-      const statusCounts = {
-        PENDING: itemsToInclude.filter((item: any) => item.status === "PENDING").length,
-        PURCHASED: itemsToInclude.filter((item: any) => item.status === "PURCHASED").length,
-        RECEIVED: itemsToInclude.filter((item: any) => item.status === "RECEIVED").length,
-      };
-
-      const totalItems = itemsToInclude.length;
-      const statusText = `Pendentes: ${statusCounts.PENDING} | Comprados: ${
-        statusCounts.PURCHASED + statusCounts.RECEIVED
-      } | Total de Itens: ${totalItems}`;
-      doc.text(statusText, 195, 25, { align: "right" });
-
-      if (shoppingList.description) {
-        doc.text(`Descrição: ${shoppingList.description}`, 105, 35, { align: "center" });
-      }
-
-      const statusMap = {
-        PENDING: "Pendente",
-        PURCHASED: "Comprado",
-        RECEIVED: "Comprado",
-      };
-
-      const truncateText = (text: string, maxLength: number) => {
-        if (text.length > maxLength) {
-          return text.substring(0, maxLength - 3) + "...";
-        }
-        return text;
-      };
-
-      const tableData = itemsToInclude.map((item: any) => [
-        truncateText(`${item.product.name} (${item.product.code})`, 35),
-        item.quantity.toString(),
-        item.receivedQuantity.toString(),
-        truncateText(statusMap[item.status as keyof typeof statusMap] || item.status, 12),
-      ]);
-
-      const { autoTable } = await import("jspdf-autotable");
-      autoTable(doc, {
-        head: [["PRODUTO", "PEDIDO", "COMPRADO", "STATUS"]],
-        body: tableData,
-        startY: 45,
-        styles: {
-          fontSize: 8,
-          cellPadding: 3,
-          halign: "center",
-        },
-        headStyles: {
-          fillColor: [229, 231, 235],
-          textColor: 0,
-          fontStyle: "bold",
-          fontSize: 9,
-          cellPadding: 4,
-          halign: "center",
-        },
-        alternateRowStyles: {
-          fillColor: [240, 249, 255],
-        },
-        columnStyles: {
-          0: { halign: "left", cellWidth: 60, fontStyle: "bold" },
-          1: { halign: "center", cellWidth: 30 },
-          2: { halign: "center", cellWidth: 30 },
-          3: { halign: "center", cellWidth: 30 },
-        },
-        margin: { left: 10, right: 10 },
-      });
-
-      // Converter para base64 para visualizar
-      const pdfBlob = doc.output("blob");
+      const { blob } = await generateShoppingListPDFBlob(listId, onlyPending);
       const reader = new FileReader();
       reader.onloadend = () => {
         const base64data = reader.result as string;
@@ -2414,13 +2429,64 @@ export function ShoppingListsTab() {
         setShowPdfModal(true);
         setShowOnlyPending(onlyPending);
       };
-      reader.readAsDataURL(pdfBlob);
+      reader.readAsDataURL(blob);
     } catch (error) {
       console.error("Erro ao gerar PDF:", error);
       setOpenNotification({
         type: "error",
         title: "Erro!",
         notification: "Erro ao gerar PDF",
+      });
+    }
+  };
+
+  // Compartilha o PDF da lista usando a Web Share API (mobile abre seletor com WhatsApp)
+  // e cai para download + WhatsApp web no desktop quando não há suporte.
+  const handleSharePDF = async (listId: string, listName: string, onlyPending: boolean = false) => {
+    try {
+      const { blob, fileName, shoppingList } = await generateShoppingListPDFBlob(listId, onlyPending);
+      const shareTitle = `Lista de Compras - ${shoppingList.name || listName}`;
+      const shareText = `Lista de Compras${onlyPending ? " (Pendentes)" : ""}: ${shoppingList.name || listName}`;
+
+      const file = new File([blob], fileName, { type: "application/pdf" });
+      const navAny: any = typeof navigator !== "undefined" ? navigator : null;
+
+      // 1) Tenta Web Share API com arquivos (mobile moderno + Chromium desktop)
+      if (navAny?.canShare && navAny.canShare({ files: [file] }) && navAny.share) {
+        try {
+          await navAny.share({ title: shareTitle, text: shareText, files: [file] });
+          return;
+        } catch (shareErr: any) {
+          // Usuário cancelou: não fazer fallback nem mostrar erro
+          if (shareErr?.name === "AbortError") return;
+          console.warn("share() falhou, tentando fallback:", shareErr);
+        }
+      }
+
+      // 2) Fallback: baixar o PDF e abrir o WhatsApp Web com texto
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      const wa = `https://wa.me/?text=${encodeURIComponent(`${shareText}\n(Anexe o arquivo ${fileName} baixado)`) }`;
+      window.open(wa, "_blank", "noopener,noreferrer");
+      setOpenNotification({
+        type: "warning",
+        title: "Compartilhamento",
+        notification:
+          "Seu navegador não suporta compartilhar arquivos diretamente. O PDF foi baixado e o WhatsApp foi aberto para você anexá-lo.",
+      });
+    } catch (error) {
+      console.error("Erro ao compartilhar PDF:", error);
+      setOpenNotification({
+        type: "error",
+        title: "Erro!",
+        notification: "Erro ao compartilhar PDF",
       });
     }
   };
@@ -3738,7 +3804,10 @@ export function ShoppingListsTab() {
             </p>
           </div>
         ) : (
-          shoppingLists.map((list) => {
+          shoppingLists
+            .slice()
+            .sort((a, b) => (a.name || "").localeCompare(b.name || "", "pt-BR", { sensitivity: "base" }))
+            .map((list) => {
             const isExpanded = expandedLists.has(list.id);
             const toggleExpand = () => {
               setExpandedLists((prev) => {
@@ -4029,6 +4098,32 @@ export function ShoppingListsTab() {
                           <FileText size={16} />
                           Ver Pendentes
                         </button>
+
+                        {/* Compartilhar PDF (WhatsApp) */}
+                        <button
+                          onClick={() => {
+                            handleSharePDF(list.id, list.name, false);
+                            setOpenManageMenu(null);
+                            setManageMenuPosition(null);
+                          }}
+                          className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-green-50 hover:text-green-700 flex items-center gap-2"
+                        >
+                          <Share2 size={16} />
+                          Compartilhar (WhatsApp)
+                        </button>
+
+                        {/* Compartilhar Pendentes (WhatsApp) */}
+                        <button
+                          onClick={() => {
+                            handleSharePDF(list.id, list.name, true);
+                            setOpenManageMenu(null);
+                            setManageMenuPosition(null);
+                          }}
+                          className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-green-50 hover:text-green-700 flex items-center gap-2"
+                        >
+                          <Share2 size={16} />
+                          Compartilhar Pendentes
+                        </button>
                       </div>,
                       document.body
                     )}
@@ -4045,6 +4140,12 @@ export function ShoppingListsTab() {
                     {list.shoppingListItems
                       ?.filter(
                         (item) => item.status === "PENDING" && (!item.receivedQuantity || item.receivedQuantity === 0)
+                      )
+                      .slice()
+                      .sort((a, b) =>
+                        (a.product?.name || "").localeCompare(b.product?.name || "", "pt-BR", {
+                          sensitivity: "base",
+                        })
                       )
                       .map((item) => {
                         const statusInfo = getStatusInfo(item.status);
@@ -4412,6 +4513,12 @@ export function ShoppingListsTab() {
                         // Incluir tanto PENDING quanto PURCHASED que ainda não completaram
                         return hasPartialPurchase && (item.status === "PENDING" || item.status === "PURCHASED");
                       })
+                      .slice()
+                      .sort((a, b) =>
+                        (a.product?.name || "").localeCompare(b.product?.name || "", "pt-BR", {
+                          sensitivity: "base",
+                        })
+                      )
                       .map((item) => {
                         const statusInfo = getStatusInfo("PARTIALLY_PURCHASED"); // Usar o novo status
                         return (
@@ -4599,19 +4706,11 @@ export function ShoppingListsTab() {
                         const isFullyPurchased = (item.receivedQuantity || 0) >= item.quantity;
                         return isPurchasedOrReceived && isFullyPurchased;
                       })
-                      .sort((a, b) => {
-                        const dateA = a.purchasedAt
-                          ? new Date(a.purchasedAt).getTime()
-                          : a.createdAt
-                          ? new Date(a.createdAt).getTime()
-                          : 0;
-                        const dateB = b.purchasedAt
-                          ? new Date(b.purchasedAt).getTime()
-                          : b.createdAt
-                          ? new Date(b.createdAt).getTime()
-                          : 0;
-                        return dateA - dateB;
-                      })
+                      .sort((a, b) =>
+                        (a.product?.name || "").localeCompare(b.product?.name || "", "pt-BR", {
+                          sensitivity: "base",
+                        })
+                      )
                       .map((item) => {
                         const statusInfo = getStatusInfo(item.status);
                         return (
@@ -5214,6 +5313,8 @@ export function ShoppingListsTab() {
                       const isSourceList = list.shoppingListItems?.some((i) => i.id === selectedItem.id);
                       return !isSourceList && list.id !== editingList?.id && !list.completed;
                     })
+                    .slice()
+                    .sort((a, b) => (a.name || "").localeCompare(b.name || "", "pt-BR", { sensitivity: "base" }))
                     .map((list) => (
                       <option key={list.id} value={list.id}>
                         {list.name}
@@ -5222,8 +5323,9 @@ export function ShoppingListsTab() {
                 </select>
               </div>
 
-              {/* Mostrar opção de quantidade apenas para itens pendentes */}
-              {selectedItem.status === "PENDING" && (
+              {/* Mostrar opção de quantidade quando ainda existem unidades pendentes
+                  (independente do status do item ser PENDING ou PURCHASED parcial). */}
+              {selectedItem.quantity - (selectedItem.receivedQuantity || 0) > 0 && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Quantidade a Transferir (dos que faltam)
@@ -5238,8 +5340,9 @@ export function ShoppingListsTab() {
                     </div>
                   </div>
                   <input
-                    type="number"
-                    value={transferQuantity === "" ? "" : transferQuantity}
+                    type="text"
+                    inputMode="decimal"
+                    value={transferQuantity === "" ? "" : String(transferQuantity)}
                     onChange={(e) => {
                       const value = e.target.value;
                       // Permitir campo vazio
@@ -5247,30 +5350,32 @@ export function ShoppingListsTab() {
                         setTransferQuantity("");
                         return;
                       }
-                      // Remover caracteres não numéricos
-                      const cleanValue = value.replace(/[^0-9.]/g, "");
-                      if (cleanValue === "") {
-                        setTransferQuantity("");
+                      // Aceitar dígitos, vírgula e ponto como separador decimal
+                      const cleanValue = value.replace(/[^0-9.,]/g, "").replace(",", ".");
+                      if (cleanValue === "" || cleanValue === ".") {
+                        setTransferQuantity(cleanValue);
                         return;
                       }
                       const qty = parseFloat(cleanValue);
                       if (!isNaN(qty) && qty > 0) {
                         const maxQty = selectedItem.quantity - (selectedItem.receivedQuantity || 0);
+                        // Permitir digitar valores menores ou iguais ao pendente
                         setTransferQuantity(Math.min(qty, maxQty));
+                      } else {
+                        setTransferQuantity(cleanValue);
                       }
                     }}
-                    min="1"
-                    max={selectedItem.quantity - (selectedItem.receivedQuantity || 0)}
                     className="w-full border border-gray-300 rounded-md p-2"
                     placeholder="Digite a quantidade"
                   />
                   <p className="text-xs text-gray-500 mt-1">
                     Máximo: {selectedItem.quantity - (selectedItem.receivedQuantity || 0)} unidades pendentes
+                    {" "}(aceita decimais como 0,5)
                   </p>
                 </div>
               )}
 
-              {selectedItem.status !== "PENDING" && (
+              {selectedItem.quantity - (selectedItem.receivedQuantity || 0) <= 0 && (
                 <div>
                   <div className="bg-blue-50 border border-blue-200 rounded-md p-3 mb-2">
                     <div className="text-sm text-gray-700">

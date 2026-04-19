@@ -85,6 +85,9 @@ export function LostProductsTab() {
   });
   const [expandedDates, setExpandedDates] = useState<Set<string>>(new Set());
   const [freightPercentages, setFreightPercentages] = useState<Record<string, number>>({});
+  // String "em digitação" preservando a vírgula/ponto enquanto o usuário digita.
+  // Necessário porque manter apenas number "engole" dígitos intermediários como "5,".
+  const [freightPercentagesRaw, setFreightPercentagesRaw] = useState<Record<string, string>>({});
   const [confirmedFreightPercentages, setConfirmedFreightPercentages] = useState<Record<string, number>>({});
   const { setOpenNotification } = useNotification();
   const { user } = usePermissionStore();
@@ -311,30 +314,28 @@ export function LostProductsTab() {
   };
 
   const handleFreightChange = (dateKey: string, value: string) => {
-    // Permitir apenas números, vírgulas e pontos
-    const cleanValue = value.replace(/[^0-9,]/g, "").replace(/,/g, ".");
+    // Aceita números, vírgula e ponto. Mantemos a string "como digitada" para não
+    // perder o separador decimal enquanto o usuário está digitando "5,", "5,5" etc.
+    const cleanRaw = value.replace(/[^0-9.,]/g, "");
 
-    // Se estiver vazio, definir como 0
-    if (cleanValue === "" || cleanValue === ".") {
-      setFreightPercentages((prev) => ({
-        ...prev,
-        [dateKey]: 0,
-      }));
+    // Permitir apenas um separador decimal (vírgula OU ponto, em qualquer ordem).
+    const separators = cleanRaw.match(/[.,]/g) || [];
+    if (separators.length > 1) {
       return;
     }
 
-    // Permitir apenas um ponto decimal
-    const parts = cleanValue.split(".");
-    if (parts.length > 2) {
-      return; // Bloqueia se tiver mais de um ponto
+    // Atualiza a string visível imediatamente para preservar a digitação.
+    setFreightPercentagesRaw((prev) => ({ ...prev, [dateKey]: cleanRaw }));
+
+    if (cleanRaw === "" || cleanRaw === "." || cleanRaw === ",") {
+      setFreightPercentages((prev) => ({ ...prev, [dateKey]: 0 }));
+      return;
     }
 
-    const numValue = Number.parseFloat(cleanValue);
+    const normalized = cleanRaw.replace(",", ".");
+    const numValue = Number.parseFloat(normalized);
     if (!isNaN(numValue) && numValue >= 0 && numValue <= 100) {
-      setFreightPercentages((prev) => ({
-        ...prev,
-        [dateKey]: numValue,
-      }));
+      setFreightPercentages((prev) => ({ ...prev, [dateKey]: numValue }));
     }
   };
 
@@ -701,7 +702,15 @@ export function LostProductsTab() {
                         <input
                           type="text"
                           inputMode="decimal"
-                          value={editingFreightPercentage > 0 ? editingFreightPercentage.toString().replace(".", ",") : ""}
+                          value={
+                            // Prioridade: string "em digitação" (preserva vírgula/ponto)
+                            // → fallback para o número parseado.
+                            freightPercentagesRaw[dateKey] !== undefined
+                              ? freightPercentagesRaw[dateKey]
+                              : editingFreightPercentage > 0
+                              ? editingFreightPercentage.toString().replace(".", ",")
+                              : ""
+                          }
                           onChange={(e) => handleFreightChange(dateKey, e.target.value)}
                           onWheel={(e) => e.currentTarget.blur()}
                           disabled={isCompleted || isSubmitting}

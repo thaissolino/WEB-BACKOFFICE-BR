@@ -7,6 +7,7 @@ import { useActionLoading } from "../../context/ActionLoadingContext";
 import { ProductSearchSelect } from "./SupplierSearchSelect";
 import { ProductImeis } from "../ProductImeis";
 import { fixInvertedDateString, formatDateToBR, formatDateTimeToBR } from "../utils/format";
+import { CarrierRateBadge } from "./CarrierRateBadge";
 
 export type InvoiceData = {
   id: string;
@@ -26,6 +27,10 @@ export type InvoiceData = {
   paidDollarRate: number | null;
   completed: boolean;
   completedDate: string | null;
+  /** Snapshot imutável da % do freteiro 1 no momento desta nota. */
+  carrierRateSnapshot?: number | null;
+  /** Snapshot imutável da % do freteiro 2 no momento desta nota. */
+  carrier2RateSnapshot?: number | null;
   products: {
     id: string;
     invoiceId: string;
@@ -110,6 +115,12 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
   const [showAddProductForm, setShowAddProductForm] = useState(false);
   const [currentPage, setCurrentPage] = useState(0);
   const itemsPerPage = 10;
+  // Filtro de status do Histórico de Invoices.
+  // Default: ocultar Concluídas, mostrar apenas Pagas + Pendentes.
+  // Opções: "open" (pagas + pendentes), "pending", "paid", "completed", "all".
+  const [statusFilter, setStatusFilter] = useState<
+    "open" | "pending" | "paid" | "completed" | "all"
+  >("open");
   const [newProduct, setNewProduct] = useState({
     productId: "",
     quantity: 1,
@@ -403,6 +414,24 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
 
   const totalQuantidade = selectedInvoice?.products.reduce((sum, product) => sum + product.quantity, 0);
 
+  // Lista filtrada conforme o status selecionado, usada na renderização e paginação.
+  const filteredInvoices = invoices.filter((invoice) => {
+    switch (statusFilter) {
+      case "all":
+        return true;
+      case "completed":
+        return !!invoice.completed;
+      case "paid":
+        return !!invoice.paid && !invoice.completed;
+      case "pending":
+        return !invoice.paid && !invoice.completed;
+      case "open":
+      default:
+        // Padrão: pagas + pendentes (oculta concluídas)
+        return !invoice.completed;
+    }
+  });
+
   return (
     <div className="mt-8 bg-white p-6 pt-4 rounded-lg shadow">
       <h2 className="text-xl  w-full justify-between items-center flex  flex-row font-semibold mb-4 text-blue-700 border-b pb-2">
@@ -423,6 +452,24 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
         {loading ? (
           <p className="text-center text-gray-500 py-6">Carregando invoices...</p>
         ) : (
+          <>
+          <div className="flex flex-wrap items-center gap-3 mb-3">
+            <label className="text-sm text-gray-600 font-medium">Filtrar por status:</label>
+            <select
+              value={statusFilter}
+              onChange={(e) => {
+                setStatusFilter(e.target.value as typeof statusFilter);
+                setCurrentPage(0);
+              }}
+              className="border border-gray-300 rounded-md px-3 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-400"
+            >
+              <option value="open">Pagas + Pendentes (padrão)</option>
+              <option value="pending">Apenas Pendentes</option>
+              <option value="paid">Apenas Pagas</option>
+              <option value="completed">Apenas Concluídas</option>
+              <option value="all">Todas</option>
+            </select>
+          </div>
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
@@ -455,8 +502,7 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
                   </td>
                 </tr>
               ) : (
-                invoices
-                  .filter((invoice) => !invoice.completed && !invoice.paid) // ✅ Regra de negócio: mostrar apenas não concluídas E não pagas (apenas pendentes)
+                filteredInvoices
                   .slice(currentPage * itemsPerPage, (currentPage + 1) * itemsPerPage) // ✅ Paginação
                   .map((invoice) => {
                     const supplier = suppliers.find((s) => s.id === invoice.supplierId);
@@ -555,9 +601,10 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
               )}
             </tbody>
           </table>
+          </>
         )}
         {/* Paginação */}
-        {invoices.length > itemsPerPage && (
+        {filteredInvoices.length > itemsPerPage && (
           <div className="flex justify-between items-center mt-4">
             <button
               onClick={() => setCurrentPage((prev) => Math.max(0, prev - 1))}
@@ -567,13 +614,13 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
               Anterior
             </button>
             <span className="text-sm text-gray-600">
-              Página {currentPage + 1} de {Math.ceil(invoices.length / itemsPerPage)}
+              Página {currentPage + 1} de {Math.ceil(filteredInvoices.length / itemsPerPage)}
             </span>
             <button
               onClick={() =>
-                setCurrentPage((prev) => Math.min(prev + 1, Math.ceil(invoices.length / itemsPerPage) - 1))
+                setCurrentPage((prev) => Math.min(prev + 1, Math.ceil(filteredInvoices.length / itemsPerPage) - 1))
               }
-              disabled={(currentPage + 1) * itemsPerPage >= invoices.length}
+              disabled={(currentPage + 1) * itemsPerPage >= filteredInvoices.length}
               className="px-3 py-1 bg-gray-200 text-sm rounded disabled:opacity-50"
             >
               Próxima
@@ -776,25 +823,101 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
                     {selectedInvoice.date ? formatDateToBR(selectedInvoice.date) : "Não informado"}
                   </span>
                 </p>
-                <p className="text-sm text-gray-600">
-                  Freteiro:{" "}
-                  <span id="modalInvoiceCarrier">
-                    {selectedInvoice.carrier?.name
-                      ? `${selectedInvoice.carrier.name} - ${selectedInvoice.carrier?.value || 0} ${getShippingTypeText(
-                          selectedInvoice.carrier?.type || ""
-                        )}`
-                      : "Não informado"}
-                  </span>
+                <p className="text-sm text-gray-600 flex items-center gap-2 flex-wrap">
+                  <span>Freteiro:</span>
+                  {selectedInvoice.carrier?.name ? (
+                    <>
+                      <span id="modalInvoiceCarrier">
+                        {selectedInvoice.carrier.name} -{" "}
+                      </span>
+                      <CarrierRateBadge
+                        type={selectedInvoice.carrier.type}
+                        rate={
+                          selectedInvoice.carrierRateSnapshot ??
+                          selectedInvoice.carrier?.value ??
+                          0
+                        }
+                        label="Freteiro 1"
+                        onSave={async (newRate) => {
+                          try {
+                            await api.patch(`/invoice/update/${selectedInvoice.id}`, {
+                              ...selectedInvoice,
+                              date: selectedInvoice.date,
+                              carrier2Id: selectedInvoice.carrier2?.id
+                                ? Number(selectedInvoice.carrier2.id)
+                                : undefined,
+                              carrierRateSnapshot: newRate,
+                            });
+                            setSelectedInvoice({
+                              ...selectedInvoice,
+                              carrierRateSnapshot: newRate,
+                            });
+                            fetchInvoicesAndSuppliers();
+                          } catch (err) {
+                            console.error("Falha ao salvar override de % do freteiro:", err);
+                            Swal.fire({
+                              icon: "error",
+                              title: "Erro",
+                              text: "Não foi possível salvar a % deste freteiro.",
+                            });
+                          }
+                        }}
+                      />
+                      <span className="text-xs text-gray-500">
+                        {getShippingTypeText(selectedInvoice.carrier?.type || "")}
+                      </span>
+                    </>
+                  ) : (
+                    <span>Não informado</span>
+                  )}
                 </p>
-                <p className="text-sm text-gray-600">
-                  Freteiro 2:{" "}
-                  <span id="modalInvoiceCarrier">
-                    {selectedInvoice.carrier2
-                      ? `${selectedInvoice.carrier2.name} - ${
-                          selectedInvoice.carrier2.value || 0
-                        } ${getShippingTypeText(selectedInvoice.carrier2.type || "")}`
-                      : "não existe"}
-                  </span>
+                <p className="text-sm text-gray-600 flex items-center gap-2 flex-wrap">
+                  <span>Freteiro 2:</span>
+                  {selectedInvoice.carrier2?.name ? (
+                    <>
+                      <span id="modalInvoiceCarrier">
+                        {selectedInvoice.carrier2.name} -{" "}
+                      </span>
+                      <CarrierRateBadge
+                        type={selectedInvoice.carrier2.type}
+                        rate={
+                          selectedInvoice.carrier2RateSnapshot ??
+                          selectedInvoice.carrier2?.value ??
+                          0
+                        }
+                        label="Freteiro 2"
+                        onSave={async (newRate) => {
+                          try {
+                            await api.patch(`/invoice/update/${selectedInvoice.id}`, {
+                              ...selectedInvoice,
+                              date: selectedInvoice.date,
+                              carrier2Id: selectedInvoice.carrier2?.id
+                                ? Number(selectedInvoice.carrier2.id)
+                                : undefined,
+                              carrier2RateSnapshot: newRate,
+                            });
+                            setSelectedInvoice({
+                              ...selectedInvoice,
+                              carrier2RateSnapshot: newRate,
+                            });
+                            fetchInvoicesAndSuppliers();
+                          } catch (err) {
+                            console.error("Falha ao salvar override de % do freteiro 2:", err);
+                            Swal.fire({
+                              icon: "error",
+                              title: "Erro",
+                              text: "Não foi possível salvar a % deste freteiro.",
+                            });
+                          }
+                        }}
+                      />
+                      <span className="text-xs text-gray-500">
+                        {getShippingTypeText(selectedInvoice.carrier2?.type || "")}
+                      </span>
+                    </>
+                  ) : (
+                    <span>não existe</span>
+                  )}
                 </p>
               </div>
               <div>
