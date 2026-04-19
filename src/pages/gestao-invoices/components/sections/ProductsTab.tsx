@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Plus, Edit, Trash2, Boxes, Loader2, Search } from "lucide-react";
 import Swal from "sweetalert2";
 import { api } from "../../../../services/api";
@@ -15,15 +15,51 @@ export interface Product {
   active?: boolean;
 }
 
+// Remove acentos e baixa caso para comparação.
+const norm = (value: string) =>
+  (value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+
+// Match estrito por termos. Cada termo precisa bater em pelo menos um campo:
+// - name/description: como palavra completa OU como início de palavra
+// - code: como código exato (igualdade total), nunca substring
+// Isso evita falsos positivos como "16" achar produtos com código 163, 164…
+function productMatchesQuery(
+  query: string,
+  product: { name?: string; code?: string; description?: string },
+): boolean {
+  const q = norm(query).trim();
+  if (!q) return true;
+
+  const terms = q.split(/\s+/).filter(Boolean);
+  const nameWords = norm(`${product.name || ""} ${product.description || ""}`)
+    .split(/\s+/)
+    .filter(Boolean);
+  const codeNorm = norm(product.code || "");
+
+  return terms.every((term) => {
+    if (codeNorm && codeNorm === term) return true;
+    return nameWords.some(
+      (word) => word === term || word.startsWith(term),
+    );
+  });
+}
+
 export function ProductsTab() {
-  const [products, setProducts] = useState<Product[]>([]);
+  // allProducts = lista bruta vinda do backend (apenas ativos).
+  // products (computado) = lista filtrada client-side baseada em searchInput.
+  const [allProducts, setAllProducts] = useState<Product[]>([]);
   const [showModal, setShowModal] = useState(false);
   const [currentProduct, setCurrentProduct] = useState<Product | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [sortBy, setSortBy] = useState<"name" | "code">("name"); // Padrão: ordenação alfabética
+  const [sortBy, setSortBy] = useState<"name" | "code">("name");
   const [searchInput, setSearchInput] = useState("");
-  const [searchTerm, setSearchTerm] = useState(""); // Valor com debounce para a API
+  // searchTerm (debounced) é usado SOMENTE para otimizar a request ao backend.
+  // O filtro visual usa searchInput diretamente (instantâneo).
+  const [searchTerm, setSearchTerm] = useState("");
   const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
   const { setOpenNotification } = useNotification();
   const { isLoading: isActionLoading, executeAction } = useActionLoading();
@@ -31,43 +67,19 @@ export function ProductsTab() {
   const fetchData = async () => {
     setIsLoading(true);
     try {
+      const trimmedSearch = searchTerm.trim();
       const response = await api.get<any>("/invoice/product", {
         params: {
-          search: searchTerm.trim() || undefined,
+          search: trimmedSearch || undefined,
           limit: 1000,
           page: 1,
         },
       });
-      // O backend agora retorna { products: [...], totalProducts: ..., page: ..., limit: ..., totalPages: ... }
-      const productsData = Array.isArray(response.data) ? response.data : response.data.products || [];
-      // Filtrar apenas produtos ativos (o backend faz soft delete, marcando active: false)
+      const productsData: Product[] = Array.isArray(response.data)
+        ? response.data
+        : response.data.products || [];
       const activeProducts = productsData.filter((p: Product) => p.active !== false);
-      console.log("Total de produtos recebidos:", productsData.length);
-      console.log("Produtos ativos:", activeProducts.length);
-      console.log(
-        "Produtos acima de código 148:",
-        activeProducts.filter((p: Product) => {
-          const code = parseInt(p.code);
-          return !isNaN(code) && code > 148;
-        }).length
-      );
-      // Sempre ordenar por nome alfabético (padrão)
-      const sortedProducts = [...activeProducts].sort((a, b) => {
-        if (sortBy === "name") {
-          // Ordenação alfabética por nome (case-insensitive)
-          return a.name.localeCompare(b.name, "pt-BR", { sensitivity: "base", numeric: true });
-        } else {
-          // Ordenação numérica por código (trata como número se possível)
-          const codeA = parseInt(a.code);
-          const codeB = parseInt(b.code);
-          if (!isNaN(codeA) && !isNaN(codeB)) {
-            return codeA - codeB; // Ordenação numérica
-          }
-          // Fallback para ordenação alfabética se não for número
-          return a.code.localeCompare(b.code, "pt-BR", { sensitivity: "base", numeric: true });
-        }
-      });
-      setProducts(sortedProducts);
+      setAllProducts(activeProducts);
     } catch (error) {
       console.error("Erro ao buscar produtos:", error);
     } finally {
@@ -77,20 +89,35 @@ export function ProductsTab() {
 
   useEffect(() => {
     fetchData();
-  }, [sortBy, searchTerm]);
+  }, [searchTerm]);
 
-  // Debounce da busca: 400ms após parar de digitar antes de enviar à API
-  const isInitialMount = useRef(true);
+  // Debounce da busca: 350ms após parar de digitar antes de enviar à API.
   useEffect(() => {
-    if (isInitialMount.current) {
-      isInitialMount.current = false;
-      return;
-    }
     const timer = setTimeout(() => {
       setSearchTerm(searchInput);
-    }, 400);
+    }, 350);
     return () => clearTimeout(timer);
   }, [searchInput]);
+
+  // FILTRO + ORDENAÇÃO INSTANTÂNEOS (client-side, baseados em searchInput).
+  // Cada palavra do termo precisa aparecer como palavra inteira (ou início de
+  // palavra) no nome/descrição, ou como código exato. Evita "16" casar com 163.
+  const products = useMemo(() => {
+    const trimmed = searchInput.trim();
+    let list = allProducts;
+    if (trimmed) {
+      list = allProducts.filter((p) => productMatchesQuery(trimmed, p));
+    }
+    return [...list].sort((a, b) => {
+      if (sortBy === "name") {
+        return a.name.localeCompare(b.name, "pt-BR", { sensitivity: "base", numeric: true });
+      }
+      const codeA = parseInt(a.code);
+      const codeB = parseInt(b.code);
+      if (!isNaN(codeA) && !isNaN(codeB)) return codeA - codeB;
+      return a.code.localeCompare(b.code, "pt-BR", { sensitivity: "base", numeric: true });
+    });
+  }, [allProducts, searchInput, sortBy]);
 
   const handleEdit = (product: Product) => {
     setCurrentProduct(product);
@@ -343,7 +370,7 @@ export function ProductsTab() {
             onChange={(e) => setSearchInput(e.target.value)}
             className="flex-1 min-w-[220px] max-w-lg border border-blue-200 rounded-lg px-4 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-400"
           />
-          {searchTerm && (
+          {searchInput.trim() && (
             <span className="text-sm font-medium text-blue-700 whitespace-nowrap">
               {products.length} resultado{products.length !== 1 ? "s" : ""}
             </span>
@@ -464,7 +491,7 @@ export function ProductsTab() {
               {products.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-6 py-4 text-center text-gray-500">
-                    {isLoading ? "Carregando..." : searchTerm ? "Nenhum produto encontrado para o filtro." : "Nenhum produto cadastrado"}
+                    {isLoading ? "Carregando..." : searchInput.trim() ? "Nenhum produto encontrado para o filtro." : "Nenhum produto cadastrado"}
                   </td>
                 </tr>
               ) : (
