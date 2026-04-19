@@ -193,22 +193,31 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
     return acc + item.quantity * Number(currentInvoice.taxaSpEs);
   }, 0);
 
-  const shippingStrategies: Record<string, (carrierSelectedType: Carrier, item: InvoiceProduct) => number> = {
-    percentage: (carrierSelectedType, item) => item.value * (carrierSelectedType.value / 100) * item.quantity,
-    perKg: (carrierSelectedType, item) => item.weight * carrierSelectedType.value,
-    perUnit: (carrierSelectedType, item) => item.quantity * carrierSelectedType.value,
+  // Estratégias de cálculo de frete, sempre recebendo a TAXA EFETIVA da nota
+  // (snapshot quando existir, senão o valor atual do cadastro do freteiro).
+  const shippingStrategies: Record<string, (rate: number, item: InvoiceProduct) => number> = {
+    percentage: (rate, item) => item.value * (rate / 100) * item.quantity,
+    perKg: (rate, item) => item.weight * rate,
+    perUnit: (rate, item) => item.quantity * rate,
   };
 
   const carrierSelectedType = carriers.find((carrier) => carrier.id === currentInvoice.carrierId);
   const carrierSelectedType2 = carriers.find((carrier) => carrier.id === currentInvoice?.carrier2Id);
+
+  // Override por nota: snapshot tem precedência sobre o valor atual do cadastro.
+  const carrier1Rate =
+    currentInvoice.carrierRateSnapshot ?? carrierSelectedType?.value ?? 0;
+  const carrier2Rate =
+    currentInvoice.carrier2RateSnapshot ?? carrierSelectedType2?.value ?? 0;
+
   const amountTaxCarrieFrete1 = currentInvoice.products.reduce((acc: number, item) => {
     if (!carrierSelectedType) return acc;
-    return acc + shippingStrategies[carrierSelectedType.type](carrierSelectedType, item);
+    return acc + shippingStrategies[carrierSelectedType.type](carrier1Rate, item);
   }, 0);
 
   const amountTaxCarrieFrete2 = currentInvoice.products.reduce((acc: number, item) => {
     if (!carrierSelectedType2) return acc;
-    return acc + shippingStrategies[carrierSelectedType2.type](carrierSelectedType2, item);
+    return acc + shippingStrategies[carrierSelectedType2.type](carrier2Rate, item);
   }, 0);
 
   const weightData =
@@ -331,21 +340,58 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
       const hasPdfSupplierName = !!(editedData.invoiceData?.pdfSupplierName?.trim());
       const hasPdfNumber = !!(editedData.invoiceData?.number?.trim());
 
+      // 🔗 Auto-resolver vínculos pendentes (alias / nome canônico) ANTES de
+      // montar os produtos da invoice. NÃO cria nada — só busca. Cobre o caso
+      // de produtos que já estavam vinculados em invoices anteriores mas que
+      // a importação inicial não pegou (PDF com pequenas variações de nome).
+      const pendingNames: string[] = (editedData.products || [])
+        .filter((p: any) => !p.validation?.productId || String(p.validation.productId).trim() === "")
+        .map((p: any) => String(p.name || "").trim())
+        .filter(Boolean);
+
+      let resolvedMatchByName = new Map<string, { productId: string | null; productName: string | null; aliasId: string | null }>();
+      if (pendingNames.length > 0) {
+        try {
+          const uniqueNames = Array.from(new Set(pendingNames));
+          const { data: resolveResp } = await api.post(
+            "/invoice/product/alias/resolve-many",
+            { names: uniqueNames },
+          );
+          for (const m of resolveResp?.matches || []) {
+            resolvedMatchByName.set(String(m.name), {
+              productId: m.productId ?? null,
+              productName: m.productName ?? null,
+              aliasId: m.aliasId ?? null,
+            });
+          }
+        } catch (resolveError) {
+          console.error("⚠️  Falha ao auto-resolver vínculos no PDF único:", resolveError);
+        }
+      }
+
       // ✅ Converter PDF em Invoice e adicionar como nova aba (nunca sobrescrever invoices existentes)
-      const newProducts = editedData.products.map((pdfProduct: any) => ({
-        id: pdfProduct.validation?.productId ?? "",
-        productId: pdfProduct.validation?.productId ?? "",
-        invoiceId: "",
-        name: pdfProduct.name,
-        quantity: pdfProduct.quantity,
-        value: pdfProduct.rate,
-        price: pdfProduct.rate,
-        weight: 0,
-        total: pdfProduct.amount,
-        received: false,
-        receivedQuantity: 0,
-        _imeis: pdfProduct.imeis || [],
-      }));
+      const newProducts = editedData.products.map((pdfProduct: any) => {
+        const validatedId = pdfProduct.validation?.productId ?? "";
+        const fallbackMatch = !validatedId
+          ? resolvedMatchByName.get(String(pdfProduct.name || "").trim())
+          : undefined;
+        const finalId = validatedId || fallbackMatch?.productId || "";
+        const finalName = fallbackMatch?.productName || pdfProduct.name;
+        return {
+          id: finalId,
+          productId: finalId,
+          invoiceId: "",
+          name: finalName,
+          quantity: pdfProduct.quantity,
+          value: pdfProduct.rate,
+          price: pdfProduct.rate,
+          weight: 0,
+          total: pdfProduct.amount,
+          received: false,
+          receivedQuantity: 0,
+          _imeis: pdfProduct.imeis || [],
+        };
+      });
 
       const newInvoice: Invoice = {
         id: null,
@@ -425,7 +471,82 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
         return;
       }
 
-      // Validação de produtos sem vínculo removida - backend cria produtos automaticamente quando necessário
+      // 🚫 Bloqueia salvar invoice com produtos sem vínculo (regra: nunca
+      // criar produto novo automaticamente a partir da invoice). Tentamos
+      // primeiro um auto-resolve final via alias/nome canônico antes de
+      // bloquear, para cobrir o caso de o usuário ter cadastrado o produto
+      // em outra aba/tela enquanto editava esta invoice.
+      const productsWithoutLink = currentInvoice.products.filter(
+        (p) => !(p.productId && String(p.productId).trim() !== "") && !(p.id && String(p.id).trim() !== ""),
+      );
+      if (productsWithoutLink.length > 0) {
+        const namesToResolve = Array.from(
+          new Set(productsWithoutLink.map((p) => String(p.name || "").trim()).filter(Boolean)),
+        );
+        if (namesToResolve.length > 0) {
+          try {
+            const { data: resolveResp } = await api.post(
+              "/invoice/product/alias/resolve-many",
+              { names: namesToResolve },
+            );
+            const matchByName = new Map<string, string | null>();
+            for (const m of resolveResp?.matches || []) {
+              matchByName.set(String(m.name), m.productId ?? null);
+            }
+            const updatedProducts = currentInvoice.products.map((p) => {
+              const hasLink = (p.productId && String(p.productId).trim() !== "") || (p.id && String(p.id).trim() !== "");
+              if (hasLink) return p;
+              const matchedId = matchByName.get(String(p.name || "").trim());
+              if (matchedId) {
+                return { ...p, id: matchedId, productId: matchedId };
+              }
+              return p;
+            });
+            setCurrentInvoice({ ...currentInvoice, products: updatedProducts });
+            const stillUnlinked = updatedProducts.filter(
+              (p) => !(p.productId && String(p.productId).trim() !== "") && !(p.id && String(p.id).trim() !== ""),
+            );
+            if (stillUnlinked.length === 0) {
+              currentInvoice.products = updatedProducts;
+            } else {
+              Swal.fire({
+                icon: "warning",
+                title: "Produtos sem vínculo",
+                html:
+                  `<div style="text-align:left;">` +
+                  `Existem <b>${stillUnlinked.length}</b> produto(s) sem vínculo com o cadastro:<br/><br/>` +
+                  stillUnlinked
+                    .slice(0, 10)
+                    .map((p) => `• ${p.name || "(sem nome)"}`)
+                    .join("<br/>") +
+                  (stillUnlinked.length > 10 ? `<br/>… e mais ${stillUnlinked.length - 10}` : "") +
+                  `<br/><br/>Vincule cada produto antes de salvar — não criamos produtos novos automaticamente.` +
+                  `</div>`,
+                confirmButtonText: "Entendi",
+                buttonsStyling: false,
+                customClass: {
+                  confirmButton: "bg-yellow-600 text-white hover:bg-yellow-700 px-4 py-2 rounded font-semibold",
+                  popup: "max-w-xl",
+                },
+              });
+              return;
+            }
+          } catch (resolveError) {
+            console.error("⚠️  Falha ao resolver vínculos no save:", resolveError);
+            Swal.fire({
+              icon: "warning",
+              title: "Produtos sem vínculo",
+              text: `Há ${productsWithoutLink.length} produto(s) sem vínculo. Vincule antes de salvar.`,
+              confirmButtonText: "Ok",
+              buttonsStyling: false,
+              customClass: {
+                confirmButton: "bg-yellow-600 text-white hover:bg-yellow-700 px-4 py-2 rounded font-semibold",
+              },
+            });
+            return;
+          }
+        }
+      }
 
       if (!currentInvoice.number) {
         Swal.fire({
@@ -1096,7 +1217,15 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
                     ) : (
                       <>
                         <td className="px-4 py-2 text-sm text-gray-800">
-                          {product.name || products.find((item) => item.id === product.id)?.name || "-"}
+                          {/*
+                            Quando o produto está VINCULADO ao cadastro (existe no banco),
+                            priorizar o Product.name (nome cadastrado) em vez do nome cru
+                            que veio da invoice/PDF. Fallback para o nome do PDF apenas
+                            quando ainda não há vínculo.
+                          */}
+                          {products.find((item) => item.id === product.id)?.name ||
+                            product.name ||
+                            "-"}
                         </td>
                         <td className="px-4 py-2 text-sm text-right">{product.quantity}</td>
                         <td className="px-4 py-2 text-sm text-right">

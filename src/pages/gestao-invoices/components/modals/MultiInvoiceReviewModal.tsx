@@ -341,10 +341,13 @@ export function MultiInvoiceReviewModal({
     const newProducts = [...currentData.products];
     
     // IMPORTANTE: Manter o preço da invoice (não sobrescrever com o preço do banco)
-    // CRÍTICO (contrato): O nome exibido deve permanecer o da nota; nunca substituir pelo nome do produto vinculado
+    // Regra atual: quando o produto FOR vinculado, exibir o nome cadastrado no
+    // sistema (Product.name) na tela principal. O nome original do PDF ainda é
+    // preservado em `originalPdfName` para auditoria/alias e fallback quando NÃO
+    // houver vínculo.
     newProducts[productIndex] = {
       ...current,
-      name: originalPdfName, // Sempre manter o nome da nota (nunca trocar pelo nome do banco)
+      name: productFromDb.name, // Vincula → assume o nome cadastrado
       originalPdfName: originalPdfName,
       // Mantém o rate original da invoice (não pega do banco)
       validation: {
@@ -817,7 +820,7 @@ export function MultiInvoiceReviewModal({
   };
 
   /** Envia TODAS as invoices das abas para a tela principal como drafts */
-  const handleSendToScreen = () => {
+  const handleSendToScreen = async () => {
     // Validar números duplicados entre as abas
     const numbers = editedDataList
       .map((d) => String(d?.invoiceData?.number ?? "").trim().toLowerCase())
@@ -858,7 +861,115 @@ export function MultiInvoiceReviewModal({
       return;
     }
 
-    const invoices = pdfDataListToInvoices(editedDataList, defaultInvoice);
+    // 🔗 Auto-vincular produtos pendentes consultando o backend ANTES de enviar
+    // para a tela principal. Isso pega vínculos por alias/nome canônico que a
+    // importação inicial pode ter perdido (PDF com acento/espaço diferente,
+    // alias salvo em outra invoice anterior, etc.). NÃO cria nada — só busca.
+    const pendingNamesByPosition: Array<{ tabIdx: number; productIdx: number; name: string }> = [];
+    editedDataList.forEach((data, tabIdx) => {
+      (data.products || []).forEach((p, productIdx) => {
+        const hasLink = !!p.validation?.productId && String(p.validation.productId).trim() !== "";
+        const name = String(p.name || "").trim();
+        if (!hasLink && name) {
+          pendingNamesByPosition.push({ tabIdx, productIdx, name });
+        }
+      });
+    });
+
+    let listAfterAutoLink = editedDataList;
+    if (pendingNamesByPosition.length > 0) {
+      try {
+        const namesToResolve = Array.from(new Set(pendingNamesByPosition.map((p) => p.name)));
+        const { data: resolveResp } = await api.post(
+          "/invoice/product/alias/resolve-many",
+          { names: namesToResolve },
+        );
+        const matchByName = new Map<string, { productId: string | null; productName: string | null; aliasId: string | null }>();
+        for (const m of resolveResp?.matches || []) {
+          matchByName.set(String(m.name), {
+            productId: m.productId ?? null,
+            productName: m.productName ?? null,
+            aliasId: m.aliasId ?? null,
+          });
+        }
+        listAfterAutoLink = editedDataList.map((data, tabIdx) => {
+          const updatedProducts = (data.products || []).map((p, productIdx) => {
+            const hasLink = !!p.validation?.productId && String(p.validation.productId).trim() !== "";
+            if (hasLink) return p;
+            const match = matchByName.get(String(p.name || "").trim());
+            if (!match || !match.productId) return p;
+            return {
+              ...p,
+              // Adota o nome cadastrado para refletir corretamente na tela principal
+              name: match.productName || p.name,
+              validation: {
+                ...p.validation,
+                exists: true,
+                productId: match.productId,
+                matchedByAlias: !!match.aliasId,
+                aliasId: match.aliasId,
+              },
+            } as PdfProduct;
+          });
+          return { ...data, products: updatedProducts };
+        });
+        setEditedDataList(listAfterAutoLink);
+      } catch (resolveError) {
+        console.error("⚠️  Falha ao auto-resolver vínculos de produtos:", resolveError);
+        // Em caso de falha do endpoint, seguimos com a lista original e o
+        // bloqueio abaixo cuida de avisar o usuário.
+      }
+    }
+
+    // 🚫 Regra: NUNCA criar novos produtos automaticamente. Se sobrou algum
+    // produto sem vínculo após o auto-resolve, BLOQUEAR e listar para o
+    // usuário vincular manualmente (na própria aba do produto).
+    type Unlinked = { invoiceNumber: string; tabIdx: number; productNames: string[] };
+    const unlinkedByInvoice: Unlinked[] = [];
+    listAfterAutoLink.forEach((data, tabIdx) => {
+      const names = (data.products || [])
+        .filter((p) => !p.validation?.productId || String(p.validation.productId).trim() === "")
+        .map((p) => String(p.name || "").trim() || "(sem nome)");
+      if (names.length > 0) {
+        unlinkedByInvoice.push({
+          invoiceNumber: String(data.invoiceData?.number ?? "").trim() || `Aba ${tabIdx + 1}`,
+          tabIdx,
+          productNames: names,
+        });
+      }
+    });
+
+    if (unlinkedByInvoice.length > 0) {
+      const totalUnlinked = unlinkedByInvoice.reduce((acc, x) => acc + x.productNames.length, 0);
+      const detalhes = unlinkedByInvoice
+        .map(
+          (u) =>
+            `<div style="text-align:left;margin-top:8px;"><b>Invoice ${u.invoiceNumber}</b><br/>${u.productNames
+              .slice(0, 8)
+              .map((n) => `• ${n}`)
+              .join("<br/>")}${u.productNames.length > 8 ? `<br/>… e mais ${u.productNames.length - 8}` : ""}</div>`,
+        )
+        .join("");
+      // Foca a primeira aba com pendência para facilitar o trabalho
+      setActiveTabIndex(unlinkedByInvoice[0].tabIdx);
+      Swal.fire({
+        icon: "warning",
+        title: "Existem produtos sem vínculo",
+        html:
+          `Há <b>${totalUnlinked}</b> produto(s) sem vínculo com o cadastro. ` +
+          `Vincule cada um na aba antes de enviar para a tela principal — não criamos produtos novos automaticamente.` +
+          detalhes,
+        confirmButtonText: "Entendi",
+        buttonsStyling: false,
+        customClass: {
+          confirmButton: "bg-yellow-600 text-white hover:bg-yellow-700 px-4 py-2 rounded font-semibold",
+          popup: "max-w-xl",
+        },
+      });
+      return;
+    }
+
+    const invoices = pdfDataListToInvoices(listAfterAutoLink, defaultInvoice);
     onSendToScreen?.(invoices);
     setOpenNotification({
       type: "success",

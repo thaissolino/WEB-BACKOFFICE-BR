@@ -2,6 +2,7 @@ import { FilePlus, Save } from "lucide-react";
 import { useState, useEffect } from "react";
 import { api } from "../../../../services/api";
 import { Invoice } from "../types/invoice";
+import { CarrierRateBadge } from "./CarrierRateBadge";
 
 interface NewInvoiceFormProps {
   currentInvoice: Invoice;
@@ -142,40 +143,81 @@ export function NewInvoiceForm({
 
       <div className="mb-4">
         <label className="block text-sm font-medium text-gray-700 mb-1">Freteiro</label>
-        <select
-          name="carrierId"
-          value={currentInvoice.carrierId}
-          onChange={handleInputChange}
-          className="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500"
-        >
-          <option value="">Selecione um freteiro</option>
-          {carriers
-            .filter((carrier) => carrier.id !== currentInvoice.carrier2Id)
-            .map((carrier) => (
-              <option key={carrier.id} value={carrier.id}>
-                {carrier.name} ({carrier.type === "percentage" ? "%" : carrier.type === "perKg" ? "$/kg" : "$/un"})
-              </option>
-            ))}
-        </select>
+        <div className="flex gap-2 items-center">
+          <select
+            name="carrierId"
+            value={currentInvoice.carrierId}
+            onChange={(e) => {
+              const newId = e.target.value;
+              const c = carriers.find((x) => x.id === newId);
+              // Ao trocar de freteiro, copiar a % atual do cadastro como snapshot inicial
+              setCurrentInvoice({
+                ...currentInvoice,
+                carrierId: newId,
+                carrierRateSnapshot: c?.value ?? null,
+              });
+            }}
+            className="flex-1 border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500"
+          >
+            <option value="">Selecione um freteiro</option>
+            {carriers
+              .filter((carrier) => carrier.id !== currentInvoice.carrier2Id)
+              .map((carrier) => (
+                <option key={carrier.id} value={carrier.id}>
+                  {carrier.name} ({carrier.type === "percentage" ? "%" : carrier.type === "perKg" ? "$/kg" : "$/un"})
+                </option>
+              ))}
+          </select>
+          {currentInvoice.carrierId && (
+            <CarrierRateBadge
+              type={carriers.find((c) => c.id === currentInvoice.carrierId)?.type}
+              rate={currentInvoice.carrierRateSnapshot ?? carriers.find((c) => c.id === currentInvoice.carrierId)?.value ?? 0}
+              onSave={(newRate) =>
+                setCurrentInvoice({ ...currentInvoice, carrierRateSnapshot: newRate })
+              }
+              label="Freteiro 1"
+            />
+          )}
+        </div>
       </div>
 
       <div className="mb-4">
         <label className="block text-sm font-medium text-gray-700 mb-1">Freteiro 2</label>
-        <select
-          name="carrier2Id"
-          value={currentInvoice.carrier2Id}
-          onChange={handleInputChange}
-          className="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500"
-        >
-          <option value="">Selecione um freteiro</option>
-          {carriers
-            .filter((carrier) => carrier.id !== currentInvoice.carrierId)
-            .map((carrier) => (
-              <option key={carrier.id} value={carrier.id}>
-                {carrier.name} ({carrier.type === "percentage" ? "%" : carrier.type === "perKg" ? "$/kg" : "$/un"})
-              </option>
-            ))}
-        </select>
+        <div className="flex gap-2 items-center">
+          <select
+            name="carrier2Id"
+            value={currentInvoice.carrier2Id}
+            onChange={(e) => {
+              const newId = e.target.value;
+              const c = carriers.find((x) => x.id === newId);
+              setCurrentInvoice({
+                ...currentInvoice,
+                carrier2Id: newId,
+                carrier2RateSnapshot: c?.value ?? null,
+              });
+            }}
+            className="flex-1 border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500"
+          >
+            <option value="">Selecione um freteiro</option>
+            {carriers
+              .filter((carrier) => carrier.id !== currentInvoice.carrierId)
+              .map((carrier) => (
+                <option key={carrier.id} value={carrier.id}>
+                  {carrier.name} ({carrier.type === "percentage" ? "%" : carrier.type === "perKg" ? "$/kg" : "$/un"})
+                </option>
+              ))}
+          </select>
+          {currentInvoice.carrier2Id && (
+            <CarrierRateBadge
+              type={carriers.find((c) => c.id === currentInvoice.carrier2Id)?.type}
+              rate={currentInvoice.carrier2RateSnapshot ?? carriers.find((c) => c.id === currentInvoice.carrier2Id)?.value ?? 0}
+              onSave={(newRate) =>
+                setCurrentInvoice({ ...currentInvoice, carrier2RateSnapshot: newRate })
+              }
+              label="Freteiro 2"
+            />
+          )}
+        </div>
       </div>
 
       <div className="mb-6">

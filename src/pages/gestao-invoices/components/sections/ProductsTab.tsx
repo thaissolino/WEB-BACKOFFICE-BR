@@ -383,9 +383,9 @@ export function ProductsTab() {
             </select>
           </div>
           <button
-            onClick={() => {
+            onClick={async () => {
+              // Sugestão local imediata (evita travar UI), substituída pelo backend em seguida
               let maiorCodigo = 0;
-
               products.forEach((p) => {
                 const numero = parseInt(p.code);
                 if (!isNaN(numero) && numero > maiorCodigo) {
@@ -396,12 +396,28 @@ export function ProductsTab() {
               setCurrentProduct({
                 id: "",
                 name: "",
-                code: String(maiorCodigo + 1), // código seguro e automático
+                code: String(maiorCodigo + 1),
                 priceweightAverage: 0,
                 weightAverage: 0,
                 description: "",
               });
               setShowModal(true);
+
+              // Buscar do backend o próximo código levando em conta TODOS os produtos
+              // (inclusive inativos / fora da página atual). Isso evita colisão.
+              try {
+                const { data } = await api.get("/invoice/product/next-code");
+                if (data?.code) {
+                  setCurrentProduct((prev) =>
+                    prev ? { ...prev, code: data.code } : prev
+                  );
+                }
+              } catch (err) {
+                console.warn(
+                  "Falha ao consultar /invoice/product/next-code, usando sugestão local",
+                  err
+                );
+              }
             }}
             className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-xl flex items-center shadow-sm"
             disabled={isLoading || isActionLoading}

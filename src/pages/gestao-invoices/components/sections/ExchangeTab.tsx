@@ -64,10 +64,16 @@ export function ExchangeTab() {
   const [valueRaw3, setValorRaw3] = useState("");
   const [valueRaw4, setValorRaw4] = useState("");
 
-  const [dataCarrierPayment, setDataCarrierPayment] = useState({
+  const [dataCarrierPayment, setDataCarrierPayment] = useState<{
+    carrierId: string;
+    date: string;
+    usd: number;
+    obs: string;
+  }>({
     carrierId: "",
     date: new Date().toLocaleDateString("en-CA"),
     usd: 0,
+    obs: "",
   });
 
   const [addBalance, setAddBalance] = useState<{
@@ -85,7 +91,7 @@ export function ExchangeTab() {
   });
 
   console.log(addBalance);
-  const [balance, setBalance] = useState<{ balance: number; averageRate: number }>();
+  const [balance, setBalance] = useState<{ balance: number; averageRate: number; totalBRL?: number }>();
 
   const getBalance = async () => {
     try {
@@ -829,6 +835,19 @@ export function ExchangeTab() {
                   : formatCurrency(balance?.averageRate ?? 0, 4)}
               </span>
             </div>
+            <div className="flex justify-between">
+              <span className="text-gray-700">Total BRL:</span>
+              <span className="font-bold">
+                {loading
+                  ? "Carregando..."
+                  : formatCurrency(
+                      balance?.totalBRL ??
+                        Number(((balance?.balance ?? 0) * (balance?.averageRate ?? 0)).toFixed(2)),
+                      2,
+                      "BRL",
+                    )}
+              </span>
+            </div>
           </div>
         </div>
       </div>
@@ -848,7 +867,7 @@ export function ExchangeTab() {
               onChange={(e) => {
                 const carrierId = e.target.value;
                 if (!carrierId) {
-                  return setDataCarrierPayment({ carrierId: "", date: new Date().toLocaleDateString("en-CA"), usd: 0 });
+                  return setDataCarrierPayment({ carrierId: "", date: new Date().toLocaleDateString("en-CA"), usd: 0, obs: "" });
                 }
                 const carrier = carriers.find((item) => item.id === carrierId);
                 const balance = carrier?.balance || 0;
@@ -966,6 +985,23 @@ export function ExchangeTab() {
           </div>
         </div>
         <div className="mt-4">
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Observação (opcional)
+          </label>
+          <input
+            type="text"
+            value={dataCarrierPayment.obs}
+            onChange={(e) =>
+              setDataCarrierPayment({ ...dataCarrierPayment, obs: e.target.value })
+            }
+            placeholder="Ex: pagto parcial, ref. invoice 1234, etc."
+            className="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500"
+          />
+          <p className="text-xs text-gray-500 mt-1">
+            A observação será exibida no caixa do freteiro e na média dólar.
+          </p>
+        </div>
+        <div className="mt-4">
           <button
             onClick={async () => {
               if (!dataCarrierPayment.carrierId) {
@@ -1030,6 +1066,21 @@ export function ExchangeTab() {
                 setIsSaving3(true);
                 const carrier = carriers.find((c) => c.id === dataCarrierPayment.carrierId);
 
+                // Monta a descrição base + OBS (quando informada). Mantém o prefixo
+                // "PAGAMENTO CAIXA FRETEIRO - <NOME>" para preservar a busca/filtro
+                // existente no Caixa do freteiro e na Média Dólar.
+                const baseDescription = `PAGAMENTO CAIXA FRETEIRO - ${carrier?.name.toUpperCase()}`;
+                const obsTrimmed = (dataCarrierPayment.obs || "").trim();
+                const finalDescription = obsTrimmed
+                  ? `${baseDescription} | OBS: ${obsTrimmed}`
+                  : baseDescription;
+
+                // Detecta pagamento parcial para informar o usuário ao final
+                const carrierBalance = carrier?.balance ?? 0;
+                const owed = carrierBalance < 0 ? Math.abs(carrierBalance) : 0;
+                const isPartial = owed > 0 && Number(dataCarrierPayment.usd) < owed - 0.0001;
+                const remainingAfter = Math.max(0, owed - Number(dataCarrierPayment.usd));
+
                 // Criar transação no caixa do freteiro
                 // Quando pagamos um freteiro, estamos reduzindo a dívida (saldo negativo)
                 // Então é uma entrada (IN) no caixa dele, não uma saída (OUT)
@@ -1038,7 +1089,7 @@ export function ExchangeTab() {
                   entityId: dataCarrierPayment.carrierId,
                   direction: "IN",
                   date: new Date(`${dataCarrierPayment.date}T${new Date().toTimeString().split(" ")[0]}`).toISOString(),
-                  description: `PAGAMENTO CAIXA FRETEIRO - ${carrier?.name.toUpperCase()}`,
+                  description: finalDescription,
                   entityType: "CARRIER",
                 });
 
@@ -1052,7 +1103,9 @@ export function ExchangeTab() {
                   rate: rateValue,
                   type: "PAYMENT",
                   invoiceId: "",
-                  description: `PAGAMENTO CAIXA FRETEIRO - ${carrier?.name.toUpperCase()}`,
+                  description: finalDescription,
+                  partial: isPartial,
+                  remainingAfter,
                 });
 
                 await api.post("/invoice/exchange-records", {
@@ -1061,19 +1114,26 @@ export function ExchangeTab() {
                   rate: rateValue,
                   type: "PAYMENT",
                   invoiceId: "",
-                  description: `PAGAMENTO CAIXA FRETEIRO - ${carrier?.name.toUpperCase()}`,
+                  description: finalDescription,
                 });
 
                 setOpenNotification({
                   type: "success",
                   title: "Sucesso!",
-                  notification: "Pagamento do caixa do freteiro realizado com sucesso!",
+                  notification: isPartial
+                    ? `Pagamento PARCIAL registrado. Saldo restante a pagar para ${carrier?.name}: ${formatCurrency(
+                        remainingAfter,
+                        2,
+                        "USD",
+                      )}.`
+                    : "Pagamento do caixa do freteiro realizado com sucesso!",
                 });
                 setValorRaw4("");
                 setDataCarrierPayment({
                   carrierId: "",
                   date: new Date().toLocaleDateString("en-CA"),
                   usd: 0,
+                  obs: "",
                 });
 
                 // Recarregar dados para atualizar o histórico
