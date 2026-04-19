@@ -115,12 +115,8 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
   const [showAddProductForm, setShowAddProductForm] = useState(false);
   const [currentPage, setCurrentPage] = useState(0);
   const itemsPerPage = 10;
-  // Filtro de status do Histórico de Invoices.
-  // Default: ocultar Concluídas, mostrar apenas Pagas + Pendentes.
-  // Opções: "open" (pagas + pendentes), "pending", "paid", "completed", "all".
-  const [statusFilter, setStatusFilter] = useState<
-    "open" | "pending" | "paid" | "completed" | "all"
-  >("open");
+  // Histórico de Invoices da página principal: SOMENTE pendentes.
+  // Pagas e Concluídas aparecem apenas em Relatórios (aba específica).
   const [newProduct, setNewProduct] = useState({
     productId: "",
     quantity: 1,
@@ -414,23 +410,11 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
 
   const totalQuantidade = selectedInvoice?.products.reduce((sum, product) => sum + product.quantity, 0);
 
-  // Lista filtrada conforme o status selecionado, usada na renderização e paginação.
-  const filteredInvoices = invoices.filter((invoice) => {
-    switch (statusFilter) {
-      case "all":
-        return true;
-      case "completed":
-        return !!invoice.completed;
-      case "paid":
-        return !!invoice.paid && !invoice.completed;
-      case "pending":
-        return !invoice.paid && !invoice.completed;
-      case "open":
-      default:
-        // Padrão: pagas + pendentes (oculta concluídas)
-        return !invoice.completed;
-    }
-  });
+  // Página principal: lista APENAS invoices pendentes (sem pagas e sem concluídas).
+  // Pagas/Concluídas vivem na aba "Relatórios".
+  const filteredInvoices = invoices.filter(
+    (invoice) => !invoice.paid && !invoice.completed,
+  );
 
   return (
     <div className="mt-8 bg-white p-6 pt-4 rounded-lg shadow">
@@ -453,23 +437,6 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
           <p className="text-center text-gray-500 py-6">Carregando invoices...</p>
         ) : (
           <>
-          <div className="flex flex-wrap items-center gap-3 mb-3">
-            <label className="text-sm text-gray-600 font-medium">Filtrar por status:</label>
-            <select
-              value={statusFilter}
-              onChange={(e) => {
-                setStatusFilter(e.target.value as typeof statusFilter);
-                setCurrentPage(0);
-              }}
-              className="border border-gray-300 rounded-md px-3 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-400"
-            >
-              <option value="open">Pagas + Pendentes (padrão)</option>
-              <option value="pending">Apenas Pendentes</option>
-              <option value="paid">Apenas Pagas</option>
-              <option value="completed">Apenas Concluídas</option>
-              <option value="all">Todas</option>
-            </select>
-          </div>
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>

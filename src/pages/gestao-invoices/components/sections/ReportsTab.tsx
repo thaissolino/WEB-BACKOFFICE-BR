@@ -75,19 +75,21 @@ export function ReportsTab() {
       return false;
     }
 
-    // Filtrar por status
-    if (filters.status !== "all") {
-      if (filters.status === "pending") {
-        return !invoice.completed && !invoice.paid;
-      }
-      if (filters.status === "paid") {
-        return invoice.paid && !invoice.completed;
-      }
-      if (filters.status === "completed") {
-        return invoice.completed && invoice.paid;
-      }
+    // Filtrar por status.
+    // Importante: quando o usuário escolhe "Todos", NÃO mostramos concluídas
+    // por padrão — concluídas só aparecem na aba específica de Concluídas
+    // (ou quando o usuário escolher explicitamente "Apenas Concluídas").
+    if (filters.status === "pending") {
+      return !invoice.completed && !invoice.paid;
     }
-    return true;
+    if (filters.status === "paid") {
+      return invoice.paid && !invoice.completed;
+    }
+    if (filters.status === "completed") {
+      return invoice.completed && invoice.paid;
+    }
+    // status === "all" (Todos): pendentes + pagas, SEM concluídas
+    return !invoice.completed;
   });
 
   const pendingCount = invoices.filter((inv) => !inv.completed && !inv.paid).length;
@@ -133,10 +135,10 @@ export function ReportsTab() {
               onChange={(e) => setFilters({ ...filters, status: e.target.value })}
               className="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500"
             >
-              <option value="all">Todos</option>
-              <option value="pending">Pendentes</option>
-              <option value="paid">Pagas</option>
-              <option value="completed">Concluídas</option>
+              <option value="all">Pendentes + Pagas (padrão)</option>
+              <option value="pending">Apenas Pendentes</option>
+              <option value="paid">Apenas Pagas</option>
+              <option value="completed">Apenas Concluídas</option>
             </select>
           </div>
           <div>
