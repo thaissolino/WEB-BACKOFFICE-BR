@@ -1105,3 +1105,5 @@ function formatCurrency(value: number, decimals = 2, currency = "BRL") {
     maximumFractionDigits: decimals,
   }).format(value);
 }
+
+///moottin
