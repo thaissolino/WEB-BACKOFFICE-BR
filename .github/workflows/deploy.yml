@@ -1,0 +1,76 @@
+name: Executar comandos via SSH (Backoffice)
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  exec-comandos:
+    runs-on: ubuntu-latest
+    environment: Production
+
+    steps:
+      - name: 📦 Checkout código
+        uses: actions/checkout@v6
+
+      - name: 📄 Criar arquivo .env temporário
+        run: echo "${{ vars.DOTENV_FILE }}" > .env
+
+      - name: 📦 Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+          cache: "npm"
+
+      - name: 📦 Instalar dependências
+        run: npm ci --legacy-peer-deps
+
+      - name: 🔨 Build (no runner, evita OOM na VPS)
+        run: NODE_OPTIONS="--max-old-space-size=8192" npm run build
+
+      - name: 📦 Compactar build (Vite => dist/)
+        run: tar -czf build.tar.gz -C dist .
+
+      - name: 🔑 Configurar chave SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+
+      - name: 🚚 Enviar .env e build para a VPS (com retry)
+        uses: nick-fields/retry@v4
+        with:
+          timeout_minutes: 5
+          max_attempts: 3
+          retry_wait_seconds: 30
+          command: |
+            ssh -o StrictHostKeyChecking=no -o ConnectTimeout=60 -i ~/.ssh/deploy_key -p ${{ secrets.PORT }} ${{ secrets.USERNAME }}@${{ secrets.HOST }} 'mkdir -p /tmp/br-backoffice-deploy'
+            scp -o StrictHostKeyChecking=no -o ConnectTimeout=60 -o ServerAliveInterval=15 -o ServerAliveCountMax=3 \
+              -i ~/.ssh/deploy_key -P ${{ secrets.PORT }} \
+              .env build.tar.gz ${{ secrets.USERNAME }}@${{ secrets.HOST }}:/tmp/br-backoffice-deploy/
+
+      - name: 🔐 Deploy na VPS (extrair, copiar e reiniciar nginx)
+        uses: nick-fields/retry@v4
+        with:
+          timeout_minutes: 2
+          max_attempts: 3
+          retry_wait_seconds: 30
+          command: |
+            ssh -o StrictHostKeyChecking=no -o ConnectTimeout=60 -o ServerAliveInterval=15 -o ServerAliveCountMax=3 \
+              -i ~/.ssh/deploy_key -p ${{ secrets.PORT }} ${{ secrets.USERNAME }}@${{ secrets.HOST }} '
+              set -e
+              DEPLOY_PATH="${{ vars.DEPLOY_PATH }}"
+              if [ -z "$DEPLOY_PATH" ]; then
+                DEPLOY_PATH="/var/www/backoffice-black-rabbit"
+              fi
+              mkdir -p "$DEPLOY_PATH"
+              cd /tmp/br-backoffice-deploy
+              rm -rf "$DEPLOY_PATH"/*
+              tar -xzf build.tar.gz -C "$DEPLOY_PATH"
+              cp -f .env "$DEPLOY_PATH/.env" || true
+              systemctl reload nginx || systemctl restart nginx
+              rm -rf /tmp/br-backoffice-deploy
+              echo "✅ Deploy do backoffice concluído com sucesso em $DEPLOY_PATH"
+            '
