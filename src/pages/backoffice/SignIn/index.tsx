@@ -15,31 +15,36 @@ export function SignIn() {
 
   // 🔁 Toast de atualização do Service Worker
   useEffect(() => {
-    const toast = document.createElement("div");
-    toast.innerHTML = `
-      <div class="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-50 bg-green-600 text-white px-6 py-3 rounded-full shadow-lg animate-fadeIn toast-shadow">
-        Nova versão disponível! Atualizando...
-        <div class="h-1 bg-white mt-2 rounded animate-progressBar"></div>
-      </div>
-    `;
+    if (!("serviceWorker" in navigator)) return;
 
-    if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.addEventListener("message", (event) => {
-        if (event.data?.type === "RELOAD_PAGE") {
-          document.body.appendChild(toast);
-          setTimeout(() => {
-            window.location.reload();
-          }, 2000);
-        }
-      });
+    const onMessage = (event: MessageEvent) => {
+      if (event.data?.type !== "RELOAD_PAGE") return;
 
-      window.addEventListener("load", () => {
-        navigator.serviceWorker
-          .register("/service-worker.js")
-          .then((reg) => console.log("✅ SW registrado na tela de login:", reg))
-          .catch((err) => console.error("❌ Erro ao registrar SW no login:", err));
-      });
-    }
+      // Evita loop: em cada sessão, permitimos no máximo 1 reload automático.
+      const hasReloaded = sessionStorage.getItem("sw-reload-done") === "1";
+      if (hasReloaded) return;
+
+      sessionStorage.setItem("sw-reload-done", "1");
+
+      const toast = document.createElement("div");
+      toast.innerHTML = `
+        <div class="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-50 bg-green-600 text-white px-6 py-3 rounded-full shadow-lg animate-fadeIn toast-shadow">
+          Nova versão disponível! Atualizando...
+          <div class="h-1 bg-white mt-2 rounded animate-progressBar"></div>
+        </div>
+      `;
+      document.body.appendChild(toast);
+
+      setTimeout(() => {
+        window.location.reload();
+      }, 1200);
+    };
+
+    navigator.serviceWorker.addEventListener("message", onMessage);
+
+    return () => {
+      navigator.serviceWorker.removeEventListener("message", onMessage);
+    };
   }, []);
 
   async function handleForm(e: FormEvent) {
