@@ -39,6 +39,12 @@ jobs:
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
 
+      - name: 🔍 Debug fingerprint da chave do workflow
+        run: |
+          ssh-keygen -y -f ~/.ssh/deploy_key > /tmp/deploy_key.pub
+          echo "Fingerprint da chave usada no workflow:"
+          ssh-keygen -lf /tmp/deploy_key.pub
+
       - name: 🚚 Enviar .env e build para a VPS (com retry)
         uses: nick-fields/retry@v4
         with:
