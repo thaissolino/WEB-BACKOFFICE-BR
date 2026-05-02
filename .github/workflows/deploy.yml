@@ -46,10 +46,24 @@ jobs:
           max_attempts: 3
           retry_wait_seconds: 30
           command: |
-            ssh -o StrictHostKeyChecking=no -o ConnectTimeout=60 -i ~/.ssh/deploy_key -p ${{ secrets.PORT }} ${{ secrets.USERNAME }}@${{ secrets.HOST }} 'mkdir -p /tmp/br-backoffice-deploy'
+            SSH_HOST="${{ secrets.HOST }}"
+            SSH_USER="${{ secrets.USERNAME }}"
+            SSH_PORT="${{ secrets.PORT }}"
+            [ -z "$SSH_PORT" ] && SSH_PORT="22"
+
+            if ! echo "$SSH_PORT" | grep -Eq '^[0-9]+$'; then
+              echo "❌ SSH_PORT inválida: '$SSH_PORT'"
+              exit 1
+            fi
+            if [ -z "$SSH_HOST" ] || [ -z "$SSH_USER" ]; then
+              echo "❌ HOST/USERNAME não configurados."
+              exit 1
+            fi
+
+            ssh -o StrictHostKeyChecking=no -o ConnectTimeout=60 -i ~/.ssh/deploy_key -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" 'mkdir -p /tmp/br-backoffice-deploy'
             scp -o StrictHostKeyChecking=no -o ConnectTimeout=60 -o ServerAliveInterval=15 -o ServerAliveCountMax=3 \
-              -i ~/.ssh/deploy_key -P ${{ secrets.PORT }} \
-              .env build.tar.gz ${{ secrets.USERNAME }}@${{ secrets.HOST }}:/tmp/br-backoffice-deploy/
+              -i ~/.ssh/deploy_key -P "$SSH_PORT" \
+              .env build.tar.gz "$SSH_USER@$SSH_HOST:/tmp/br-backoffice-deploy/"
 
       - name: 🔐 Deploy na VPS (extrair, copiar e reiniciar nginx)
         uses: nick-fields/retry@v4
@@ -58,8 +72,22 @@ jobs:
           max_attempts: 3
           retry_wait_seconds: 30
           command: |
+            SSH_HOST="${{ secrets.HOST }}"
+            SSH_USER="${{ secrets.USERNAME }}"
+            SSH_PORT="${{ secrets.PORT }}"
+            [ -z "$SSH_PORT" ] && SSH_PORT="22"
+
+            if ! echo "$SSH_PORT" | grep -Eq '^[0-9]+$'; then
+              echo "❌ SSH_PORT inválida: '$SSH_PORT'"
+              exit 1
+            fi
+            if [ -z "$SSH_HOST" ] || [ -z "$SSH_USER" ]; then
+              echo "❌ HOST/USERNAME não configurados."
+              exit 1
+            fi
+
             ssh -o StrictHostKeyChecking=no -o ConnectTimeout=60 -o ServerAliveInterval=15 -o ServerAliveCountMax=3 \
-              -i ~/.ssh/deploy_key -p ${{ secrets.PORT }} ${{ secrets.USERNAME }}@${{ secrets.HOST }} '
+              -i ~/.ssh/deploy_key -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" '
               set -e
               DEPLOY_PATH="${{ vars.DEPLOY_PATH }}"
               if [ -z "$DEPLOY_PATH" ]; then
