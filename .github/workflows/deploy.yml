@@ -95,10 +95,11 @@ jobs:
             DOMAIN="${{ env.PRODUCTION_DOMAIN }}"
 
             if ss -lntp | grep -q ":${APP_PORT} "; then
-              OWNER="$(ss -lntp | grep ":${APP_PORT} " || true)"
-              if ! echo "${OWNER}" | grep -q "${PM2_NAME}"; then
-                echo "Porta ${APP_PORT} ocupada por outro processo:"
-                echo "${OWNER}"
+              if pm2 describe "${PM2_NAME}" >/dev/null 2>&1; then
+                echo "Porta ${APP_PORT} em uso por ${PM2_NAME} — redeploy seguro"
+              else
+                echo "Porta ${APP_PORT} ocupada por OUTRO processo (nao e ${PM2_NAME}):"
+                ss -lntp | grep ":${APP_PORT} " || true
                 exit 1
               fi
             fi
