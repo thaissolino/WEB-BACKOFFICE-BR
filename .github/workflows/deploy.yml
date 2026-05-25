@@ -1,4 +1,8 @@
-name: Executar comandos via SSH (Backoffice)
+# Deploy: Backoffice admin
+# Domínio produção: backoffice.vilablackrabbit.com.br  →  Nginx  →  127.0.0.1:4173  →  PM2 backoffice-front
+# NÃO mexe em outros PM2 nem reinicia nginx (reload global removido por segurança).
+
+name: Deploy Backoffice VPS (backoffice.vilablackrabbit.com.br)
 
 on:
   push:
@@ -7,109 +11,116 @@ on:
   workflow_dispatch:
 
 jobs:
-  exec-comandos:
+  deploy:
     runs-on: ubuntu-latest
     environment: Production
 
+    env:
+      VPS_APP_DIR: ${{ vars.VPS_APP_DIR || '/root/backoffice-black-rabbit' }}
+      VPS_APP_PORT: ${{ vars.VPS_APP_PORT || '4173' }}
+      PM2_APP_NAME: ${{ vars.PM2_APP_NAME || 'backoffice-front' }}
+      PRODUCTION_DOMAIN: ${{ vars.PRODUCTION_DOMAIN || 'backoffice.vilablackrabbit.com.br' }}
+
     steps:
-      - name: 📦 Checkout código
-        uses: actions/checkout@v6
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - name: 📄 Criar arquivo .env temporário
-        run: echo "${{ vars.DOTENV_FILE }}" > .env
+      - name: Criar .env temporario
+        if: ${{ vars.DOTENV_FILE != '' }}
+        run: |
+          cat > .env <<'EOF'
+          ${{ vars.DOTENV_FILE }}
+          EOF
 
-      - name: 📦 Setup Node.js
-        uses: actions/setup-node@v5
+      - name: Setup Node
+        uses: actions/setup-node@v4
         with:
-          node-version: "24"
-          cache: "npm"
+          node-version: "22"
+          cache: npm
 
-      - name: 📦 Instalar dependências
-        run: npm ci --legacy-peer-deps
+      - name: Instalar dependencias
+        run: npm ci --legacy-peer-deps || npm install --legacy-peer-deps
 
-      - name: 🔨 Build (no runner, evita OOM na VPS)
-        run: NODE_OPTIONS="--max-old-space-size=8192" npm run build
+      - name: Build Vite (no runner, evita OOM na VPS)
+        env:
+          NODE_OPTIONS: "--max-old-space-size=8192"
+        run: npm run build
 
-      - name: 📦 Compactar build (Vite => dist/)
+      - name: Compactar dist
         run: tar -czf build.tar.gz -C dist .
 
-      - name: 🔑 Configurar chave SSH
+      - name: Configurar chave SSH
         run: |
           mkdir -p ~/.ssh
           printf '%s\n' "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
           sed -i 's/\r$//' ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-          if ! ssh-keygen -l -f ~/.ssh/deploy_key >/dev/null 2>&1; then
-            echo "❌ SSH_PRIVATE_KEY inválida ou em formato incorreto (verifique se é CHAVE PRIVADA completa)."
-            exit 1
-          fi
 
-      - name: 🔍 Debug fingerprint da chave do workflow
-        run: |
-          ssh-keygen -y -f ~/.ssh/deploy_key > /tmp/deploy_key.pub
-          echo "Fingerprint da chave usada no workflow:"
-          ssh-keygen -lf /tmp/deploy_key.pub
-
-      - name: 🚚 Enviar .env e build para a VPS (com retry)
+      - name: Enviar artefatos para VPS
         uses: nick-fields/retry@v4
         with:
           timeout_minutes: 5
           max_attempts: 3
           retry_wait_seconds: 30
           command: |
-            SSH_HOST="${{ secrets.HOST }}"
-            SSH_USER="${{ secrets.USERNAME }}"
             SSH_PORT="${{ secrets.PORT }}"
             [ -z "$SSH_PORT" ] && SSH_PORT="22"
-
-            if ! echo "$SSH_PORT" | grep -Eq '^[0-9]+$'; then
-              echo "❌ SSH_PORT inválida: '$SSH_PORT'"
-              exit 1
+            ssh -o StrictHostKeyChecking=no -o ConnectTimeout=60 -i ~/.ssh/deploy_key -p "$SSH_PORT" \
+              "${{ secrets.USERNAME }}@${{ secrets.HOST }}" 'mkdir -p /tmp/br-backoffice-deploy'
+            scp -o StrictHostKeyChecking=no -o ConnectTimeout=60 -i ~/.ssh/deploy_key -P "$SSH_PORT" \
+              build.tar.gz ${{ secrets.USERNAME }}@${{ secrets.HOST }}:/tmp/br-backoffice-deploy/
+            if [ -f .env ]; then
+              scp -o StrictHostKeyChecking=no -o ConnectTimeout=60 -i ~/.ssh/deploy_key -P "$SSH_PORT" \
+                .env ${{ secrets.USERNAME }}@${{ secrets.HOST }}:/tmp/br-backoffice-deploy/
             fi
-            if [ -z "$SSH_HOST" ] || [ -z "$SSH_USER" ]; then
-              echo "❌ HOST/USERNAME não configurados."
-              exit 1
-            fi
 
-            ssh -o StrictHostKeyChecking=no -o ConnectTimeout=60 -i ~/.ssh/deploy_key -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" 'mkdir -p /tmp/br-backoffice-deploy'
-            scp -o StrictHostKeyChecking=no -o ConnectTimeout=60 -o ServerAliveInterval=15 -o ServerAliveCountMax=3 \
-              -i ~/.ssh/deploy_key -P "$SSH_PORT" \
-              .env build.tar.gz "$SSH_USER@$SSH_HOST:/tmp/br-backoffice-deploy/"
-
-      - name: 🔐 Deploy na VPS (extrair, copiar e reiniciar nginx)
-        uses: nick-fields/retry@v4
+      - name: Deploy na VPS (somente backoffice-front)
+        uses: appleboy/ssh-action@v1.2.0
         with:
-          timeout_minutes: 2
-          max_attempts: 3
-          retry_wait_seconds: 30
-          command: |
-            SSH_HOST="${{ secrets.HOST }}"
-            SSH_USER="${{ secrets.USERNAME }}"
-            SSH_PORT="${{ secrets.PORT }}"
-            [ -z "$SSH_PORT" ] && SSH_PORT="22"
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USERNAME }}
+          port: ${{ secrets.PORT }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          command_timeout: 20m
+          script: |
+            set -euo pipefail
 
-            if ! echo "$SSH_PORT" | grep -Eq '^[0-9]+$'; then
-              echo "❌ SSH_PORT inválida: '$SSH_PORT'"
-              exit 1
-            fi
-            if [ -z "$SSH_HOST" ] || [ -z "$SSH_USER" ]; then
-              echo "❌ HOST/USERNAME não configurados."
-              exit 1
-            fi
+            export PATH="/root/.local/share/fnm:/root/.local/share/fnm/current/bin:$PATH"
+            eval "$(/root/.local/share/fnm/fnm env)"
+            fnm use --install-if-missing 22
 
-            ssh -o StrictHostKeyChecking=no -o ConnectTimeout=60 -o ServerAliveInterval=15 -o ServerAliveCountMax=3 \
-              -i ~/.ssh/deploy_key -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" '
-              set -e
-              DEPLOY_PATH="${{ vars.DEPLOY_PATH }}"
-              if [ -z "$DEPLOY_PATH" ]; then
-                DEPLOY_PATH="/var/www/backoffice-black-rabbit"
+            APP_DIR="${{ env.VPS_APP_DIR }}"
+            APP_PORT="${{ env.VPS_APP_PORT }}"
+            PM2_NAME="${{ env.PM2_APP_NAME }}"
+            DOMAIN="${{ env.PRODUCTION_DOMAIN }}"
+
+            if ss -lntp | grep -q ":${APP_PORT} "; then
+              OWNER="$(ss -lntp | grep ":${APP_PORT} " || true)"
+              if ! echo "${OWNER}" | grep -q "${PM2_NAME}"; then
+                echo "Porta ${APP_PORT} ocupada por outro processo:"
+                echo "${OWNER}"
+                exit 1
               fi
-              mkdir -p "$DEPLOY_PATH"
-              cd /tmp/br-backoffice-deploy
-              rm -rf "$DEPLOY_PATH"/*
-              tar -xzf build.tar.gz -C "$DEPLOY_PATH"
-              cp -f .env "$DEPLOY_PATH/.env" || true
-              systemctl reload nginx || systemctl restart nginx
-              rm -rf /tmp/br-backoffice-deploy
-              echo "✅ Deploy do backoffice concluído com sucesso em $DEPLOY_PATH"
-            '
+            fi
+
+            mkdir -p "${APP_DIR}/dist"
+            rm -rf "${APP_DIR}/dist"/*
+            tar -xzf /tmp/br-backoffice-deploy/build.tar.gz -C "${APP_DIR}/dist"
+            if [ -f /tmp/br-backoffice-deploy/.env ]; then
+              cp -f /tmp/br-backoffice-deploy/.env "${APP_DIR}/.env"
+            fi
+            rm -rf /tmp/br-backoffice-deploy
+
+            if [ ! -f "${APP_DIR}/dist/index.html" ]; then
+              echo "dist/index.html nao encontrado"
+              exit 1
+            fi
+
+            cd "${APP_DIR}"
+            pm2 delete "${PM2_NAME}" >/dev/null 2>&1 || true
+            pm2 start "npx serve -s dist -l ${APP_PORT} --no-clipboard" --name "${PM2_NAME}"
+            pm2 save
+
+            curl -sf "http://127.0.0.1:${APP_PORT}/" >/dev/null
+            echo "Deploy OK: ${DOMAIN} ja aponta nginx -> 127.0.0.1:${APP_PORT}"
+            pm2 list | grep "${PM2_NAME}" || true
