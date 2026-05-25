@@ -119,9 +119,26 @@ jobs:
 
             cd "${APP_DIR}"
             pm2 delete "${PM2_NAME}" >/dev/null 2>&1 || true
+            for i in $(seq 1 15); do
+              if ! ss -lntp | grep -q ":${APP_PORT} "; then
+                break
+              fi
+              sleep 1
+            done
             pm2 start "npx serve -s dist -l ${APP_PORT} --no-clipboard" --name "${PM2_NAME}"
             pm2 save
 
-            curl -sf "http://127.0.0.1:${APP_PORT}/" >/dev/null
+            for i in $(seq 1 30); do
+              if curl -sf "http://127.0.0.1:${APP_PORT}/" >/dev/null; then
+                echo "Health check OK (tentativa ${i})"
+                break
+              fi
+              if [ "${i}" -eq 30 ]; then
+                echo "Health check falhou apos 30 tentativas"
+                pm2 logs "${PM2_NAME}" --lines 30 --nostream || true
+                exit 1
+              fi
+              sleep 2
+            done
             echo "Deploy OK: ${DOMAIN} ja aponta nginx -> 127.0.0.1:${APP_PORT}"
             pm2 list | grep "${PM2_NAME}" || true
