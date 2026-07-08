@@ -5,10 +5,14 @@ import { api } from "../../../../services/api";
 import { useNotification } from "../../../../hooks/notification";
 import { useActionLoading } from "../../context/ActionLoadingContext";
 
+export type SupplierCurrency = "USD" | "BRL";
+
 export interface Supplier {
   id: string;
   name: string;
   phone: string;
+  /** Moeda de compra: USD ($) ou BRL (R$). Obrigatória no cadastro. */
+  currency?: SupplierCurrency | null;
   active?: boolean;
 }
 
@@ -122,11 +126,11 @@ export function SuppliersTab() {
     await executeAction(async () => {
       const trimmedName = currentSupplier.name.trim();
       const trimmedPhone = currentSupplier.phone.trim();
-      if (trimmedName === "" || trimmedPhone === "") {
+      if (trimmedName === "" || trimmedPhone === "" || !currentSupplier.currency) {
         Swal.fire({
           icon: "error",
           title: "Erro",
-          text: "Nome e telefone do fornecedor são obrigatórios.",
+          text: "Nome, telefone e moeda ($ ou R$) do fornecedor são obrigatórios.",
           buttonsStyling: false,
           customClass: {
             confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
@@ -301,6 +305,7 @@ export function SuppliersTab() {
               id: "",
               name: "",
               phone: "",
+              currency: null,
             });
             setShowModal(true);
           }}
@@ -325,6 +330,9 @@ export function SuppliersTab() {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Telefone
                 </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Moeda
+                </th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Ações
                 </th>
@@ -333,7 +341,7 @@ export function SuppliersTab() {
             <tbody className="bg-white divide-y divide-gray-100">
               {suppliers.length === 0 ? (
                 <tr>
-                  <td colSpan={3} className="px-6 py-4 text-center text-gray-500">
+                  <td colSpan={4} className="px-6 py-4 text-center text-gray-500">
                     {isLoading ? "Carregando..." : "Nenhum fornecedor cadastrado"}
                   </td>
                 </tr>
@@ -346,6 +354,21 @@ export function SuppliersTab() {
                           {supplier.name}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{supplier.phone}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm">
+                          {supplier.currency === "BRL" ? (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-700">
+                              R$ (Real)
+                            </span>
+                          ) : supplier.currency === "USD" ? (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-700">
+                              $ (Dólar)
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-500" title="Fornecedor antigo sem moeda definida — edite para definir">
+                              Não definida
+                            </span>
+                          )}
+                        </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                           <button
                             onClick={() => handleEdit(supplier)}
@@ -509,6 +532,42 @@ export function SuppliersTab() {
                   className="w-full border border-gray-200 rounded-xl p-3 focus:ring-2 focus:ring-blue-400 focus:border-blue-300"
                   disabled={isSubmitting}
                 />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Moeda <span className="text-red-500">*</span>
+                </label>
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setCurrentSupplier({ ...currentSupplier, currency: "USD" })}
+                    disabled={isSubmitting}
+                    className={`flex-1 border rounded-xl p-3 font-semibold transition-colors ${
+                      currentSupplier.currency === "USD"
+                        ? "border-blue-500 bg-blue-50 text-blue-700 ring-2 ring-blue-300"
+                        : "border-gray-200 text-gray-600 hover:bg-gray-50"
+                    }`}
+                  >
+                    $ (Dólar)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCurrentSupplier({ ...currentSupplier, currency: "BRL" })}
+                    disabled={isSubmitting}
+                    className={`flex-1 border rounded-xl p-3 font-semibold transition-colors ${
+                      currentSupplier.currency === "BRL"
+                        ? "border-green-500 bg-green-50 text-green-700 ring-2 ring-green-300"
+                        : "border-gray-200 text-gray-600 hover:bg-gray-50"
+                    }`}
+                  >
+                    R$ (Real)
+                  </button>
+                </div>
+                {currentSupplier.currency === "BRL" && (
+                  <p className="mt-2 text-xs text-amber-600">
+                    Fornecedor em R$: nas invoices dele, os Freteiros 1 e 2 ficam bloqueados — apenas o frete SP fica disponível.
+                  </p>
+                )}
               </div>
             </div>
             <div className="mt-6 flex justify-end space-x-3">

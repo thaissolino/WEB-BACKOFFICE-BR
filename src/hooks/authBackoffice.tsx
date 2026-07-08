@@ -48,7 +48,20 @@ const AuthBackofficeContext = createContext({} as AuthBackofficeContextProps);
 const INACTIVITY_LIMIT = 300000; // 5 minutos
 
 const AuthBackofficeProvider = ({ children }: AuthBackofficeProviderProps) => {
-  const [isAuthenticated, setIsAuthenticate] = useState(false);
+  // Hidrata a sessão do localStorage no primeiro render: com token + user
+  // salvos, o usuário permanece logado após um refresh (F5). O initialize()
+  // valida o token no backend em seguida e só desloga se ele estiver
+  // expirado/inválido (401 / SESSION_EXPIRED).
+  const [isAuthenticated, setIsAuthenticate] = useState(() => {
+    try {
+      return (
+        !!localStorage.getItem("@backoffice:token") &&
+        !!localStorage.getItem("@backoffice:user")
+      );
+    } catch {
+      return false;
+    }
+  });
   const [isModalOpen, setIsModalOpen] = useState(false);
   const lastActivityTimeRef = useRef<number>(Date.now());
 
@@ -160,25 +173,11 @@ const AuthBackofficeProvider = ({ children }: AuthBackofficeProviderProps) => {
 
   let isFetchingAccount = false;
 
+  // Valida a sessão salva no localStorage contra o backend, em QUALQUER rota
+  // (antes só validava em paths /backoffice*, o que deslogava o usuário em
+  // refresh nas demais telas). Regra: no refresh o usuário só sai do sistema
+  // se o token estiver expirado/inválido (401 / SESSION_EXPIRED).
   const initialize = useCallback(async () => {
-    const currentPath = window.location.pathname || "";
-
-    if (
-      currentPath === "/session-expired" ||
-      currentPath === "/session-expired/backoffice"
-    ) {
-      setIsAuthenticate(false);
-      return;
-    }
-    if (currentPath === "/signin/backoffice") {
-      setIsAuthenticate(false);
-      return;
-    }
-    if (!currentPath.startsWith("/backoffice")) {
-      setIsAuthenticate(false);
-      return;
-    }
-
     const token = localStorage.getItem("@backoffice:token");
     const userString = localStorage.getItem("@backoffice:user");
 
@@ -194,9 +193,15 @@ const AuthBackofficeProvider = ({ children }: AuthBackofficeProviderProps) => {
       });
       if (data?.user?.access_token) {
         localStorage.setItem("@backoffice:token", data.user.access_token);
+        api.defaults.headers.common["Authorization"] = `Bearer ${data.user.access_token}`;
+        if (data.user) {
+          setUser(data.user);
+          localStorage.setItem("@backoffice:user", JSON.stringify(data.user));
+        }
         setIsAuthenticate(true);
       } else {
-        setIsAuthenticate(false);
+        // Resposta OK sem novo token: mantém a sessão com o token atual
+        setIsAuthenticate(true);
       }
     } catch (err: any) {
       const status = err.response?.status;
@@ -204,9 +209,9 @@ const AuthBackofficeProvider = ({ children }: AuthBackofficeProviderProps) => {
       // Token inválido ou sessão expirada ao validar: só desloga e redireciona para login (não para session-expired)
       if (status === 401 || code === "SESSION_EXPIRED") {
         onLogout(false);
-      } else {
-        setIsAuthenticate(false);
       }
+      // Erro de rede/servidor (backend fora do ar, timeout etc.): NÃO desloga.
+      // O usuário permanece com a sessão local até uma validação definitiva.
     }
   }, [onLogout]);
 

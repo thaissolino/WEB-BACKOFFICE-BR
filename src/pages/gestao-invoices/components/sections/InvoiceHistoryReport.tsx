@@ -47,6 +47,9 @@ export type InvoiceData = {
   paidDollarRate: number | null;
   completed: boolean;
   completedDate: string | null;
+  /** Snapshot da % do freteiro no momento da nota (imutável). Quando presente, sobrescreve carrier.value nos cálculos. */
+  carrierRateSnapshot?: number | null;
+  carrier2RateSnapshot?: number | null;
   products: {
     id: string;
     invoiceId: string;
@@ -150,7 +153,26 @@ export function InvoiceHistoryReport({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [products, setProducts] = useState<Product[]>([]);
-  const [selectedInvoice, setSelectedInvoice] = useState<InvoiceData | null>(null);
+  const [selectedInvoice, setSelectedInvoiceRaw] = useState<InvoiceData | null>(null);
+
+  // Imutabilidade da % do freteiro: ao selecionar uma nota, aplica o snapshot
+  // congelado (quando existir) sobre carrier.value / carrier2.value, para que
+  // todos os cálculos e exibições deste relatório usem a % da época da nota,
+  // e não a % atual do cadastro do freteiro.
+  const setSelectedInvoice = (inv: InvoiceData | null) =>
+    setSelectedInvoiceRaw(
+      inv
+        ? {
+            ...inv,
+            carrier: inv.carrier
+              ? { ...inv.carrier, value: inv.carrierRateSnapshot ?? inv.carrier.value }
+              : inv.carrier,
+            carrier2: inv.carrier2
+              ? { ...inv.carrier2, value: inv.carrier2RateSnapshot ?? inv.carrier2.value }
+              : inv.carrier2,
+          }
+        : null
+    );
   const [isSaving, setIsSaving] = useState(false);
   const [isSavingId, setIsSavingId] = useState("");
   const [isSavingReceiveId, setIsSavingReceiveId] = useState("");

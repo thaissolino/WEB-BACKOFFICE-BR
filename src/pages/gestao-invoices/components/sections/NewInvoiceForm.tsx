@@ -45,12 +45,34 @@ export function NewInvoiceForm({
     fetchData();
   }, []);
 
+  // Fornecedor em R$ (BRL): mercadoria comprada já em real → Freteiros 1 e 2
+  // ficam bloqueados, apenas o frete SP x ES fica disponível.
+  const selectedSupplier = suppliers.find((s) => s.id === currentInvoice.supplierId);
+  const isBrlSupplier = selectedSupplier?.currency === "BRL";
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     if(name === "number"){
       console.log(value.toUpperCase())
       setCurrentInvoice({...currentInvoice, [name]: value.toUpperCase()})
       return
+    }
+    if (name === "supplierId") {
+      const newSupplier = suppliers.find((s) => s.id === value);
+      if (newSupplier?.currency === "BRL") {
+        // Limpa os freteiros ao selecionar fornecedor em R$
+        setCurrentInvoice({
+          ...currentInvoice,
+          supplierId: value,
+          carrierId: "",
+          carrier2Id: "",
+          carrierRateSnapshot: null,
+          carrier2RateSnapshot: null,
+        });
+        return;
+      }
+      setCurrentInvoice({ ...currentInvoice, supplierId: value });
+      return;
     }
     if (name === "taxaSpEs") {
       if (/^[0-9]*[.,]?[0-9]{0,2}$/.test(value)) {
@@ -98,10 +120,15 @@ export function NewInvoiceForm({
           <option value="">Selecione um fornecedor</option>
           {suppliers.map((supplier) => (
             <option key={supplier.id} value={supplier.id}>
-              {supplier.name}
+              {supplier.name}{supplier.currency === "BRL" ? " (R$)" : supplier.currency === "USD" ? " ($)" : ""}
             </option>
           ))}
         </select>
+        {isBrlSupplier && (
+          <p className="mt-1 text-xs text-amber-600">
+            Fornecedor em R$ — Freteiros 1 e 2 bloqueados. Apenas o frete SP está disponível.
+          </p>
+        )}
       </div>
 
       <div className="mb-4">
@@ -142,7 +169,10 @@ export function NewInvoiceForm({
       </div>
 
       <div className="mb-4">
-        <label className="block text-sm font-medium text-gray-700 mb-1">Freteiro</label>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Freteiro
+          {isBrlSupplier && <span className="ml-2 text-xs text-amber-600">(Bloqueado — fornecedor em R$)</span>}
+        </label>
         <div className="flex gap-2 items-center">
           <select
             name="carrierId"
@@ -157,7 +187,11 @@ export function NewInvoiceForm({
                 carrierRateSnapshot: c?.value ?? null,
               });
             }}
-            className="flex-1 border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500"
+            disabled={isBrlSupplier}
+            title={isBrlSupplier ? "Fornecedor em R$ — apenas o frete SP está disponível" : ""}
+            className={`flex-1 border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500 ${
+              isBrlSupplier ? "bg-gray-100 cursor-not-allowed" : ""
+            }`}
           >
             <option value="">Selecione um freteiro</option>
             {carriers
@@ -182,7 +216,10 @@ export function NewInvoiceForm({
       </div>
 
       <div className="mb-4">
-        <label className="block text-sm font-medium text-gray-700 mb-1">Freteiro 2</label>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Freteiro 2
+          {isBrlSupplier && <span className="ml-2 text-xs text-amber-600">(Bloqueado — fornecedor em R$)</span>}
+        </label>
         <div className="flex gap-2 items-center">
           <select
             name="carrier2Id"
@@ -196,7 +233,11 @@ export function NewInvoiceForm({
                 carrier2RateSnapshot: c?.value ?? null,
               });
             }}
-            className="flex-1 border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500"
+            disabled={isBrlSupplier}
+            title={isBrlSupplier ? "Fornecedor em R$ — apenas o frete SP está disponível" : ""}
+            className={`flex-1 border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500 ${
+              isBrlSupplier ? "bg-gray-100 cursor-not-allowed" : ""
+            }`}
           >
             <option value="">Selecione um freteiro</option>
             {carriers
