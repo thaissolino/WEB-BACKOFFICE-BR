@@ -14,7 +14,7 @@ jobs:
 
     steps:
       - name: Checkout original repo
-        uses: actions/checkout@v3
+        uses: actions/checkout@v5
         with:
           repository: WDS-Services/WEB-BACKOFFICE-BR
           token: ${{ secrets.MIRROR_TOKEN }}
