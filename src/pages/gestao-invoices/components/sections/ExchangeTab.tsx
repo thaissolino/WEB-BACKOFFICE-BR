@@ -417,7 +417,8 @@ export function ExchangeTab() {
         ...dataPayment,
         date: new Date(`${dataPayment.date}T${new Date().toTimeString().split(" ")[0]}`),
         usd: Number(dataPayment.usd),
-        rate: isBrlPayment ? 1 : balance?.averageRate,
+        // BRL: o backend grava o CM vigente como taxa da conversão R$ → US$
+        rate: balance?.averageRate,
         currency: isBrlPayment ? "BRL" : "USD",
       });
       // Swal.fire({
@@ -1282,7 +1283,7 @@ export function ExchangeTab() {
             />
             {paymentIsBrl && (
               <p className="mt-1 text-xs text-amber-600">
-                Pagamento em Real — abate do saldo em R$ (Total BRL), sem usar saldo em dólar.
+                Pagamento em Real — abate do Total BRL e desconta o equivalente em dólar pelo custo médio.
               </p>
             )}
           </div>
@@ -1383,7 +1384,7 @@ export function ExchangeTab() {
                           : formatCurrency(transacao.usd, 2, "USD")}
                       </td>
                       <td className={`py-2 px-4 border ${rowClass} text-center font-mono`}>
-                        {transacao.currency === "BRL" ? "—" : formatCurrency(transacao.rate, 4) || "-"}
+                        {formatCurrency(transacao.rate, 4) || "-"}
                       </td>
                       <td className={`py-2 px-4 border ${rowClass} text-center`}>
                         {transacao.description.toUpperCase()}
