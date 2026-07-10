@@ -10,10 +10,11 @@ import { formatProductMoney, isBrlSupplierCurrency } from "../utils/invoiceCurre
 
 export interface FinancialTransaction {
   id: string;
-  date: Date; // ISO string, pode usar `Date` se for convertido
+  date: Date;
   type: "BUY" | "PAYMENT";
   usd: number;
   rate: number;
+  currency?: "USD" | "BRL" | null;
   description: string;
   invoiceId: string;
   userId?: string | null;
@@ -336,7 +337,7 @@ export function ExchangeTab() {
     const selectedInvoice = invoices.find((inv) => inv.id === dataPayment.invoiceId);
     const isBrlPayment = isBrlSupplierCurrency(selectedInvoice?.supplier?.currency);
 
-    if (!isBrlPayment && !balance) {
+    if (!balance) {
       Swal.fire({
         icon: "warning",
         title: "Atenção",
@@ -350,8 +351,36 @@ export function ExchangeTab() {
       return;
     }
 
-    // Fornecedor em R$: pagamento direto em Real, sem conversão nem saldo de dólar
-    if (!isBrlPayment) {
+    if (isBrlPayment) {
+      const saldoReal = Number(balance?.totalBRL) || 0;
+      if (saldoReal <= 0) {
+        Swal.fire({
+          icon: "warning",
+          title: "Atenção",
+          text: "Não há saldo em Real disponível para pagar esta invoice.",
+          confirmButtonText: "Ok",
+          buttonsStyling: false,
+          customClass: {
+            confirmButton: "bg-green-600 text-white hover:bg-green-700 px-4 py-2 rounded font-semibold",
+          },
+        });
+        return;
+      }
+
+      if (dataPayment.usd > saldoReal) {
+        Swal.fire({
+          icon: "warning",
+          title: "Atenção",
+          text: `Saldo em Real insuficiente! Disponível: ${formatCurrency(saldoReal, 2, "BRL")}`,
+          confirmButtonText: "Ok",
+          buttonsStyling: false,
+          customClass: {
+            confirmButton: "bg-green-600 text-white hover:bg-green-700 px-4 py-2 rounded font-semibold",
+          },
+        });
+        return;
+      }
+    } else {
       const saldoDolar = Number(balance?.balance) || 0;
       if (saldoDolar <= 0) {
         Swal.fire({
@@ -388,8 +417,8 @@ export function ExchangeTab() {
         ...dataPayment,
         date: new Date(`${dataPayment.date}T${new Date().toTimeString().split(" ")[0]}`),
         usd: Number(dataPayment.usd),
-        // R$: taxa 1 = sem conversão automática para dólar
         rate: isBrlPayment ? 1 : balance?.averageRate,
+        currency: isBrlPayment ? "BRL" : "USD",
       });
       // Swal.fire({
       //   icon: "success",
@@ -1253,7 +1282,7 @@ export function ExchangeTab() {
             />
             {paymentIsBrl && (
               <p className="mt-1 text-xs text-amber-600">
-                Pagamento em Real — sem conversão automática para dólar e sem usar saldo de câmbio.
+                Pagamento em Real — abate do saldo em R$ (Total BRL), sem usar saldo em dólar.
               </p>
             )}
           </div>
@@ -1306,7 +1335,7 @@ export function ExchangeTab() {
                 </th>
                 <th className="py-2 px-4 border">Data</th>
                 <th className="py-2 px-4 border">Tipo</th>
-                <th className="py-2 px-4 border">USD</th>
+                <th className="py-2 px-4 border">Valor</th>
                 <th className="py-2 px-4 border">Taxa</th>
                 <th className="py-2 px-4 border">Descrição</th>
                 <th className="py-2 px-4 border">Usuário</th>
@@ -1349,10 +1378,12 @@ export function ExchangeTab() {
                       </td>
                       <td className={`py-2 px-4 border ${rowClass} text-center font-mono`}>
                         {transacao.type === "BUY" ? "+" : "-"}
-                        {formatCurrency(transacao.usd, 2, "USD") || "-"}
+                        {transacao.currency === "BRL"
+                          ? formatCurrency(transacao.usd, 2, "BRL")
+                          : formatCurrency(transacao.usd, 2, "USD")}
                       </td>
                       <td className={`py-2 px-4 border ${rowClass} text-center font-mono`}>
-                        {formatCurrency(transacao.rate, 4) || "-"}
+                        {transacao.currency === "BRL" ? "—" : formatCurrency(transacao.rate, 4) || "-"}
                       </td>
                       <td className={`py-2 px-4 border ${rowClass} text-center`}>
                         {transacao.description.toUpperCase()}
