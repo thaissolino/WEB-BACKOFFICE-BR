@@ -1,4 +1,4 @@
-import { FilePlus, Save } from "lucide-react";
+import { FilePlus } from "lucide-react";
 import { useState, useEffect } from "react";
 import { api } from "../../../../services/api";
 import { Invoice } from "../types/invoice";
@@ -21,23 +21,16 @@ export function NewInvoiceForm({
 }: NewInvoiceFormProps) {
   const [suppliers, setSuppliers] = useState<any[]>([]);
   const [carriers, setCarriers] = useState<any[]>([]);
-  const [products, setProducts] = useState<any[]>([]);
-  const [valorRaw, setValorRaw] = useState(""); 
-  const [taxaSpEs, setTaxaSpEs] = useState<string>(
-    currentInvoice.taxaSpEs === 0 ? "" : currentInvoice.taxaSpEs.toString().replace(".", ",")
-  );
+  const [valorRaw, setValorRaw] = useState("");
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         const suppliersResponse = await api.get("/invoice/supplier");
         const carriersResponse = await api.get("/invoice/carriers");
-        const productsResponse = await api.get("/invoice/product");
 
         setSuppliers(suppliersResponse.data);
         setCarriers(carriersResponse.data);
-        // O backend agora retorna { products: [...], totalProducts: ..., page: ..., limit: ..., totalPages: ... }
-        setProducts(Array.isArray(productsResponse.data) ? productsResponse.data : productsResponse.data.products || []);
       } catch (error) {
         console.error("Erro ao buscar dados:", error);
       }
@@ -76,7 +69,6 @@ export function NewInvoiceForm({
     }
     if (name === "taxaSpEs") {
       if (/^[0-9]*[.,]?[0-9]{0,2}$/.test(value)) {
-        setTaxaSpEs(value);
         setCurrentInvoice({
           ...currentInvoice,
           taxaSpEs: value.replace(",", "."), // ← string, ponto decimal
@@ -127,6 +119,7 @@ export function NewInvoiceForm({
         {isBrlSupplier && (
           <p className="mt-1 text-xs text-amber-600">
             Fornecedor em R$ — Freteiros 1 e 2 bloqueados. Apenas o frete SP está disponível.
+            Os valores dos produtos devem ser lançados em <strong>Real (R$)</strong>, sem conversão para dólar.
           </p>
         )}
       </div>

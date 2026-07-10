@@ -1,28 +1,20 @@
 import { useEffect, useState } from "react";
-import { DollarSign, Loader2, Plus, Save } from "lucide-react";
+import { DollarSign, Loader2 } from "lucide-react";
 import { formatCurrency } from "../../../cambiobackoffice/formatCurrencyUtil";
-import { Product } from "./ProductsTab";
 import { InvoiceData } from "./InvoiceHistory";
 import { api } from "../../../../services/api";
 import Swal from "sweetalert2";
 import { useNotification } from "../../../../hooks/notification";
 import { useActionLoading } from "../../context/ActionLoadingContext";
-
-interface ExchangeTransaction {
-  id: string;
-  date: string;
-  type: "compra" | "alocacao" | "devolucao";
-  usd: number;
-  taxa: number;
-  descricao: string;
-}
+import { formatProductMoney, isBrlSupplierCurrency } from "../utils/invoiceCurrency";
 
 export interface FinancialTransaction {
   id: string;
-  date: Date; // ISO string, pode usar `Date` se for convertido
+  date: Date;
   type: "BUY" | "PAYMENT";
   usd: number;
   rate: number;
+  currency?: "USD" | "BRL" | null;
   description: string;
   invoiceId: string;
   userId?: string | null;
@@ -37,10 +29,7 @@ export interface FinancialTransaction {
 
 export function ExchangeTab() {
   const [invoices, setInvoices] = useState<InvoiceData[]>([]);
-  const [suppliers, setSuppliers] = useState<{ id: string; name: string }[]>([]);
   const [carriers, setCarriers] = useState<any[]>([]);
-
-  const [products, setProducts] = useState<Product[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [isSaving2, setIsSaving2] = useState(false);
   const [isSaving3, setIsSaving3] = useState(false);
@@ -63,6 +52,7 @@ export function ExchangeTab() {
 
   const [valueRaw3, setValorRaw3] = useState("");
   const [valueRaw4, setValorRaw4] = useState("");
+  const [paymentIsBrl, setPaymentIsBrl] = useState(false);
 
   const [dataCarrierPayment, setDataCarrierPayment] = useState<{
     carrierId: string;
@@ -276,23 +266,12 @@ export function ExchangeTab() {
 
     try {
       setIsSaving(true);
-      const response = await api.post("/invoice/exchange-records", {
+      await api.post("/invoice/exchange-records", {
         ...addBalance,
         date: new Date(addBalance.date),
         rate: Number(addBalance.rate),
         usd: Number(addBalance.usd),
       });
-      console.log(response.data);
-      // Swal.fire({
-      //   icon: "success",
-      //   title: "Sucesso!",
-      //   text: "Saldo adicionado com sucesso!",
-      //   confirmButtonText: "Ok",
-      //   buttonsStyling: false,
-      //   customClass: {
-      //     confirmButton: "bg-blue-600 text-white hover:bg-blue-700 px-4 py-2 rounded font-semibold",
-      //   },
-      // });
       setOpenNotification({
         type: "success",
         title: "Sucesso!",
@@ -355,6 +334,9 @@ export function ExchangeTab() {
       return;
     }
 
+    const selectedInvoice = invoices.find((inv) => inv.id === dataPayment.invoiceId);
+    const isBrlPayment = isBrlSupplierCurrency(selectedInvoice?.supplier?.currency);
+
     if (!balance) {
       Swal.fire({
         icon: "warning",
@@ -369,42 +351,74 @@ export function ExchangeTab() {
       return;
     }
 
-    const saldoDolar = Number(balance.balance) || 0;
-    if (saldoDolar <= 0) {
-      Swal.fire({
-        icon: "warning",
-        title: "Atenção",
-        text: "Não há saldo em dólar. Só é possível pagar quando houver saldo disponível.",
-        confirmButtonText: "Ok",
-        buttonsStyling: false,
-        customClass: {
-          confirmButton: "bg-green-600 text-white hover:bg-green-700 px-4 py-2 rounded font-semibold",
-        },
-      });
-      return;
-    }
+    if (isBrlPayment) {
+      const saldoReal = Number(balance?.totalBRL) || 0;
+      if (saldoReal <= 0) {
+        Swal.fire({
+          icon: "warning",
+          title: "Atenção",
+          text: "Não há saldo em Real disponível para pagar esta invoice.",
+          confirmButtonText: "Ok",
+          buttonsStyling: false,
+          customClass: {
+            confirmButton: "bg-green-600 text-white hover:bg-green-700 px-4 py-2 rounded font-semibold",
+          },
+        });
+        return;
+      }
 
-    if (dataPayment.usd > saldoDolar) {
-      Swal.fire({
-        icon: "warning",
-        title: "Atenção",
-        text: "Saldo insuficiente!",
-        confirmButtonText: "Ok",
-        buttonsStyling: false,
-        customClass: {
-          confirmButton: "bg-green-600 text-white hover:bg-green-700 px-4 py-2 rounded font-semibold",
-        },
-      });
-      return;
+      if (dataPayment.usd > saldoReal) {
+        Swal.fire({
+          icon: "warning",
+          title: "Atenção",
+          text: `Saldo em Real insuficiente! Disponível: ${formatCurrency(saldoReal, 2, "BRL")}`,
+          confirmButtonText: "Ok",
+          buttonsStyling: false,
+          customClass: {
+            confirmButton: "bg-green-600 text-white hover:bg-green-700 px-4 py-2 rounded font-semibold",
+          },
+        });
+        return;
+      }
+    } else {
+      const saldoDolar = Number(balance?.balance) || 0;
+      if (saldoDolar <= 0) {
+        Swal.fire({
+          icon: "warning",
+          title: "Atenção",
+          text: "Não há saldo em dólar. Só é possível pagar quando houver saldo disponível.",
+          confirmButtonText: "Ok",
+          buttonsStyling: false,
+          customClass: {
+            confirmButton: "bg-green-600 text-white hover:bg-green-700 px-4 py-2 rounded font-semibold",
+          },
+        });
+        return;
+      }
+
+      if (dataPayment.usd > saldoDolar) {
+        Swal.fire({
+          icon: "warning",
+          title: "Atenção",
+          text: "Saldo insuficiente!",
+          confirmButtonText: "Ok",
+          buttonsStyling: false,
+          customClass: {
+            confirmButton: "bg-green-600 text-white hover:bg-green-700 px-4 py-2 rounded font-semibold",
+          },
+        });
+        return;
+      }
     }
 
     try {
       setIsSaving2(true);
-      const response = await api.post("/invoice/exchange-records", {
+      await api.post("/invoice/exchange-records", {
         ...dataPayment,
         date: new Date(`${dataPayment.date}T${new Date().toTimeString().split(" ")[0]}`),
         usd: Number(dataPayment.usd),
-        rate: balance?.averageRate,
+        rate: isBrlPayment ? 1 : balance?.averageRate,
+        currency: isBrlPayment ? "BRL" : "USD",
       });
       // Swal.fire({
       //   icon: "success",
@@ -422,6 +436,7 @@ export function ExchangeTab() {
         notification: "Pagamento realizado com sucesso!",
       });
       setValorRaw3("");
+      setPaymentIsBrl(false);
       setDataUpdated({
         invoiceId: "",
         date: new Date().toLocaleDateString("en-CA"),
@@ -702,9 +717,6 @@ export function ExchangeTab() {
                   }
 
                   setValorRaw2(newValue);
-
-                  // Converte para número para o estado do pagamento
-                  const numericValue = parseFloat(newValue) || 0;
                   setAddBalance({ ...addBalance, usd: newValue });
                 }}
                 onBlur={(e) => {
@@ -764,9 +776,6 @@ export function ExchangeTab() {
                   }
 
                   setValorRaw(newValue);
-
-                  // Converte para número para o estado do pagamento
-                  const numericValue = parseFloat(newValue) || 0;
                   setAddBalance({ ...addBalance, rate: newValue });
                 }}
                 onBlur={(e) => {
@@ -1189,17 +1198,16 @@ export function ExchangeTab() {
               // value={paymentForm.invoiceId}
               onChange={(e) => {
                 const invoiceId = e.target.value;
-                if (!invoiceId)
+                if (!invoiceId) {
+                  setPaymentIsBrl(false);
                   return setDataUpdated({ invoiceId: "", date: new Date().toLocaleDateString("en-CA"), usd: 0 });
+                }
                 const valueInvoice = invoices.find((item) => item.id === invoiceId);
+                const isBrl = isBrlSupplierCurrency(valueInvoice?.supplier?.currency);
+                setPaymentIsBrl(isBrl);
                 setValorRaw3(
                   valueInvoice && valueInvoice.subAmount !== undefined
-                    ? valueInvoice.subAmount.toLocaleString("en-US", {
-                        style: "currency",
-                        currency: "USD",
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      })
+                    ? formatProductMoney(valueInvoice.subAmount, valueInvoice.supplier?.currency)
                     : ""
                 );
                 setDataUpdated((prev) => ({
@@ -1207,7 +1215,7 @@ export function ExchangeTab() {
                   invoiceId: invoiceId,
                   type: "PAYMENT",
                   usd: valueInvoice?.subAmount || 0,
-                  description: `PAGAMENTO INVOICE - ${valueInvoice?.number.toUpperCase()}`,
+                  description: `PAGAMENTO INVOICE - ${valueInvoice?.number.toUpperCase()}${isBrl ? " (R$)" : ""}`,
                 }));
               }}
               className="w-full h-11 border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500"
@@ -1242,7 +1250,7 @@ export function ExchangeTab() {
                     return filteredInvoices.map((invoice) => (
                       <option key={invoice.id} value={invoice.id}>
                         {invoice.number.toUpperCase()} - {(invoice.supplier?.name || "Sem fornecedor").toUpperCase()} (
-                        {formatCurrency(invoice.subAmount || 0)})
+                        {formatProductMoney(invoice.subAmount || 0, invoice.supplier?.currency)})
                       </option>
                     ));
                   })()}
@@ -1261,7 +1269,9 @@ export function ExchangeTab() {
             />
           </div>
           <div>
-            <label className="h-22 block text-sm font-medium text-gray-700 mb-1">Valor Pago ($)</label>
+            <label className="h-22 block text-sm font-medium text-gray-700 mb-1">
+              Valor Pago ({paymentIsBrl ? "R$" : "$"})
+            </label>
             <input
               type="text"
               step="0.01"
@@ -1270,6 +1280,11 @@ export function ExchangeTab() {
               readOnly
               className="w-full border border-gray-300 rounded-md p-2 bg-gray-100 focus:ring-blue-500 focus:border-blue-500"
             />
+            {paymentIsBrl && (
+              <p className="mt-1 text-xs text-amber-600">
+                Pagamento em Real — abate do saldo em R$ (Total BRL), sem usar saldo em dólar.
+              </p>
+            )}
           </div>
         </div>
         <div className="mt-4">
@@ -1320,7 +1335,7 @@ export function ExchangeTab() {
                 </th>
                 <th className="py-2 px-4 border">Data</th>
                 <th className="py-2 px-4 border">Tipo</th>
-                <th className="py-2 px-4 border">USD</th>
+                <th className="py-2 px-4 border">Valor</th>
                 <th className="py-2 px-4 border">Taxa</th>
                 <th className="py-2 px-4 border">Descrição</th>
                 <th className="py-2 px-4 border">Usuário</th>
@@ -1363,10 +1378,12 @@ export function ExchangeTab() {
                       </td>
                       <td className={`py-2 px-4 border ${rowClass} text-center font-mono`}>
                         {transacao.type === "BUY" ? "+" : "-"}
-                        {formatCurrency(transacao.usd, 2, "USD") || "-"}
+                        {transacao.currency === "BRL"
+                          ? formatCurrency(transacao.usd, 2, "BRL")
+                          : formatCurrency(transacao.usd, 2, "USD")}
                       </td>
                       <td className={`py-2 px-4 border ${rowClass} text-center font-mono`}>
-                        {formatCurrency(transacao.rate, 4) || "-"}
+                        {transacao.currency === "BRL" ? "—" : formatCurrency(transacao.rate, 4) || "-"}
                       </td>
                       <td className={`py-2 px-4 border ${rowClass} text-center`}>
                         {transacao.description.toUpperCase()}

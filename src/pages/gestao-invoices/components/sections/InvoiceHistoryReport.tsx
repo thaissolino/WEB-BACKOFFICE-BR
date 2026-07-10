@@ -1,14 +1,17 @@
-import { History, Eye, Edit, XIcon, RotateCcw, Check, Loader2, Trash, Undo2, AlertTriangle } from "lucide-react";
+import { History, Eye, Edit, XIcon, RotateCcw, Check, Loader2, Undo2, AlertTriangle } from "lucide-react";
 import { useEffect, useState } from "react";
 import { api } from "../../../../services/api";
-import { Invoice } from "../types/invoice"; // Se necessário, ajuste o caminho do tipo
 import { Product } from "./ProductsTab";
-import { ModalReceiveProduct } from "../modals/ModalReceiveProduct";
-import { an } from "framer-motion/dist/types.d-B50aGbjN";
 import { ModalAnaliseProduct } from "../modals/ModalAnaliseProduct";
 import Swal from "sweetalert2";
-import { InvoiceProduct } from "./InvoiceProducts";
 import { ProductImeis } from "../ProductImeis";
+import {
+  calcValorRealUnitario,
+  formatProductMoney,
+  isBrlSupplierCurrency,
+  productCurrencySymbol,
+  SupplierCurrency,
+} from "../utils/invoiceCurrency";
 
 export type exchange = {
   id: string;
@@ -77,6 +80,7 @@ export type InvoiceData = {
     name: string;
     phone: string;
     active: boolean;
+    currency?: SupplierCurrency;
   };
   carrier: {
     id: string;
@@ -173,13 +177,9 @@ export function InvoiceHistoryReport({
           }
         : null
     );
-  const [isSaving, setIsSaving] = useState(false);
+  const [, setIsSaving] = useState(false);
   const [isSavingId, setIsSavingId] = useState("");
-  const [isSavingReceiveId, setIsSavingReceiveId] = useState("");
-  const [isSavingReturnId, setIsSavingReturnId] = useState("");
-  const [isSavingAnalyzeId, setIsSavingAnalyzeId] = useState("");
   const [exchanges, setExchangeResponse] = useState<exchange[]>([]);
-  const [selectedProductToReceive, setSelectedProductToReceive] = useState<ProductData | null>(null);
   const [selectedProductToAnalyze, setSelectedProductToAnalyze] = useState<ProductData | null>(null);
   const [currentPage, setCurrentPage] = useState(0);
   const itemsPerPage = 10;
@@ -206,6 +206,7 @@ export function InvoiceHistoryReport({
   };
   useEffect(() => {
     fetchInvoicesAndSuppliers();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only fetch
   }, []);
 
   const getStatusText = (invoice: InvoiceData) => {
@@ -280,54 +281,6 @@ export function InvoiceHistoryReport({
     });
   };
 
-  const deleteInvoice = (idInvoice: string) => {
-    if (!idInvoice) return;
-
-    Swal.fire({
-      title: "Tem certeza?",
-      text: "Você não poderá reverter isso!",
-      icon: "warning",
-      showCancelButton: true,
-      confirmButtonText: "Sim, deletar!",
-      cancelButtonText: "Cancelar",
-      customClass: {
-        confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
-        cancelButton: "bg-gray-300 text-gray-800 hover:bg-gray-400 px-4 py-2 rounded font-semibold",
-      },
-    }).then((result) => {
-      if (result.isConfirmed) {
-        api
-          .delete(`/invoice/delete/${idInvoice}`)
-          .then(() => {
-            setInvoices((prevInvoices) => prevInvoices.filter((invoice) => invoice.id !== idInvoice));
-            Swal.fire({
-              icon: "success",
-              title: "Deletado!",
-              text: "Invoice deletada com sucesso.",
-              confirmButtonText: "Ok",
-              buttonsStyling: false,
-              customClass: {
-                confirmButton: "bg-green-600 text-white hover:bg-green-700 px-4 py-2 rounded font-semibold",
-              },
-            });
-          })
-          .catch((error) => {
-            console.error("Erro ao deletar invoice:", error);
-            Swal.fire({
-              icon: "error",
-              title: "Error ",
-              text: "Erro ao deletar invoice. Tente novamente.",
-              confirmButtonText: "Ok",
-              buttonsStyling: false,
-              customClass: {
-                confirmButton: "bg-green-600 text-white hover:bg-green-700 px-4 py-2 rounded font-semibold",
-              },
-            });
-          });
-      }
-    });
-  };
-
   const closeModal = () => {
     setIsModalOpen(false);
     setSelectedInvoice(null);
@@ -352,33 +305,10 @@ export function InvoiceHistoryReport({
     perUnit: (carrierSelectedType, item) => carrierSelectedType.value,
   };
 
-  const sendUpdateProductStatus = async (product: ProductData) => {
-    if (!product) return;
-
-    try {
-      setIsSavingReturnId(product.id);
-      setIsSaving(true);
-      await api.patch("/invoice/update/product", {
-        idProductInvoice: product.id,
-        bodyupdate: {
-          received: true,
-        },
-      });
-      const [invoiceResponse] = await Promise.all([api.get("/invoice/get")]);
-
-      const findInvoice = invoiceResponse.data.find((item: InvoiceData) => item.id === product.invoiceId);
-
-      setSelectedInvoice(findInvoice);
-
-      setInvoices(invoiceResponse.data);
-    } catch (error) {
-      console.error("Erro ao buscar dados:", error);
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
   const taxInvoice = exchanges.find((item) => item.invoiceId === selectedInvoice?.id);
+  const supplierCurrency = selectedInvoice?.supplier?.currency;
+  const isBrlSupplier = isBrlSupplierCurrency(supplierCurrency);
+  const moneySymbol = productCurrencySymbol(supplierCurrency);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -391,9 +321,8 @@ export function InvoiceHistoryReport({
     return () => {
       document.removeEventListener("keydown", handleKeyDown);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- closeModal is stable for Escape handler
   }, []);
-
-  const isOnlyViewMode = !selectedInvoice?.paid || selectedInvoice.completed;
 
   const handleReturnToPending = async (product: ProductData) => {
     try {
@@ -456,7 +385,7 @@ export function InvoiceHistoryReport({
                   Freteiro 2
                 </th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Valor (R$)
+                  Valor
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Status
@@ -481,7 +410,6 @@ export function InvoiceHistoryReport({
                   const supplier = suppliers.find((s) => s.id === invoice.supplierId);
                   const subtotal = invoice.products?.reduce((sum, product) => sum + product.total, 0) || 0;
                   const total = subtotal;
-                  const tax = exchanges.find((item) => item.invoiceId === invoice.id);
 
                   return (
                     <tr key={invoice.id} className="odd:bg-blue-50 even:bg-green-50">
@@ -511,7 +439,7 @@ export function InvoiceHistoryReport({
                         {invoice.carrier2?.name || "-"}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right">
-                        {formatCurrency(total)}
+                        {formatProductMoney(total, invoice.supplier?.currency)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span
@@ -680,13 +608,13 @@ export function InvoiceHistoryReport({
                         Qtd
                       </th>
                       <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        {selectedInvoice.paid ? "Valor ($)" : "Valor ($)"}
+                        {isBrlSupplier ? `Valor (${moneySymbol})` : "Valor ($)"}
                       </th>
                       <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Peso (kg)
                       </th>
                       <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        {selectedInvoice.paid ? "Total ($)" : "Total ($)"}
+                        {isBrlSupplier ? `Total (${moneySymbol})` : "Total ($)"}
                       </th>
                       {isEditMode && (
                         <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -729,9 +657,13 @@ export function InvoiceHistoryReport({
                           <td className="px-4 py-2 text-sm text-right">
                             {product.quantity - product.quantityAnalizer - product.receivedQuantity}
                           </td>
-                          <td className="px-4 py-2 text-sm text-right">{product.value.toFixed(2)}</td>
+                          <td className="px-4 py-2 text-sm text-right">
+                            {formatProductMoney(product.value, supplierCurrency)}
+                          </td>
                           <td className="px-4 py-2 text-sm text-right">{product.weight.toFixed(2)}</td>
-                          <td className="px-4 py-2 text-sm text-right">{product.total.toFixed(2)}</td>
+                          <td className="px-4 py-2 text-sm text-right">
+                            {formatProductMoney(product.total, supplierCurrency)}
+                          </td>
                           {isEditMode && (
                             <td className="px-4 py-2 text-sm text-right">
                               <div className="flex justify-end items-center gap-2">
@@ -989,13 +921,13 @@ export function InvoiceHistoryReport({
                         Qtd
                       </th>
                       <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        {selectedInvoice.paid ? "Valor (R$)" : "Valor ($)"}
+                        {isBrlSupplier ? `Valor (${moneySymbol})` : "Valor ($)"}
                       </th>
                       <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Peso (kg)
                       </th>
                       <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        {selectedInvoice.paid ? "Total (R$)" : "Total ($)"}
+                        {isBrlSupplier ? `Total (${moneySymbol})` : "Total ($)"}
                       </th>
                       {isEditMode && (
                         <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -1032,8 +964,12 @@ export function InvoiceHistoryReport({
 
                               const totalQtdProdutos = selectedInvoice.products.reduce((acc, p) => acc + p.quantity, 0);
                               const freteSpEsRate = selectedInvoice.amountTaxSpEs / totalQtdProdutos;
-                              const valorBaseReal =
-                                valorUnitarioComTaxasFrete * (taxInvoice?.rate ?? 1) + freteSpEsRate;
+                              const valorBaseReal = calcValorRealUnitario(
+                                valorUnitarioComTaxasFrete,
+                                freteSpEsRate,
+                                supplierCurrency,
+                                taxInvoice?.rate
+                              );
 
                               return valorBaseReal.toLocaleString("pt-BR", {
                                 minimumFractionDigits: 2,
@@ -1054,8 +990,12 @@ export function InvoiceHistoryReport({
 
                               const totalQtdProdutos = selectedInvoice.products.reduce((acc, p) => acc + p.quantity, 0);
                               const freteSpEsRate = selectedInvoice.amountTaxSpEs / totalQtdProdutos;
-                              const valorBaseReal =
-                                valorUnitarioComTaxasFrete * (taxInvoice?.rate ?? 1) + freteSpEsRate;
+                              const valorBaseReal = calcValorRealUnitario(
+                                valorUnitarioComTaxasFrete,
+                                freteSpEsRate,
+                                supplierCurrency,
+                                taxInvoice?.rate
+                              );
                               const custoFinal = valorBaseReal * product.quantityAnalizer;
 
                               return custoFinal.toLocaleString("pt-BR", {
@@ -1070,15 +1010,15 @@ export function InvoiceHistoryReport({
                                 <div className="flex justify-center items-center w-full h-full">
                                   <button
                                     onClick={() => handleReturnToPending(product)}
-                                    disabled={isSavingReturnId === product.id}
+                                    disabled={isSavingId === product.id}
                                     className={`-mr-4 flex items-center gap-2 px-3 py-1 rounded-md text-sm font-medium shadow-sm transition
                                       ${
-                                        isSavingReturnId === product.id
+                                        isSavingId === product.id
                                           ? "bg-gray-400 cursor-not-allowed opacity-60 text-white"
                                           : "bg-red-600 hover:bg-red-500 text-white"
                                       }`}
                                   >
-                                    {isSavingReturnId === product.id ? (
+                                    {isSavingId === product.id ? (
                                       <>
                                         <Loader2 className="animate-spin" size={16} /> Removendo...
                                       </>
@@ -1112,11 +1052,6 @@ export function InvoiceHistoryReport({
                       </td>
                       <td className="px-4 py-2 text-sm text-right text-gray-800">
                         {(() => {
-                          const totalFrete =
-                            selectedInvoice.amountTaxcarrier + (selectedInvoice.amountTaxcarrier2 ?? 0);
-                          const totalQtdProdutos = selectedInvoice.products.reduce((acc, p) => acc + p.quantity, 0);
-                          const freteSpEsRate = selectedInvoice.amountTaxSpEs / totalQtdProdutos;
-
                           const total = selectedInvoice.products
                             .filter((item) => item.analising && !item.received)
                             .reduce((sum, item) => {
@@ -1130,8 +1065,12 @@ export function InvoiceHistoryReport({
 
                               const totalQtdProdutos = selectedInvoice.products.reduce((acc, p) => acc + p.quantity, 0);
                               const freteSpEsRate = selectedInvoice.amountTaxSpEs / totalQtdProdutos;
-                              const valorBaseReal =
-                                valorUnitarioComTaxasFrete * (taxInvoice?.rate ?? 1) + freteSpEsRate;
+                              const valorBaseReal = calcValorRealUnitario(
+                                valorUnitarioComTaxasFrete,
+                                freteSpEsRate,
+                                supplierCurrency,
+                                taxInvoice?.rate
+                              );
                               return sum + valorBaseReal * item.quantityAnalizer;
                             }, 0);
 
@@ -1337,13 +1276,13 @@ export function InvoiceHistoryReport({
                         Qtd
                       </th>
                       <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        {selectedInvoice.paid ? "Valor (R$)" : "Valor ($)"}
+                        {isBrlSupplier ? `Valor (${moneySymbol})` : "Valor ($)"}
                       </th>
                       <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Peso (kg)
                       </th>
                       <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        {selectedInvoice.paid ? "Total (R$)" : "Total ($)"}
+                        {isBrlSupplier ? `Total (${moneySymbol})` : "Total ($)"}
                       </th>
                     </tr>
                   </thead>
@@ -1377,8 +1316,12 @@ export function InvoiceHistoryReport({
 
                               const totalQtdProdutos = selectedInvoice.products.reduce((acc, p) => acc + p.quantity, 0);
                               const freteSpEsRate = selectedInvoice.amountTaxSpEs / totalQtdProdutos;
-                              const valorBaseReal =
-                                valorUnitarioComTaxasFrete * (taxInvoice?.rate ?? 1) + freteSpEsRate;
+                              const valorBaseReal = calcValorRealUnitario(
+                                valorUnitarioComTaxasFrete,
+                                freteSpEsRate,
+                                supplierCurrency,
+                                taxInvoice?.rate
+                              );
 
                               return valorBaseReal.toLocaleString("pt-BR", {
                                 minimumFractionDigits: 2,
@@ -1399,8 +1342,12 @@ export function InvoiceHistoryReport({
 
                               const totalQtdProdutos = selectedInvoice.products.reduce((acc, p) => acc + p.quantity, 0);
                               const freteSpEsRate = selectedInvoice.amountTaxSpEs / totalQtdProdutos;
-                              const valorBaseReal =
-                                valorUnitarioComTaxasFrete * (taxInvoice?.rate ?? 1) + freteSpEsRate;
+                              const valorBaseReal = calcValorRealUnitario(
+                                valorUnitarioComTaxasFrete,
+                                freteSpEsRate,
+                                supplierCurrency,
+                                taxInvoice?.rate
+                              );
 
                               return (valorBaseReal * product.receivedQuantity).toLocaleString("pt-BR", {
                                 minimumFractionDigits: 2,
@@ -1428,11 +1375,6 @@ export function InvoiceHistoryReport({
                       </td>
                       <td className="px-4 py-2 text-sm text-right text-gray-800">
                         {(() => {
-                          const totalFrete =
-                            selectedInvoice.amountTaxcarrier + (selectedInvoice.amountTaxcarrier2 ?? 0);
-                          const totalQtdProdutos = selectedInvoice.products.reduce((acc, p) => acc + p.quantity, 0);
-                          const freteSpEsRate = selectedInvoice.amountTaxSpEs / totalQtdProdutos;
-
                           const total = selectedInvoice.products
                             .filter((item) => item.receivedQuantity > 0)
                             .reduce((sum, item) => {
@@ -1446,8 +1388,12 @@ export function InvoiceHistoryReport({
 
                               const totalQtdProdutos = selectedInvoice.products.reduce((acc, p) => acc + p.quantity, 0);
                               const freteSpEsRate = selectedInvoice.amountTaxSpEs / totalQtdProdutos;
-                              const valorBaseReal =
-                                valorUnitarioComTaxasFrete * (taxInvoice?.rate ?? 1) + freteSpEsRate;
+                              const valorBaseReal = calcValorRealUnitario(
+                                valorUnitarioComTaxasFrete,
+                                freteSpEsRate,
+                                supplierCurrency,
+                                taxInvoice?.rate
+                              );
                               return sum + valorBaseReal * item.receivedQuantity;
                             }, 0);
 
@@ -1467,7 +1413,9 @@ export function InvoiceHistoryReport({
               <div className="bg-white p-4 rounded-2xl shadow-md border border-gray-200 transition hover:shadow-lg">
                 <p className="text-sm text-gray-600">Frete 1:</p>
                 <p id="modalInvoiceSubtotal" className="text-lg font-semibold">
-                  {taxInvoice?.rate ? (
+                  {isBrlSupplier ? (
+                    <>—</>
+                  ) : taxInvoice?.rate ? (
                     <>
                       R${" "}
                       {(selectedInvoice.amountTaxcarrier * taxInvoice.rate).toLocaleString("pt-BR", {
@@ -1490,7 +1438,9 @@ export function InvoiceHistoryReport({
               <div className="bg-white p-4 rounded-2xl shadow-md border border-gray-200 transition hover:shadow-lg">
                 <p className="text-sm text-gray-600">Frete 2:</p>
                 <p id="modalInvoiceShipping" className="text-lg font-semibold">
-                  {taxInvoice?.rate ? (
+                  {isBrlSupplier ? (
+                    <>—</>
+                  ) : taxInvoice?.rate ? (
                     <>
                       R${" "}
                       {(selectedInvoice.amountTaxcarrier2 * taxInvoice.rate).toLocaleString("pt-BR", {
@@ -1524,7 +1474,15 @@ export function InvoiceHistoryReport({
               <div className="bg-white p-4 rounded-2xl shadow-md border border-gray-200 transition hover:shadow-lg">
                 <p className="text-sm text-gray-600">Total sem taxas:</p>
                 <p id="modalInvoiceTax" className="text-lg font-semibold">
-                  {taxInvoice?.rate ? (
+                  {isBrlSupplier ? (
+                    <>
+                      R${" "}
+                      {selectedInvoice.subAmount.toLocaleString("pt-BR", {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}
+                    </>
+                  ) : taxInvoice?.rate ? (
                     <>
                       R${" "}
                       {(selectedInvoice.subAmount * taxInvoice.rate).toLocaleString("pt-BR", {
@@ -1554,7 +1512,15 @@ export function InvoiceHistoryReport({
                 <div>
                   <p className="text-sm font-medium text-blue-800">Total da Invoice:</p>
                   <p id="modalInvoiceTotal" className="text-xl font-bold text-blue-800">
-                    {taxInvoice?.rate ? (
+                    {isBrlSupplier ? (
+                      <>
+                        R${" "}
+                        {(selectedInvoice.subAmount + selectedInvoice.amountTaxSpEs).toLocaleString("pt-BR", {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}
+                      </>
+                    ) : taxInvoice?.rate ? (
                       <>
                         R${" "}
                         {(
@@ -1587,7 +1553,7 @@ export function InvoiceHistoryReport({
                         {new Date(selectedInvoice.paidDate).toLocaleDateString("pt-BR")}
                       </span>
                       <br />
-                      {taxInvoice?.rate && (
+                      {taxInvoice?.rate && !isBrlSupplier && (
                         <span className="text-blue-700 text-xs">Câmbio - (R$ {taxInvoice?.rate.toFixed(4)})</span>
                       )}
                     </>
@@ -1605,7 +1571,7 @@ export function InvoiceHistoryReport({
                     setIsSavingId(selectedProductToAnalyze.id);
                     setIsSaving(true);
 
-                    const response = await api.patch("/invoice/update/product", {
+                    await api.patch("/invoice/update/product", {
                       idProductInvoice: selectedProductToAnalyze.id,
                       bodyupdate: {
                         analising: true,
@@ -1875,14 +1841,4 @@ export function InvoiceHistoryReport({
       )}
     </div>
   );
-}
-
-function formatCurrency(value: number, decimals = 2, currency = "BRL") {
-  if (isNaN(value)) value = 0;
-  return new Intl.NumberFormat("pt-BR", {
-    style: "currency",
-    currency,
-    minimumFractionDigits: decimals,
-    maximumFractionDigits: decimals,
-  }).format(value);
 }

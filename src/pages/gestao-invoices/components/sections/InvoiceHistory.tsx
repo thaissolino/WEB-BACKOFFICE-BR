@@ -8,6 +8,12 @@ import { ProductSearchSelect } from "./SupplierSearchSelect";
 import { ProductImeis } from "../ProductImeis";
 import { fixInvertedDateString, formatDateToBR, formatDateTimeToBR } from "../utils/format";
 import { CarrierRateBadge } from "./CarrierRateBadge";
+import {
+  formatProductMoney,
+  isBrlSupplierCurrency,
+  productCurrencySymbol,
+  SupplierCurrency,
+} from "../utils/invoiceCurrency";
 
 export type InvoiceData = {
   id: string;
@@ -56,6 +62,7 @@ export type InvoiceData = {
     name: string;
     phone: string;
     active: boolean;
+    currency?: SupplierCurrency;
   };
   carrier: {
     id: string;
@@ -78,27 +85,6 @@ export type InvoiceData = {
   } | null;
 };
 
-type ProductData = {
-  id: string;
-  invoiceId: string;
-  productId: string;
-  quantity: number;
-  value: number;
-  weight: number;
-  total: number;
-  received: boolean;
-  receivedQuantity: number;
-  product: {
-    id: string;
-    name: string;
-    code: string;
-    priceweightAverage: number;
-    weightAverage: number;
-    description: string;
-    active: boolean;
-  };
-};
-
 interface InvoiceHistoryProps {
   reloadTrigger: boolean;
 }
@@ -111,7 +97,6 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [products, setProducts] = useState<Product[]>([]);
-  const [isSavingId, setIsSavingId] = useState("");
   const [showAddProductForm, setShowAddProductForm] = useState(false);
   const [currentPage, setCurrentPage] = useState(0);
   const itemsPerPage = 10;
@@ -302,36 +287,6 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
     }
   };
 
-  const sendUpdateProductStatus = async (product: ProductData) => {
-    // Proteção imediata contra cliques duplos
-    if (isActionLoading) {
-      return;
-    }
-
-    if (!product) return;
-
-    await executeAction(async () => {
-      setIsSavingId(product.id);
-      await api.patch("/invoice/update/product", {
-        idProductInvoice: product.id,
-        bodyupdate: {
-          received: true,
-        },
-      });
-      const [invoiceResponse] = await Promise.all([api.get("/invoice/get")]);
-
-      const findInvoice = invoiceResponse.data.find((item: InvoiceData) => item.id === product.invoiceId);
-
-      setSelectedInvoice(findInvoice);
-
-      setInvoices(invoiceResponse.data);
-      setIsSavingId("");
-    }, `updateProduct-${product.id}`).catch((error) => {
-      console.error("Erro ao buscar dados:", error);
-      setIsSavingId("");
-    });
-  };
-
   const handleDeleteProduct = async (productId: string) => {
     // Proteção imediata contra cliques duplos
     if (isActionLoading) {
@@ -409,6 +364,9 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
   };
 
   const totalQuantidade = selectedInvoice?.products.reduce((sum, product) => sum + product.quantity, 0);
+  const supplierCurrency: SupplierCurrency = selectedInvoice?.supplier?.currency ?? null;
+  const isBrlSupplier = isBrlSupplierCurrency(supplierCurrency);
+  const moneySymbol = productCurrencySymbol(supplierCurrency);
 
   // Página principal: lista APENAS invoices pendentes (sem pagas e sem concluídas).
   // Pagas/Concluídas vivem na aba "Relatórios".
@@ -448,7 +406,7 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Data</th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Valor (R$)
+                  Valor
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Status
@@ -487,7 +445,7 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
                           {formatDateTimeToBR(invoice.date)}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right">
-                          {formatCurrency(total)}
+                          {formatProductMoney(total, invoice.supplier?.currency)}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span
@@ -629,12 +587,9 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
 
                           const price = product?.priceweightAverage ?? 0;
                           setValorRaw(
-                            product?.priceweightAverage?.toLocaleString("en-US", {
-                              style: "currency",
-                              currency: "USD",
-                              minimumFractionDigits: 2,
-                              maximumFractionDigits: 2,
-                            }) ?? ""
+                            product?.priceweightAverage != null
+                              ? formatProductMoney(product.priceweightAverage, supplierCurrency)
+                              : ""
                           );
 
                           setNewProduct({
@@ -660,7 +615,7 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Valor ($)</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Valor ({moneySymbol})</label>
                       <input
                         type="text"
                         placeholder="digite o valor"
@@ -705,12 +660,15 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
                             const numericValue = parseFloat(valorRaw);
                             if (!isNaN(numericValue)) {
                               // Formata mantendo o sinal negativo se existir
-                              const formattedValue = numericValue.toLocaleString("en-US", {
-                                style: "currency",
-                                currency: "USD",
-                                minimumFractionDigits: 2,
-                                maximumFractionDigits: 2,
-                              });
+                              const formattedValue = numericValue.toLocaleString(
+                                isBrlSupplier ? "pt-BR" : "en-US",
+                                {
+                                  style: "currency",
+                                  currency: isBrlSupplier ? "BRL" : "USD",
+                                  minimumFractionDigits: 2,
+                                  maximumFractionDigits: 2,
+                                }
+                              );
                               setValorRaw(formattedValue);
                               setNewProduct({ ...newProduct, value: numericValue.toString() });
                             }
@@ -901,10 +859,11 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
                 {selectedInvoice.products.filter((item) => !item.received).length > 0 && (
                   <span className="ml-2 text-sm font-normal text-gray-600">
                     (Subtotal:{" "}
-                    {formatCurrency(
+                    {formatProductMoney(
                       selectedInvoice.products
                         .filter((item) => !item.received)
-                        .reduce((sum, product) => sum + product.total, 0)
+                        .reduce((sum, product) => sum + product.total, 0),
+                      supplierCurrency
                     )}
                     )
                   </span>
@@ -921,13 +880,13 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
                         Qtd
                       </th>
                       <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Valor ($)
+                        Valor ({moneySymbol})
                       </th>
                       <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Peso (kg)
                       </th>
                       <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Total ($)
+                        Total ({moneySymbol})
                       </th>
                       <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Ações
@@ -949,9 +908,13 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
                             </div>
                           </td>
                           <td className="px-4 py-2 text-sm text-right">{product.quantity}</td>
-                          <td className="px-4 py-2 text-sm text-right">{product.value.toFixed(2)}</td>
+                          <td className="px-4 py-2 text-sm text-right">
+                            {formatProductMoney(product.value, supplierCurrency)}
+                          </td>
                           <td className="px-4 py-2 text-sm text-right">{product.weight.toFixed(2)}</td>
-                          <td className="px-4 py-2 text-sm text-right">{product.total.toFixed(2)}</td>
+                          <td className="px-4 py-2 text-sm text-right">
+                            {formatProductMoney(product.total, supplierCurrency)}
+                          </td>
                           <td className="px-4 py-2 text-sm text-right">
                             {isEditMode && (
                               <div className="flex justify-end items-center ">
@@ -986,25 +949,21 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-              <div className="bg-gray-50 p-4 rounded-2xl border shadow-sm text-center">
+              <div className={`bg-gray-50 p-4 rounded-2xl border shadow-sm text-center ${isBrlSupplier ? "opacity-50" : ""}`}>
                 <p className="text-sm text-gray-600">Frete 1</p>
                 <p id="modalInvoiceSubtotal" className="text-lg font-semibold">
-                  ${" "}
-                  {selectedInvoice.amountTaxcarrier.toLocaleString("en-US", {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2,
-                  })}
+                  {isBrlSupplier
+                    ? "—"
+                    : formatProductMoney(selectedInvoice.amountTaxcarrier, supplierCurrency)}
                 </p>
               </div>
 
-              <div className="bg-gray-50 p-4 rounded-2xl border shadow-sm text-center">
+              <div className={`bg-gray-50 p-4 rounded-2xl border shadow-sm text-center ${isBrlSupplier ? "opacity-50" : ""}`}>
                 <p className="text-sm text-gray-600">Frete 2</p>
                 <p id="modalInvoiceShipping" className="text-lg font-semibold">
-                  ${" "}
-                  {selectedInvoice.amountTaxcarrier2.toLocaleString("en-US", {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2,
-                  })}
+                  {isBrlSupplier
+                    ? "—"
+                    : formatProductMoney(selectedInvoice.amountTaxcarrier2, supplierCurrency)}
                 </p>
               </div>
 
@@ -1031,27 +990,30 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
               <div className="flex flex-col md:flex-row justify-between items-center">
                 <p className="text-sm font-medium text-blue-800">Total da Invoice:</p>
                 <p id="modalInvoiceTotal" className="text-xl font-bold text-blue-800">
-                  ${" "}
-                  {selectedInvoice.subAmount.toLocaleString("en-US", {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2,
-                  })}
+                  {formatProductMoney(selectedInvoice.subAmount, supplierCurrency)}
                 </p>
               </div>
               <div className="flex flex-col md:flex-row justify-between items-center mt-1" id="modalInvoicePaymentInfo">
                 <p className="text-xs text-green-600">Total com frete:</p>
                 <p className="text-xs font-medium text-green-600">
-                  ${" "}
-                  {(
-                    selectedInvoice.subAmount +
-                    selectedInvoice.amountTaxcarrier +
-                    selectedInvoice.amountTaxcarrier2
-                  ).toLocaleString("pt-BR", {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2,
-                  })}
+                  {isBrlSupplier
+                    ? formatProductMoney(
+                        selectedInvoice.subAmount + selectedInvoice.amountTaxSpEs,
+                        supplierCurrency
+                      )
+                    : formatProductMoney(
+                        selectedInvoice.subAmount +
+                          selectedInvoice.amountTaxcarrier +
+                          selectedInvoice.amountTaxcarrier2,
+                        supplierCurrency
+                      )}
                 </p>
               </div>
+              {isBrlSupplier && (
+                <p className="text-xs text-amber-700 mt-2 text-center">
+                  Valores em R$ — sem conversão para dólar.
+                </p>
+              )}
             </div>
 
             {/* <div className="bg-blue-50 p-4 rounded border">
@@ -1094,16 +1056,6 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
       )}
     </div>
   );
-}
-
-function formatCurrency(value: number, decimals = 2, currency = "BRL") {
-  if (isNaN(value)) value = 0;
-  return new Intl.NumberFormat("pt-BR", {
-    style: "currency",
-    currency,
-    minimumFractionDigits: decimals,
-    maximumFractionDigits: decimals,
-  }).format(value);
 }
 
 ///moottin

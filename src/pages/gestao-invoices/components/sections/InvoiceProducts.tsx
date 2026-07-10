@@ -9,6 +9,12 @@ import { useActionLoading } from "../../context/ActionLoadingContext";
 import { ImportPdfModal } from "../modals/ImportPdfModal";
 import { ReviewPdfModal } from "../modals/ReviewPdfModal";
 import { MultiInvoiceReviewModal } from "../modals/MultiInvoiceReviewModal";
+import {
+  formatProductMoney,
+  isBrlSupplierCurrency,
+  productCurrencySymbol,
+  SupplierCurrency,
+} from "../utils/invoiceCurrency";
 
 export type InvoiceProduct = {
   id: string;
@@ -50,6 +56,7 @@ export type Carrier = {
 export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }: InvoiceProductsProps) {
   const [showProductForm, setShowProductForm] = useState(false);
   const [products, setProducts] = useState<any[]>([]);
+  const [suppliers, setSuppliers] = useState<{ id: string; currency?: SupplierCurrency }[]>([]);
   const [carriers, setCarriers] = useState<Carrier[]>([]);
   const [valorRaw, setValorRaw] = useState("");
   const [showImportModal, setShowImportModal] = useState(false);
@@ -77,9 +84,10 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
     const fetchData = async () => {
       setIsLoading(true);
       try {
-        const [productsResponse, carriersResponse] = await Promise.all([
+        const [productsResponse, carriersResponse, suppliersResponse] = await Promise.all([
           api.get("/invoice/product"),
           api.get("/invoice/carriers"),
+          api.get("/invoice/supplier"),
         ]);
         console.log("Produtos recebidos do backend:", productsResponse.data);
         // O backend agora retorna { products: [...], totalProducts: ..., page: ..., limit: ..., totalPages: ... }
@@ -94,6 +102,7 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
         }
         setProducts(productsList);
         setCarriers(carriersResponse.data);
+        setSuppliers(suppliersResponse.data);
       } catch (error) {
         console.error("Erro ao carregar dados:", error);
         // Swal.fire({
@@ -108,6 +117,11 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
     };
     fetchData();
   }, []);
+
+  const supplierCurrency: SupplierCurrency =
+    suppliers.find((s) => s.id === currentInvoice.supplierId)?.currency ?? null;
+  const isBrlSupplier = isBrlSupplierCurrency(supplierCurrency);
+  const moneySymbol = productCurrencySymbol(supplierCurrency);
 
   const deleteProduct = (index: number) => {
     const newProducts = [...currentInvoice.products];
@@ -249,6 +263,7 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
       amountTaxcarrier2: amountTaxCarrieFrete2,
       subAmount: subTotal,
     }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- sync derived totals to parent invoice
   }, [taxSpEs, amountTaxCarrieFrete1, amountTaxCarrieFrete2, subTotal]);
 
   const addProduct = () => {
@@ -755,6 +770,7 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
 
   useEffect(() => {
     calculateProductTotal();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- recalc when form inputs change
   }, [productForm.quantity, priceData, weightData, productForm.productId]);
 
   if (isLoading) {
@@ -981,7 +997,9 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Valor Unitário ($)</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Valor Unitário ({moneySymbol})
+              </label>
               <input
                 type="text"
                 step="0.01"
@@ -1014,12 +1032,15 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
                     const numericValue = parseFloat(valorRaw);
                     if (!isNaN(numericValue)) {
                       // Formata mantendo o sinal negativo se existir
-                      const formattedValue = numericValue.toLocaleString("en-US", {
-                        style: "currency",
-                        currency: "USD",
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      });
+                      const formattedValue = numericValue.toLocaleString(
+                        isBrlSupplier ? "pt-BR" : "en-US",
+                        {
+                          style: "currency",
+                          currency: isBrlSupplier ? "BRL" : "USD",
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        }
+                      );
                       setValorRaw(formattedValue);
                       setProductForm({ ...productForm, value: numericValue.toString() });
                       // setValorOperacao(numericValue);
@@ -1036,7 +1057,7 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
                   }
                 }}
                 className="w-full border border-gray-300 rounded-md p-2 text-sm focus:ring-blue-500 focus:border-blue-500 appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-                placeholder="$"
+                placeholder={moneySymbol}
               />
             </div>
             <div>
@@ -1055,14 +1076,14 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Total ($)</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Total ({moneySymbol})</label>
               <input
                 type="number"
                 step="0.01"
                 value={productForm.total}
                 readOnly
                 className="w-full border border-gray-300 rounded-md p-2 bg-gray-100 focus:ring-blue-500 focus:border-blue-500"
-                placeholder="$"
+                placeholder={moneySymbol}
               />
             </div>
             <div className="flex items-end">
@@ -1117,13 +1138,13 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
                 </th>
                 <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Qtd</th>
                 <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Valor ($)
+                  Valor ({moneySymbol})
                 </th>
                 <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Peso (kg)
                 </th>
                 <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Total ($)
+                  Total ({moneySymbol})
                 </th>
                 <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>
               </tr>
@@ -1174,7 +1195,7 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
                             />
                           </div>
                           <div className="w-24">
-                            <label className="block text-xs font-medium text-gray-600 mb-1">Valor ($)</label>
+                            <label className="block text-xs font-medium text-gray-600 mb-1">Valor ({moneySymbol})</label>
                             <input
                               type="number"
                               step="0.01"
@@ -1229,11 +1250,11 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
                         </td>
                         <td className="px-4 py-2 text-sm text-right">{product.quantity}</td>
                         <td className="px-4 py-2 text-sm text-right">
-                          {product.value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          {formatProductMoney(product.value, supplierCurrency)}
                         </td>
                         <td className="px-4 py-2 text-sm text-right">{product.weight.toFixed(2)}</td>
                         <td className="px-4 py-2 text-sm text-right">
-                          {product.total.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          {formatProductMoney(product.total, supplierCurrency)}
                         </td>
                         <td className="px-4 py-2 text-center">
                           <div className="flex items-center justify-center gap-2">
@@ -1269,31 +1290,25 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
                 <p className="text-sm text-gray-600">Subtotal:</p>
                 <p id="subtotal" className="text-lg font-semibold">$ {subTotal.toLocaleString('en-US', {  currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits:2 }) || "0.00"}</p>
               </div> */}
-              {/* FRETE 1 */}
-              <div className="bg-gray-50 p-4 rounded-2xl border shadow-sm text-center">
+              {/* FRETE 1 — só fornecedor USD; em R$ fica zerado/bloqueado */}
+              <div className={`bg-gray-50 p-4 rounded-2xl border shadow-sm text-center ${isBrlSupplier ? "opacity-50" : ""}`}>
                 <p className="text-sm text-gray-600">Frete 1:</p>
-                <p className="text-sm text-gray-800 font-semibold">{carrierOneName}</p>
+                <p className="text-sm text-gray-800 font-semibold">{isBrlSupplier ? "—" : carrierOneName || "—"}</p>
                 <p id="shippingCost" className="text-lg font-bold mt-1">
-                  ${" "}
-                  {amountTaxCarrieFrete1.toLocaleString("en-US", {
-                    currency: "USD",
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2,
-                  }) || "0.00"}
+                  {isBrlSupplier
+                    ? "—"
+                    : formatProductMoney(amountTaxCarrieFrete1, supplierCurrency)}
                 </p>
               </div>
 
               {/* FRETE 2 */}
-              <div className="bg-gray-50 p-4 rounded-2xl border shadow-sm text-center">
+              <div className={`bg-gray-50 p-4 rounded-2xl border shadow-sm text-center ${isBrlSupplier ? "opacity-50" : ""}`}>
                 <p className="text-sm text-gray-600">Frete 2:</p>
-                <p className="text-sm text-gray-800 font-semibold">{carrierTwoName}</p>
+                <p className="text-sm text-gray-800 font-semibold">{isBrlSupplier ? "—" : carrierTwoName || "—"}</p>
                 <p id="shippingCost" className="text-lg font-bold mt-1">
-                  ${" "}
-                  {amountTaxCarrieFrete2.toLocaleString("en-US", {
-                    currency: "USD",
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2,
-                  }) || "0.00"}
+                  {isBrlSupplier
+                    ? "—"
+                    : formatProductMoney(amountTaxCarrieFrete2, supplierCurrency)}
                 </p>
               </div>
 
@@ -1324,14 +1339,14 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
               <div className="flex flex-col md:flex-row justify-between items-center">
                 <p className="text-sm font-medium text-blue-800">Total da Invoice:</p>
                 <p id="invoiceTotal" className="text-xl font-bold text-blue-800">
-                  ${" "}
-                  {subTotal.toLocaleString("en-US", {
-                    currency: "USD",
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2,
-                  }) || "0.00"}
+                  {formatProductMoney(subTotal, supplierCurrency)}
                 </p>
               </div>
+              {isBrlSupplier && (
+                <p className="text-xs text-amber-700 mt-2 text-center">
+                  Valores em R$ — mercadoria já comprada em real, sem conversão para dólar.
+                </p>
+              )}
             </div>
 
             {/* TOTAL COM FRETE */}
