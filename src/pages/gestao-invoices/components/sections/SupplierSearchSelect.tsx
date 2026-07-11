@@ -11,10 +11,11 @@ interface Props {
   products: Product[];
   value: string;
   onChange: (value: string) => void;
-  inline?: boolean; // Prop para usar em layout inline
+  inline?: boolean;
+  disabled?: boolean;
 }
 
-export function ProductSearchSelect({ products, value, onChange, inline = false }: Props) {
+export function ProductSearchSelect({ products, value, onChange, inline = false, disabled = false }: Props) {
   const [searchTerm, setSearchTerm] = useState("");
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -56,8 +57,12 @@ export function ProductSearchSelect({ products, value, onChange, inline = false 
       <label className="block text-sm font-medium text-gray-700 mb-1">Produto</label>
 
       <div
-        className="w-full border border-gray-300 rounded-md p-2 bg-white cursor-pointer flex items-center whitespace-nowrap overflow-hidden text-ellipsis"
-        onClick={() => setIsOpen(!isOpen)}
+        className={`w-full border border-gray-300 rounded-md p-2 flex items-center whitespace-nowrap overflow-hidden text-ellipsis ${
+          disabled ? "bg-gray-100 text-gray-500 cursor-not-allowed" : "bg-white cursor-pointer"
+        }`}
+        onClick={() => {
+          if (!disabled) setIsOpen(!isOpen);
+        }}
       >
         {selectedName || "Selecione um produto"}
       </div>

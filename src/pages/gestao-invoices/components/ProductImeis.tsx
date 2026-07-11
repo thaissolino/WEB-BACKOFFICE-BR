@@ -37,25 +37,24 @@ export function ProductImeis({ invoiceProductId, productName }: ProductImeisProp
   const isWatch = /WATCH|SMART\s*WATCH/i.test(productName || "");
   const hasNonImei = imeis.some((i) => !/^\d{15}$/.test(String(i?.imei ?? "")));
   const labelType = isWatch || hasNonImei ? "Seriais" : "IMEIs";
+  const labelSingular = labelType === "Seriais" ? "serial" : "IMEI";
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
-    const label = labelType === "Seriais" ? "Serial" : "IMEI";
     setOpenNotification({
       type: "success",
       title: "Copiado!",
-      notification: `${label} copiado para a área de transferência`,
+      notification: `${labelSingular.toUpperCase()} copiado para a área de transferência`,
     });
   };
 
   const copyAllImeis = () => {
     const allImeis = imeis.map((i) => i.imei).join("\n");
     navigator.clipboard.writeText(allImeis);
-    const label = labelType.toLowerCase();
     setOpenNotification({
       type: "success",
       title: "Copiado!",
-      notification: `${imeis.length} ${label} copiados para a área de transferência`,
+      notification: `${imeis.length} ${labelType.toLowerCase()} copiados para a área de transferência`,
     });
   };
 
@@ -142,6 +141,55 @@ export function ProductImeis({ invoiceProductId, productName }: ProductImeisProp
     }
   };
 
+  const editorBlock = (
+    <div className={`space-y-2 ${imeis.length > 0 ? "mt-3 border-t pt-3" : ""}`}>
+      <textarea
+        value={draftInput}
+        onChange={(e) => setDraftInput(e.target.value)}
+        rows={4}
+        placeholder="Cole IMEIs/seriais separados por vírgula, ponto e vírgula, dois pontos, espaço ou quebra de linha"
+        className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:ring-2 focus:ring-blue-400 focus:border-blue-400"
+      />
+      <div className="text-[11px] text-gray-500">
+        Formato aceito: IMEI (15 dígitos) ou serial alfanumérico (10–15, com letra e número). Pode colar vários de uma vez.
+      </div>
+      {draftInput.trim() && (
+        <div className="text-[11px] text-gray-600">
+          Prévia: {preview.addCount} novo(s), {preview.duplicateCount} duplicado(s), {preview.invalidCount} inválido(s).
+          {preview.invalidSamples.length > 0 ? ` Inválidos: ${preview.invalidSamples.join(", ")}.` : ""}
+        </div>
+      )}
+      <div className="flex gap-2">
+        <button
+          type="button"
+          disabled={isSaving}
+          onClick={() => updateImeis("merge")}
+          className="flex-1 px-2 py-1.5 bg-blue-600 text-white rounded text-xs hover:bg-blue-700 disabled:bg-gray-400"
+        >
+          {isSaving ? <Loader2 size={12} className="animate-spin inline mr-1" /> : null}
+          Somar
+        </button>
+        <button
+          type="button"
+          disabled={isSaving}
+          onClick={() => updateImeis("replace")}
+          className="flex-1 px-2 py-1.5 bg-purple-600 text-white rounded text-xs hover:bg-purple-700 disabled:bg-gray-400"
+        >
+          Substituir
+        </button>
+        <button
+          type="button"
+          disabled={isSaving || imeis.length === 0}
+          onClick={() => updateImeis("clear")}
+          className="px-2 py-1.5 bg-red-600 text-white rounded text-xs hover:bg-red-700 disabled:bg-gray-400"
+          title="Limpar todos"
+        >
+          <Trash2 size={12} />
+        </button>
+      </div>
+    </div>
+  );
+
   return (
     <div className="mt-2">
       <button
@@ -164,7 +212,12 @@ export function ProductImeis({ invoiceProductId, productName }: ProductImeisProp
           {isLoading ? (
             <div className="text-sm text-gray-500 text-center py-2">Carregando {labelType}...</div>
           ) : imeis.length === 0 ? (
-            <div className="text-sm text-gray-500 text-center py-2">Nenhum {labelType === "Seriais" ? "serial" : "IMEI"} cadastrado para este produto</div>
+            <>
+              <div className="text-sm text-gray-500 text-center py-2">
+                Nenhum {labelSingular} cadastrado para este produto
+              </div>
+              {editorBlock}
+            </>
           ) : (
             <>
               <div className="flex justify-between items-center mb-2">
@@ -189,59 +242,14 @@ export function ProductImeis({ invoiceProductId, productName }: ProductImeisProp
                     <button
                       onClick={() => copyToClipboard(imei.imei)}
                       className="text-blue-600 hover:text-blue-700 p-1"
-                      title={`Copiar ${labelType === "Seriais" ? "serial" : "IMEI"}`}
+                      title={`Copiar ${labelSingular}`}
                     >
                       <Copy size={12} />
                     </button>
                   </div>
                 ))}
               </div>
-              <div className="mt-3 border-t pt-3 space-y-2">
-                <textarea
-                  value={draftInput}
-                  onChange={(e) => setDraftInput(e.target.value)}
-                  rows={3}
-                  placeholder="Cole IMEIs/seriais separados por vírgula, ponto e vírgula, dois pontos, espaço ou quebra de linha"
-                  className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:ring-2 focus:ring-blue-400 focus:border-blue-400"
-                />
-                <div className="text-[11px] text-gray-500">
-                  Formato aceito: IMEI (15 dígitos) ou serial alfanumérico (10–15, com letra e número).
-                </div>
-                {draftInput.trim() && (
-                  <div className="text-[11px] text-gray-600">
-                    Prévia: {preview.addCount} novo(s), {preview.duplicateCount} duplicado(s), {preview.invalidCount} inválido(s).
-                    {preview.invalidSamples.length > 0 ? ` Inválidos: ${preview.invalidSamples.join(", ")}.` : ""}
-                  </div>
-                )}
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    disabled={isSaving}
-                    onClick={() => updateImeis("merge")}
-                    className="flex-1 px-2 py-1.5 bg-blue-600 text-white rounded text-xs hover:bg-blue-700 disabled:bg-gray-400"
-                  >
-                    {isSaving ? <Loader2 size={12} className="animate-spin inline mr-1" /> : null}
-                    Somar
-                  </button>
-                  <button
-                    type="button"
-                    disabled={isSaving}
-                    onClick={() => updateImeis("replace")}
-                    className="flex-1 px-2 py-1.5 bg-purple-600 text-white rounded text-xs hover:bg-purple-700 disabled:bg-gray-400"
-                  >
-                    Substituir
-                  </button>
-                  <button
-                    type="button"
-                    disabled={isSaving}
-                    onClick={() => updateImeis("clear")}
-                    className="px-2 py-1.5 bg-red-600 text-white rounded text-xs hover:bg-red-700 disabled:bg-gray-400"
-                    title="Limpar todos"
-                  >
-                    <Trash2 size={12} />
-                  </button>
-                </div>
-              </div>
+              {editorBlock}
             </>
           )}
         </div>
@@ -249,4 +257,3 @@ export function ProductImeis({ invoiceProductId, productName }: ProductImeisProp
     </div>
   );
 }
-
