@@ -75,6 +75,9 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
     total: "",
     price: "",
   });
+  /** "name" = escolheu pelo dropdown; "code" = digitou pelo código */
+  const [productPickMode, setProductPickMode] = useState<"name" | "code" | null>(null);
+  const [codeInput, setCodeInput] = useState("");
   const [editingProductIndex, setEditingProductIndex] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const { setOpenNotification } = useNotification();
@@ -123,6 +126,43 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
   const isBrlSupplier = isBrlSupplierCurrency(supplierCurrency);
   const moneySymbol = productCurrencySymbol(supplierCurrency);
 
+  const resetProductAddFields = () => {
+    setProductForm({
+      productId: "",
+      price: "",
+      quantity: "",
+      value: "",
+      weight: "",
+      total: "",
+    });
+    setProductPickMode(null);
+    setCodeInput("");
+    setValorRaw("");
+  };
+
+  const applyProductSelection = (selectedProduct: (typeof products)[0]) => {
+    const price = selectedProduct.priceweightAverage ?? 0;
+    const priceString = price > 0 ? price.toString() : "";
+    setValorRaw(priceString);
+
+    const weight = selectedProduct.weightAverage ?? 0;
+    const weightString = weight > 0 ? weight.toString() : "";
+
+    const newForm = {
+      ...productForm,
+      productId: selectedProduct.id,
+      value: priceString,
+      weight: weightString,
+    };
+
+    if (price > 0 && productForm.quantity) {
+      const quantity = parseFloat(productForm.quantity) || 0;
+      newForm.total = (quantity * price).toFixed(2);
+    }
+
+    setProductForm(newForm);
+  };
+
   const deleteProduct = (index: number) => {
     const newProducts = [...currentInvoice.products];
     newProducts.splice(index, 1);
@@ -146,8 +186,7 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
 
   const cancelEdit = () => {
     setEditingProductIndex(null);
-    setProductForm({ productId: "", price: "", quantity: "", value: "", weight: "", total: "" });
-    setValorRaw("");
+    resetProductAddFields();
   };
 
   const updateProduct = () => {
@@ -312,15 +351,7 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
       products: [...currentInvoice.products, invoiceProduct],
     });
 
-    setProductForm({
-      productId: "",
-      price: "",
-      quantity: "",
-      value: "",
-      weight: "",
-      total: "",
-    });
-
+    resetProductAddFields();
     setShowProductForm(false);
   };
 
@@ -803,7 +834,10 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
                 Importar em Massa
               </button>
               <button
-                onClick={() => setShowProductForm(true)}
+                onClick={() => {
+                  resetProductAddFields();
+                  setShowProductForm(true);
+                }}
                 className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded text-sm flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
                 disabled={isActionLoading}
               >
@@ -862,43 +896,20 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
               <ProductSearchSelect
                 products={products}
                 value={productForm.productId}
+                disabled={productPickMode === "code"}
                 onChange={(e: any) => {
                   const selectedProduct = products.find((p) => p.id === e);
 
-                  console.log("Produto selecionado:", selectedProduct);
-
                   if (selectedProduct) {
-                    // Preencher preço automaticamente
-                    const price = selectedProduct.priceweightAverage ?? 0;
-                    console.log("Preço do produto:", price);
-                    const priceString = price > 0 ? price.toString() : "";
-
-                    // Atualizar valorRaw com o preço (sem formatação inicial, será formatado no onBlur)
-                    setValorRaw(priceString);
-
-                    // Preencher peso automaticamente
-                    const weight = selectedProduct.weightAverage ?? 0;
-                    console.log("Peso do produto:", weight);
-                    const weightString = weight > 0 ? weight.toString() : "";
-
-                    const newForm = {
-                      ...productForm,
-                      productId: e,
-                      value: priceString,
-                      weight: weightString,
-                    };
-
-                    // Recalcular total automaticamente se houver quantidade
-                    if (price > 0 && productForm.quantity) {
-                      const quantity = parseFloat(productForm.quantity) || 0;
-                      const total = quantity * price;
-                      newForm.total = total.toFixed(2);
-                    }
-
-                    setProductForm(newForm);
-                    console.log("Form atualizado:", newForm);
+                    setProductPickMode("name");
+                    setCodeInput(selectedProduct.code || "");
+                    applyProductSelection(selectedProduct);
                   } else {
                     setProductForm({ ...productForm, productId: e });
+                    if (!e) {
+                      setProductPickMode(null);
+                      setCodeInput("");
+                    }
                     setValorRaw("");
                   }
                 }}
@@ -909,75 +920,49 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
               <input
                 type="text"
                 placeholder="Código"
-                value={(() => {
-                  const selectedProduct = products.find((p) => p.id === productForm.productId);
-                  return selectedProduct?.code || "";
-                })()}
-                className="w-full border border-gray-300 rounded-md p-2 text-sm focus:ring-blue-500 focus:border-blue-500"
+                value={
+                  productPickMode === "name"
+                    ? products.find((p) => p.id === productForm.productId)?.code || ""
+                    : codeInput
+                }
+                readOnly={productPickMode === "name"}
+                disabled={productPickMode === "name"}
+                className={`w-full border border-gray-300 rounded-md p-2 text-sm focus:ring-blue-500 focus:border-blue-500 ${
+                  productPickMode === "name" ? "bg-gray-100 text-gray-600 cursor-not-allowed" : ""
+                }`}
                 onChange={(e) => {
-                  const code = e.target.value.trim();
-                  if (code) {
-                    const productByCode = products.find(
-                      (p) => p.code === code || p.code?.toLowerCase() === code.toLowerCase()
-                    );
-                    if (productByCode) {
-                      // Preencher produto automaticamente
-                      const price = productByCode.priceweightAverage ?? 0;
-                      const priceString = price > 0 ? price.toString() : "";
-                      setValorRaw(priceString);
+                  const code = e.target.value;
+                  setProductPickMode("code");
+                  setCodeInput(code);
 
-                      const weight = productByCode.weightAverage ?? 0;
-                      const weightString = weight > 0 ? weight.toString() : "";
+                  if (!code.trim()) {
+                    setProductForm({ ...productForm, productId: "" });
+                    setProductPickMode(null);
+                    setValorRaw("");
+                    return;
+                  }
 
-                      const newForm = {
-                        ...productForm,
-                        productId: productByCode.id,
-                        value: priceString,
-                        weight: weightString,
-                      };
-
-                      if (price > 0 && productForm.quantity) {
-                        const quantity = parseFloat(productForm.quantity) || 0;
-                        const total = quantity * price;
-                        newForm.total = total.toFixed(2);
-                      }
-
-                      setProductForm(newForm);
-                    }
+                  const productByCode = products.find(
+                    (p) => p.code === code.trim() || p.code?.toLowerCase() === code.trim().toLowerCase()
+                  );
+                  if (productByCode) {
+                    applyProductSelection(productByCode);
+                  } else {
+                    setProductForm({ ...productForm, productId: "" });
                   }
                 }}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
                     e.preventDefault();
-                    const code = e.currentTarget.value.trim();
-                    if (code) {
-                      const productByCode = products.find(
-                        (p) => p.code === code || p.code?.toLowerCase() === code.toLowerCase()
-                      );
-                      if (productByCode) {
-                        // Preencher produto automaticamente
-                        const price = productByCode.priceweightAverage ?? 0;
-                        const priceString = price > 0 ? price.toString() : "";
-                        setValorRaw(priceString);
+                    const code = codeInput.trim();
+                    if (!code) return;
 
-                        const weight = productByCode.weightAverage ?? 0;
-                        const weightString = weight > 0 ? weight.toString() : "";
-
-                        const newForm = {
-                          ...productForm,
-                          productId: productByCode.id,
-                          value: priceString,
-                          weight: weightString,
-                        };
-
-                        if (price > 0 && productForm.quantity) {
-                          const quantity = parseFloat(productForm.quantity) || 0;
-                          const total = quantity * price;
-                          newForm.total = total.toFixed(2);
-                        }
-
-                        setProductForm(newForm);
-                      }
+                    const productByCode = products.find(
+                      (p) => p.code === code || p.code?.toLowerCase() === code.toLowerCase()
+                    );
+                    if (productByCode) {
+                      setProductPickMode("code");
+                      applyProductSelection(productByCode);
                     }
                   }
                 }}
