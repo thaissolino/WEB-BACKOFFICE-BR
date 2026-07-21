@@ -127,10 +127,14 @@ export function ProductImeis({ invoiceProductId, productName }: ProductImeisProp
           : defaultMsg,
       });
     } catch (error: any) {
+      const apiMessage =
+        error?.response?.data?.message ||
+        error?.response?.data?.error ||
+        error?.message;
       const message =
         error?.response?.status === 409
-          ? "Conflito: um ou mais IMEIs já pertencem a outro produto."
-          : "Não foi possível atualizar os IMEIs/seriais deste produto.";
+          ? apiMessage || "Conflito: um ou mais IMEIs já pertencem a outro produto."
+          : apiMessage || "Não foi possível atualizar os IMEIs/seriais deste produto.";
       setOpenNotification({
         type: "error",
         title: "Erro",
