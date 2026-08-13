@@ -17,12 +17,18 @@ export type PdvUiConfig = {
 export type PdvDashboardWidget = {
   id: string;
   label: string;
+  /** MVP: oculto no dashboard PDV. Remover este flag para reexibir. */
+  mvpHidden?: boolean;
 };
 
 export type PdvConfigModalItem = {
   id: string;
   label: string;
+  /** MVP: oculto no modal Configuração. Remover este flag para reexibir. */
+  mvpHidden?: boolean;
 };
+
+type ConfigModalSourceItem = string | { label: string; mvpHidden: true };
 
 export type PdvConfigModalSection = {
   id: string;
@@ -58,7 +64,7 @@ export const PDV_DASHBOARD_ACCORDIONS: PdvDashboardWidget[] = [
 
 export const PDV_DASHBOARD_CHROME: PdvDashboardWidget[] = [
   { id: "welcome", label: "Seja bem vindo" },
-  { id: "certificate-alert", label: "ATENÇÃO!" },
+  { id: "certificate-alert", label: "ATENÇÃO!", mvpHidden: true },
   { id: "close-demo", label: "Fechar demonstrativo" },
   { id: "period", label: "Período" },
 ];
@@ -69,26 +75,40 @@ export const PDV_DASHBOARD_WIDGETS: PdvDashboardWidget[] = [
   ...PDV_DASHBOARD_CHROME.slice(2),
 ];
 
-const CONFIG_MODAL_SOURCE: { title: string; items: string[] }[][] = [
+const CONFIG_MODAL_SOURCE: { title: string; items: ConfigModalSourceItem[] }[][] = [
   [
     {
       title: "PARÂMETROS GERAIS",
       items: [
-        "Cadastro do Cliente",
+        { label: "Cadastro do Cliente", mvpHidden: true },
         "Tipo de Atividade",
         "Caixa",
         "Comissão e Meta",
-        "Gerenciar Acesso do Contador",
-        "Acréscimo no Preço de Venda",
-        "Mensagem Tipo Venda",
-        "Arquivos Fiscais Contador",
+        { label: "Gerenciar Acesso do Contador", mvpHidden: true },
+        { label: "Acréscimo no Preço de Venda", mvpHidden: true },
+        { label: "Mensagem Tipo Venda", mvpHidden: true },
+        { label: "Arquivos Fiscais Contador", mvpHidden: true },
         "Impressão/Carta/E-mail",
-        "Número para Letra",
-        "Local Venda",
-        "Status",
+        { label: "Número para Letra", mvpHidden: true },
+        { label: "Local Venda", mvpHidden: true },
+        { label: "Status", mvpHidden: true },
         "Pacotes SIGEP",
         "Gerenciar colunas no Robô de Impressão LV",
-        "Recorrência com Yapay",
+        { label: "Recorrência com Yapay", mvpHidden: true },
+      ],
+    },
+    {
+      title: "FORMA DE PAGAMENTO",
+      items: ["Listar", "Cadastrar", "Inativos"],
+    },
+    {
+      title: "INTEGRAÇÃO",
+      items: [
+        { label: "Sigep Correios", mvpHidden: true },
+        { label: "Loja Virtual", mvpHidden: true },
+        { label: "Boleto Cloud", mvpHidden: true },
+        { label: "Boleto Yapay", mvpHidden: true },
+        { label: "Sob Demanda", mvpHidden: true },
       ],
     },
   ],
@@ -104,6 +124,12 @@ const CONFIG_MODAL_SOURCE: { title: string; items: string[] }[][] = [
       ],
     },
     {
+      title: "NF-E E NFC-E",
+      items: ["Parâmetros Avançados", "Parâmetros Simplificados", "Transportadora"],
+    },
+  ],
+  [
+    {
       title: "IMPORTAÇÃO",
       items: [
         "Cliente",
@@ -118,20 +144,6 @@ const CONFIG_MODAL_SOURCE: { title: string; items: string[] }[][] = [
       ],
     },
   ],
-  [
-    {
-      title: "FORMA DE PAGAMENTO",
-      items: ["Listar", "Cadastrar", "Inativos"],
-    },
-    {
-      title: "INTEGRAÇÃO",
-      items: ["Sigep Correios", "Loja Virtual", "Boleto Cloud", "Boleto Yapay", "Sob Demanda"],
-    },
-    {
-      title: "NF-E E NFC-E",
-      items: ["Parâmetros Avançados", "Parâmetros Simplificados", "Transportadora"],
-    },
-  ],
 ];
 
 export const PDV_CONFIG_MODAL_COLUMNS: PdvConfigModalSection[][] = CONFIG_MODAL_SOURCE.map((column) =>
@@ -140,12 +152,26 @@ export const PDV_CONFIG_MODAL_COLUMNS: PdvConfigModalSection[][] = CONFIG_MODAL_
     return {
       id: sectionId,
       title: section.title,
-      items: section.items.map((label) => ({
-        id: `${sectionId}__${slugPart(label)}`,
-        label,
-      })),
+      items: section.items.map((entry) => {
+        const label = typeof entry === "string" ? entry : entry.label;
+        return {
+          id: `${sectionId}__${slugPart(label)}`,
+          label,
+          ...(typeof entry !== "string" && entry.mvpHidden ? { mvpHidden: true as const } : {}),
+        };
+      }),
     };
   }),
+);
+
+const MVP_HIDDEN_DASHBOARD_IDS = new Set(
+  PDV_DASHBOARD_WIDGETS.filter((item) => item.mvpHidden).map((item) => item.id),
+);
+
+const MVP_HIDDEN_CONFIG_MODAL_IDS = new Set(
+  PDV_CONFIG_MODAL_COLUMNS.flatMap((column) =>
+    column.flatMap((section) => section.items.filter((item) => item.mvpHidden).map((item) => item.id)),
+  ),
 );
 
 export const EMPTY_PDV_UI_CONFIG: PdvUiConfig = {
@@ -163,7 +189,7 @@ function menuItemsToToggles(items: PdvMenuItem[]): Record<string, PdvMenuToggle>
   const next: Record<string, PdvMenuToggle> = {};
   for (const item of items) {
     next[item.id] = {
-      on: true,
+      on: item.mvpHidden ? false : true,
       ...(item.children?.length ? { children: menuItemsToToggles(item.children) } : {}),
     };
   }
@@ -178,8 +204,8 @@ export function defaultMenusFromData(menus: PdvMenuRoot[] = PDV_MENUS): Record<s
   return next;
 }
 
-function defaultFlagMap(items: { id: string }[]) {
-  return Object.fromEntries(items.map((item) => [item.id, true]));
+function defaultFlagMap(items: { id: string; mvpHidden?: boolean }[]) {
+  return Object.fromEntries(items.map((item) => [item.id, item.mvpHidden ? false : true]));
 }
 
 export function buildDefaultPdvUiConfig(): PdvUiConfig {
@@ -201,7 +227,8 @@ function mergeMenuToggles(
     const left = defaults[key] ?? { on: true };
     const right = incoming?.[key];
     next[key] = {
-      on: right?.on !== false,
+      // Chave ausente no payload = usa o default (MVP hidden começa OFF).
+      on: typeof right?.on === "boolean" ? right.on : left.on,
       children:
         left.children || right?.children
           ? mergeMenuToggles(left.children ?? {}, right?.children)
@@ -293,10 +320,12 @@ export function isMenuVisible(config: PdvUiConfig, navId: PdvNavId, path: string
 }
 
 export function isDashboardVisible(config: PdvUiConfig, widgetId: string) {
+  if (MVP_HIDDEN_DASHBOARD_IDS.has(widgetId)) return false;
   return config.dashboard[widgetId] !== false;
 }
 
 export function isConfigModalItemVisible(config: PdvUiConfig, itemId: string) {
+  if (MVP_HIDDEN_CONFIG_MODAL_IDS.has(itemId)) return false;
   return config.configModal[itemId] !== false;
 }
 
@@ -327,7 +356,7 @@ export function filterMenuItems(
 ): PdvMenuItem[] {
   return items.flatMap((item) => {
     const path = [...parentPath, item.id];
-    if (!isMenuVisible(config, navId, path)) return [];
+    if (item.mvpHidden || !isMenuVisible(config, navId, path)) return [];
     const children = item.children
       ? filterMenuItems(item.children, config, navId, path)
       : undefined;

@@ -5,6 +5,8 @@ export type PdvMenuItem = {
   href?: string;
   /** Seta à direita mesmo sem filhos conhecidos (submenu ainda não enviado). */
   hasSubmenu?: boolean;
+  /** MVP: oculto no PDV. Remover este flag para reexibir. */
+  mvpHidden?: boolean;
   children?: PdvMenuItem[];
 };
 
@@ -246,6 +248,7 @@ export const PDV_MENUS: PdvMenuRoot[] = [
       {
         id: "mov-consignado",
         label: "Consignado",
+        mvpHidden: true,
         hasSubmenu: true,
         children: [
           { id: "mov-consignado-abertas", label: "Abertas" },
@@ -259,6 +262,7 @@ export const PDV_MENUS: PdvMenuRoot[] = [
       {
         id: "mov-orcamento",
         label: "Orçamento",
+        mvpHidden: true,
         hasSubmenu: true,
         children: [
           { id: "mov-orcamento-abertas", label: "Abertas" },
@@ -272,6 +276,7 @@ export const PDV_MENUS: PdvMenuRoot[] = [
       {
         id: "mov-ordem-servico",
         label: "Ordem Serviço",
+        mvpHidden: true,
         hasSubmenu: true,
         children: [
           { id: "mov-os-abertas", label: "Abertas" },
@@ -281,7 +286,7 @@ export const PDV_MENUS: PdvMenuRoot[] = [
           { id: "mov-os-busca", label: "Busca" },
         ],
       },
-      { id: "mov-kanban", label: "Kanban Movimentação", starred: true },
+      { id: "mov-kanban", label: "Kanban Movimentação", starred: true, mvpHidden: true },
       {
         id: "mov-caixa",
         label: "Caixa",
@@ -294,11 +299,12 @@ export const PDV_MENUS: PdvMenuRoot[] = [
           { id: "mov-caixa-conciliacao", label: "Conciliação Bancária" },
         ],
       },
-      { id: "mov-compra", label: "Compra", hasSubmenu: true },
+      { id: "mov-compra", label: "Compra", hasSubmenu: true, mvpHidden: true },
       {
         id: "mov-solicitacao",
         label: "Solicitação de Compra",
         starred: true,
+        mvpHidden: true,
         hasSubmenu: true,
         children: [
           { id: "mov-solicitacao-listar", label: "Listar" },

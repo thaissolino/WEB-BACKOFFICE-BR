@@ -5,6 +5,7 @@ import {
   ChevronDown,
   Headphones,
   Home,
+  ImagePlus,
   LogOut,
   Package,
   Search,
@@ -18,6 +19,7 @@ import MenuBar from "./MenuBar";
 import PdvTip from "./PdvTip";
 import ConfigModal from "./ConfigModal";
 import SupportModal from "./SupportModal";
+import LogoModal from "./LogoModal";
 import {
   EMPTY_PDV_UI_CONFIG,
   isDashboardVisible,
@@ -162,8 +164,10 @@ export default function PdvShell({
   const [pendingStoreId, setPendingStoreId] = useState<string | null>(null);
   const [periodFrom, setPeriodFrom] = useState("");
   const [periodTo, setPeriodTo] = useState("");
-  const [chromeModal, setChromeModal] = useState<"config" | "support" | null>(null);
+  const [chromeModal, setChromeModal] = useState<"config" | "support" | "logo" | null>(null);
   const [uiConfig, setUiConfig] = useState<PdvUiConfig>(EMPTY_PDV_UI_CONFIG);
+  const [logoSrc, setLogoSrc] = useState<string | null>(null);
+  const [logoTick, setLogoTick] = useState(0);
 
   const storeName = STORES.find((item) => item.id === storeId)?.name ?? STORES[0].name;
   const currentStore = STORES.find((item) => item.id === storeId) ?? STORES[0];
@@ -172,6 +176,40 @@ export default function PdvShell({
   useEffect(() => {
     sessionStorage.setItem(STORE_STORAGE_KEY, storeId);
   }, [storeId]);
+
+  useEffect(() => {
+    let active = true;
+    let objectUrl: string | null = null;
+
+    api
+      .get("/clients/store-logo", { params: { storeKey: storeId } })
+      .then(async ({ data }) => {
+        const fileId = data?.current?.id;
+        if (!active || !fileId) {
+          if (active) setLogoSrc(null);
+          return;
+        }
+        const blob = await api.get(`/clients/store-logo/file/${fileId}`, {
+          params: { storeKey: storeId },
+          responseType: "blob",
+        });
+        if (!active) return;
+        objectUrl = URL.createObjectURL(blob.data);
+        if (!active) {
+          URL.revokeObjectURL(objectUrl);
+          return;
+        }
+        setLogoSrc(objectUrl);
+      })
+      .catch(() => {
+        if (active) setLogoSrc(null);
+      });
+
+    return () => {
+      active = false;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [storeId, logoTick]);
 
   useEffect(() => {
     let active = true;
@@ -269,9 +307,32 @@ export default function PdvShell({
         </a>
 
         <header className="pdv-header">
-          <button className="pdv-catalog" type="button">
-            CATÁLOGO DE PRODUTOS
-          </button>
+          <div className="pdv-brand">
+            <PdvTip label="Logo da loja">
+              <button
+                className="pdv-store-logo"
+                type="button"
+                aria-label="Logo da loja"
+                aria-haspopup="dialog"
+                aria-expanded={chromeModal === "logo"}
+                data-open={chromeModal === "logo" ? "true" : undefined}
+                data-has-logo={logoSrc ? "true" : undefined}
+                onClick={() => setChromeModal("logo")}
+              >
+                {logoSrc ? (
+                  <img className="pdv-store-logo-img" src={logoSrc} alt="" />
+                ) : (
+                  <ImagePlus size={20} strokeWidth={2.2} aria-hidden="true" />
+                )}
+                <span className="pdv-store-logo-text" aria-hidden={logoSrc ? true : undefined}>
+                  Logo da loja
+                </span>
+              </button>
+            </PdvTip>
+            <button className="pdv-catalog" type="button">
+              CATÁLOGO DE PRODUTOS
+            </button>
+          </div>
 
           <form className="pdv-search" onSubmit={onSearch} role="search">
             <div className="pdv-search-head">
@@ -427,6 +488,13 @@ export default function PdvShell({
           uiConfig={uiConfig}
         />
         <SupportModal open={chromeModal === "support"} onClose={() => setChromeModal(null)} />
+        <LogoModal
+          open={chromeModal === "logo"}
+          storeKey={storeId}
+          storeName={storeName}
+          onClose={() => setChromeModal(null)}
+          onSaved={() => setLogoTick((value) => value + 1)}
+        />
 
         {pendingStore ? (
           <div className="pdv-confirm-scrim">

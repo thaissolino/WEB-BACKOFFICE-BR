@@ -22,6 +22,7 @@ import OperatorManager from "../pages/form-operators/OperatorsManagement";
 import OperatorsManagementPerfilEdit from "../pages/form-operators-perfil-edit/OperatorsManagementPerfilEdit";
 import AdmManagementPerfilEdit from "../pages/form-adm-perfil-edit/AdmManagementPerfilEdit";
 import { useClientAuth } from "../hooks/clientAuth";
+import { GestorVixHome } from "../pages/home/GestorVixHome";
 import ClientLogin from "../pages/client/Login";
 import ClientRegister from "../pages/client/Register";
 import ClientForgotPassword from "../pages/client/ForgotPassword";
@@ -57,7 +58,7 @@ import CommercialClientsList from "../pages/commercial-clients/CommercialClients
 import CommercialClientDetail from "../pages/commercial-clients/CommercialClientDetail";
 
 const BACKOFFICE_ROUTE = "/backoffice";
-const LOGIN_ROUTE = "/home";
+const LOGIN_ROUTE = "/signin/backoffice";
 
 function RequireAuthBackoffice({ children }: { children: JSX.Element }) {
   useEffect(() => {
@@ -76,9 +77,11 @@ export function Router() {
   return (
     <Routes>
       <Route path="/" element={<Navigate to="/home" replace />} />
-      <Route path="/adm" element={<Navigate to="/home" replace />} />
-      <Route path="/signin/backoffice" element={<Navigate to="/home" replace />} />
-      <Route path="/signin/backoffice/adm" element={<Navigate to="/home" replace />} />
+      <Route path="/adm" element={<Navigate to="/signin/backoffice" replace />} />
+      <Route path="/signin/backoffice/adm" element={<Navigate to="/signin/backoffice" replace />} />
+
+      {/* Funil público GestorVix — sem formulário de senha */}
+      <Route path="home" element={<GestorVixHome />} />
 
       {/* Rota pública: sessão expirada (sem proteção de auth) */}
       <Route path="session-expired/backoffice" element={<SessionExpiredBackoffice />} />
@@ -147,18 +150,18 @@ export function Router() {
         element={
           <GuardedRoute
             isRouteAccessible={!isAuthenticated}
-            redirectRoute={isAuthenticated ? BACKOFFICE_ROUTE : LOGIN_ROUTE}
+            redirectRoute={BACKOFFICE_ROUTE}
           />
         }
       >
-        <Route path="home" element={<BackofficeSignIn />} />
+        <Route path="signin/backoffice" element={<BackofficeSignIn />} />
       </Route>
 
       <Route
         element={
           <GuardedRoute
             isRouteAccessible={isAuthenticated}
-            redirectRoute="/home"
+            redirectRoute={LOGIN_ROUTE}
           />
         }
       >

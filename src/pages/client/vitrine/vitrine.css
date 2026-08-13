@@ -1,176 +1,95 @@
 @import url("https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700&family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap");
 
 .vitrine-root {
+  --vitrine-void: #12100e;
   --vitrine-chassis: #14110e;
   --vitrine-panel: #1b1714;
+  --vitrine-well: rgba(26, 23, 20, 0.72);
   --vitrine-filament: #e8a54b;
   --vitrine-filament-dim: #c4842a;
   --vitrine-gold: #c4a574;
   --vitrine-filament-soft: rgba(232, 165, 75, 0.28);
+  --vitrine-on-gold: #12100e;
   --vitrine-aluminum: #d4cdc3;
-  --vitrine-receipt: #f6f1ea;
-  --vitrine-sheet: #fffcf8;
-  --vitrine-ink: #1c1814;
-  --vitrine-ink-muted: #5f564c;
+  --vitrine-receipt: #f3eee4;
+  --vitrine-ink: #f6f1ea;
+  --vitrine-ink-muted: #b7aea2;
   --vitrine-ink-faint: #8a8074;
-  --vitrine-rule: rgba(92, 83, 72, 0.14);
-  --vitrine-error: #b42318;
-  --vitrine-error-bg: #f8e4e1;
-  --vitrine-success: #1f6b4a;
-  --vitrine-success-bg: #dceee4;
-  --vitrine-focus: #c4842a;
-  --radius: 1rem;
-  --radius-sm: 0.75rem;
-  --radius-lg: 1.25rem;
-  --radius-xl: 1.6rem;
+  --vitrine-rule: rgba(246, 241, 234, 0.12);
+  --vitrine-error: #e08a7a;
+  --vitrine-error-bg: rgba(224, 138, 122, 0.12);
+  --vitrine-success: #8fd4b2;
+  --vitrine-success-bg: rgba(31, 107, 74, 0.22);
+  --vitrine-focus: #e8a54b;
+  --radius: 6px;
+  --radius-sm: 4px;
+  --radius-lg: 0.7rem;
+  --radius-xl: 0.9rem;
   --radius-pill: 999px;
-  --shadow-sheet: 0 18px 50px rgba(28, 24, 20, 0.1), 0 2px 8px rgba(28, 24, 20, 0.04);
   --ease: cubic-bezier(0.16, 1, 0.3, 1);
   --font-display: "Outfit", "Plus Jakarta Sans", sans-serif;
   --font-body: "Plus Jakarta Sans", sans-serif;
-  min-height: 100svh;
-  background: var(--vitrine-receipt);
-  color: var(--vitrine-ink);
   font-family: var(--font-body);
-  font-size: 1.0625rem;
-  line-height: 1.55;
-}
-
-.vitrine-skip {
-  position: absolute;
-  left: 12px;
-  top: 12px;
-  z-index: 20;
-  padding: 10px 14px;
-  border-radius: var(--radius-sm);
-  background: var(--vitrine-ink);
-  color: var(--vitrine-receipt);
-  text-decoration: none;
-  font-weight: 600;
-  transform: translateY(-160%);
-}
-
-.vitrine-skip:focus {
-  transform: none;
-}
-
-.vitrine-stage {
-  display: grid;
-  min-height: 100svh;
-  grid-template-rows: minmax(132px, 22svh) 8px 1fr;
-}
-
-.vitrine-showroom {
-  position: relative;
-  overflow: hidden;
-  background: var(--vitrine-chassis);
-  color: var(--vitrine-aluminum);
-  border-radius: 0 0 var(--radius-xl) var(--radius-xl);
-}
-
-.vitrine-showroom img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  object-position: 50% 40%;
-  display: block;
-}
-
-.vitrine-showroom-veil {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(180deg, rgba(20, 17, 14, 0.12) 0%, rgba(20, 17, 14, 0.7) 100%);
-  pointer-events: none;
-}
-
-.vitrine-filament {
-  background: linear-gradient(90deg, transparent, var(--vitrine-filament), transparent);
-  box-shadow: 0 0 18px var(--vitrine-filament-soft);
-  border-radius: var(--radius-pill);
-  margin: 0 24px;
-  align-self: center;
-}
-
-.vitrine-showroom-copy {
-  position: absolute;
-  left: 20px;
-  right: 20px;
-  bottom: 16px;
-  z-index: 1;
+  font-size: 1rem;
+  line-height: 1.5;
 }
 
 .vitrine-kicker {
-  margin: 0 0 6px;
+  margin: 0;
   font-family: var(--font-body);
-  font-size: 0.72rem;
+  font-size: 0.75rem;
   font-weight: 600;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--vitrine-filament);
 }
 
-.vitrine-brand {
-  margin: 0;
-  font-family: var(--font-display);
-  font-size: clamp(1.45rem, 5.5vw, 2.1rem);
-  font-weight: 600;
-  letter-spacing: -0.03em;
-  line-height: 1.1;
-  color: #f6f0e6;
-  text-wrap: balance;
-}
-
-.vitrine-counter {
-  padding: 20px 16px 40px;
-  background: var(--vitrine-receipt);
-}
-
-.vitrine-sheet {
-  width: min(100%, 440px);
-  margin: 0 auto;
-  padding: 24px 20px 20px;
-  background: var(--vitrine-sheet);
-  border: 1px solid var(--vitrine-rule);
-  border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-sheet);
+.vitrine-kicker-sheet {
+  color: var(--vitrine-filament);
 }
 
 .vitrine-title {
-  margin: 0;
+  margin: 10px 0 0;
+  display: inline-block;
+  width: fit-content;
   font-family: var(--font-display);
-  font-size: clamp(1.7rem, 5vw, 2.15rem);
-  font-weight: 600;
-  letter-spacing: -0.03em;
-  line-height: 1.15;
+  font-size: clamp(1.85rem, 5vw, 2.25rem);
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  line-height: 1.08;
+  color: var(--vitrine-ink);
+  border-bottom: 4px solid var(--vitrine-filament);
+  padding-bottom: 8px;
   text-wrap: balance;
 }
 
 .vitrine-lede {
-  margin: 10px 0 0;
+  margin: 14px 0 0;
+  max-width: 32ch;
   color: var(--vitrine-ink-muted);
-  max-width: 40ch;
-  font-size: 0.98rem;
+  font-size: 0.95rem;
+  line-height: 1.45;
 }
 
 .vitrine-form {
   display: grid;
-  gap: 16px;
-  margin-top: 24px;
+  gap: 18px;
+  margin-top: 32px;
 }
 
 .vitrine-field {
   display: grid;
-  gap: 6px;
+  gap: 8px;
 }
 
 .vitrine-label {
-  font-size: 0.9rem;
+  font-size: 0.8125rem;
   font-weight: 600;
   color: var(--vitrine-ink);
 }
 
 .vitrine-required {
-  color: var(--vitrine-filament-dim);
+  color: var(--vitrine-filament);
   font-weight: 700;
 }
 
@@ -178,14 +97,20 @@
 .vitrine-select {
   width: 100%;
   min-height: 48px;
-  padding: 12px 16px;
+  padding: 12px 14px;
   border: 1px solid var(--vitrine-rule);
   border-radius: var(--radius);
-  background: #f3eee6;
+  background: var(--vitrine-well);
   color: var(--vitrine-ink);
   font: inherit;
   font-size: 1rem;
-  transition: border-color 180ms var(--ease), box-shadow 180ms var(--ease), background 180ms var(--ease);
+  box-sizing: border-box;
+  transition: border-color 180ms var(--ease), box-shadow 180ms var(--ease);
+}
+
+.vitrine-select option {
+  background: #161310;
+  color: var(--vitrine-ink);
 }
 
 .vitrine-control::placeholder,
@@ -195,7 +120,7 @@
 
 .vitrine-control:hover,
 .vitrine-select:hover {
-  border-color: rgba(196, 132, 42, 0.35);
+  border-color: color-mix(in srgb, var(--vitrine-filament) 42%, var(--vitrine-rule));
 }
 
 .vitrine-control:focus-visible,
@@ -203,16 +128,23 @@
 .vitrine-btn:focus-visible,
 .vitrine-text-btn:focus-visible,
 .vitrine-link:focus-visible,
-.vitrine-password-toggle:focus-visible,
-.vitrine-skip:focus-visible {
-  outline: 3px solid var(--vitrine-focus);
+.vitrine-password-toggle:focus-visible {
+  outline: 2px solid var(--vitrine-focus);
   outline-offset: 2px;
 }
 
 .vitrine-control[aria-invalid="true"],
 .vitrine-select[aria-invalid="true"] {
   border-color: var(--vitrine-error);
-  background: #fbf3f1;
+  background: rgba(224, 138, 122, 0.08);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--vitrine-error) 35%, transparent);
+}
+
+.vitrine-root input:-webkit-autofill,
+.vitrine-root select:-webkit-autofill {
+  -webkit-box-shadow: 0 0 0 1000px #1a1714 inset;
+  -webkit-text-fill-color: var(--vitrine-ink);
+  caret-color: var(--vitrine-ink);
 }
 
 .vitrine-password-wrap {
@@ -232,24 +164,25 @@
   min-width: 44px;
   padding: 0 12px;
   border: 0;
-  border-radius: var(--radius-pill);
-  background: rgba(28, 24, 20, 0.06);
+  border-radius: var(--radius-sm);
+  background: transparent;
   color: var(--vitrine-ink-muted);
   font: inherit;
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
   cursor: pointer;
 }
 
 .vitrine-password-toggle:hover {
-  background: rgba(28, 24, 20, 0.1);
   color: var(--vitrine-ink);
 }
 
 .vitrine-hint,
 .vitrine-error-text {
   margin: 0;
-  font-size: 0.84rem;
+  font-size: 0.8125rem;
 }
 
 .vitrine-hint {
@@ -263,86 +196,104 @@
 .vitrine-alert {
   margin: 0;
   padding: 12px 14px;
-  border-radius: var(--radius-sm);
-  border: 1px solid rgba(180, 35, 24, 0.18);
+  border-radius: var(--radius);
+  border: 1px solid color-mix(in srgb, var(--vitrine-error) 35%, transparent);
   background: var(--vitrine-error-bg);
-  color: #7a1c14;
-  font-size: 0.92rem;
+  color: #f3c2b8;
+  font-size: 0.875rem;
 }
 
 .vitrine-alert[data-tone="success"] {
-  border-color: rgba(31, 107, 74, 0.2);
+  border-color: rgba(143, 212, 178, 0.28);
   background: var(--vitrine-success-bg);
-  color: #154a34;
+  color: #cdecd9;
 }
 
+.vitrine-root button.vitrine-btn[type="submit"],
 .vitrine-root button.vitrine-btn,
 .vitrine-root .vitrine-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  appearance: none;
+  -webkit-appearance: none;
   min-height: 50px;
   width: 100%;
+  margin-top: 8px;
   padding: 12px 18px;
   border: 0;
-  border-radius: var(--radius-pill);
-  background: #fff;
-  color: var(--vitrine-ink) !important;
-  -webkit-text-fill-color: var(--vitrine-ink) !important;
+  border-radius: 999px;
+  background: var(--vitrine-filament);
+  background-image: none;
+  color: var(--vitrine-on-gold) !important;
+  -webkit-text-fill-color: var(--vitrine-on-gold) !important;
   font-family: var(--font-display);
   font-size: 1rem;
-  font-weight: 600;
+  font-weight: 700;
   letter-spacing: 0.01em;
   cursor: pointer;
   text-decoration: none;
-  box-shadow: 0 10px 24px rgba(28, 24, 20, 0.16);
-  transition: transform 180ms var(--ease), background 180ms var(--ease), color 180ms var(--ease), box-shadow 180ms var(--ease);
+  box-shadow: none;
+  transition: filter 180ms var(--ease), transform 180ms var(--ease);
 }
 
 .vitrine-root button.vitrine-btn:hover:not(:disabled),
 .vitrine-root .vitrine-btn:hover:not(:disabled) {
-  background: var(--vitrine-chassis);
-  color: #faf3e8 !important;
-  -webkit-text-fill-color: #faf3e8 !important;
+  filter: brightness(1.07);
+  background: var(--vitrine-filament);
+  color: var(--vitrine-on-gold) !important;
+  -webkit-text-fill-color: var(--vitrine-on-gold) !important;
+  box-shadow: none;
 }
 
 .vitrine-root .vitrine-btn:active:not(:disabled) {
-  transform: translateY(1px) scale(0.99);
+  transform: translateY(1px);
 }
 
 .vitrine-root .vitrine-btn:disabled {
   opacity: 0.55;
   cursor: not-allowed;
+  filter: none;
   box-shadow: none;
 }
 
 .vitrine-foot {
   display: grid;
-  gap: 4px;
-  margin-top: 18px;
-  padding-top: 16px;
+  gap: 0;
+  margin-top: 28px;
+  padding-top: 18px;
   border-top: 1px solid var(--vitrine-rule);
+}
+
+.vitrine-foot + .vitrine-foot {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
 }
 
 .vitrine-link,
 .vitrine-text-btn {
-  color: var(--vitrine-ink);
+  display: inline-flex;
+  align-items: center;
+  color: var(--vitrine-ink-muted);
   font-weight: 600;
   text-decoration: none;
   background: none;
   border: 0;
-  padding: 8px 10px;
+  padding: 4px 6px;
   min-height: 44px;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius);
   font: inherit;
+  font-size: 0.875rem;
   cursor: pointer;
   text-align: left;
-  transition: background 180ms var(--ease);
+  transition: color 180ms var(--ease), background 180ms var(--ease);
 }
 
 .vitrine-link:hover,
 .vitrine-text-btn:hover {
-  background: rgba(28, 24, 20, 0.05);
+  color: var(--vitrine-ink);
+  background: rgba(246, 241, 234, 0.06);
 }
 
 .vitrine-muted-link {
@@ -353,55 +304,14 @@
 .vitrine-skeleton {
   display: grid;
   gap: 12px;
-  margin-top: 24px;
+  margin-top: 18px;
 }
 
 .vitrine-skeleton span {
   display: block;
   height: 48px;
-  background: #ece4d8;
+  background: rgba(246, 241, 234, 0.08);
   border-radius: var(--radius);
-}
-
-@media (min-width: 900px) {
-  .vitrine-stage {
-    grid-template-rows: none;
-    grid-template-columns: minmax(280px, 1.08fr) 12px minmax(440px, 0.92fr);
-  }
-
-  .vitrine-filament {
-    width: 3px;
-    min-height: 42vh;
-    margin: auto 0;
-    background: linear-gradient(180deg, transparent, var(--vitrine-filament), transparent);
-  }
-
-  .vitrine-showroom {
-    min-height: 100svh;
-    border-radius: 0;
-  }
-
-  .vitrine-showroom img {
-    object-position: 42% 50%;
-  }
-
-  .vitrine-showroom-copy {
-    left: 40px;
-    right: 48px;
-    bottom: 48px;
-  }
-
-  .vitrine-counter {
-    display: flex;
-    align-items: center;
-    padding: 40px 48px;
-  }
-
-  .vitrine-sheet {
-    margin: 0;
-    width: min(100%, 440px);
-    padding: 32px 28px 24px;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -410,10 +320,11 @@
   .vitrine-select,
   .vitrine-link,
   .vitrine-password-toggle {
+    animation: none;
     transition: none;
   }
 
-  .vitrine-btn:active:not(:disabled) {
+  .vitrine-root .vitrine-btn:active:not(:disabled) {
     transform: none;
   }
 }

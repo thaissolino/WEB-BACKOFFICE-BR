@@ -32,7 +32,6 @@ export function VitrineField(props: VitrineFieldProps | VitrineSelectProps) {
       {props.label}
       {props.requiredMark ? (
         <span className="vitrine-required" aria-hidden="true">
-          {" "}
           *
         </span>
       ) : null}

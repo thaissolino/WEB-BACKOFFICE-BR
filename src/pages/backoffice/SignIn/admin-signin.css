@@ -1,85 +1,21 @@
-@import url("https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700&family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap");
-
 .adm-signin {
   --adm-void: #12100e;
-  --adm-panel: #161310;
-  --adm-well: #1a1714;
   --adm-filament: #e8a54b;
   --adm-filament-soft: rgba(232, 165, 75, 0.28);
   --adm-on-gold: #12100e;
   --adm-ink: #f6f1ea;
-  --adm-muted: #b7aea2;
-  --adm-faint: #8a8074;
-  --adm-rule: rgba(246, 241, 234, 0.12);
+  --adm-muted: #d4ccc2;
+  --adm-faint: #b7aea2;
+  --adm-rule: rgba(246, 241, 234, 0.16);
   --adm-error: #e08a7a;
-  --adm-error-bg: rgba(224, 138, 122, 0.12);
-  --adm-radius: 6px;
+  --adm-error-bg: rgba(224, 138, 122, 0.16);
+  --adm-radius: 10px;
   --adm-ease: cubic-bezier(0.16, 1, 0.3, 1);
   --adm-display: "Outfit", "Plus Jakarta Sans", sans-serif;
   --adm-body: "Plus Jakarta Sans", sans-serif;
-  min-height: 100svh;
-  background: var(--adm-void);
-  color: var(--adm-ink);
   font-family: var(--adm-body);
   font-size: 1rem;
   line-height: 1.5;
-  color-scheme: dark;
-}
-
-.adm-signin-skip {
-  position: absolute;
-  left: 12px;
-  top: 12px;
-  z-index: 20;
-  padding: 10px 14px;
-  border-radius: var(--adm-radius);
-  background: var(--adm-filament);
-  color: var(--adm-on-gold);
-  text-decoration: none;
-  font-weight: 600;
-  transform: translateY(-160%);
-}
-
-.adm-signin-skip:focus {
-  transform: none;
-}
-
-.adm-signin-stage {
-  display: grid;
-  min-height: 100svh;
-  grid-template-rows: minmax(180px, 32svh) 1fr;
-}
-
-.adm-signin-showroom {
-  position: relative;
-  overflow: hidden;
-  background: #0c0b0a;
-}
-
-.adm-signin-showroom img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  object-position: 50% 40%;
-  display: block;
-}
-
-.adm-signin-veil {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background:
-    linear-gradient(180deg, rgba(12, 11, 10, 0.18) 0%, rgba(12, 11, 10, 0.78) 100%),
-    linear-gradient(90deg, transparent 42%, rgba(18, 16, 14, 0.55) 100%);
-}
-
-.adm-signin-showroom-copy {
-  position: absolute;
-  left: 20px;
-  right: 20px;
-  bottom: 18px;
-  z-index: 1;
-  max-width: 28rem;
 }
 
 .adm-signin-kicker {
@@ -95,8 +31,9 @@
 .adm-signin-brand {
   margin: 10px 0 0;
   display: inline-block;
+  width: fit-content;
   font-family: var(--adm-display);
-  font-size: clamp(2rem, 6vw, 2.75rem);
+  font-size: clamp(1.85rem, 5vw, 2.25rem);
   font-weight: 700;
   letter-spacing: -0.04em;
   line-height: 1.05;
@@ -104,56 +41,6 @@
   border-bottom: 4px solid var(--adm-filament);
   padding-bottom: 8px;
   text-wrap: balance;
-}
-
-.adm-signin-headline {
-  margin: 18px 0 0;
-  font-family: var(--adm-display);
-  font-size: clamp(1.15rem, 3.2vw, 1.55rem);
-  font-weight: 700;
-  letter-spacing: -0.03em;
-  line-height: 1.2;
-  color: var(--adm-ink);
-  text-wrap: balance;
-}
-
-.adm-signin-accent {
-  color: var(--adm-filament);
-  font-weight: 600;
-}
-
-.adm-signin-support {
-  margin: 12px 0 0;
-  max-width: 38ch;
-  color: var(--adm-muted);
-  font-size: 0.9rem;
-  line-height: 1.5;
-}
-
-.adm-signin-rule {
-  display: none;
-}
-
-.adm-signin-panel {
-  display: flex;
-  align-items: stretch;
-  background: var(--adm-void);
-  padding: 32px 22px 40px;
-  border-top: 2px solid var(--adm-filament);
-  box-shadow: 0 -10px 28px var(--adm-filament-soft);
-}
-
-.adm-signin-sheet {
-  width: min(100%, 400px);
-  margin: 0 auto;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  animation: adm-signin-enter 420ms var(--adm-ease) both;
-}
-
-.adm-signin-sheet .adm-signin-brand {
-  font-size: clamp(1.85rem, 5vw, 2.25rem);
 }
 
 .adm-signin-lede {
@@ -190,9 +77,9 @@
   width: 100%;
   min-height: 48px;
   padding: 12px 14px;
-  border: 1px solid var(--adm-rule);
+  border: 1px solid rgba(255, 255, 255, 0.16);
   border-radius: var(--adm-radius);
-  background: var(--adm-well);
+  background: rgba(8, 7, 6, 0.38);
   color: var(--adm-ink);
   font: inherit;
   font-size: 1rem;
@@ -205,7 +92,7 @@
 }
 
 .adm-signin-control:hover {
-  border-color: color-mix(in srgb, var(--adm-filament) 42%, var(--adm-rule));
+  border-color: color-mix(in srgb, var(--adm-filament) 42%, rgba(255, 255, 255, 0.16));
 }
 
 .adm-signin-control[aria-invalid="true"] {
@@ -214,7 +101,7 @@
 }
 
 .adm-signin input:-webkit-autofill {
-  -webkit-box-shadow: 0 0 0 1000px var(--adm-well) inset;
+  -webkit-box-shadow: 0 0 0 1000px rgba(22, 18, 14, 0.92) inset;
   -webkit-text-fill-color: var(--adm-ink);
   caret-color: var(--adm-ink);
 }
@@ -236,9 +123,9 @@
   min-width: 44px;
   padding: 0 12px;
   border: 0;
-  border-radius: 4px;
+  border-radius: 6px;
   background: transparent;
-  color: var(--adm-muted);
+  color: var(--adm-filament);
   font: inherit;
   font-size: 0.75rem;
   font-weight: 600;
@@ -278,7 +165,7 @@
   margin-top: 8px;
   padding: 12px 18px;
   border: 0;
-  border-radius: var(--adm-radius);
+  border-radius: 999px;
   background: var(--adm-filament);
   color: var(--adm-on-gold);
   -webkit-text-fill-color: var(--adm-on-gold);
@@ -326,7 +213,6 @@
   color: var(--adm-ink);
 }
 
-.adm-signin-skip:focus-visible,
 .adm-signin-control:focus-visible,
 .adm-signin-btn:focus-visible,
 .adm-signin-toggle:focus-visible,
@@ -344,9 +230,11 @@
   min-width: 240px;
   padding: 14px 18px;
   border-radius: var(--adm-radius);
-  background: var(--adm-panel);
+  background: rgba(22, 18, 14, 0.88);
   color: var(--adm-ink);
-  border: 1px solid var(--adm-rule);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.4);
   font-size: 0.875rem;
   font-weight: 600;
@@ -361,17 +249,6 @@
   animation: adm-signin-progress 1.2s linear forwards;
 }
 
-@keyframes adm-signin-enter {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
-
 @keyframes adm-signin-progress {
   from {
     transform: scaleX(0);
@@ -381,47 +258,7 @@
   }
 }
 
-@media (min-width: 900px) {
-  .adm-signin-stage {
-    grid-template-rows: none;
-    grid-template-columns: minmax(320px, 1.15fr) 1px minmax(420px, 0.85fr);
-  }
-
-  .adm-signin-showroom {
-    min-height: 100svh;
-  }
-
-  .adm-signin-showroom img {
-    object-position: 42% 50%;
-  }
-
-  .adm-signin-showroom-copy {
-    left: 48px;
-    right: 56px;
-    bottom: 56px;
-  }
-
-  .adm-signin-rule {
-    display: block;
-    background: var(--adm-filament);
-    opacity: 0.85;
-    box-shadow: 0 0 18px var(--adm-filament-soft);
-  }
-
-  .adm-signin-panel {
-    padding: 56px 64px;
-    border-top: 0;
-    box-shadow: none;
-  }
-
-  .adm-signin-sheet {
-    margin: 0;
-    width: min(100%, 400px);
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
-  .adm-signin-sheet,
   .adm-signin-btn,
   .adm-signin-control,
   .adm-signin-toggle,

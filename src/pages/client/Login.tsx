@@ -93,13 +93,13 @@ export default function ClientLogin() {
             type={byDocument ? "text" : "email"}
             required
             requiredMark
-            hint={identifierHint}
+            hint={byDocument ? identifierHint : undefined}
             error={fieldErrors.identifier}
           />
 
           <div className="vitrine-field">
             <label className="vitrine-label" htmlFor="client-password">
-              Senha <span className="vitrine-required" aria-hidden="true">*</span>
+              Senha<span className="vitrine-required" aria-hidden="true">*</span>
             </label>
             <div className="vitrine-password-wrap">
               <input

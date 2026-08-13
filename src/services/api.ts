@@ -93,7 +93,6 @@ api.interceptors.response.use(
     const isAuthMeRequest = requestUrl.includes("/auth/me/backoffice");
     const currentPath = window.location.pathname || "";
     const isOnSignInPage =
-      currentPath === "/home" ||
       currentPath.startsWith("/signin/backoffice") ||
       currentPath === "/signin";
     const isOnSessionExpiredPage = currentPath.startsWith("/session-expired");

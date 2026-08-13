@@ -122,6 +122,13 @@ const AuthBackofficeProvider = ({ children }: AuthBackofficeProviderProps) => {
         throw new Error("A senha deve ter no mínimo 6 caracteres.");
       }
 
+      if (
+        code.includes("auth.client_not_admin") ||
+        fullMessage.includes("lojista")
+      ) {
+        throw new Error("Este e-mail é de lojista. Use Acesso do lojista.");
+      }
+
       if (code.includes("auth.invalid_credentials")) {
         throw new Error("Credenciais inválidas.");
       }

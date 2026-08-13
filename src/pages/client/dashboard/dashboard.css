@@ -109,6 +109,7 @@
 
 .pdv-catalog,
 .pdv-ico,
+.pdv-store-logo,
 .pdv-tool,
 .pdv-close-demo,
 .pdv-shop-home,
@@ -148,6 +149,104 @@
 
 .pdv-catalog:hover {
   background: rgba(26, 21, 17, 0.06);
+}
+
+.pdv-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  justify-self: start;
+}
+
+/* Header chip: the button IS the logo. Beat Tailwind [type=button] + grouped .pdv-store-logo. */
+.pdv-root .pdv-header button.pdv-store-logo[type="button"] {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 11.75rem;
+  height: 2.75rem;
+  min-width: 11.75rem;
+  min-height: 2.75rem;
+  padding: 0;
+  overflow: hidden;
+  gap: 0;
+  border: 1px solid #1e3a5f;
+  border-radius: 8px;
+  background: #1e3a5f !important;
+  background-color: #1e3a5f !important;
+  color: #fff !important;
+  -webkit-text-fill-color: #fff !important;
+}
+
+.pdv-root .pdv-header button.pdv-store-logo[type="button"][data-has-logo="true"] {
+  background: #1a1511 !important;
+  background-color: #1a1511 !important;
+  border-color: #1a1511;
+}
+
+.pdv-root .pdv-header button.pdv-store-logo[type="button"] img,
+.pdv-root .pdv-header button.pdv-store-logo[type="button"] .pdv-store-logo-img {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+  max-width: none !important;
+  max-height: none !important;
+  margin: 0;
+  padding: 0;
+  object-fit: cover !important;
+  object-position: center center;
+  background: transparent !important;
+  background-color: transparent !important;
+  border: 0;
+  border-radius: 0;
+  pointer-events: none;
+}
+
+.pdv-root .pdv-header button.pdv-store-logo[type="button"] .pdv-store-logo-text {
+  position: relative;
+  z-index: 1;
+  font-family: var(--font-body);
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  color: #fff !important;
+  -webkit-text-fill-color: #fff !important;
+}
+
+.pdv-root .pdv-header button.pdv-store-logo[type="button"][data-has-logo="true"] .pdv-store-logo-text {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(26, 21, 17, 0.58);
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+.pdv-root .pdv-header button.pdv-store-logo[type="button"][data-has-logo="true"]:hover .pdv-store-logo-text,
+.pdv-root .pdv-header button.pdv-store-logo[type="button"][data-has-logo="true"]:focus-visible .pdv-store-logo-text {
+  opacity: 1;
+}
+
+.pdv-root .pdv-header button.pdv-store-logo[type="button"]:not([data-has-logo]) {
+  gap: 6px;
+  padding: 0 10px;
+}
+
+.pdv-root .pdv-header button.pdv-store-logo[type="button"]:hover,
+.pdv-root .pdv-header button.pdv-store-logo[type="button"]:focus-visible {
+  border-color: #5dade2;
+  filter: brightness(1.05);
+}
+
+.pdv-tip:has(button.pdv-store-logo[data-has-logo="true"]) > .pdv-tip-bubble {
+  display: none;
 }
 
 .pdv-search {
@@ -1848,8 +1947,12 @@
     height: auto;
   }
 
-  .pdv-catalog {
+  .pdv-brand {
     grid-area: logo;
+    justify-self: start;
+  }
+
+  .pdv-catalog {
     justify-self: start;
   }
 
@@ -1970,6 +2073,7 @@
   .pdv-caret,
   .pdv-catalog,
   .pdv-ico,
+  .pdv-store-logo,
   .pdv-tool {
     transition: none;
   }

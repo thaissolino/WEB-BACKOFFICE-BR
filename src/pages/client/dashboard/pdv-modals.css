@@ -7,6 +7,7 @@
   padding: 1.25rem;
   overflow: auto;
   background: rgba(26, 21, 17, 0.48);
+  color-scheme: light;
 }
 
 .pdv-modal-scrim[data-size="wide"] {
@@ -23,6 +24,8 @@
   max-height: min(90dvh, 52rem);
   display: flex;
   flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
   background: #fffdf8;
   border: 1px solid #ddd4c6;
   border-top: 4px solid #c4842a;
@@ -31,6 +34,7 @@
     0 18px 40px rgba(26, 21, 17, 0.2),
     0 2px 0 rgba(255, 253, 248, 0.8) inset;
   color: #1a1511;
+  color-scheme: light;
   font-family: "Plus Jakarta Sans", sans-serif;
   font-size: 1.02rem;
   line-height: 1.4;
@@ -46,6 +50,15 @@
 .pdv-modal-card[data-size="support"] {
   width: min(34rem, 100%);
   max-height: min(90dvh, 44rem);
+}
+
+.pdv-modal-card[data-size="form"] {
+  width: min(44rem, 100%);
+  max-height: min(92dvh, 56rem);
+}
+
+.pdv-modal-scrim[data-size="form"] {
+  align-items: center;
 }
 
 .pdv-modal-head {
@@ -75,6 +88,10 @@
   color: #00897b;
 }
 
+.pdv-modal-mark[data-tone="logo"] {
+  color: #1e3a5f;
+}
+
 .pdv-modal-title {
   flex: 1 1 auto;
   margin: 0;
@@ -88,8 +105,12 @@
 }
 
 .pdv-modal-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   flex: 0 0 auto;
   width: 2.75rem;
+  height: 2.75rem;
   min-width: 2.75rem;
   min-height: 2.75rem;
   padding: 0;
@@ -98,8 +119,14 @@
   background: transparent;
   color: #1a1511 !important;
   -webkit-text-fill-color: #1a1511 !important;
+  line-height: 0;
   cursor: pointer;
   touch-action: manipulation;
+}
+
+.pdv-modal-close svg {
+  display: block;
+  flex-shrink: 0;
 }
 
 .pdv-modal-close:hover,
@@ -110,20 +137,34 @@
 .pdv-modal-close:focus-visible,
 .pdv-cfg-item:focus-visible,
 .pdv-sup-phone:focus-visible,
-.pdv-sup-link:focus-visible {
+.pdv-sup-link:focus-visible,
+.pdv-logo-save:focus-visible,
+.pdv-logo-tab:focus-visible {
   outline: 3px solid #2e86c1;
   outline-offset: 2px;
 }
 
 .pdv-modal-body {
+  flex: 1 1 auto;
+  min-height: 0;
   overflow: auto;
   padding: 16px 18px 20px;
   overscroll-behavior: contain;
 }
 
+.pdv-modal-foot {
+  flex: 0 0 auto;
+  display: grid;
+  gap: 10px;
+  padding: 12px 18px 16px;
+  border-top: 1px solid #1a1511;
+  background: #1a1511;
+  box-shadow: 0 -10px 18px rgba(26, 21, 17, 0.18);
+}
+
 .pdv-cfg-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 0.92fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
   align-items: start;
 }
@@ -322,6 +363,11 @@ a.pdv-sup-tube:focus-visible {
   background: rgba(26, 21, 17, 0.08);
 }
 
+.pdv-root .pdv-header button.pdv-store-logo[type="button"][data-open="true"]:not([data-has-logo]) {
+  background: #163050 !important;
+  background-color: #163050 !important;
+}
+
 .pdv-tip:has([data-open="true"]) > .pdv-tip-bubble {
   opacity: 0;
   visibility: hidden;
@@ -351,7 +397,8 @@ a.pdv-sup-tube:focus-visible {
   }
 
   .pdv-modal-card,
-  .pdv-modal-card[data-size="support"] {
+  .pdv-modal-card[data-size="support"],
+  .pdv-modal-card[data-size="form"] {
     width: 100%;
     max-height: calc(100dvh - 1.5rem);
   }
@@ -381,5 +428,241 @@ a.pdv-sup-tube:focus-visible {
 @media (prefers-reduced-motion: reduce) {
   .pdv-modal-card {
     animation: none;
+  }
+}
+
+.pdv-logo {
+  display: grid;
+  gap: 14px;
+}
+
+.pdv-logo-lede {
+  margin: 0;
+  font-size: 0.98rem;
+  color: #4a433c;
+}
+
+.pdv-logo-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.pdv-logo-tab {
+  min-height: 2.75rem;
+  padding: 8px 12px;
+  border: 1px solid #ddd4c6;
+  border-radius: 8px;
+  background: #fff;
+  color: #1a1511 !important;
+  -webkit-text-fill-color: #1a1511 !important;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.pdv-logo-tab[aria-selected="true"] {
+  background: #1e3a5f;
+  border-color: #1e3a5f;
+  color: #fff !important;
+  -webkit-text-fill-color: #fff !important;
+}
+
+.pdv-logo-tab:hover,
+.pdv-logo-tab:focus-visible {
+  background: #5dade2;
+  border-color: #5dade2;
+  color: #fff !important;
+  -webkit-text-fill-color: #fff !important;
+}
+
+.pdv-logo-pane {
+  display: grid;
+  gap: 12px;
+}
+
+.pdv-logo-field,
+.pdv-logo-file {
+  display: grid;
+  gap: 6px;
+  font-weight: 700;
+  font-size: 0.92rem;
+}
+
+.pdv-logo-field input,
+.pdv-logo-file input[type="file"] {
+  min-height: 2.75rem;
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #ddd4c6;
+  border-radius: 8px;
+  background: #fff;
+  color: #1a1511;
+  font: inherit;
+  font-weight: 600;
+}
+
+.pdv-logo-fieldset {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid #ddd4c6;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.pdv-logo-fieldset legend {
+  padding: 0 6px;
+  font-size: 0.92rem;
+  font-weight: 800;
+}
+
+.pdv-logo-swatches {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.pdv-logo-swatch {
+  width: 2.5rem;
+  height: 2.5rem;
+  border: 2px solid #fff;
+  outline: 1px solid #ddd4c6;
+  border-radius: 8px;
+  cursor: pointer;
+  padding: 0;
+}
+
+.pdv-logo-swatch[aria-pressed="true"] {
+  outline: 3px solid #2e86c1;
+}
+
+.pdv-logo-custom {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  font-size: 0.88rem;
+}
+
+.pdv-logo-custom input {
+  width: 2.5rem;
+  height: 2.5rem;
+  padding: 0;
+  border: 1px solid #ddd4c6;
+  border-radius: 8px;
+  background: #fff;
+  cursor: pointer;
+}
+
+.pdv-logo-styles {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.pdv-logo-style {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 2.75rem;
+  padding: 8px 10px;
+  border: 1px solid #ddd4c6;
+  border-radius: 8px;
+  background: #fffdf8;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.pdv-logo-style[data-on="true"] {
+  background: #eaf4fb;
+  border-color: #2e86c1;
+}
+
+.pdv-logo-style input {
+  width: 1.15rem;
+  height: 1.15rem;
+}
+
+.pdv-logo-preview {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  min-height: 12rem;
+  padding: 16px;
+  border: 1px dashed #c4b8a6;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.pdv-logo-preview p {
+  margin: 0;
+  font-weight: 600;
+  color: #4a433c;
+}
+
+.pdv-logo-preview img,
+.pdv-logo-svg {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+  max-height: 14rem;
+  object-fit: contain;
+  background: #fff;
+}
+
+.pdv-logo-hint {
+  margin: 0;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #4a433c;
+}
+
+/* Beat Tailwind preflight [type=button] { background-color: transparent } (0,1,1). */
+.pdv-modal-card .pdv-modal-foot > button.pdv-logo-save[type="button"] {
+  width: 100%;
+  min-height: 2.85rem;
+  border: 0;
+  border-radius: 8px;
+  background: #2e86c1 !important;
+  background-color: #2e86c1 !important;
+  color: #fff !important;
+  -webkit-text-fill-color: #fff !important;
+  font-family: inherit;
+  font-size: 1rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+}
+
+.pdv-modal-card .pdv-modal-foot > button.pdv-logo-save[type="button"]:hover,
+.pdv-modal-card .pdv-modal-foot > button.pdv-logo-save[type="button"]:focus-visible {
+  background: #5dade2 !important;
+  background-color: #5dade2 !important;
+}
+
+.pdv-modal-card .pdv-modal-foot > button.pdv-logo-save[type="button"]:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}
+
+.pdv-logo-msg {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #fde8e8;
+  color: #9f1d1d;
+  font-weight: 700;
+}
+
+.pdv-logo-msg[data-ok="true"] {
+  background: #e8f2eb;
+  color: #14532d;
+}
+
+@media (max-width: 720px) {
+  .pdv-logo-styles {
+    grid-template-columns: 1fr;
   }
 }

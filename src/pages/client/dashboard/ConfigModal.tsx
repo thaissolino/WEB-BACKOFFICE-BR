@@ -25,7 +25,9 @@ export default function ConfigModal({
     column
       .map((section) => ({
         ...section,
-        items: section.items.filter((item) => isConfigModalItemVisible(uiConfig, item.id)),
+        items: section.items.filter(
+          (item) => !item.mvpHidden && isConfigModalItemVisible(uiConfig, item.id),
+        ),
       }))
       .filter((section) => section.items.length > 0),
   ).filter((column) => column.length > 0);

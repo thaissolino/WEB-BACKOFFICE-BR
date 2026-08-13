@@ -12,14 +12,16 @@ export default function PdvOverlayModal({
   titleId,
   size,
   icon,
+  footer,
   onClose,
   children,
 }: {
   open: boolean;
   title: string;
   titleId?: string;
-  size: "wide" | "support";
+  size: "wide" | "support" | "form";
   icon: ReactNode;
+  footer?: ReactNode;
   onClose: () => void;
   children: ReactNode;
 }) {
@@ -88,7 +90,7 @@ export default function PdvOverlayModal({
         aria-labelledby={labelledBy}
       >
         <div className="pdv-modal-head">
-          <span className="pdv-modal-mark" data-tone={size === "support" ? "support" : undefined} aria-hidden="true">
+          <span className="pdv-modal-mark" data-tone={size === "support" ? "support" : size === "form" ? "logo" : undefined} aria-hidden="true">
             {icon}
           </span>
           <h2 className="pdv-modal-title" id={labelledBy}>
@@ -105,6 +107,7 @@ export default function PdvOverlayModal({
           </button>
         </div>
         <div className="pdv-modal-body">{children}</div>
+        {footer ? <div className="pdv-modal-foot">{footer}</div> : null}
       </div>
     </div>,
     document.body,
