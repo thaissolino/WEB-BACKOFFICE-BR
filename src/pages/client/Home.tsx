@@ -5,8 +5,8 @@ export default function ClientHome() {
   return (
     <div className="client-shell">
       <div className="client-nav client-container">
-        <span className="client-brand">PDV Black Rabbit</span>
-        <Link className="client-btn client-btn-secondary" to="/signin/backoffice">
+        <span className="client-brand">PDV GestorVix</span>
+        <Link className="client-btn client-btn-secondary" to="/home">
           Acesso Backoffice
         </Link>
       </div>

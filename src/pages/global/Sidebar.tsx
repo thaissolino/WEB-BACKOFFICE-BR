@@ -15,6 +15,12 @@ import PersonAddIcon from "@mui/icons-material/PersonAdd";
 import AdminPanelSettingsOutlinedIcon from "@mui/icons-material/AdminPanelSettingsOutlined";
 import { useAuthBackoffice } from "../../hooks/authBackoffice";
 import { EnhancedModal } from "../../components/modals/harCodedModal";
+import SettingsOutlinedIcon from "@mui/icons-material/SettingsOutlined";
+import StorefrontOutlinedIcon from "@mui/icons-material/StorefrontOutlined";
+import Inventory2OutlinedIcon from "@mui/icons-material/Inventory2Outlined";
+import AddBusinessOutlinedIcon from "@mui/icons-material/AddBusinessOutlined";
+import BadgeOutlinedIcon from "@mui/icons-material/BadgeOutlined";
+import GroupsOutlinedIcon from "@mui/icons-material/GroupsOutlined";
 import DescriptionOutlinedIcon from "@mui/icons-material/DescriptionOutlined";
 import BackupIcon from "@mui/icons-material/Backup";
 import ListIcon from "@mui/icons-material/List";
@@ -571,6 +577,62 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebar }) => {
                 selected={selected}
                 setSelected={setSelected}
               />
+            )}
+            {(user?.role === "MASTER" || user?.role === "ADMIN") && (
+              <>
+                {!isCollapsed && (
+                  <Typography variant="h6" color={colors.greenAccent[300]} sx={{ m: "15px 0 5px 20px" }}>
+                    PDV
+                  </Typography>
+                )}
+                <Item
+                  title="Config. PDV"
+                  to="/pdv-config"
+                  icon={<SettingsOutlinedIcon />}
+                  selected={selected}
+                  setSelected={setSelected}
+                />
+                {!isCollapsed && (
+                  <Typography variant="h6" color={colors.greenAccent[300]} sx={{ m: "15px 0 5px 20px" }}>
+                    Lojas
+                  </Typography>
+                )}
+                <Item
+                  title="Cadastrar cliente comercial"
+                  to="/clientes-comerciais/cadastrar"
+                  icon={<BadgeOutlinedIcon />}
+                  selected={selected}
+                  setSelected={setSelected}
+                />
+                <Item
+                  title="Gerenciar clientes comerciais"
+                  to="/clientes-comerciais"
+                  icon={<GroupsOutlinedIcon />}
+                  selected={selected}
+                  setSelected={setSelected}
+                />
+                <Item
+                  title="Cadastrar loja"
+                  to="/lojas/cadastrar"
+                  icon={<AddBusinessOutlinedIcon />}
+                  selected={selected}
+                  setSelected={setSelected}
+                />
+                <Item
+                  title="Gerenciar lojas"
+                  to="/lojas"
+                  icon={<StorefrontOutlinedIcon />}
+                  selected={selected}
+                  setSelected={setSelected}
+                />
+                <Item
+                  title="Estoque"
+                  to="/estoque"
+                  icon={<Inventory2OutlinedIcon />}
+                  selected={selected}
+                  setSelected={setSelected}
+                />
+              </>
             )}
             {canShowTab("CRIAR_USUARIO") && (
               <>

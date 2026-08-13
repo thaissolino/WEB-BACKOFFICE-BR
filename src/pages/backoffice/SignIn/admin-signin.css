@@ -1,0 +1,274 @@
+.adm-signin {
+  --adm-void: #12100e;
+  --adm-filament: #e8a54b;
+  --adm-filament-soft: rgba(232, 165, 75, 0.28);
+  --adm-on-gold: #12100e;
+  --adm-ink: #f6f1ea;
+  --adm-muted: #d4ccc2;
+  --adm-faint: #b7aea2;
+  --adm-rule: rgba(246, 241, 234, 0.16);
+  --adm-error: #e08a7a;
+  --adm-error-bg: rgba(224, 138, 122, 0.16);
+  --adm-radius: 10px;
+  --adm-ease: cubic-bezier(0.16, 1, 0.3, 1);
+  --adm-display: "Outfit", "Plus Jakarta Sans", sans-serif;
+  --adm-body: "Plus Jakarta Sans", sans-serif;
+  font-family: var(--adm-body);
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+.adm-signin-kicker {
+  margin: 0;
+  font-family: var(--adm-body);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--adm-filament);
+}
+
+.adm-signin-brand {
+  margin: 10px 0 0;
+  display: inline-block;
+  width: fit-content;
+  font-family: var(--adm-display);
+  font-size: clamp(1.85rem, 5vw, 2.25rem);
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  line-height: 1.05;
+  color: var(--adm-ink);
+  border-bottom: 4px solid var(--adm-filament);
+  padding-bottom: 8px;
+  text-wrap: balance;
+}
+
+.adm-signin-lede {
+  margin: 14px 0 0;
+  max-width: 32ch;
+  color: var(--adm-muted);
+  font-size: 0.95rem;
+  line-height: 1.45;
+}
+
+.adm-signin-form {
+  display: grid;
+  gap: 18px;
+  margin-top: 32px;
+}
+
+.adm-signin-field {
+  display: grid;
+  gap: 8px;
+}
+
+.adm-signin-label {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--adm-ink);
+}
+
+.adm-signin-required {
+  color: var(--adm-filament);
+  font-weight: 700;
+}
+
+.adm-signin-control {
+  width: 100%;
+  min-height: 48px;
+  padding: 12px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: var(--adm-radius);
+  background: rgba(8, 7, 6, 0.38);
+  color: var(--adm-ink);
+  font: inherit;
+  font-size: 1rem;
+  box-sizing: border-box;
+  transition: border-color 180ms var(--adm-ease), box-shadow 180ms var(--adm-ease);
+}
+
+.adm-signin-control::placeholder {
+  color: var(--adm-faint);
+}
+
+.adm-signin-control:hover {
+  border-color: color-mix(in srgb, var(--adm-filament) 42%, rgba(255, 255, 255, 0.16));
+}
+
+.adm-signin-control[aria-invalid="true"] {
+  border-color: var(--adm-error);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--adm-error) 35%, transparent);
+}
+
+.adm-signin input:-webkit-autofill {
+  -webkit-box-shadow: 0 0 0 1000px rgba(22, 18, 14, 0.92) inset;
+  -webkit-text-fill-color: var(--adm-ink);
+  caret-color: var(--adm-ink);
+}
+
+.adm-signin-password {
+  position: relative;
+}
+
+.adm-signin-password .adm-signin-control {
+  padding-right: 96px;
+}
+
+.adm-signin-toggle {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  min-height: 36px;
+  min-width: 44px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--adm-filament);
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.adm-signin-toggle:hover {
+  color: var(--adm-ink);
+}
+
+.adm-signin-error-text {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--adm-error);
+}
+
+.adm-signin-alert {
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: var(--adm-radius);
+  border: 1px solid color-mix(in srgb, var(--adm-error) 35%, transparent);
+  background: var(--adm-error-bg);
+  color: #f3c2b8;
+  font-size: 0.875rem;
+}
+
+.adm-signin .adm-signin-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  appearance: none;
+  -webkit-appearance: none;
+  width: 100%;
+  min-height: 50px;
+  margin-top: 8px;
+  padding: 12px 18px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--adm-filament);
+  color: var(--adm-on-gold);
+  -webkit-text-fill-color: var(--adm-on-gold);
+  font-family: var(--adm-display);
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  transition: filter 180ms var(--adm-ease), transform 180ms var(--adm-ease);
+}
+
+.adm-signin .adm-signin-btn:hover:not(:disabled) {
+  filter: brightness(1.07);
+}
+
+.adm-signin .adm-signin-btn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.adm-signin .adm-signin-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  filter: none;
+}
+
+.adm-signin-foot {
+  margin-top: 28px;
+  padding-top: 18px;
+  border-top: 1px solid var(--adm-rule);
+}
+
+.adm-signin-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  color: var(--adm-muted);
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-decoration: none;
+  border-radius: var(--adm-radius);
+  cursor: pointer;
+}
+
+.adm-signin-link:hover {
+  color: var(--adm-ink);
+}
+
+.adm-signin-control:focus-visible,
+.adm-signin-btn:focus-visible,
+.adm-signin-toggle:focus-visible,
+.adm-signin-link:focus-visible {
+  outline: 2px solid var(--adm-filament);
+  outline-offset: 2px;
+}
+
+.adm-signin-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  z-index: 50;
+  transform: translateX(-50%);
+  min-width: 240px;
+  padding: 14px 18px;
+  border-radius: var(--adm-radius);
+  background: rgba(22, 18, 14, 0.88);
+  color: var(--adm-ink);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.4);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.adm-signin-toast-bar {
+  height: 2px;
+  margin-top: 10px;
+  border-radius: 99px;
+  background: var(--adm-filament);
+  transform-origin: left;
+  animation: adm-signin-progress 1.2s linear forwards;
+}
+
+@keyframes adm-signin-progress {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .adm-signin-btn,
+  .adm-signin-control,
+  .adm-signin-toggle,
+  .adm-signin-link,
+  .adm-signin-toast-bar {
+    animation: none;
+    transition: none;
+  }
+
+  .adm-signin .adm-signin-btn:active:not(:disabled) {
+    transform: none;
+  }
+}

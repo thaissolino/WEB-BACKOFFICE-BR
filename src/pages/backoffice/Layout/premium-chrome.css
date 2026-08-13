@@ -1,0 +1,410 @@
+@import url("https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700&family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap");
+
+.pdv-chrome[data-theme="light"] {
+  --chrome-void: #efe8dc;
+  --chrome-panel: #f7f1e8;
+  --chrome-elevated: #fffaf3;
+  --chrome-filament: #b57920;
+  --chrome-aluminum: #5c554c;
+  --chrome-ink: #1c1814;
+  --chrome-muted: #6f675e;
+  --chrome-faint: #8a8176;
+  --chrome-rule: rgba(28, 24, 20, 0.1);
+  --chrome-hover: rgba(181, 121, 32, 0.12);
+  --chrome-active: rgba(181, 121, 32, 0.2);
+  --shadow-soft: 0 12px 40px rgba(80, 60, 20, 0.12);
+}
+
+.pdv-chrome[data-theme="light"] .pdv-chrome-dialog-card input {
+  background: #f4eee4;
+}
+
+.pdv-chrome {
+  --chrome-void: #12100e;
+  --chrome-panel: #1a1714;
+  --chrome-elevated: #221e1a;
+  --chrome-filament: #e8a54b;
+  --chrome-aluminum: #d4cdc3;
+  --chrome-ink: #f6f1ea;
+  --chrome-muted: #b7aea2;
+  --chrome-faint: #8a8074;
+  --chrome-rule: rgba(246, 241, 234, 0.08);
+  --chrome-hover: rgba(232, 165, 75, 0.12);
+  --chrome-active: rgba(232, 165, 75, 0.18);
+  --radius: 1rem;
+  --radius-sm: 0.75rem;
+  --radius-lg: 1.25rem;
+  --radius-pill: 999px;
+  --shadow-soft: 0 12px 40px rgba(0, 0, 0, 0.28);
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
+  --font-display: "Outfit", "Plus Jakarta Sans", sans-serif;
+  --font-body: "Plus Jakarta Sans", sans-serif;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: var(--chrome-void);
+  color: var(--chrome-ink);
+  font-family: var(--font-body);
+}
+
+.pdv-chrome-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+.pdv-chrome-main {
+  flex: 1;
+  min-width: 0;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.pdv-chrome-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 68px;
+  margin: 10px 12px 0;
+  padding: 8px 12px 8px 16px;
+  border: 1px solid var(--chrome-rule);
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--chrome-panel) 88%, transparent);
+  backdrop-filter: blur(16px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+}
+
+.pdv-chrome-header-left,
+.pdv-chrome-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pdv-chrome-kicker {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--chrome-filament);
+}
+
+.pdv-chrome-header-left strong {
+  display: block;
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.pdv-chrome-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--chrome-aluminum);
+  cursor: pointer;
+  transition: background 180ms var(--ease), color 180ms var(--ease);
+}
+
+.pdv-chrome-icon:hover {
+  color: var(--chrome-ink);
+  background: var(--chrome-hover);
+}
+
+.pdv-chrome-icon:focus-visible,
+.pdv-chrome-nav a:focus-visible,
+.pdv-chrome-tool:focus-visible,
+.pdv-chrome-user:focus-visible,
+.pdv-chrome-snapshot button:focus-visible,
+.pdv-chrome-dialog-actions button:focus-visible {
+  outline: 3px solid var(--chrome-filament);
+  outline-offset: 2px;
+}
+
+.pdv-chrome-user {
+  display: none;
+  max-width: 168px;
+  padding: 8px 14px;
+  border: 1px solid var(--chrome-rule);
+  border-radius: var(--radius-pill);
+  background: var(--chrome-elevated);
+  color: var(--chrome-ink);
+  font: inherit;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: left;
+}
+
+.pdv-chrome-aside {
+  display: flex;
+  flex-direction: column;
+  width: min(280px, 86vw);
+  background: var(--chrome-panel);
+  border-right: 1px solid var(--chrome-rule);
+}
+
+.pdv-chrome-brand {
+  padding: 22px 18px 18px;
+}
+
+.pdv-chrome-brand strong {
+  display: block;
+  font-family: var(--font-display);
+  font-size: 1.28rem;
+  letter-spacing: -0.03em;
+  font-weight: 600;
+}
+
+.pdv-chrome-nav {
+  flex: 1;
+  overflow: auto;
+  padding: 8px 12px 24px;
+}
+
+.pdv-chrome-group {
+  margin: 16px 12px 8px;
+  font-family: var(--font-body);
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--chrome-faint);
+}
+
+.pdv-chrome-nav a,
+.pdv-chrome-tool {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 8px 14px;
+  margin-bottom: 4px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--chrome-muted);
+  text-decoration: none;
+  font: inherit;
+  font-weight: 600;
+  width: 100%;
+  cursor: pointer;
+  text-align: left;
+  transition: background 180ms var(--ease), color 180ms var(--ease);
+}
+
+.pdv-chrome-nav a[aria-current="page"] {
+  color: var(--chrome-ink);
+  background: var(--chrome-active);
+  box-shadow: inset 0 0 0 1px rgba(232, 165, 75, 0.28);
+}
+
+.pdv-chrome-nav a:hover,
+.pdv-chrome-tool:hover {
+  color: var(--chrome-ink);
+  background: var(--chrome-hover);
+}
+
+.pdv-chrome-foot {
+  padding: 12px 12px 16px;
+}
+
+.pdv-chrome-scrim {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 8, 6, 0.62);
+  z-index: 40;
+}
+
+.pdv-chrome-drawer {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  z-index: 50;
+  display: flex;
+}
+
+.pdv-chrome-drawer .pdv-chrome-aside {
+  border-radius: 0 var(--radius-xl) var(--radius-xl) 0;
+  box-shadow: var(--shadow-soft);
+}
+
+.pdv-chrome-menu-desktop {
+  display: none;
+}
+
+.pdv-chrome-snapshot {
+  display: grid;
+  gap: 8px;
+  margin-top: 16px;
+  padding: 0 4px;
+}
+
+.pdv-chrome-snapshot button {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 10px;
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 14px;
+  border: 1px solid var(--chrome-rule);
+  border-radius: var(--radius-sm);
+  background: var(--chrome-elevated);
+  color: var(--chrome-ink);
+  font-family: var(--font-display);
+  font-size: 0.9rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background 180ms var(--ease),
+    color 180ms var(--ease),
+    border-color 180ms var(--ease);
+}
+
+.pdv-chrome-snapshot button svg {
+  display: block;
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  color: var(--chrome-filament);
+}
+
+.pdv-chrome-snapshot button:hover {
+  background: var(--chrome-hover);
+  border-color: color-mix(in srgb, var(--chrome-filament) 42%, transparent);
+}
+
+.pdv-chrome-snapshot button:active {
+  background: var(--chrome-active);
+}
+
+.pdv-chrome-dialog {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgba(10, 8, 6, 0.7);
+  backdrop-filter: blur(8px);
+}
+
+.pdv-chrome-dialog-card {
+  width: min(520px, 100%);
+  max-height: 80vh;
+  overflow: auto;
+  padding: 22px;
+  background: var(--chrome-elevated);
+  border: 1px solid var(--chrome-rule);
+  border-radius: var(--radius-lg);
+  color: var(--chrome-ink);
+  box-shadow: var(--shadow-soft);
+}
+
+.pdv-chrome-dialog-card h2 {
+  margin: 0 0 12px;
+  font-family: var(--font-display);
+  font-weight: 600;
+}
+
+.pdv-chrome-dialog-card label {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 12px;
+  font-weight: 600;
+}
+
+.pdv-chrome-dialog-card input {
+  min-height: 44px;
+  padding: 8px 14px;
+  border: 1px solid var(--chrome-rule);
+  border-radius: var(--radius-sm);
+  background: #14110e;
+  color: var(--chrome-ink);
+  font: inherit;
+}
+
+.pdv-chrome-dialog-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 16px;
+}
+
+.pdv-chrome-dialog-actions button {
+  min-height: 44px;
+  padding: 0 16px;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 600;
+  border-radius: var(--radius-pill);
+}
+
+.pdv-chrome-dialog-actions .primary {
+  background: var(--chrome-filament);
+  color: #1a1612;
+  border: 0;
+}
+
+.pdv-chrome-dialog-actions .ghost {
+  background: transparent;
+  color: var(--chrome-ink);
+  border: 1px solid var(--chrome-rule);
+}
+
+@media (min-width: 900px) {
+  .pdv-chrome {
+    flex-direction: row;
+  }
+
+  .pdv-chrome-menu-desktop {
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+    padding: 12px 0 12px 12px;
+  }
+
+  .pdv-chrome-menu-desktop .pdv-chrome-aside {
+    border: 1px solid var(--chrome-rule);
+    border-radius: var(--radius-xl);
+    overflow: hidden;
+  }
+
+  .pdv-chrome-header {
+    margin: 12px 16px 0 12px;
+    padding: 8px 16px 8px 20px;
+  }
+
+  .pdv-chrome-user {
+    display: inline-block;
+  }
+
+  .pdv-chrome-mobile-toggle {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pdv-chrome-nav a,
+  .pdv-chrome-icon,
+  .pdv-chrome-tool,
+  .pdv-chrome-snapshot button,
+  .pdv-chrome-header {
+    transition: none;
+    backdrop-filter: none;
+  }
+}

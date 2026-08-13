@@ -1,0 +1,229 @@
+.messenger-signin {
+  --ms-void: #111827;
+  --ms-void-mid: #1f2937;
+  --ms-card: #ffffff;
+  --ms-ink: #111827;
+  --ms-muted: #4b5563;
+  --ms-faint: #6b7280;
+  --ms-line: #d1d5db;
+  --ms-field: #f3f4f6;
+  --ms-accent: #4f46e5;
+  --ms-accent-hover: #4338ca;
+  --ms-error: #ef4444;
+  min-height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 16px 72px;
+  background: linear-gradient(90deg, #1f2937 0%, #111827 50%, #000000 100%);
+  font-family: "Source Sans Pro", sans-serif;
+  box-sizing: border-box;
+}
+
+.messenger-signin *,
+.messenger-signin *::before,
+.messenger-signin *::after {
+  box-sizing: border-box;
+}
+
+.messenger-signin .sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.messenger-signin-card {
+  width: 100%;
+  max-width: 28rem;
+  background: var(--ms-card);
+  border-radius: 8px;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.12);
+  padding: 32px;
+}
+
+.messenger-signin-brand {
+  text-align: center;
+}
+
+.messenger-signin-logo {
+  display: block;
+  margin: 0 auto;
+  height: 64px;
+  width: auto;
+}
+
+.messenger-signin-hello {
+  margin: 24px 0 0;
+  font-family: Orbitron, sans-serif;
+  font-size: 1.875rem;
+  font-weight: 800;
+  line-height: 1.2;
+  color: var(--ms-ink);
+}
+
+.messenger-signin-pet {
+  color: #6366f1;
+}
+
+.messenger-signin-tagline {
+  margin: 8px 0 0;
+  font-family: "Exo 2", sans-serif;
+  font-size: 0.875rem;
+  font-weight: 400;
+  letter-spacing: 0.05em;
+  color: var(--ms-muted);
+}
+
+.messenger-signin-portal {
+  margin: 24px 0 0;
+  font-family: Orbitron, sans-serif;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #374151;
+}
+
+.messenger-signin-alert {
+  margin: 16px 0 0;
+  text-align: center;
+  color: var(--ms-error);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.messenger-signin-form {
+  margin-top: 32px;
+}
+
+.messenger-signin-fields {
+  border-radius: 6px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  overflow: hidden;
+}
+
+.messenger-signin-control {
+  display: block;
+  width: 100%;
+  appearance: none;
+  border: 1px solid var(--ms-line);
+  background: var(--ms-field);
+  padding: 8px 12px;
+  font-size: 0.875rem;
+  color: var(--ms-ink);
+}
+
+.messenger-signin-control::placeholder {
+  color: #6b7280;
+}
+
+.messenger-signin-control:focus {
+  outline: none;
+  z-index: 1;
+  border-color: var(--ms-accent);
+  box-shadow: 0 0 0 1px var(--ms-accent);
+}
+
+.messenger-signin-fields > .messenger-signin-control {
+  border-top-left-radius: 6px;
+  border-top-right-radius: 6px;
+}
+
+.messenger-signin-password {
+  position: relative;
+}
+
+.messenger-signin-password .messenger-signin-control {
+  border-top: 0;
+  border-bottom-left-radius: 6px;
+  border-bottom-right-radius: 6px;
+  padding-right: 40px;
+}
+
+.messenger-signin-toggle {
+  position: absolute;
+  inset: 0 0 0 auto;
+  display: flex;
+  align-items: center;
+  padding-right: 12px;
+  border: 0;
+  background: transparent;
+  color: #6b7280;
+  cursor: pointer;
+}
+
+.messenger-signin-toggle:hover,
+.messenger-signin-toggle:focus {
+  color: #374151;
+  outline: none;
+}
+
+.messenger-signin-btn {
+  display: flex;
+  width: 100%;
+  justify-content: center;
+  margin-top: 24px;
+  border: 0;
+  border-radius: 6px;
+  background: #4f46e5;
+  color: #ffffff;
+  padding: 8px 16px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.messenger-signin-btn:hover:not(:disabled) {
+  background: #4338ca;
+}
+
+.messenger-signin-btn:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px #ffffff, 0 0 0 4px #6366f1;
+}
+
+.messenger-signin-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.messenger-signin-foot {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  text-align: center;
+  padding: 8px;
+  background: #1f2937;
+  color: #ffffff;
+  font-size: 0.875rem;
+}
+
+.messenger-signin-toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  z-index: 50;
+  transform: translateX(-50%);
+}
+
+.messenger-signin-toast-inner {
+  background: #16a34a;
+  color: #ffffff;
+  padding: 12px 24px;
+  border-radius: 999px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  animation: fadeIn 0.4s ease-out forwards;
+}
+
+.messenger-signin-toast-bar {
+  height: 4px;
+  margin-top: 8px;
+  border-radius: 999px;
+  background: #ffffff;
+  animation: progressBar 2s linear forwards;
+}

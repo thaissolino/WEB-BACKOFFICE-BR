@@ -22,11 +22,40 @@ import OperatorManager from "../pages/form-operators/OperatorsManagement";
 import OperatorsManagementPerfilEdit from "../pages/form-operators-perfil-edit/OperatorsManagementPerfilEdit";
 import AdmManagementPerfilEdit from "../pages/form-adm-perfil-edit/AdmManagementPerfilEdit";
 import { useClientAuth } from "../hooks/clientAuth";
-import ClientHome from "../pages/client/Home";
+import { GestorVixHome } from "../pages/home/GestorVixHome";
 import ClientLogin from "../pages/client/Login";
 import ClientRegister from "../pages/client/Register";
 import ClientForgotPassword from "../pages/client/ForgotPassword";
 import ClientDashboard from "../pages/client/Dashboard";
+import TrocarCaixa from "../pages/client/TrocarCaixa";
+import ClientPdv from "../pages/client/Pdv";
+import ClientLoja from "../pages/client/Loja";
+import StoreParamStub from "../pages/client/StoreParamStub";
+import ClientesList from "../pages/client/cadastros/clientes/ClientesList";
+import ChecarCliente from "../pages/client/cadastros/clientes/ChecarCliente";
+import CadastrarFormStub from "../pages/client/cadastros/clientes/CadastrarFormStub";
+import ClassificacaoClientes from "../pages/client/cadastros/clientes/ClassificacaoClientes";
+import CarteiraClientes from "../pages/client/cadastros/clientes/CarteiraClientes";
+import FornecedoresList from "../pages/client/cadastros/fornecedores/FornecedoresList";
+import CadastrarFornecedor from "../pages/client/cadastros/fornecedores/CadastrarFornecedor";
+import CompraAcessorio from "../pages/client/cadastros/fornecedores/CompraAcessorio";
+import RelatorioAtividades from "../pages/client/cadastros/atividades/RelatorioAtividades";
+import ListarProdutos from "../pages/client/cadastros/produtos/ListarProdutos";
+import CadastrarProduto from "../pages/client/cadastros/produtos/CadastrarProduto";
+import AlterarEstoque from "../pages/client/cadastros/produtos/AlterarEstoque";
+import ListarCategorias from "../pages/client/cadastros/produtos/ListarCategorias";
+import CadastrarCategoria from "../pages/client/cadastros/produtos/CadastrarCategoria";
+import ReajusteCategoria from "../pages/client/cadastros/produtos/ReajusteCategoria";
+import PdvConfig from "../pages/backoffice/PdvConfig";
+import CreateStore from "../pages/stores/CreateStore";
+import StoresList from "../pages/stores/StoresList";
+import StoreDetail from "../pages/stores/StoreDetail";
+import StoreLoja from "../pages/stores/StoreLoja";
+import StoreParamStubPage from "../pages/stores/StoreParamStubPage";
+import StockOverview from "../pages/stores/StockOverview";
+import CreateCommercialClient from "../pages/commercial-clients/CreateCommercialClient";
+import CommercialClientsList from "../pages/commercial-clients/CommercialClientsList";
+import CommercialClientDetail from "../pages/commercial-clients/CommercialClientDetail";
 
 const BACKOFFICE_ROUTE = "/backoffice";
 const LOGIN_ROUTE = "/signin/backoffice";
@@ -47,10 +76,12 @@ export function Router() {
 
   return (
     <Routes>
-      <Route path="/" element={<Navigate to="/signin/backoffice/adm" replace />} />
-      <Route path="/adm" element={<Navigate to="/signin/backoffice/adm" replace />} />
-      <Route path="/home" element={<Navigate to="/signin/backoffice/adm" replace />} />
-      <Route path="/signin/backoffice/adm" element={<ClientHome />} />
+      <Route path="/" element={<Navigate to="/home" replace />} />
+      <Route path="/adm" element={<Navigate to="/signin/backoffice" replace />} />
+      <Route path="/signin/backoffice/adm" element={<Navigate to="/signin/backoffice" replace />} />
+
+      {/* Funil público GestorVix — sem formulário de senha */}
+      <Route path="home" element={<GestorVixHome />} />
 
       {/* Rota pública: sessão expirada (sem proteção de auth) */}
       <Route path="session-expired/backoffice" element={<SessionExpiredBackoffice />} />
@@ -77,13 +108,49 @@ export function Router() {
         }
       >
         <Route path="client/dashboard" element={<ClientDashboard />} />
+        <Route path="client/caixa" element={<TrocarCaixa />} />
+        <Route path="client/pdv" element={<ClientPdv />} />
+        <Route path="client/loja" element={<ClientLoja />} />
+        <Route path="client/grupos-de-loja" element={<StoreParamStub title="Grupos de Loja" />} />
+        <Route
+          path="client/estoque-compartilhado"
+          element={<StoreParamStub title="Estoque Compartilhado" />}
+        />
+        <Route
+          path="client/plano"
+          element={<StoreParamStub title="Meu Plano, Mensalidades e Contrato" />}
+        />
+        <Route path="client/clientes" element={<ClientesList />} />
+        <Route path="client/clientes/inativos" element={<ClientesList inactive />} />
+        <Route path="client/clientes/cadastrar" element={<ChecarCliente />} />
+        <Route path="client/clientes/cadastrar/form" element={<CadastrarFormStub />} />
+        <Route path="client/atividades" element={<RelatorioAtividades />} />
+        <Route path="client/clientes/atividade" element={<RelatorioAtividades />} />
+        <Route path="client/clientes/classificacao" element={<ClassificacaoClientes />} />
+        <Route path="client/clientes/carteira/:code" element={<CadastrarFormStub />} />
+        <Route path="client/clientes/carteira" element={<CarteiraClientes />} />
+        <Route path="client/clientes/:id/:action" element={<CadastrarFormStub />} />
+        <Route path="client/fornecedores" element={<FornecedoresList />} />
+        <Route path="client/fornecedores/inativos" element={<FornecedoresList inactive />} />
+        <Route path="client/fornecedores/cadastrar" element={<CadastrarFornecedor />} />
+        <Route path="client/fornecedores/atividade" element={<RelatorioAtividades />} />
+        <Route path="client/fornecedores/:id/compra" element={<CompraAcessorio />} />
+        <Route path="client/fornecedores/:id/:action" element={<CadastrarFormStub entity="fornecedor" />} />
+        <Route path="client/produtos" element={<ListarProdutos />} />
+        <Route path="client/produtos/cadastrar" element={<CadastrarProduto />} />
+        <Route path="client/produtos/estoque/:categoryId" element={<AlterarEstoque />} />
+        <Route path="client/produtos/estoque" element={<AlterarEstoque />} />
+        <Route path="client/produtos/categorias/inativas" element={<ListarCategorias inactive />} />
+        <Route path="client/produtos/categorias/cadastrar" element={<CadastrarCategoria />} />
+        <Route path="client/produtos/categorias/reajuste" element={<ReajusteCategoria />} />
+        <Route path="client/produtos/categorias" element={<ListarCategorias />} />
       </Route>
 
       <Route
         element={
           <GuardedRoute
             isRouteAccessible={!isAuthenticated}
-            redirectRoute={isAuthenticated ? BACKOFFICE_ROUTE : LOGIN_ROUTE}
+            redirectRoute={BACKOFFICE_ROUTE}
           />
         }
       >
@@ -94,7 +161,7 @@ export function Router() {
         element={
           <GuardedRoute
             isRouteAccessible={isAuthenticated}
-            redirectRoute="/signin/backoffice"
+            redirectRoute={LOGIN_ROUTE}
           />
         }
       >
@@ -107,6 +174,18 @@ export function Router() {
           }
         >
           <Route path="backoffice" element={<Dashboard />} />
+          <Route path="pdv-config" element={<PdvConfig />} />
+          <Route path="clientes-comerciais/cadastrar" element={<CreateCommercialClient />} />
+          <Route path="clientes-comerciais" element={<CommercialClientsList />} />
+          <Route path="clientes-comerciais/:id" element={<CommercialClientDetail />} />
+          <Route path="lojas/cadastrar" element={<CreateStore />} />
+          <Route path="lojas" element={<StoresList />} />
+          <Route path="lojas/:id/estoque" element={<StoreDetail />} />
+          <Route path="lojas/:id/grupos-de-loja" element={<StoreParamStubPage kind="grupos" />} />
+          <Route path="lojas/:id/estoque-compartilhado" element={<StoreParamStubPage kind="estoque" />} />
+          <Route path="lojas/:id/plano" element={<StoreParamStubPage kind="plano" />} />
+          <Route path="lojas/:id" element={<StoreLoja />} />
+          <Route path="estoque" element={<StockOverview />} />
           <Route path="team" element={<Team />} />
           <Route path="users" element={<Contacts />} />
           <Route path="operators-management" element={<OperatorManager />} />

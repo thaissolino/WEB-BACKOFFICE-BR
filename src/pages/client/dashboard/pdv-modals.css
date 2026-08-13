@@ -1,0 +1,668 @@
+.pdv-modal-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 400;
+  display: flex;
+  justify-content: center;
+  padding: 1.25rem;
+  overflow: auto;
+  background: rgba(26, 21, 17, 0.48);
+  color-scheme: light;
+}
+
+.pdv-modal-scrim[data-size="wide"] {
+  align-items: flex-start;
+  padding-top: 1.5rem;
+}
+
+.pdv-modal-scrim[data-size="support"] {
+  align-items: center;
+}
+
+.pdv-modal-card {
+  width: min(1120px, 100%);
+  max-height: min(90dvh, 52rem);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  background: #fffdf8;
+  border: 1px solid #ddd4c6;
+  border-top: 4px solid #c4842a;
+  border-radius: 14px;
+  box-shadow:
+    0 18px 40px rgba(26, 21, 17, 0.2),
+    0 2px 0 rgba(255, 253, 248, 0.8) inset;
+  color: #1a1511;
+  color-scheme: light;
+  font-family: "Plus Jakarta Sans", sans-serif;
+  font-size: 1.02rem;
+  line-height: 1.4;
+  animation: pdv-modal-in 180ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.pdv-modal-card *,
+.pdv-modal-card *::before,
+.pdv-modal-card *::after {
+  box-sizing: border-box;
+}
+
+.pdv-modal-card[data-size="support"] {
+  width: min(34rem, 100%);
+  max-height: min(90dvh, 44rem);
+}
+
+.pdv-modal-card[data-size="form"] {
+  width: min(44rem, 100%);
+  max-height: min(92dvh, 56rem);
+}
+
+.pdv-modal-scrim[data-size="form"] {
+  align-items: center;
+}
+
+.pdv-modal-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 0 0 auto;
+  min-height: 3.5rem;
+  padding: 10px 12px 10px 18px;
+  background: #f4f1ea;
+  border-bottom: 1px solid #ddd4c6;
+}
+
+.pdv-modal-mark {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 8px;
+  background: #fffdf8;
+  border: 1px solid #ddd4c6;
+  color: #757575;
+}
+
+.pdv-modal-mark[data-tone="support"] {
+  color: #00897b;
+}
+
+.pdv-modal-mark[data-tone="logo"] {
+  color: #1e3a5f;
+}
+
+.pdv-modal-title {
+  flex: 1 1 auto;
+  margin: 0;
+  font-family: "Outfit", "Plus Jakarta Sans", sans-serif;
+  font-size: 1.02rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  line-height: 1.25;
+  color: #1a1511 !important;
+  -webkit-text-fill-color: #1a1511 !important;
+}
+
+.pdv-modal-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 2.75rem;
+  height: 2.75rem;
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #1a1511 !important;
+  -webkit-text-fill-color: #1a1511 !important;
+  line-height: 0;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.pdv-modal-close svg {
+  display: block;
+  flex-shrink: 0;
+}
+
+.pdv-modal-close:hover,
+.pdv-modal-close:focus-visible {
+  background: rgba(26, 21, 17, 0.08);
+}
+
+.pdv-modal-close:focus-visible,
+.pdv-cfg-item:focus-visible,
+.pdv-sup-phone:focus-visible,
+.pdv-sup-link:focus-visible,
+.pdv-logo-save:focus-visible,
+.pdv-logo-tab:focus-visible {
+  outline: 3px solid #2e86c1;
+  outline-offset: 2px;
+}
+
+.pdv-modal-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  padding: 16px 18px 20px;
+  overscroll-behavior: contain;
+}
+
+.pdv-modal-foot {
+  flex: 0 0 auto;
+  display: grid;
+  gap: 10px;
+  padding: 12px 18px 16px;
+  border-top: 1px solid #1a1511;
+  background: #1a1511;
+  box-shadow: 0 -10px 18px rgba(26, 21, 17, 0.18);
+}
+
+.pdv-cfg-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  align-items: start;
+}
+
+.pdv-cfg-col {
+  display: grid;
+  gap: 12px;
+}
+
+.pdv-cfg-section {
+  background: #fff;
+  border: 1px solid #ddd4c6;
+  border-radius: 10px;
+  padding: 10px 8px 8px;
+  box-shadow: 0 1px 0 rgba(26, 21, 17, 0.04);
+}
+
+.pdv-cfg-heading {
+  margin: 0 6px 6px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: #f7ead6;
+  color: #8b3d12 !important;
+  -webkit-text-fill-color: #8b3d12 !important;
+  font-family: "Outfit", "Plus Jakarta Sans", sans-serif;
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  line-height: 1.3;
+}
+
+.pdv-cfg-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.pdv-cfg-item {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 2.75rem;
+  padding: 8px 12px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #1a1511 !important;
+  -webkit-text-fill-color: #1a1511 !important;
+  font: inherit;
+  font-size: 0.96rem;
+  font-weight: 600;
+  line-height: 1.3;
+  text-align: left;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.pdv-cfg-item:hover,
+.pdv-cfg-item:focus-visible {
+  background: #5dade2;
+  color: #fff !important;
+  -webkit-text-fill-color: #fff !important;
+}
+
+.pdv-sup-block {
+  display: grid;
+  gap: 14px;
+}
+
+.pdv-sup-kicker {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 800;
+  color: #1a1511 !important;
+  -webkit-text-fill-color: #1a1511 !important;
+}
+
+.pdv-sup-phones {
+  display: grid;
+  gap: 8px;
+}
+
+.pdv-sup-phone {
+  display: grid;
+  grid-template-columns: minmax(7.5rem, auto) 1fr auto;
+  align-items: center;
+  gap: 8px 12px;
+  min-height: 3.25rem;
+  padding: 10px 14px;
+  border: 1px solid #ddd4c6;
+  border-radius: 10px;
+  background: #fff;
+  color: #1a1511 !important;
+  -webkit-text-fill-color: #1a1511 !important;
+  text-decoration: none;
+  font-weight: 700;
+  touch-action: manipulation;
+}
+
+.pdv-sup-phone:hover,
+.pdv-sup-phone:focus-visible {
+  background: #5dade2;
+  border-color: #5dade2;
+  color: #fff !important;
+  -webkit-text-fill-color: #fff !important;
+}
+
+.pdv-sup-phone:hover .pdv-wa,
+.pdv-sup-phone:focus-visible .pdv-wa {
+  color: #fff;
+}
+
+.pdv-sup-role {
+  letter-spacing: 0.02em;
+}
+
+.pdv-sup-num {
+  font-variant-numeric: tabular-nums;
+}
+
+.pdv-wa {
+  display: grid;
+  place-items: center;
+  width: 1.7rem;
+  height: 1.7rem;
+  color: #25d366;
+}
+
+.pdv-wa svg {
+  width: 1.45rem;
+  height: 1.45rem;
+}
+
+.pdv-sup-hours,
+.pdv-sup-ticket,
+.pdv-sup-tube {
+  margin: 0;
+  color: #4a433c !important;
+  -webkit-text-fill-color: #4a433c !important;
+  font-size: 0.98rem;
+  font-weight: 500;
+  line-height: 1.5;
+}
+
+.pdv-sup-ticket,
+.pdv-sup-tube {
+  padding: 12px 14px;
+  border: 1px solid #ddd4c6;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.pdv-sup-link {
+  color: #1d4ed8 !important;
+  -webkit-text-fill-color: #1d4ed8 !important;
+  font-weight: 800;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.pdv-sup-link:hover,
+.pdv-sup-link:focus-visible {
+  color: #1e3a8a !important;
+  -webkit-text-fill-color: #1e3a8a !important;
+}
+
+.pdv-sup-tube {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 12px;
+  align-items: start;
+}
+
+a.pdv-sup-tube {
+  text-decoration: none;
+  color: inherit;
+  -webkit-text-fill-color: inherit;
+}
+
+a.pdv-sup-tube:hover,
+a.pdv-sup-tube:focus-visible {
+  border-color: #c4b8a6;
+}
+
+.pdv-yt {
+  display: grid;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 8px;
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.pdv-ico[data-open="true"] {
+  background: rgba(26, 21, 17, 0.08);
+}
+
+.pdv-root .pdv-header button.pdv-store-logo[type="button"][data-open="true"]:not([data-has-logo]) {
+  background: #163050 !important;
+  background-color: #163050 !important;
+}
+
+.pdv-tip:has([data-open="true"]) > .pdv-tip-bubble {
+  opacity: 0;
+  visibility: hidden;
+}
+
+@keyframes pdv-modal-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (max-width: 960px) {
+  .pdv-cfg-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .pdv-modal-scrim {
+    align-items: flex-start;
+    padding: 0.75rem;
+  }
+
+  .pdv-modal-card,
+  .pdv-modal-card[data-size="support"],
+  .pdv-modal-card[data-size="form"] {
+    width: 100%;
+    max-height: calc(100dvh - 1.5rem);
+  }
+
+  .pdv-cfg-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .pdv-sup-phone {
+    grid-template-columns: 1fr auto;
+  }
+
+  .pdv-sup-role {
+    grid-column: 1;
+  }
+
+  .pdv-sup-num {
+    grid-column: 1;
+  }
+
+  .pdv-wa {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pdv-modal-card {
+    animation: none;
+  }
+}
+
+.pdv-logo {
+  display: grid;
+  gap: 14px;
+}
+
+.pdv-logo-lede {
+  margin: 0;
+  font-size: 0.98rem;
+  color: #4a433c;
+}
+
+.pdv-logo-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.pdv-logo-tab {
+  min-height: 2.75rem;
+  padding: 8px 12px;
+  border: 1px solid #ddd4c6;
+  border-radius: 8px;
+  background: #fff;
+  color: #1a1511 !important;
+  -webkit-text-fill-color: #1a1511 !important;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.pdv-logo-tab[aria-selected="true"] {
+  background: #1e3a5f;
+  border-color: #1e3a5f;
+  color: #fff !important;
+  -webkit-text-fill-color: #fff !important;
+}
+
+.pdv-logo-tab:hover,
+.pdv-logo-tab:focus-visible {
+  background: #5dade2;
+  border-color: #5dade2;
+  color: #fff !important;
+  -webkit-text-fill-color: #fff !important;
+}
+
+.pdv-logo-pane {
+  display: grid;
+  gap: 12px;
+}
+
+.pdv-logo-field,
+.pdv-logo-file {
+  display: grid;
+  gap: 6px;
+  font-weight: 700;
+  font-size: 0.92rem;
+}
+
+.pdv-logo-field input,
+.pdv-logo-file input[type="file"] {
+  min-height: 2.75rem;
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #ddd4c6;
+  border-radius: 8px;
+  background: #fff;
+  color: #1a1511;
+  font: inherit;
+  font-weight: 600;
+}
+
+.pdv-logo-fieldset {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid #ddd4c6;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.pdv-logo-fieldset legend {
+  padding: 0 6px;
+  font-size: 0.92rem;
+  font-weight: 800;
+}
+
+.pdv-logo-swatches {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.pdv-logo-swatch {
+  width: 2.5rem;
+  height: 2.5rem;
+  border: 2px solid #fff;
+  outline: 1px solid #ddd4c6;
+  border-radius: 8px;
+  cursor: pointer;
+  padding: 0;
+}
+
+.pdv-logo-swatch[aria-pressed="true"] {
+  outline: 3px solid #2e86c1;
+}
+
+.pdv-logo-custom {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  font-size: 0.88rem;
+}
+
+.pdv-logo-custom input {
+  width: 2.5rem;
+  height: 2.5rem;
+  padding: 0;
+  border: 1px solid #ddd4c6;
+  border-radius: 8px;
+  background: #fff;
+  cursor: pointer;
+}
+
+.pdv-logo-styles {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.pdv-logo-style {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 2.75rem;
+  padding: 8px 10px;
+  border: 1px solid #ddd4c6;
+  border-radius: 8px;
+  background: #fffdf8;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.pdv-logo-style[data-on="true"] {
+  background: #eaf4fb;
+  border-color: #2e86c1;
+}
+
+.pdv-logo-style input {
+  width: 1.15rem;
+  height: 1.15rem;
+}
+
+.pdv-logo-preview {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  min-height: 12rem;
+  padding: 16px;
+  border: 1px dashed #c4b8a6;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.pdv-logo-preview p {
+  margin: 0;
+  font-weight: 600;
+  color: #4a433c;
+}
+
+.pdv-logo-preview img,
+.pdv-logo-svg {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+  max-height: 14rem;
+  object-fit: contain;
+  background: #fff;
+}
+
+.pdv-logo-hint {
+  margin: 0;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #4a433c;
+}
+
+/* Beat Tailwind preflight [type=button] { background-color: transparent } (0,1,1). */
+.pdv-modal-card .pdv-modal-foot > button.pdv-logo-save[type="button"] {
+  width: 100%;
+  min-height: 2.85rem;
+  border: 0;
+  border-radius: 8px;
+  background: #2e86c1 !important;
+  background-color: #2e86c1 !important;
+  color: #fff !important;
+  -webkit-text-fill-color: #fff !important;
+  font-family: inherit;
+  font-size: 1rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+}
+
+.pdv-modal-card .pdv-modal-foot > button.pdv-logo-save[type="button"]:hover,
+.pdv-modal-card .pdv-modal-foot > button.pdv-logo-save[type="button"]:focus-visible {
+  background: #5dade2 !important;
+  background-color: #5dade2 !important;
+}
+
+.pdv-modal-card .pdv-modal-foot > button.pdv-logo-save[type="button"]:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}
+
+.pdv-logo-msg {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #fde8e8;
+  color: #9f1d1d;
+  font-weight: 700;
+}
+
+.pdv-logo-msg[data-ok="true"] {
+  background: #e8f2eb;
+  color: #14532d;
+}
+
+@media (max-width: 720px) {
+  .pdv-logo-styles {
+    grid-template-columns: 1fr;
+  }
+}
