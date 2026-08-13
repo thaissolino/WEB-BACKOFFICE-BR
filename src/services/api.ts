@@ -61,9 +61,15 @@ export const api = axios.create({
 // Interceptor global para adicionar token de autenticação automaticamente
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem("@backoffice:token");
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+    const existing = config.headers?.Authorization;
+    if (!existing) {
+      const isClientCall = String(config.url || "").includes("/clients/");
+      const token = isClientCall
+        ? localStorage.getItem("@client:token") || localStorage.getItem("@backoffice:token")
+        : localStorage.getItem("@backoffice:token") || localStorage.getItem("@client:token");
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+      }
     }
     return config;
   },
@@ -86,7 +92,10 @@ api.interceptors.response.use(
     const isLoginRequest = requestUrl.includes("/auth/backoffice") && error.config?.method?.toLowerCase() === "post";
     const isAuthMeRequest = requestUrl.includes("/auth/me/backoffice");
     const currentPath = window.location.pathname || "";
-    const isOnSignInPage = currentPath.startsWith("/signin/backoffice") || currentPath === "/signin";
+    const isOnSignInPage =
+      currentPath === "/home" ||
+      currentPath.startsWith("/signin/backoffice") ||
+      currentPath === "/signin";
     const isOnSessionExpiredPage = currentPath.startsWith("/session-expired");
 
     // Redirecionar para session-expired só quando: 401 + requisição foi COM token (sessão expirou/rejeitada)

@@ -1,67 +1,71 @@
 import { FormEvent, useState } from "react";
 import { Link } from "react-router-dom";
 import { useClientAuth } from "../../hooks/clientAuth";
-import "./styles.css";
+import { VitrineAuthLayout } from "./vitrine/VitrineAuthLayout";
+import { VitrineField } from "./vitrine/VitrineField";
 
 export default function ClientForgotPassword() {
   const { clientForgotPassword } = useClientAuth();
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setMessage("");
-    setIsSubmitting(true);
+    setError("");
 
+    if (!email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      setError("Informe um e-mail válido.");
+      return;
+    }
+
+    setIsSubmitting(true);
     try {
-      await clientForgotPassword(email);
-      setMessage("Solicitação enviada. Verifique seu e-mail.");
-    } catch (_error) {
-      setMessage("Solicitação enviada. Verifique seu e-mail.");
+      await clientForgotPassword(email.trim());
+      setMessage("Se o e-mail existir na base, você recebe as instruções de recuperação.");
+    } catch (_err) {
+      setMessage("Se o e-mail existir na base, você recebe as instruções de recuperação.");
     } finally {
       setIsSubmitting(false);
     }
   }
 
   return (
-    <div className="client-shell">
-      <main className="client-container">
-        <section className="client-card client-hero">
-          <h1 className="client-title">Esqueci minha senha</h1>
-          <p className="client-subtitle">
-            Informe seu e-mail para iniciar o fluxo de recuperação.
+    <VitrineAuthLayout
+      title="Recuperar acesso."
+      lede="Informe o e-mail da conta. Não revelamos se o endereço está cadastrado."
+    >
+      <form className="vitrine-form" onSubmit={handleSubmit} noValidate>
+        {message ? (
+          <p className="vitrine-alert" data-tone="success" role="status">
+            {message}
           </p>
+        ) : null}
 
-          <form className="client-form" onSubmit={handleSubmit}>
-            <label className="client-label">
-              E-mail
-              <input
-                className="client-input"
-                type="email"
-                value={email}
-                onChange={(event) => setEmail(event.target.value)}
-                required
-              />
-            </label>
+        <VitrineField
+          id="forgot-email"
+          label="E-mail"
+          type="email"
+          value={email}
+          onChange={(event) => setEmail(event.target.value)}
+          autoComplete="email"
+          required
+          requiredMark
+          error={error}
+        />
 
-            <button className="client-btn client-btn-primary" disabled={isSubmitting} type="submit">
-              {isSubmitting ? "Enviando..." : "Enviar recuperação"}
-            </button>
-          </form>
+        <button className="vitrine-btn" disabled={isSubmitting} type="submit">
+          {isSubmitting ? "Enviando..." : "Enviar recuperação"}
+        </button>
+      </form>
 
-          {message ? <div className="client-alert client-alert-success">{message}</div> : null}
-
-          <div className="client-cta-row" style={{ marginTop: 16 }}>
-            <Link className="client-btn client-btn-secondary" to="/signin/client">
-              Voltar para login
-            </Link>
-            <Link className="client-btn client-btn-link" to="/signin/backoffice/adm">
-              Voltar para home
-            </Link>
-          </div>
-        </section>
-      </main>
-    </div>
+      <div className="vitrine-foot">
+        <Link className="vitrine-link" to="/signin/client">
+          Voltar para o login
+        </Link>
+      </div>
+    </VitrineAuthLayout>
   );
 }

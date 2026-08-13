@@ -21,13 +21,13 @@ export type ClientUser = {
 };
 
 type RegisterClientParams = {
-  name: string;
-  email: string;
+  name?: string;
+  email?: string;
   password: string;
-  username: string;
-  document: string;
-  age: number;
-  sex: "MASCULINO" | "FEMININO" | "OUTRO";
+  username?: string;
+  document?: string;
+  age?: number;
+  sex?: "MASCULINO" | "FEMININO" | "OUTRO";
 };
 
 type ClientAuthContextData = {

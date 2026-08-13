@@ -5,10 +5,10 @@ import InputBase from "@mui/material/InputBase";
 import LightModeOutlinedIcon from "@mui/icons-material/LightModeOutlined";
 import DarkModeOutlinedIcon from "@mui/icons-material/DarkModeOutlined";
 import NotificationsOutlinedIcon from "@mui/icons-material/NotificationsOutlined";
-import SettingsOutlinedIcon from "@mui/icons-material/SettingsOutlined";
 import PersonOutlinedIcon from "@mui/icons-material/PersonOutlined";
 import SearchIcon from "@mui/icons-material/Search";
 import HeaderMenu from "./Headerbar";
+import { ModesPopover } from "../../components/ui-mode/ModesPopover";
 
 // Tipagem das Props (se necessário adicionar props no futuro)
 interface TopbarProps {
@@ -68,9 +68,7 @@ const Topbar: React.FC<TopbarProps> = ({ setIsSidebar, isSidebar }) => {
         <IconButton>
           <NotificationsOutlinedIcon />
         </IconButton>
-        <IconButton>
-          <SettingsOutlinedIcon />
-        </IconButton>
+        <ModesPopover />
         <IconButton>
           <PersonOutlinedIcon />
         </IconButton>

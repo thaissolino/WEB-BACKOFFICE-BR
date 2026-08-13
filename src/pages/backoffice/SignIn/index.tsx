@@ -1,7 +1,7 @@
 import { FormEvent, useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useAuthBackoffice } from "../../../hooks/authBackoffice";
-import petStoreLogo from "../../../assets/icons/pet-store-logo.png";
+import "./admin-signin.css";
 
 export function SignIn() {
   const navigate = useNavigate();
@@ -10,29 +10,29 @@ export function SignIn() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<{ email?: string; password?: string }>({});
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  // 🔁 Toast de atualização do Service Worker
+  useEffect(() => {
+    document.title = "GestorVix · Home";
+  }, []);
+
   useEffect(() => {
     if (!("serviceWorker" in navigator)) return;
 
     const onMessage = (event: MessageEvent) => {
       if (event.data?.type !== "RELOAD_PAGE") return;
 
-      // Evita loop: em cada sessão, permitimos no máximo 1 reload automático.
       const hasReloaded = sessionStorage.getItem("sw-reload-done") === "1";
       if (hasReloaded) return;
 
       sessionStorage.setItem("sw-reload-done", "1");
 
       const toast = document.createElement("div");
-      toast.innerHTML = `
-        <div class="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-50 bg-green-600 text-white px-6 py-3 rounded-full shadow-lg animate-fadeIn toast-shadow">
-          Nova versão disponível! Atualizando...
-          <div class="h-1 bg-white mt-2 rounded animate-progressBar"></div>
-        </div>
-      `;
+      toast.className = "adm-signin-toast";
+      toast.setAttribute("role", "status");
+      toast.innerHTML = `Nova versão disponível. Atualizando…<div class="adm-signin-toast-bar"></div>`;
       document.body.appendChild(toast);
 
       setTimeout(() => {
@@ -47,11 +47,31 @@ export function SignIn() {
     };
   }, []);
 
+  function fieldErrorFor(name: "email" | "password", nextEmail = email, nextPassword = password) {
+    if (name === "email") {
+      if (!nextEmail.trim()) return "Informe o e-mail.";
+      if (!nextEmail.includes("@")) return "Informe um e-mail válido.";
+      return undefined;
+    }
+    if (!nextPassword.trim()) return "Informe a senha.";
+    if (nextPassword.trim().length < 6) return "A senha precisa ter pelo menos 6 caracteres.";
+    return undefined;
+  }
+
+  function validate(fields: Array<"email" | "password"> = ["email", "password"]) {
+    const next = { ...fieldErrors };
+    for (const name of fields) {
+      next[name] = fieldErrorFor(name);
+    }
+    setFieldErrors(next);
+    return !next.email && !next.password;
+  }
+
   async function handleForm(e: FormEvent) {
     e.preventDefault();
 
-    if (!(email.trim().length > 0 && password.trim().length > 0)) {
-      setErrorMessage("Preencha todos os campos!");
+    if (!validate()) {
+      setErrorMessage("");
       return;
     }
 
@@ -59,106 +79,135 @@ export function SignIn() {
 
     try {
       setLoading(true);
-      setErrorMessage(""); // limpa erro anterior se houver
+      setErrorMessage("");
       await onSignIn({ email: emailLower, password });
-      // Navegar no próximo tick para o estado isAuthenticated ser commitado antes do GuardedRoute avaliar
       setTimeout(() => navigate("/backoffice"), 0);
     } catch (err: any) {
-      setErrorMessage(err?.message || "Erro ao realizar login. Verifique suas credenciais.");
-      console.error(err);
-      // NÃO resetamos os campos!
+      setErrorMessage(err?.message || "Não foi possível entrar. Confira o e-mail e a senha.");
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <>
-      <link
-        href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Exo+2:wght@400;600&display=swap"
-        rel="stylesheet"
-      />
-
-      <div className="flex min-h-screen items-center justify-center bg-gradient-to-r from-gray-800 via-gray-900 to-black px-4 py-12 sm:px-6 lg:px-8">
-        <div className="w-full max-w-md space-y-8 bg-white rounded-lg shadow-xl p-8">
-          <div className="text-center">
-            <img src={petStoreLogo} alt="Pet Store Logo" className="mx-auto h-16 w-auto" />
-            <h2 className="mt-6 text-3xl font-extrabold text-gray-900" style={{ fontFamily: "Orbitron, sans-serif" }}>
-              Bem-vindo ao <br /> <span className="text-indigo-500">Pet Store</span>
-            </h2>
-            <p
-              className="mt-2 text-sm text-gray-600"
-              style={{
-                fontFamily: "Exo 2, sans-serif",
-                fontWeight: 400,
-                letterSpacing: "0.05em",
-              }}
-            >
-              Mensagens criptografadas ponta a ponta.
+    <div className="adm-signin">
+      <a className="adm-signin-skip" href="#adm-signin-form">
+        Ir para o formulário
+      </a>
+      <div className="adm-signin-stage">
+        <aside className="adm-signin-showroom">
+          <img
+            src="/vitrine-electronics.png"
+            alt="Vitrine de eletrônicos com fones, smartphone e notebook sob luz âmbar"
+            width={1600}
+            height={1200}
+          />
+          <div className="adm-signin-veil" aria-hidden="true" />
+          <div className="adm-signin-showroom-copy">
+            <p className="adm-signin-kicker">ERP omnichannel · PDV</p>
+            <p className="adm-signin-brand">GestorVix</p>
+            <p className="adm-signin-headline">
+              <span className="adm-signin-accent">para</span> lojas físicas, redes de lojas{" "}
+              <span className="adm-signin-accent">e</span> e-commerce
             </p>
-            <h2 className="mt-6 text-2xl font-bold text-gray-700" style={{ fontFamily: "Orbitron, sans-serif" }}>
-              Portal Administrativo
-            </h2>
+            <p className="adm-signin-support">
+              Um sistema para operar o ponto de venda, a rede e o canal digital no mesmo lugar.
+            </p>
           </div>
+        </aside>
+        <div className="adm-signin-rule" aria-hidden="true" />
+        <main className="adm-signin-panel">
+          <div className="adm-signin-sheet">
+            <p className="adm-signin-kicker">Acesso administrativo</p>
+            <h1 className="adm-signin-brand">GestorVix</h1>
+            <p className="adm-signin-lede">Entre para gerir lojas, PDV e canais.</p>
 
-          {errorMessage && <div className="text-red-500 text-sm font-medium text-center">{errorMessage}</div>}
+            <form
+              id="adm-signin-form"
+              className="adm-signin-form"
+              onSubmit={handleForm}
+              noValidate
+            >
+              {errorMessage ? (
+                <p className="adm-signin-alert" role="alert">
+                  {errorMessage}
+                </p>
+              ) : null}
 
-          <form className="mt-8 space-y-6" onSubmit={handleForm}>
-            <div className="-space-y-px rounded-md shadow-sm">
-              <div>
-                <label htmlFor="email" className="sr-only">
-                  Email
+              <div className="adm-signin-field">
+                <label className="adm-signin-label" htmlFor="adm-email">
+                  E-mail <span className="adm-signin-required" aria-hidden="true">*</span>
                 </label>
                 <input
-                  id="email"
+                  id="adm-email"
+                  className="adm-signin-control"
                   name="email"
                   type="email"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={(event) => setEmail(event.target.value)}
+                  onBlur={() => validate(["email"])}
+                  autoComplete="username"
                   required
-                  placeholder="Email"
-                  className="relative block w-full appearance-none rounded-t-md border border-gray-300 px-3 py-2 text-gray-900 placeholder-gray-500 focus:z-10 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm"
+                  aria-required="true"
+                  aria-invalid={Boolean(fieldErrors.email)}
+                  aria-describedby={fieldErrors.email ? "adm-email-error" : undefined}
                 />
+                {fieldErrors.email ? (
+                  <p className="adm-signin-error-text" id="adm-email-error" role="alert">
+                    {fieldErrors.email}
+                  </p>
+                ) : null}
               </div>
-              <div className="relative">
-                <label htmlFor="password" className="sr-only">
-                  Senha
-                </label>
-                <input
-                  id="password"
-                  name="password"
-                  type={showPassword ? "text" : "password"}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  placeholder="Senha"
-                  className="relative block w-full appearance-none rounded-b-md border border-gray-300 px-3 py-2 text-gray-900 placeholder-gray-500 focus:z-10 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm pr-10"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword((prev) => !prev)}
-                  className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-500 hover:text-gray-700 focus:outline-none"
-                >
-                  <i className={`fas ${showPassword ? "fa-eye-slash" : "fa-eye"}`}></i>
-                </button>
-              </div>
-            </div>
 
-            <div>
-              <button
-                type="submit"
-                disabled={loading}
-                className="group relative flex w-full justify-center rounded-md border border-transparent bg-indigo-600 py-2 px-4 text-sm font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
-              >
-                {loading ? "Entrando..." : "Entrar"}
+              <div className="adm-signin-field">
+                <label className="adm-signin-label" htmlFor="adm-password">
+                  Senha <span className="adm-signin-required" aria-hidden="true">*</span>
+                </label>
+                <div className="adm-signin-password">
+                  <input
+                    id="adm-password"
+                    className="adm-signin-control"
+                    name="password"
+                    type={showPassword ? "text" : "password"}
+                    value={password}
+                    onChange={(event) => setPassword(event.target.value)}
+                    onBlur={() => validate(["password"])}
+                    autoComplete="current-password"
+                    required
+                    aria-required="true"
+                    aria-invalid={Boolean(fieldErrors.password)}
+                    aria-describedby={fieldErrors.password ? "adm-password-error" : undefined}
+                  />
+                  <button
+                    className="adm-signin-toggle"
+                    type="button"
+                    onClick={() => setShowPassword((current) => !current)}
+                    aria-pressed={showPassword}
+                    aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
+                  >
+                    {showPassword ? "Ocultar" : "Mostrar"}
+                  </button>
+                </div>
+                {fieldErrors.password ? (
+                  <p className="adm-signin-error-text" id="adm-password-error" role="alert">
+                    {fieldErrors.password}
+                  </p>
+                ) : null}
+              </div>
+
+              <button className="adm-signin-btn" type="submit" disabled={loading}>
+                {loading ? "Entrando…" : "Entrar"}
               </button>
+            </form>
+
+            <div className="adm-signin-foot">
+              <Link className="adm-signin-link" to="/signin/client">
+                Acesso do lojista
+              </Link>
             </div>
-          </form>
-        </div>
-        <footer className="fixed bottom-0 w-full text-center py-2 bg-gray-800 text-white">
-          &copy; 2025 Pet Store. Todos os direitos reservados.
-        </footer>
+          </div>
+        </main>
       </div>
-    </>
+    </div>
   );
 }

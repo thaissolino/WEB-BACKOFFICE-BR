@@ -1,0 +1,271 @@
+@import url("https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700&family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap");
+
+.pdv-page {
+  --pdv-panel: #1f1b17;
+  --pdv-elevated: #26211c;
+  --pdv-filament: #e8a54b;
+  --pdv-ink: #f6f1ea;
+  --pdv-muted: #b7aea2;
+  --pdv-faint: #8a8074;
+  --pdv-rule: rgba(246, 241, 234, 0.1);
+  --pdv-input: #14110e;
+  --radius: 8px;
+  --radius-sm: 6px;
+  --radius-lg: 8px;
+  --radius-pill: 8px;
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
+  --font-display: "Outfit", "Plus Jakarta Sans", sans-serif;
+  --font-body: "Plus Jakarta Sans", sans-serif;
+  font-family: var(--font-body);
+  color: var(--pdv-ink);
+  min-height: 100%;
+  color-scheme: dark;
+}
+
+.pdv-chrome[data-theme="light"] .pdv-page {
+  --pdv-panel: #fffaf3;
+  --pdv-elevated: #ffffff;
+  --pdv-filament: #9a6414;
+  --pdv-ink: #1c1814;
+  --pdv-muted: #5c554c;
+  --pdv-faint: #7a7268;
+  --pdv-rule: rgba(28, 24, 20, 0.1);
+  --pdv-input: #f3eadc;
+  color-scheme: light;
+}
+
+.pdv-page h1,
+.pdv-page h2,
+.pdv-page h3,
+.pdv-page h4,
+.pdv-page h5 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: -0.03em;
+}
+
+.pdv-page .MuiButton-root,
+.pdv-page button[type="submit"],
+.pdv-page button[type="button"] {
+  border-radius: var(--radius-pill) !important;
+  text-transform: none !important;
+  font-family: var(--font-body) !important;
+  font-weight: 600 !important;
+  transition: background 180ms var(--ease), box-shadow 180ms var(--ease);
+}
+
+.pdv-page .MuiButton-contained {
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.18) !important;
+}
+
+.pdv-page .MuiFilledInput-root,
+.pdv-page .MuiOutlinedInput-root,
+.pdv-page .MuiInputBase-root {
+  border-radius: var(--radius) !important;
+  font-family: var(--font-body) !important;
+  background: var(--pdv-input) !important;
+  color: var(--pdv-ink) !important;
+}
+
+.pdv-page .MuiInputBase-input {
+  color: var(--pdv-ink) !important;
+  -webkit-text-fill-color: var(--pdv-ink);
+}
+
+.pdv-page .MuiInputBase-input::placeholder {
+  color: var(--pdv-faint) !important;
+  opacity: 1;
+}
+
+.pdv-page input:-webkit-autofill,
+.pdv-page textarea:-webkit-autofill,
+.pdv-page select:-webkit-autofill {
+  -webkit-box-shadow: 0 0 0 1000px var(--pdv-input) inset !important;
+  -webkit-text-fill-color: var(--pdv-ink) !important;
+  caret-color: var(--pdv-ink);
+}
+
+.pdv-page .MuiFilledInput-root:before,
+.pdv-page .MuiFilledInput-root:after {
+  display: none;
+}
+
+.pdv-page .MuiToggleButton-root {
+  border-radius: var(--radius-pill) !important;
+  text-transform: none !important;
+  min-height: 44px;
+}
+
+.pdv-page .MuiToggleButtonGroup-root .MuiToggleButton-root:first-of-type {
+  border-radius: var(--radius-pill) 0 0 var(--radius-pill) !important;
+}
+
+.pdv-page .MuiToggleButtonGroup-root .MuiToggleButton-root:last-of-type {
+  border-radius: 0 var(--radius-pill) var(--radius-pill) 0 !important;
+}
+
+.pdv-page .MuiChip-root {
+  border-radius: var(--radius-pill) !important;
+}
+
+.pdv-page .MuiPaper-root {
+  border-radius: var(--radius-lg) !important;
+}
+
+.pdv-page .MuiDataGrid-root {
+  border: 1px solid var(--pdv-rule) !important;
+  border-radius: var(--radius-lg) !important;
+  overflow: hidden;
+  background: var(--pdv-panel) !important;
+  font-family: var(--font-body) !important;
+}
+
+.pdv-page .MuiDataGrid-columnHeaders,
+.pdv-page .MuiDataGrid-footerContainer {
+  background: var(--pdv-elevated) !important;
+  border-color: var(--pdv-rule) !important;
+}
+
+.pdv-page .MuiDataGrid-virtualScroller {
+  background: var(--pdv-panel) !important;
+}
+
+.pdv-page .MuiDataGrid-cell {
+  border-color: var(--pdv-rule) !important;
+}
+
+.pdv-page table {
+  border-collapse: separate;
+  border-spacing: 0;
+  overflow: hidden;
+}
+
+.pdv-page table th:first-child {
+  border-top-left-radius: var(--radius-sm);
+}
+
+.pdv-page table th:last-child {
+  border-top-right-radius: var(--radius-sm);
+}
+
+.pdv-page .MuiAlert-root {
+  border-radius: var(--radius-sm) !important;
+}
+
+.pdv-page .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track {
+  background-color: var(--pdv-filament) !important;
+}
+
+.pdv-page input[type="text"],
+.pdv-page input[type="email"],
+.pdv-page input[type="password"],
+.pdv-page input[type="number"],
+.pdv-page input[type="date"],
+.pdv-page input[type="search"],
+.pdv-page select,
+.pdv-page textarea {
+  border-radius: var(--radius) !important;
+}
+
+.pdv-page .min-h-screen.bg-gray-50,
+.pdv-page .min-h-screen.bg-gray-900 {
+  background: transparent !important;
+  color: var(--pdv-ink);
+}
+
+.pdv-page .bg-white,
+.pdv-page .bg-gray-50,
+.pdv-page .bg-gray-800,
+.pdv-page .bg-gray-100 {
+  background-color: var(--pdv-panel) !important;
+  border-color: var(--pdv-rule) !important;
+}
+
+.pdv-page .bg-gray-50.border-b,
+.pdv-page .border-b.border-gray-200,
+.pdv-page .border-t.border-gray-200,
+.pdv-page .divide-gray-200 > :not([hidden]) ~ :not([hidden]) {
+  border-color: var(--pdv-rule) !important;
+}
+
+.pdv-page .text-gray-900,
+.pdv-page .text-gray-800,
+.pdv-page .text-gray-700,
+.pdv-page .text-gray-100 {
+  color: var(--pdv-ink) !important;
+}
+
+.pdv-page .text-gray-600,
+.pdv-page .text-gray-500,
+.pdv-page .text-gray-400,
+.pdv-page .text-gray-300 {
+  color: var(--pdv-muted) !important;
+}
+
+.pdv-page .text-indigo-600,
+.pdv-page .text-indigo-500,
+.pdv-page .text-indigo-800 {
+  color: var(--pdv-filament) !important;
+}
+
+.pdv-page .bg-indigo-600,
+.pdv-page .hover\:bg-indigo-700:hover {
+  background-color: var(--pdv-filament) !important;
+  color: #12100e !important;
+}
+
+.pdv-page .bg-indigo-50,
+.pdv-page .bg-indigo-100,
+.pdv-page .border-indigo-300 {
+  background-color: rgba(232, 165, 75, 0.12) !important;
+  border-color: rgba(232, 165, 75, 0.35) !important;
+}
+
+.pdv-page .rounded-md,
+.pdv-page .rounded-lg,
+.pdv-page .rounded-xl {
+  border-radius: var(--radius-lg) !important;
+}
+
+.pdv-page .shadow-sm,
+.pdv-page .shadow-lg {
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.22) !important;
+}
+
+.pdv-page input.block,
+.pdv-page input.pl-10,
+.pdv-page input.pl-8 {
+  background: var(--pdv-input) !important;
+  border-color: var(--pdv-rule) !important;
+  color: var(--pdv-ink) !important;
+}
+
+.pdv-page input.block:focus,
+.pdv-page input.pl-10:focus,
+.pdv-page input.pl-8:focus {
+  outline: 3px solid var(--pdv-filament);
+  outline-offset: 2px;
+  border-color: transparent !important;
+}
+
+body.pdv-premium .MuiDialog-paper,
+body.pdv-premium .MuiPopover-paper {
+  border-radius: 1.25rem !important;
+}
+
+.pdv-page .MuiButton-root:focus-visible,
+.pdv-page button:focus-visible,
+.pdv-page a:focus-visible,
+.pdv-page input:focus-visible,
+.pdv-page select:focus-visible,
+.pdv-page .MuiSwitch-input:focus-visible {
+  outline: 3px solid var(--pdv-filament);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pdv-page .MuiButton-root,
+  .pdv-page button {
+    transition: none !important;
+  }
+}
