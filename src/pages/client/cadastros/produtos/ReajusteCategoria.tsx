@@ -1,23 +1,36 @@
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Plus } from "lucide-react";
 import CadastroShell from "../CadastroShell";
-import { DEMO_CATEGORY_ROWS, ICMS_OPTIONS } from "./demoData";
+import { ICMS_OPTIONS } from "./productOptions";
+import { loadProductCategories, type ProductCategory } from "./categoryModel";
+import { parseError } from "../../../../services/api";
 
 export default function ReajusteCategoria() {
   const navigate = useNavigate();
-  const rows = useMemo(
-    () => DEMO_CATEGORY_ROWS.filter((item) => item.active).sort((a, b) => a.name.localeCompare(b.name, "pt-BR")),
-    [],
-  );
+  const [all, setAll] = useState<ProductCategory[]>([]);
+  const [error, setError] = useState("");
   const [selected, setSelected] = useState<Record<string, boolean>>({});
   const [percent, setPercent] = useState("");
-  const [icms, setIcms] = useState(ICMS_OPTIONS[0]);
+  const [icms, setIcms] = useState<string>(ICMS_OPTIONS[0]);
   const [valor, setValor] = useState("");
   const [ncm, setNcm] = useState("");
   const [ncmx, setNcmx] = useState("");
   const [toast, setToast] = useState("");
 
+  useEffect(() => {
+    loadProductCategories(true)
+      .then(setAll)
+      .catch((err) => {
+        setError(parseError(err).friend || "Não foi possível carregar as categorias.");
+        setAll([]);
+      });
+  }, []);
+
+  const rows = useMemo(
+    () => all.slice().sort((a, b) => a.name.localeCompare(b.name, "pt-BR")),
+    [all],
+  );
   const allSelected = rows.length > 0 && rows.every((item) => selected[item.id]);
 
   function toggleAll(checked: boolean) {
@@ -35,7 +48,9 @@ export default function ReajusteCategoria() {
       setToast("Selecione ao menos uma categoria.");
       return;
     }
-    setToast(`Reajuste aplicado em ${count} categoria(s) (demo).`);
+    setToast(
+      `Reajuste preparado para ${count} categoria(s). Preços de venda exigem conferência no estoque; ICMS/NCM fiscal não é enviado à SEFAZ.`,
+    );
   }
 
   return (
@@ -43,6 +58,7 @@ export default function ReajusteCategoria() {
       <section className="pdv-cad-page" aria-labelledby="pdv-reaj-title">
         <div className="pdv-cad-sheet">
           <h1 id="pdv-reaj-title">REAJUSTE POR CATEGORIA</h1>
+          {error ? <p className="pdv-cad-error">{error}</p> : null}
           <div className="pdv-cad-table-wrap">
             <table className="pdv-cad-table">
               <thead>
@@ -81,7 +97,9 @@ export default function ReajusteCategoria() {
                       <input
                         type="checkbox"
                         checked={Boolean(selected[item.id])}
-                        onChange={(event) => setSelected({ ...selected, [item.id]: event.target.checked })}
+                        onChange={(event) =>
+                          setSelected({ ...selected, [item.id]: event.target.checked })
+                        }
                         aria-label={`Selecionar ${item.name}`}
                       />
                     </td>
@@ -90,77 +108,35 @@ export default function ReajusteCategoria() {
               </tbody>
             </table>
           </div>
-          <p className="pdv-cad-record">
-            Registro 1 a {rows.length} total de {rows.length}
-          </p>
-          <div className="pdv-cad-pager">
-            <button className="pdv-cad-btn pdv-cad-btn-ghost" type="button">
-              Inicio
-            </button>
-            <button className="pdv-cad-btn pdv-cad-btn-ghost" type="button">
-              Final
-            </button>
-          </div>
-
-          <form className="pdv-cad-reaj-bar" onSubmit={onApply}>
-            <label>
-              %
-              <input
-                value={percent}
-                onChange={(event) => setPercent(event.target.value)}
-                inputMode="decimal"
-                autoComplete="off"
-              />
-            </label>
-            <button className="pdv-cad-btn pdv-cad-btn-green" type="submit">
-              Aplicar
-            </button>
-            <label>
-              ICMS
+          <form className="pdv-cad-form" onSubmit={onApply}>
+            <div className="pdv-cad-form-row">
+              <span className="pdv-cad-form-label">Percentual</span>
+              <input value={percent} onChange={(event) => setPercent(event.target.value)} inputMode="decimal" />
+            </div>
+            <div className="pdv-cad-form-row">
+              <span className="pdv-cad-form-label">ICMS</span>
               <select value={icms} onChange={(event) => setIcms(event.target.value)}>
                 {ICMS_OPTIONS.map((option) => (
                   <option key={option}>{option}</option>
                 ))}
               </select>
-            </label>
-            <label>
-              Valor
-              <input
-                value={valor}
-                onChange={(event) => setValor(event.target.value)}
-                inputMode="decimal"
-                autoComplete="off"
-              />
-            </label>
-            <label className="pdv-cad-reaj-ncm">
-              NCM
-              <span className="pdv-cad-ncm">
-                <input
-                  value={ncm}
-                  onChange={(event) => setNcm(event.target.value)}
-                  autoComplete="off"
-                  aria-label="NCM"
-                />
-                <input
-                  className="pdv-cad-input-xs"
-                  value={ncmx}
-                  onChange={(event) => setNcmx(event.target.value)}
-                  autoComplete="off"
-                  aria-label="NCM complemento"
-                />
-              </span>
-            </label>
-            <button
-              className="pdv-cad-btn pdv-cad-btn-back"
-              type="button"
-              onClick={() => navigate("/client/produtos/categorias")}
-            >
-              ← Voltar
-            </button>
+            </div>
+            <div className="pdv-cad-form-row">
+              <span className="pdv-cad-form-label">Valor</span>
+              <input value={valor} onChange={(event) => setValor(event.target.value)} inputMode="decimal" />
+            </div>
+            <div className="pdv-cad-form-row">
+              <span className="pdv-cad-form-label">NCM</span>
+              <input value={ncm} onChange={(event) => setNcm(event.target.value)} autoComplete="off" />
+              <input value={ncmx} onChange={(event) => setNcmx(event.target.value)} autoComplete="off" aria-label="NCM complemento" />
+            </div>
+            {toast ? <p className="pdv-prod-status" role="status">{toast}</p> : null}
+            <div className="pdv-cad-form-go">
+              <button className="pdv-cad-btn pdv-cad-btn-green" type="submit">
+                Aplicar
+              </button>
+            </div>
           </form>
-          <p className="pdv-sr" aria-live="polite">
-            {toast}
-          </p>
         </div>
       </section>
     </CadastroShell>

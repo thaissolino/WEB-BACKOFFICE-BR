@@ -3,7 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { Plus, Settings } from "lucide-react";
 import { api, parseError } from "../../../../services/api";
 import CadastroShell from "../CadastroShell";
-import { PORTFOLIO_USERS, type PortfolioRow } from "./types";
+import { type PortfolioRow } from "./types";
+import { listCatalog } from "../catalog/catalogApi";
 
 const EMPTY_NEW = {
   name: "",
@@ -18,6 +19,7 @@ export default function CarteiraClientes() {
   const [createRow, setCreateRow] = useState(EMPTY_NEW);
   const [error, setError] = useState("");
   const [toast, setToast] = useState("");
+  const [users, setUsers] = useState<string[]>([]);
 
   function load() {
     api
@@ -36,6 +38,9 @@ export default function CarteiraClientes() {
 
   useEffect(() => {
     load();
+    listCatalog("user", true)
+      .then((items) => setUsers(items.map((item) => item.name)))
+      .catch(() => setUsers([]));
   }, []);
 
   function patch(code: number, next: Partial<PortfolioRow>) {
@@ -114,7 +119,7 @@ export default function CarteiraClientes() {
                           aria-label="Usuário"
                         >
                           <option value="">Selecione...</option>
-                          {PORTFOLIO_USERS.map((user) => (
+                          {users.map((user) => (
                             <option key={user} value={user}>
                               {user}
                             </option>
@@ -178,7 +183,7 @@ export default function CarteiraClientes() {
                       aria-label="Usuário"
                     >
                       <option value="">Selecione...</option>
-                      {PORTFOLIO_USERS.map((user) => (
+                      {users.map((user) => (
                         <option key={user} value={user}>
                           {user}
                         </option>

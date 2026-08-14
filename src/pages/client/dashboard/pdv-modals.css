@@ -47,6 +47,22 @@
   box-sizing: border-box;
 }
 
+/* Cream modal chrome (portaled to body, outside .pdv-root). Light = black ink. */
+.pdv-modal-card button,
+.pdv-modal-card [type="button"],
+.pdv-modal-card [type="submit"],
+.pdv-modal-scrim :where(button, a, label, input, select, textarea) {
+  color: #111;
+  -webkit-text-fill-color: #111;
+}
+
+.pdv-modal-card button,
+.pdv-modal-card [type="button"],
+.pdv-modal-card [type="submit"] {
+  color: #111 !important;
+  -webkit-text-fill-color: #111 !important;
+}
+
 .pdv-modal-card[data-size="support"] {
   width: min(34rem, 100%);
   max-height: min(90dvh, 44rem);
@@ -104,7 +120,8 @@
   -webkit-text-fill-color: #1a1511 !important;
 }
 
-.pdv-modal-close {
+.pdv-modal-close,
+.pdv-modal-card button.pdv-modal-close {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -117,8 +134,8 @@
   border: 0;
   border-radius: 8px;
   background: transparent;
-  color: #1a1511 !important;
-  -webkit-text-fill-color: #1a1511 !important;
+  color: #111 !important;
+  -webkit-text-fill-color: #111 !important;
   line-height: 0;
   cursor: pointer;
   touch-action: manipulation;
@@ -202,7 +219,8 @@
   padding: 0;
 }
 
-.pdv-cfg-item {
+.pdv-cfg-item,
+.pdv-modal-card button.pdv-cfg-item {
   display: flex;
   align-items: center;
   width: 100%;
@@ -211,8 +229,8 @@
   border: 0;
   border-radius: 6px;
   background: transparent;
-  color: #1a1511 !important;
-  -webkit-text-fill-color: #1a1511 !important;
+  color: #111 !important;
+  -webkit-text-fill-color: #111 !important;
   font: inherit;
   font-size: 0.96rem;
   font-weight: 600;
@@ -223,8 +241,11 @@
 }
 
 .pdv-cfg-item:hover,
-.pdv-cfg-item:focus-visible {
-  background: #5dade2;
+.pdv-cfg-item:focus-visible,
+.pdv-modal-card button.pdv-cfg-item:hover,
+.pdv-modal-card button.pdv-cfg-item:focus-visible {
+  background: #5dade2 !important;
+  background-color: #5dade2 !important;
   color: #fff !important;
   -webkit-text-fill-color: #fff !important;
 }
@@ -448,29 +469,36 @@ a.pdv-sup-tube:focus-visible {
   gap: 6px;
 }
 
-.pdv-logo-tab {
+.pdv-logo-tab,
+.pdv-modal-card button.pdv-logo-tab {
   min-height: 2.75rem;
   padding: 8px 12px;
   border: 1px solid #ddd4c6;
   border-radius: 8px;
-  background: #fff;
-  color: #1a1511 !important;
-  -webkit-text-fill-color: #1a1511 !important;
+  background: #fff !important;
+  background-color: #fff !important;
+  color: #111 !important;
+  -webkit-text-fill-color: #111 !important;
   font: inherit;
   font-weight: 700;
   cursor: pointer;
 }
 
-.pdv-logo-tab[aria-selected="true"] {
-  background: #1e3a5f;
+.pdv-logo-tab[aria-selected="true"],
+.pdv-modal-card button.pdv-logo-tab[aria-selected="true"] {
+  background: #1e3a5f !important;
+  background-color: #1e3a5f !important;
   border-color: #1e3a5f;
   color: #fff !important;
   -webkit-text-fill-color: #fff !important;
 }
 
 .pdv-logo-tab:hover,
-.pdv-logo-tab:focus-visible {
-  background: #5dade2;
+.pdv-logo-tab:focus-visible,
+.pdv-modal-card button.pdv-logo-tab:hover,
+.pdv-modal-card button.pdv-logo-tab:focus-visible {
+  background: #5dade2 !important;
+  background-color: #5dade2 !important;
   border-color: #5dade2;
   color: #fff !important;
   -webkit-text-fill-color: #fff !important;

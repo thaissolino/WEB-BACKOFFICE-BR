@@ -30,7 +30,6 @@ import ClientDashboard from "../pages/client/Dashboard";
 import TrocarCaixa from "../pages/client/TrocarCaixa";
 import ClientPdv from "../pages/client/Pdv";
 import ClientLoja from "../pages/client/Loja";
-import StoreParamStub from "../pages/client/StoreParamStub";
 import ClientesList from "../pages/client/cadastros/clientes/ClientesList";
 import ChecarCliente from "../pages/client/cadastros/clientes/ChecarCliente";
 import CadastrarFormStub from "../pages/client/cadastros/clientes/CadastrarFormStub";
@@ -46,7 +45,19 @@ import AlterarEstoque from "../pages/client/cadastros/produtos/AlterarEstoque";
 import ListarCategorias from "../pages/client/cadastros/produtos/ListarCategorias";
 import CadastrarCategoria from "../pages/client/cadastros/produtos/CadastrarCategoria";
 import ReajusteCategoria from "../pages/client/cadastros/produtos/ReajusteCategoria";
+import { ApoioForm, ApoioList } from "../pages/client/cadastros/produtos/ApoioCadastro";
+import {
+  EditorEtiquetasPage,
+  LocalizacaoPage,
+  LotePage,
+  NcmList,
+  PromocaoList,
+  TabelaPrecoForm,
+  TabelaPrecoList,
+  TrayDownloadPage,
+} from "../pages/client/cadastros/produtos/ProdutosExtras";
 import PdvConfig from "../pages/backoffice/PdvConfig";
+import { PdvModuleRoutes } from "../pages/client/PdvModuleRoutes";
 import CreateStore from "../pages/stores/CreateStore";
 import StoresList from "../pages/stores/StoresList";
 import StoreDetail from "../pages/stores/StoreDetail";
@@ -111,15 +122,6 @@ export function Router() {
         <Route path="client/caixa" element={<TrocarCaixa />} />
         <Route path="client/pdv" element={<ClientPdv />} />
         <Route path="client/loja" element={<ClientLoja />} />
-        <Route path="client/grupos-de-loja" element={<StoreParamStub title="Grupos de Loja" />} />
-        <Route
-          path="client/estoque-compartilhado"
-          element={<StoreParamStub title="Estoque Compartilhado" />}
-        />
-        <Route
-          path="client/plano"
-          element={<StoreParamStub title="Meu Plano, Mensalidades e Contrato" />}
-        />
         <Route path="client/clientes" element={<ClientesList />} />
         <Route path="client/clientes/inativos" element={<ClientesList inactive />} />
         <Route path="client/clientes/cadastrar" element={<ChecarCliente />} />
@@ -137,6 +139,7 @@ export function Router() {
         <Route path="client/fornecedores/:id/compra" element={<CompraAcessorio />} />
         <Route path="client/fornecedores/:id/:action" element={<CadastrarFormStub entity="fornecedor" />} />
         <Route path="client/produtos" element={<ListarProdutos />} />
+        <Route path="client/produtos/pesquisa-preco" element={<ListarProdutos />} />
         <Route path="client/produtos/cadastrar" element={<CadastrarProduto />} />
         <Route path="client/produtos/estoque/:categoryId" element={<AlterarEstoque />} />
         <Route path="client/produtos/estoque" element={<AlterarEstoque />} />
@@ -144,6 +147,41 @@ export function Router() {
         <Route path="client/produtos/categorias/cadastrar" element={<CadastrarCategoria />} />
         <Route path="client/produtos/categorias/reajuste" element={<ReajusteCategoria />} />
         <Route path="client/produtos/categorias" element={<ListarCategorias />} />
+        <Route path="client/produtos/variacoes/tamanho/inativas" element={<ApoioList kind="tamanho" inactive />} />
+        <Route path="client/produtos/variacoes/tamanho/cadastrar" element={<ApoioForm kind="tamanho" />} />
+        <Route path="client/produtos/variacoes/tamanho" element={<ApoioList kind="tamanho" />} />
+        <Route path="client/produtos/variacoes/cor/inativas" element={<ApoioList kind="cor" inactive />} />
+        <Route path="client/produtos/variacoes/cor/cadastrar" element={<ApoioForm kind="cor" />} />
+        <Route path="client/produtos/variacoes/cor" element={<ApoioList kind="cor" />} />
+        <Route path="client/produtos/ncm/desatualizados" element={<NcmList outdated />} />
+        <Route path="client/produtos/ncm" element={<NcmList />} />
+        <Route path="client/produtos/marcas/inativas" element={<ApoioList kind="marca" inactive />} />
+        <Route path="client/produtos/marcas/cadastrar" element={<ApoioForm kind="marca" />} />
+        <Route path="client/produtos/marcas" element={<ApoioList kind="marca" />} />
+        <Route path="client/produtos/promocoes/cadastrar" element={<PromocaoList mode="cadastrar" />} />
+        <Route path="client/produtos/promocoes/aplicar" element={<PromocaoList mode="aplicar" />} />
+        <Route path="client/produtos/promocoes/produtos" element={<PromocaoList mode="produtos" />} />
+        <Route path="client/produtos/promocoes/finalizadas" element={<PromocaoList mode="finalizadas" />} />
+        <Route path="client/produtos/promocoes" element={<PromocaoList />} />
+        <Route path="client/produtos/localizacao/produtos" element={<LocalizacaoPage variant="produto" />} />
+        <Route path="client/produtos/localizacao/setores" element={<LocalizacaoPage variant="setor" />} />
+        <Route path="client/produtos/localizacao" element={<LocalizacaoPage />} />
+        <Route path="client/produtos/colecoes/inativas" element={<ApoioList kind="colecao" inactive />} />
+        <Route path="client/produtos/colecoes/cadastrar" element={<ApoioForm kind="colecao" />} />
+        <Route path="client/produtos/colecoes" element={<ApoioList kind="colecao" />} />
+        <Route path="client/produtos/generos/inativos" element={<ApoioList kind="genero" inactive />} />
+        <Route path="client/produtos/generos/cadastrar" element={<ApoioForm kind="genero" />} />
+        <Route path="client/produtos/generos" element={<ApoioList kind="genero" />} />
+        <Route path="client/produtos/tabela-preco/cadastrar" element={<TabelaPrecoForm />} />
+        <Route path="client/produtos/tabela-preco/inativas" element={<TabelaPrecoList inactive />} />
+        <Route path="client/produtos/tabela-preco/lote" element={<TabelaPrecoList />} />
+        <Route path="client/produtos/tabela-preco" element={<TabelaPrecoList />} />
+        <Route path="client/produtos/unidades/cadastrar" element={<ApoioForm kind="unidade" />} />
+        <Route path="client/produtos/unidades" element={<ApoioList kind="unidade" />} />
+        <Route path="client/produtos/lotes" element={<LotePage />} />
+        <Route path="client/produtos/tray" element={<TrayDownloadPage />} />
+        <Route path="client/produtos/etiquetas" element={<EditorEtiquetasPage />} />
+        {PdvModuleRoutes()}
       </Route>
 
       <Route

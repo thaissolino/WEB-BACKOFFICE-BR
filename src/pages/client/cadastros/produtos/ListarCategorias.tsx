@@ -1,41 +1,15 @@
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Eraser, Eye, FolderPlus, Pencil, Plus, Search, X } from "lucide-react";
 import CadastroShell from "../CadastroShell";
-import { DEMO_CATEGORY_ROWS, type DemoCategoryRow } from "./demoData";
-
-function sortTree(rows: DemoCategoryRow[]) {
-  const byParent = new Map<string | undefined, DemoCategoryRow[]>();
-  const ids = new Set(rows.map((item) => item.id));
-  rows.forEach((item) => {
-    const key = item.parentId && ids.has(item.parentId) ? item.parentId : undefined;
-    const list = byParent.get(key) ?? [];
-    list.push(item);
-    byParent.set(key, list);
-  });
-  const ordered: DemoCategoryRow[] = [];
-  function walk(parentId?: string) {
-    (byParent.get(parentId) ?? [])
-      .slice()
-      .sort((a, b) => a.code - b.code)
-      .forEach((item) => {
-        ordered.push(item);
-        walk(item.id);
-      });
-  }
-  walk(undefined);
-  return ordered;
-}
-
-function depthOf(row: DemoCategoryRow, all: DemoCategoryRow[]) {
-  let depth = 0;
-  let current = row.parentId;
-  while (current) {
-    depth += 1;
-    current = all.find((item) => item.id === current)?.parentId;
-  }
-  return depth;
-}
+import { listCatalog, updateCatalog } from "../catalog/catalogApi";
+import { parseError } from "../../../../services/api";
+import {
+  categoryDepth,
+  categoryFromCatalog,
+  sortCategoryTree,
+  type ProductCategory,
+} from "./categoryModel";
 
 export default function ListarCategorias({ inactive = false }: { inactive?: boolean }) {
   const navigate = useNavigate();
@@ -45,9 +19,27 @@ export default function ListarCategorias({ inactive = false }: { inactive?: bool
   const [applied, setApplied] = useState(draft);
   const [selected, setSelected] = useState<Record<string, boolean>>({});
   const [toast, setToast] = useState("");
+  const [error, setError] = useState("");
+  const [all, setAll] = useState<ProductCategory[]>([]);
+
+  function load() {
+    listCatalog("product_category")
+      .then((items) => {
+        setAll(items.map(categoryFromCatalog));
+        setError("");
+      })
+      .catch((err) => {
+        setError(parseError(err).friend || "Não foi possível carregar as categorias.");
+        setAll([]);
+      });
+  }
+
+  useEffect(() => {
+    load();
+  }, []);
 
   const rows = useMemo(() => {
-    const base = DEMO_CATEGORY_ROWS.filter((item) => item.active === !isInactive);
+    const base = all.filter((item) => item.active === !isInactive);
     const code = applied.code.replace(/\D/g, "");
     const name = applied.name.trim().toLowerCase();
     const filtered = base.filter((item) => {
@@ -55,8 +47,8 @@ export default function ListarCategorias({ inactive = false }: { inactive?: bool
       if (name && !item.name.toLowerCase().includes(name)) return false;
       return true;
     });
-    return sortTree(filtered);
-  }, [applied, isInactive]);
+    return sortCategoryTree(filtered);
+  }, [all, applied, isInactive]);
 
   const allSelected = rows.length > 0 && rows.every((item) => selected[item.id]);
 
@@ -73,11 +65,30 @@ export default function ListarCategorias({ inactive = false }: { inactive?: bool
     setSelected(next);
   }
 
+  async function toggleSelectedActive() {
+    const picked = rows.filter((item) => selected[item.id]);
+    if (!picked.length) {
+      setToast("Selecione ao menos uma categoria.");
+      return;
+    }
+    try {
+      await Promise.all(
+        picked.map((item) => updateCatalog("product_category", item.code, { active: isInactive })),
+      );
+      setSelected({});
+      setToast(isInactive ? "Categorias ativadas." : "Categorias inativadas.");
+      load();
+    } catch (err) {
+      setError(parseError(err).friend || "Não foi possível atualizar.");
+    }
+  }
+
   return (
     <CadastroShell>
       <section className="pdv-cad-page" aria-labelledby="pdv-cat-title">
         <div className="pdv-cad-sheet">
           <h1 id="pdv-cat-title">CATEGORIAS</h1>
+          {error ? <p className="pdv-cad-error">{error}</p> : null}
           <div className="pdv-cad-actions">
             <button
               className="pdv-cad-btn pdv-cad-btn-green"
@@ -174,7 +185,7 @@ export default function ListarCategorias({ inactive = false }: { inactive?: bool
               </thead>
               <tbody>
                 {rows.map((item) => {
-                  const depth = depthOf(item, DEMO_CATEGORY_ROWS);
+                  const depth = categoryDepth(item, all);
                   return (
                     <tr key={item.id}>
                       <td>{item.code}</td>
@@ -204,7 +215,7 @@ export default function ListarCategorias({ inactive = false }: { inactive?: bool
                             aria-label={`Atualizar Categoria ${item.name}`}
                             title="Atualizar Categoria"
                             onClick={() =>
-                              navigate(`/client/produtos/categorias/cadastrar?id=${item.id}`)
+                              navigate(`/client/produtos/categorias/cadastrar?id=${item.code}`)
                             }
                           >
                             <Pencil size={16} aria-hidden="true" />
@@ -215,7 +226,7 @@ export default function ListarCategorias({ inactive = false }: { inactive?: bool
                             aria-label={`Adicionar SubCategoria em ${item.name}`}
                             title="+ Adicionar SubCategoria"
                             onClick={() =>
-                              navigate(`/client/produtos/categorias/cadastrar?pai=${item.id}`)
+                              navigate(`/client/produtos/categorias/cadastrar?pai=${item.code}`)
                             }
                           >
                             <FolderPlus size={16} aria-hidden="true" />
@@ -237,13 +248,7 @@ export default function ListarCategorias({ inactive = false }: { inactive?: bool
             </table>
           </div>
           <div className="pdv-cad-toolbar">
-            <button
-              className="pdv-cad-btn pdv-cad-btn-red"
-              type="button"
-              onClick={() =>
-                setToast(isInactive ? "Categorias selecionadas ativadas (demo)." : "Categorias selecionadas inativadas (demo).")
-              }
-            >
+            <button className="pdv-cad-btn pdv-cad-btn-red" type="button" onClick={() => void toggleSelectedActive()}>
               <X size={16} strokeWidth={2.4} aria-hidden="true" />
               {isInactive ? "Ativar" : "Inativar"}
             </button>

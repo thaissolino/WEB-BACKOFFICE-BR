@@ -1,4 +1,5 @@
-import { FormEvent, ReactNode, useId, useState } from "react";
+import { FormEvent, ReactNode, useEffect, useId, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   AlertTriangle,
   AlignJustify,
@@ -11,26 +12,24 @@ import {
   Scale,
   Settings,
 } from "lucide-react";
+import { api, parseError } from "../../../../services/api";
 import CadastroShell from "../CadastroShell";
 import { usePdvSession } from "../../dashboard/PdvShell";
-import { STORES } from "../../dashboard/mockData";
 import PdvTip from "../../dashboard/PdvTip";
 import CategorySelect from "./CategorySelect";
 import SearchableSelect from "./SearchableSelect";
 import {
+  AtivoToggle,
   CadastrarColecaoModal,
   CadastrarGeneroModal,
   CadastrarMarcaModal,
   CadastrarUnidadeModal,
 } from "./QuickCadWindows";
-import {
-  DEMO_BRANDS,
-  DEMO_COLLECTIONS,
-  DEMO_GENDERS,
-  DEMO_ORIGINS,
-  DEMO_SUPPLIERS,
-  DEMO_UNITS,
-} from "./demoData";
+import { createCatalog, listCatalog } from "../catalog/catalogApi";
+import { loadProductCategories, toFlatOptions, type FlatOption } from "./categoryModel";
+import { PRODUCT_GENDERS, PRODUCT_ORIGINS, PRODUCT_UNITS } from "./productOptions";
+import { parseMoneyBr } from "./types";
+import type { PdvSupplier } from "../fornecedores/types";
 
 type CadTab = "gerais" | "grade";
 type QuickKind = "marca" | "colecao" | "genero" | "unidade" | null;
@@ -124,7 +123,15 @@ function Block({
   );
 }
 
-function Collapsed({ title, icon }: { title: string; icon: ReactNode }) {
+function Collapsed({
+  title,
+  icon,
+  children,
+}: {
+  title: string;
+  icon: ReactNode;
+  children: ReactNode;
+}) {
   const [open, setOpen] = useState(false);
   return (
     <section className="pdv-prod-block">
@@ -136,9 +143,48 @@ function Collapsed({ title, icon }: { title: string; icon: ReactNode }) {
       >
         {icon}
         {title}
-        <ChevronDown size={16} aria-hidden="true" />
+        <ChevronDown size={16} aria-hidden="true" data-open={open ? "true" : undefined} />
       </button>
+      {open ? <div className="pdv-prod-block-body">{children}</div> : null}
     </section>
+  );
+}
+
+function PhotoSlot({
+  id,
+  file,
+  onChange,
+}: {
+  id: string;
+  file: File | null;
+  onChange: (file: File | null) => void;
+}) {
+  const preview = file ? URL.createObjectURL(file) : "";
+  useEffect(() => {
+    if (!preview) return;
+    return () => URL.revokeObjectURL(preview);
+  }, [preview]);
+
+  return (
+    <div className="pdv-prod-photo-slot">
+      {preview ? (
+        <img src={preview} alt="" className="pdv-prod-photo-preview-img" />
+      ) : (
+        <span className="pdv-prod-photo-ph" aria-hidden="true">
+          <Camera size={42} strokeWidth={1.4} />
+        </span>
+      )}
+      <label className="pdv-prod-file">
+        <input
+          id={id}
+          type="file"
+          accept="image/*"
+          onChange={(event) => onChange(event.target.files?.[0] ?? null)}
+        />
+        <span className="pdv-prod-file-name">{file ? file.name : "Nenhum arquivo selecionado"}</span>
+        <span className="pdv-prod-file-action">Escolher arquivo</span>
+      </label>
+    </div>
   );
 }
 
@@ -146,7 +192,7 @@ const EMPTY_FORM = {
   categorias: [] as string[],
   nome: "",
   ncm: "",
-  marca: "SEM MARCA",
+  marca: "Sem Marca",
   colecao: "SEM COLEÇÃO",
   genero: "SEM GÊNERO",
   unidade: "UN - UNIDADE",
@@ -176,16 +222,27 @@ const EMPTY_FORM = {
 };
 
 export default function CadastrarProduto() {
-  const { storeId } = usePdvSession();
+  const navigate = useNavigate();
+  const { storeId, stores } = usePdvSession();
   const [tab, setTab] = useState<CadTab>("gerais");
   const [stockId, setStockId] = useState(storeId);
   const [form, setForm] = useState(EMPTY_FORM);
-  const [brands, setBrands] = useState(DEMO_BRANDS);
-  const [collections, setCollections] = useState(DEMO_COLLECTIONS);
-  const [genders, setGenders] = useState(DEMO_GENDERS);
-  const [units, setUnits] = useState(DEMO_UNITS);
+  const [brands, setBrands] = useState<string[]>([]);
+  const [collections, setCollections] = useState<string[]>([]);
+  const [genders, setGenders] = useState(PRODUCT_GENDERS);
+  const [units, setUnits] = useState(PRODUCT_UNITS);
+  const [categories, setCategories] = useState<FlatOption[]>([]);
+  const [suppliers, setSuppliers] = useState<string[]>([]);
   const [quick, setQuick] = useState<QuickKind>(null);
   const [status, setStatus] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [photo1, setPhoto1] = useState<File | null>(null);
+  const [photo2, setPhoto2] = useState<File | null>(null);
+  const [balanca, setBalanca] = useState({
+    disponivel: false,
+    codInterno: true,
+    codProduto: "",
+  });
 
   const catId = useId();
   const marcaId = useId();
@@ -195,26 +252,106 @@ export default function CadastrarProduto() {
   const fornId = useId();
   const origemId = useId();
 
-  const stock = STORES.find((item) => item.id === stockId) ?? STORES[0];
+  const stock = stores.find((item) => item.id === stockId) ?? stores[0];
+
+  useEffect(() => {
+    setStockId(storeId);
+  }, [storeId]);
+
+  useEffect(() => {
+    listCatalog("brand", true)
+      .then((rows) => setBrands(rows.map((item) => item.name)))
+      .catch(() => setBrands([]));
+    listCatalog("collection", true)
+      .then((rows) => setCollections(rows.map((item) => item.name)))
+      .catch(() => setCollections([]));
+    loadProductCategories(true)
+      .then((rows) => setCategories(toFlatOptions(rows)))
+      .catch(() => setCategories([]));
+    api
+      .get("/clients/suppliers", { params: { ativo: "1" } })
+      .then(({ data }) => {
+        const list = (data.suppliers as PdvSupplier[]) ?? [];
+        setSuppliers(list.map((item) => item.fantasia || item.razao).filter(Boolean));
+      })
+      .catch(() => setSuppliers([]));
+  }, []);
 
   function patch<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
     setForm((current) => ({ ...current, [key]: value }));
   }
 
-  function onSubmit(event: FormEvent, mode: "ok" | "atualizar" | "novo" | "etiqueta") {
+  async function onSubmit(event: FormEvent, mode: "ok" | "atualizar" | "novo" | "etiqueta") {
     event.preventDefault();
     if (form.categorias.length === 0) {
       setStatus("Selecione uma categoria.");
       return;
     }
-    setStatus(
-      mode === "novo"
-        ? "Produto cadastrado. Formulário liberado para novo cadastro."
-        : mode === "etiqueta"
-          ? "Produto cadastrado. Impressão de etiqueta não foi disparada."
-          : "Produto cadastrado.",
-    );
-    if (mode === "novo") setForm(EMPTY_FORM);
+    if (!form.nome.trim()) {
+      setStatus("Informe o nome do produto.");
+      return;
+    }
+
+    const categoryId = form.categorias[0];
+    const category =
+      categories.find((item) => item.id === categoryId)?.label ?? categoryId;
+
+    setBusy(true);
+    setStatus("");
+    try {
+      const { data } = await api.post("/clients/products", {
+        name: form.nome.trim(),
+        description: form.descricao.trim() || form.nome.trim(),
+        weightAverage: parseMoneyBr(form.peso),
+        priceweightAverage: parseMoneyBr(form.precoCusto) || parseMoneyBr(form.precoVenda),
+        barcode: form.codBarra.trim(),
+        ncm: form.ncm.trim(),
+        brand: form.marca,
+        collection: form.colecao,
+        gender: form.genero,
+        unit: form.unidade,
+        reference: form.referencia.trim(),
+        model: form.modelo.trim(),
+        categoryId,
+        category,
+        salePrice: parseMoneyBr(form.precoVenda),
+        costPrice: parseMoneyBr(form.precoCusto),
+        stockQuantity: parseMoneyBr(form.estoque),
+        supplierCode: form.codProdForn.trim(),
+        supplierName: form.fornecedor,
+        origin: form.origem,
+        composition: form.composicao.trim(),
+        warranty: form.garantia.trim(),
+        validity: form.validade.trim(),
+        height: parseMoneyBr(form.altura),
+        width: parseMoneyBr(form.largura),
+        depth: parseMoneyBr(form.profundidade),
+      });
+      const productId = data?.product?.id as string | undefined;
+      if (productId && photo1) {
+        const body = new FormData();
+        body.append("file", photo1);
+        await api.post(`/clients/products/${productId}/photo`, body);
+      }
+      setStatus(
+        mode === "novo"
+          ? "Produto cadastrado. Formulário liberado para novo cadastro."
+          : mode === "etiqueta"
+            ? "Produto cadastrado. Impressão de etiqueta não foi disparada."
+            : "Produto cadastrado.",
+      );
+      if (mode === "novo") {
+        setForm(EMPTY_FORM);
+        setPhoto1(null);
+        setPhoto2(null);
+        setBalanca({ disponivel: false, codInterno: true, codProduto: "" });
+      }
+    } catch (err) {
+      const parsed = parseError(err);
+      setStatus(parsed.friend || parsed.message || "Não foi possível cadastrar o produto.");
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
@@ -225,8 +362,8 @@ export default function CadastrarProduto() {
             <h1 id="pdv-prod-cad-title">CADASTRO DE PRODUTO</h1>
             <label className="pdv-prod-stock">
               <span className="pdv-sr">Estoque</span>
-              <select value={stock.id} onChange={(event) => setStockId(event.target.value)}>
-                {STORES.map((item) => (
+              <select value={stock?.id ?? ""} onChange={(event) => setStockId(event.target.value)}>
+                {stores.map((item) => (
                   <option key={item.id} value={item.id}>
                     {item.label}
                   </option>
@@ -259,13 +396,23 @@ export default function CadastrarProduto() {
             </button>
           </div>
 
+          <form
+            className="pdv-prod-cad-form"
+            onSubmit={(event) => onSubmit(event, "ok")}
+          >
           {tab === "grade" ? (
-            <div className="pdv-prod-stub" />
+            <div className="pdv-prod-grade-tab">
+              <section className="pdv-prod-grade-panel" aria-labelledby="pdv-cad-tam-title">
+                <h2 id="pdv-cad-tam-title">Tamanho</h2>
+                <p>{form.categorias.length ? "Sem Tamanho" : "Nenhum"}</p>
+              </section>
+              <section className="pdv-prod-grade-panel" aria-labelledby="pdv-cad-cor-title">
+                <h2 id="pdv-cad-cor-title">Cor</h2>
+                <p>{form.categorias.length ? "Sem Cor" : "Nenhum"}</p>
+              </section>
+            </div>
           ) : (
-            <form
-              className="pdv-prod-cad-form"
-              onSubmit={(event) => onSubmit(event, "ok")}
-            >
+            <div className="pdv-prod-gerais">
               <section className="pdv-prod-grade-box" aria-labelledby="pdv-prod-grade-title">
                 <h2 id="pdv-prod-grade-title">Dados Gerais da Grade</h2>
 
@@ -274,7 +421,7 @@ export default function CadastrarProduto() {
                   label="Categoria"
                   addLabel="Cadastrar categoria"
                   extra={<p className="pdv-prod-grade-none">Grade: Nenhum</p>}
-                  onAdd={() => undefined}
+                  onAdd={() => navigate("/client/produtos/categorias/cadastrar")}
                 >
                   <CategorySelect
                     selected={form.categorias}
@@ -282,6 +429,7 @@ export default function CadastrarProduto() {
                     required
                     labelledBy={catId}
                     placeholder="Selecione"
+                    options={categories}
                   />
                 </PlusField>
 
@@ -295,7 +443,7 @@ export default function CadastrarProduto() {
                       onChange={(event) => patch("nome", event.target.value)}
                       autoComplete="off"
                     />
-                    <p className="pdv-prod-count">{form.nome.length} / 200 Caracteres</p>
+                    <p className="pdv-prod-count">{form.nome.length} / 200 Caracteres.</p>
                   </div>
                 </div>
 
@@ -312,7 +460,7 @@ export default function CadastrarProduto() {
                 <PlusField labelId={marcaId} label="Marca" addLabel="Cadastrar Marca" onAdd={() => setQuick("marca")}>
                   <SearchableSelect
                     value={form.marca}
-                    onChange={(marca) => patch("marca", marca || "SEM MARCA")}
+                    onChange={(marca) => patch("marca", marca || "Sem Marca")}
                     options={brands}
                     labelledBy={marcaId}
                   />
@@ -491,7 +639,7 @@ export default function CadastrarProduto() {
                       <SearchableSelect
                         value={form.fornecedor}
                         onChange={(fornecedor) => patch("fornecedor", fornecedor)}
-                        options={DEMO_SUPPLIERS.filter((item) => item !== "Nenhum selecionado")}
+                        options={suppliers}
                         emptyLabel="Nenhum selecionado"
                         labelledBy={fornId}
                       />
@@ -524,7 +672,12 @@ export default function CadastrarProduto() {
                       />
                     </div>
                   </Block>
-                  <Collapsed title="Foto Principal" icon={<Camera size={16} aria-hidden="true" />} />
+                  <Collapsed title="Foto Principal" icon={<Camera size={16} aria-hidden="true" />}>
+                    <div className="pdv-prod-photo-slots">
+                      <PhotoSlot id="pdv-prod-img1" file={photo1} onChange={setPhoto1} />
+                      <PhotoSlot id="pdv-prod-img2" file={photo2} onChange={setPhoto2} />
+                    </div>
+                  </Collapsed>
                 </div>
 
                 <div className="pdv-prod-col">
@@ -534,7 +687,7 @@ export default function CadastrarProduto() {
                       <SearchableSelect
                         value={form.origem}
                         onChange={(origem) => patch("origem", origem || "BRASIL")}
-                        options={DEMO_ORIGINS}
+                        options={PRODUCT_ORIGINS}
                         labelledBy={origemId}
                       />
                     </div>
@@ -623,9 +776,44 @@ export default function CadastrarProduto() {
                     </div>
                   </Block>
 
-                  <Collapsed title="Balança" icon={<Scale size={16} aria-hidden="true" />} />
+                  <Collapsed title="Balança" icon={<Scale size={16} aria-hidden="true" />}>
+                    <div className="pdv-prod-row">
+                      <span>
+                        Disponível
+                        <Hint text="Sim, o produto utiliza balança. Não, o produto não utiliza balança." />
+                      </span>
+                      <AtivoToggle
+                        value={balanca.disponivel}
+                        onChange={(disponivel) => setBalanca((current) => ({ ...current, disponivel }))}
+                      />
+                    </div>
+                    <div className="pdv-prod-row">
+                      <span>
+                        Cód. interno
+                        <Hint text="Sim, o cód. produto utilizado será o mesmo do produto. Não, o cód. produto utilizado será escolhido pelo usuário." />
+                      </span>
+                      <AtivoToggle
+                        value={balanca.codInterno}
+                        onChange={(codInterno) => setBalanca((current) => ({ ...current, codInterno }))}
+                      />
+                    </div>
+                    <div className="pdv-prod-row">
+                      <label htmlFor="pdv-prod-cod-bal">Cód. produto</label>
+                      <input
+                        id="pdv-prod-cod-bal"
+                        value={balanca.codProduto}
+                        onChange={(event) =>
+                          setBalanca((current) => ({ ...current, codProduto: event.target.value }))
+                        }
+                        autoComplete="off"
+                        disabled={balanca.codInterno}
+                      />
+                    </div>
+                  </Collapsed>
                 </div>
               </div>
+            </div>
+          )}
 
               {status ? (
                 <p className="pdv-prod-status" role="status">
@@ -634,13 +822,14 @@ export default function CadastrarProduto() {
               ) : null}
 
               <div className="pdv-prod-cad-go">
-                <button className="pdv-cad-btn pdv-cad-btn-green" type="submit">
+                <button className="pdv-cad-btn pdv-cad-btn-green" type="submit" disabled={busy}>
                   <Plus size={16} strokeWidth={2.6} aria-hidden="true" />
-                  Cadastrar
+                  {busy ? "Salvando…" : "Cadastrar"}
                 </button>
                 <button
                   className="pdv-cad-btn pdv-cad-btn-green"
                   type="button"
+                  disabled={busy}
                   onClick={(event) => onSubmit(event, "atualizar")}
                 >
                   <Plus size={16} strokeWidth={2.6} aria-hidden="true" />
@@ -649,6 +838,7 @@ export default function CadastrarProduto() {
                 <button
                   className="pdv-cad-btn pdv-cad-btn-green"
                   type="button"
+                  disabled={busy}
                   onClick={(event) => onSubmit(event, "novo")}
                 >
                   <Plus size={16} strokeWidth={2.6} aria-hidden="true" />
@@ -657,6 +847,7 @@ export default function CadastrarProduto() {
                 <button
                   className="pdv-cad-btn pdv-cad-btn-green"
                   type="button"
+                  disabled={busy}
                   onClick={(event) => onSubmit(event, "etiqueta")}
                 >
                   <Plus size={16} strokeWidth={2.6} aria-hidden="true" />
@@ -664,7 +855,6 @@ export default function CadastrarProduto() {
                 </button>
               </div>
             </form>
-          )}
         </div>
       </section>
 
@@ -672,6 +862,7 @@ export default function CadastrarProduto() {
         open={quick === "marca"}
         onClose={() => setQuick(null)}
         onCreated={(name) => {
+          void createCatalog("brand", { name }).catch(() => undefined);
           setBrands((current) => (current.includes(name) ? current : [...current, name]));
           patch("marca", name);
         }}
@@ -680,6 +871,7 @@ export default function CadastrarProduto() {
         open={quick === "colecao"}
         onClose={() => setQuick(null)}
         onCreated={(name) => {
+          void createCatalog("collection", { name }).catch(() => undefined);
           setCollections((current) => (current.includes(name) ? current : [...current, name]));
           patch("colecao", name);
         }}

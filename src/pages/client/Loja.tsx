@@ -1,23 +1,28 @@
 import { Navigate, useNavigate } from "react-router-dom";
 import { useClientAuth } from "../../hooks/clientAuth";
 import PdvShell, { PdvLoading, usePdvSession } from "./dashboard/PdvShell";
-import { STORES } from "./dashboard/mockData";
 import { useEffect, useState } from "react";
 import { api, parseError } from "../../services/api";
 import StoreLojaForm from "../stores/loja/StoreLojaForm";
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 function LojaBoard() {
   const navigate = useNavigate();
   const { storeId, storeName } = usePdvSession();
-  const mock = STORES.find((item) => item.id === storeId);
-  const [resolvedId, setResolvedId] = useState<string | null>(null);
+  const [resolvedId, setResolvedId] = useState<string | null>(UUID.test(storeId) ? storeId : null);
   const [error, setError] = useState("");
 
   useEffect(() => {
     let active = true;
-    const name = mock?.name || storeName;
+    if (UUID.test(storeId)) {
+      setResolvedId(storeId);
+      setError("");
+      return;
+    }
+    if (!storeName) return undefined;
     api
-      .get("/clients/stores/resolve", { params: { name } })
+      .get("/clients/stores/resolve", { params: { name: storeName } })
       .then(({ data }) => {
         if (!active) return;
         setResolvedId(data.store.id);
@@ -32,7 +37,7 @@ function LojaBoard() {
     return () => {
       active = false;
     };
-  }, [mock?.name, storeName]);
+  }, [storeId, storeName]);
 
   if (error) {
     return (

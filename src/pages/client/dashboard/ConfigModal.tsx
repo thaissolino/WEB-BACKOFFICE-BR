@@ -3,12 +3,33 @@ import { useNavigate } from "react-router-dom";
 import PdvOverlayModal from "./PdvOverlayModal";
 import { PDV_CONFIG_MODAL_COLUMNS, isConfigModalItemVisible, type PdvUiConfig } from "./pdvUiConfig";
 
-const PARAM_LOJA_ROUTES: Record<string, string> = {
+const CONFIG_ITEM_ROUTES: Record<string, string> = {
+  "Tipo de Atividade": "/client/configuracao/tipo-atividade",
+  Caixa: "/client/financeiro/caixa",
+  "Comissão e Meta": "/client/usuarios/comissoes",
+  "Impressão/Carta/E-mail": "/client/configuracao/impressao",
+  "Pacotes SIGEP": "/client/configuracao/pacotes-sigep",
+  "Gerenciar colunas no Robô de Impressão LV": "/client/configuracao/robo-colunas",
+  Listar: "/client/financeiro/formas-pagamento",
+  Cadastrar: "/client/financeiro/formas-pagamento/cadastrar",
+  Inativos: "/client/financeiro/formas-pagamento/inativos",
   "Configurações da Loja": "/client/loja",
   Integrações: "/client/loja?tab=integracoes",
   "Grupos de Loja": "/client/grupos-de-loja",
   "Estoque Compartilhado": "/client/estoque-compartilhado",
   "Meu Plano, Mensalidades e Contrato": "/client/plano",
+  "Parâmetros Avançados": "/client/configuracao/nfe-avancado",
+  "Parâmetros Simplificados": "/client/configuracao/nfe-simplificado",
+  Transportadora: "/client/configuracao/transportadora",
+  Cliente: "/client/configuracao/importacao/cliente",
+  Fornecedor: "/client/configuracao/importacao/fornecedor",
+  Produto: "/client/configuracao/importacao/produto",
+  "Grade x Categoria": "/client/configuracao/importacao/grade-categoria",
+  Crediário: "/client/configuracao/importacao/crediario",
+  "Contas a Pagar": "/client/configuracao/importacao/contas-pagar",
+  "Atualizar Estoque": "/client/configuracao/importacao/atualizar-estoque",
+  "Atualizar Estoque Fornecedor": "/client/configuracao/importacao/atualizar-estoque-fornecedor",
+  "Atualizar Produto": "/client/configuracao/importacao/atualizar-produto",
 };
 
 export default function ConfigModal({
@@ -33,7 +54,7 @@ export default function ConfigModal({
   ).filter((column) => column.length > 0);
 
   function onItem(label: string) {
-    const to = PARAM_LOJA_ROUTES[label];
+    const to = CONFIG_ITEM_ROUTES[label];
     if (!to) return;
     onClose();
     navigate(to);

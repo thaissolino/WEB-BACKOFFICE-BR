@@ -121,8 +121,8 @@ export default function CompraAcessorio() {
           <form className="pdv-cad-box" onSubmit={onSearch}>
             <div className="pdv-cad-box-head">
               <h2>Buscar por produto</h2>
-              <button className="pdv-cad-btn pdv-cad-btn-back" type="button" onClick={() => navigate("/client/fornecedores")}>
-                ← Voltar Menu
+              <button className="pdv-cad-btn pdv-cad-btn-back pdv-voltar" type="button" onClick={() => navigate("/client/fornecedores")}>
+                Voltar Menu
               </button>
             </div>
             <div className="pdv-cad-compra-filters">

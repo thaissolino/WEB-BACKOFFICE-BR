@@ -27,19 +27,21 @@ export default function ChecarCliente({
   const tipoLabel = isFornecedor ? "Tipo do Fornecedor:" : "Tipo do Cliente:";
   const stubTitle = isFornecedor ? "Cadastrar Fornecedor" : "Cadastrar Cliente";
 
-  const prefill = (location.state as { tipo?: ClienteTipo; documento?: string } | null) ?? null;
+  const prefill = (location.state as { tipo?: ClienteTipo; documento?: string; name?: string } | null) ?? null;
   const [tipo, setTipo] = useState<ClienteTipo>(prefill?.tipo ?? "fisica");
+  const [nome, setNome] = useState(prefill?.name ?? "");
   const [documento, setDocumento] = useState(prefill?.documento ?? "");
   const [error, setError] = useState("");
+  const isEstrangeiro = tipo === "estrangeiro";
 
   const idLabel = useMemo(() => {
     if (tipo === "juridica") return "CNPJ:";
-    if (tipo === "estrangeiro") return "Doc. Estrangeiro:";
     return "CPF:";
   }, [tipo]);
 
   function onTipo(next: ClienteTipo) {
     setTipo(next);
+    setNome("");
     setDocumento("");
     setError("");
   }
@@ -47,17 +49,21 @@ export default function ChecarCliente({
   function onDocumentChange(value: string) {
     if (tipo === "fisica") setDocumento(formatCpf(value));
     else if (tipo === "juridica") setDocumento(formatCnpj(value));
-    else setDocumento(value.replace(/[^a-zA-Z0-9]/g, "").slice(0, 20));
+    else setDocumento(value);
   }
 
   function onSubmit(event: FormEvent) {
     event.preventDefault();
+    if (isEstrangeiro && !nome.trim()) {
+      setError("Informe o nome.");
+      return;
+    }
     if (!documento.trim()) {
-      setError(tipo === "estrangeiro" ? "Informe o documento." : `Informe o ${idLabel.replace(":", "")}.`);
+      setError(isEstrangeiro ? "Informe o documento." : `Informe o ${idLabel.replace(":", "")}.`);
       return;
     }
     setError("");
-    navigate(formPath, { state: { tipo, documento, title: stubTitle } });
+    navigate(formPath, { state: { tipo, documento, name: nome.trim(), title: stubTitle } });
   }
 
   return (
@@ -65,8 +71,8 @@ export default function ChecarCliente({
       <section className="pdv-cad-page" aria-labelledby="pdv-cad-check-title">
         <div className="pdv-cad-sheet">
           <h1 id="pdv-cad-check-title">{title}</h1>
-          <button className="pdv-cad-btn pdv-cad-btn-back" type="button" onClick={() => navigate(listPath)}>
-            ← Voltar
+          <button className="pdv-cad-btn pdv-cad-btn-back pdv-voltar" type="button" onClick={() => navigate(listPath)}>
+            Voltar
           </button>
 
           <form className="pdv-cad-check" onSubmit={onSubmit}>
@@ -92,20 +98,50 @@ export default function ChecarCliente({
                   ))}
                 </fieldset>
               </div>
-              <div className="pdv-cad-check-row">
-                <label className="pdv-cad-check-label" htmlFor="pdv-cad-doc">
-                  {idLabel}
-                </label>
-                <input
-                  id="pdv-cad-doc"
-                  className="pdv-cad-check-input"
-                  value={documento}
-                  onChange={(event) => onDocumentChange(event.target.value)}
-                  placeholder={tipo === "fisica" ? "___.___.___-__" : tipo === "juridica" ? "__.___.___/____-__" : ""}
-                  maxLength={tipo === "estrangeiro" ? 20 : tipo === "juridica" ? 18 : 14}
-                  autoComplete="off"
-                />
-              </div>
+              {isEstrangeiro ? (
+                <>
+                  <div className="pdv-cad-check-row">
+                    <label className="pdv-cad-check-label" htmlFor="pdv-cad-nome">
+                      Nome:
+                    </label>
+                    <input
+                      id="pdv-cad-nome"
+                      className="pdv-cad-check-input"
+                      value={nome}
+                      onChange={(event) => setNome(event.target.value)}
+                      autoComplete="off"
+                      autoFocus
+                    />
+                  </div>
+                  <div className="pdv-cad-check-row">
+                    <label className="pdv-cad-check-label" htmlFor="pdv-cad-doc">
+                      Documento Estrangeiro:
+                    </label>
+                    <input
+                      id="pdv-cad-doc"
+                      className="pdv-cad-check-input"
+                      value={documento}
+                      onChange={(event) => onDocumentChange(event.target.value)}
+                      autoComplete="off"
+                    />
+                  </div>
+                </>
+              ) : (
+                <div className="pdv-cad-check-row">
+                  <label className="pdv-cad-check-label" htmlFor="pdv-cad-doc">
+                    {idLabel}
+                  </label>
+                  <input
+                    id="pdv-cad-doc"
+                    className="pdv-cad-check-input"
+                    value={documento}
+                    onChange={(event) => onDocumentChange(event.target.value)}
+                    placeholder={tipo === "fisica" ? "___.___.___-__" : "__.___.___/____-__"}
+                    maxLength={tipo === "juridica" ? 18 : 14}
+                    autoComplete="off"
+                  />
+                </div>
+              )}
               {error ? (
                 <p className="pdv-cad-error" role="alert">
                   {error}
