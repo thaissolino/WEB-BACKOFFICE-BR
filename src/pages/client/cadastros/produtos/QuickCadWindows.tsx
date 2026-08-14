@@ -1,7 +1,7 @@
 import { FormEvent, ReactNode, useEffect, useId, useState } from "react";
 import { Folder, Lightbulb, Minus, Pin, Plus, Users, X } from "lucide-react";
 
-function AtivoToggle({
+export function AtivoToggle({
   value,
   onChange,
 }: {

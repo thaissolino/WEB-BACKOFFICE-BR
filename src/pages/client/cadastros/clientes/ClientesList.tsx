@@ -1,14 +1,13 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Calendar, Plus, RefreshCw, Search, UserRound, X } from "lucide-react";
-import { api } from "../../../../services/api";
+import { api, parseError } from "../../../../services/api";
 import { formatCep, formatCpfCnpj, formatPhoneBr, PHONE_BR_MAX_LENGTH } from "../../../../utils/brMasks";
 import CadastroShell from "../CadastroShell";
 import GerenciarClienteModal from "./GerenciarClienteModal";
 import MultiSelectClassificacao from "./MultiSelectClassificacao";
 import {
   CITIES_BY_UF,
-  MOCK_CUSTOMERS,
   UFS,
   classificationFilterLabel,
   type ClassificationRow,
@@ -48,9 +47,24 @@ export default function ClientesList({ inactive = false }: { inactive?: boolean 
   const [classDraft, setClassDraft] = useState<string[]>([]);
   const [classApplied, setClassApplied] = useState<string[]>([]);
   const [portfolios, setPortfolios] = useState<string[]>(["Todas"]);
+  const [customers, setCustomers] = useState<StoreCustomer[]>([]);
   const [selected, setSelected] = useState<Record<string, boolean>>({});
   const [manage, setManage] = useState<StoreCustomer | null>(null);
   const [toast, setToast] = useState("");
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    api
+      .get("/clients/customers", { params: { ativo: isInactive ? "0" : "1" } })
+      .then(({ data }) => {
+        setCustomers((data.customers as StoreCustomer[]) ?? []);
+        setError("");
+      })
+      .catch((err) => {
+        const parsed = parseError(err);
+        setError(parsed.friend || parsed.message || "Não foi possível carregar os clientes.");
+      });
+  }, [isInactive]);
 
   useEffect(() => {
     api
@@ -75,9 +89,8 @@ export default function ClientesList({ inactive = false }: { inactive?: boolean 
   }, []);
 
   const rows = useMemo(() => {
-    const base = MOCK_CUSTOMERS.filter((item) => item.active === !isInactive);
     const limit = Number(applied.pageSize) || 500;
-    return base
+    return customers
       .filter((item) => {
         if (applied.name && !matchesSearch(item.name, applied.name, applied.searchType)) return false;
         if (applied.document && !item.document.includes(applied.document.replace(/\D/g, ""))) return false;
@@ -99,7 +112,7 @@ export default function ClientesList({ inactive = false }: { inactive?: boolean 
         return true;
       })
       .slice(0, limit);
-  }, [applied, classApplied, isInactive]);
+  }, [applied, classApplied, customers]);
 
   const allSelected = rows.length > 0 && rows.every((item) => selected[item.id]);
   const cities = draft.state ? CITIES_BY_UF[draft.state] ?? [] : [];
@@ -280,6 +293,12 @@ export default function ClientesList({ inactive = false }: { inactive?: boolean 
               </button>
             </div>
           </form>
+
+          {error ? (
+            <p className="pdv-cad-error" role="alert">
+              {error}
+            </p>
+          ) : null}
 
           <div className="pdv-cad-table-wrap">
             <table className="pdv-cad-table">

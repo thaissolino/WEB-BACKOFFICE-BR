@@ -20,15 +20,10 @@ import {
 } from "lucide-react";
 import { useClientAuth, type ClientUser } from "../../hooks/clientAuth";
 import {
-  BILLING_SERIES,
-  CERTIFICATE_DUE,
   NEWS,
-  PAYABLES,
-  PERIOD_LABELS,
   PLAN,
-  RECEIVABLES,
   SOCIAL_VIDEOS,
-  TOP_BUYERS,
+  periodLabels,
 } from "./dashboard/mockData";
 import PdvShell, { PdvLoading, usePdvSession, usePdvUiConfig } from "./dashboard/PdvShell";
 import { accordionWidgetId, isDashboardVisible } from "./dashboard/pdvUiConfig";
@@ -52,50 +47,27 @@ const MODULES = [
 
 const WEEKDAYS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 
-const CAL_CELLS: { day: number | null; muted?: boolean; today?: boolean }[] = [
-  { day: 26, muted: true },
-  { day: 27, muted: true },
-  { day: 28, muted: true },
-  { day: 29, muted: true },
-  { day: 30, muted: true },
-  { day: 31, muted: true },
-  { day: 1 },
-  { day: 2 },
-  { day: 3 },
-  { day: 4 },
-  { day: 5 },
-  { day: 6 },
-  { day: 7 },
-  { day: 8 },
-  { day: 9 },
-  { day: 10 },
-  { day: 11 },
-  { day: 12, today: true },
-  { day: 13 },
-  { day: 14 },
-  { day: 15 },
-  { day: 16 },
-  { day: 17 },
-  { day: 18 },
-  { day: 19 },
-  { day: 20 },
-  { day: 21 },
-  { day: 22 },
-  { day: 23 },
-  { day: 24 },
-  { day: 25 },
-  { day: 26 },
-  { day: 27 },
-  { day: 28 },
-  { day: 29 },
-  { day: 30 },
-  { day: 31 },
-  { day: null },
-  { day: null },
-  { day: null },
-  { day: null },
-  { day: null },
-];
+function calendarCells(now = new Date()) {
+  const year = now.getFullYear();
+  const month = now.getMonth();
+  const first = new Date(year, month, 1);
+  const startPad = first.getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const prevDays = new Date(year, month, 0).getDate();
+  const cells: { day: number; muted?: boolean; today?: boolean }[] = [];
+  for (let i = startPad - 1; i >= 0; i -= 1) {
+    cells.push({ day: prevDays - i, muted: true });
+  }
+  for (let day = 1; day <= daysInMonth; day += 1) {
+    cells.push({ day, today: day === now.getDate() });
+  }
+  while (cells.length % 7 !== 0) {
+    cells.push({ day: cells.length - (startPad + daysInMonth) + 1, muted: true });
+  }
+  return cells;
+}
+
+const ZERO_MONEY = { total: "R$ 0,00", today: "0,00", week: "0,00", month: "0,00" };
 
 function matches(query: string, title: string) {
   const q = query.trim().toLowerCase();
@@ -180,6 +152,7 @@ function MoneyPeriods({
   week: string;
   month: string;
 }) {
+  const labels = periodLabels();
   return (
     <>
       <div className="pdv-money-head">
@@ -188,15 +161,15 @@ function MoneyPeriods({
       </div>
       <div className="pdv-periods">
         <div className="pdv-period-col">
-          <small>{PERIOD_LABELS.today}</small>
+          <small>{labels.today}</small>
           <strong>{today}</strong>
         </div>
         <div className="pdv-period-col">
-          <small>{PERIOD_LABELS.week}</small>
+          <small>{labels.week}</small>
           <strong>{week}</strong>
         </div>
         <div className="pdv-period-col">
-          <small>{PERIOD_LABELS.month}</small>
+          <small>{labels.month}</small>
           <strong>{month}</strong>
         </div>
       </div>
@@ -205,22 +178,18 @@ function MoneyPeriods({
 }
 
 function BillingChart() {
+  const now = new Date();
+  const days = Array.from({ length: 12 }, (_, i) => i + 1);
   const x0 = 56;
   const x1 = 628;
   const y0 = 18;
   const y1 = 198;
   const max = 600000;
-  const xs = BILLING_SERIES.map((_, i) => x0 + (i / 11) * (x1 - x0));
-  const ys = BILLING_SERIES.map((v) => y1 - (v / max) * (y1 - y0));
+  const xs = days.map((_, i) => x0 + (i / 11) * (x1 - x0));
+  const ys = days.map(() => y1);
   const line = xs.map((x, i) => `${i === 0 ? "M" : "L"} ${x.toFixed(1)} ${ys[i].toFixed(1)}`).join(" ");
   const area = `${line} L ${x1} ${y1} L ${x0} ${y1} Z`;
-  const untilYs = BILLING_SERIES.map((v, i) => {
-    const value = i === 11 ? v : v * 0.92;
-    return y1 - (value / max) * (y1 - y0);
-  });
-  const until = xs
-    .map((x, i) => `${i === 0 ? "M" : "L"} ${x.toFixed(1)} ${untilYs[i].toFixed(1)}`)
-    .join(" ");
+  const month = String(now.getMonth() + 1).padStart(2, "0");
 
   return (
     <figure>
@@ -228,7 +197,7 @@ function BillingChart() {
         className="pdv-chart"
         viewBox="0 0 640 240"
         role="img"
-        aria-label="Faturamento de 01/08 a 12/08. Baixo de 1 a 6, sobe no dia 7, pico no dia 11, queda no dia 12."
+        aria-label="Faturamento zerado: ainda não há vendas persistidas."
       >
         <rect width="640" height="240" fill="#fffdf8" />
         {[0, 200000, 400000, 600000].map((tick) => {
@@ -244,21 +213,16 @@ function BillingChart() {
         })}
         {xs.map((x, i) => (
           <text key={i} x={x} y={228} textAnchor="middle" fontSize="11" fill="#4a433c">
-            {String(i + 1).padStart(2, "0")}/08
+            {String(i + 1).padStart(2, "0")}/{month}
           </text>
         ))}
-        <path d={area} fill="rgba(234, 88, 12, 0.22)" />
+        <path d={area} fill="rgba(234, 88, 12, 0.08)" />
         <path d={line} fill="none" stroke="#ea580c" strokeWidth="2.5" />
-        <path d={until} fill="none" stroke="#38bdf8" strokeWidth="2" strokeDasharray="5 4" />
       </svg>
       <ul className="pdv-legend">
         <li>
           <i style={{ background: "#ea580c" }} />
-          Faturamento
-        </li>
-        <li>
-          <i style={{ background: "#38bdf8" }} />
-          Faturado até as 22:26
+          Faturamento (sem vendas gravadas)
         </li>
       </ul>
     </figure>
@@ -266,18 +230,21 @@ function BillingChart() {
 }
 
 function ActivitiesCalendar() {
+  const now = new Date();
   const [view, setView] = useState<"mes" | "semana" | "dia">("mes");
-  const cells =
+  const cells = calendarCells(now);
+  const visible =
     view === "dia"
-      ? CAL_CELLS.filter((cell) => cell.today)
+      ? cells.filter((cell) => cell.today)
       : view === "semana"
-        ? CAL_CELLS.slice(14, 21)
-        : CAL_CELLS;
+        ? cells.slice(0, 7)
+        : cells;
+  const monthTitle = now.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
 
   return (
     <div>
       <div className="pdv-cal-toolbar">
-        <p className="pdv-cal-title">Agosto 2026</p>
+        <p className="pdv-cal-title">{monthTitle}</p>
         <button className="pdv-cal-hoje" type="button">
           Hoje
         </button>
@@ -297,12 +264,12 @@ function ActivitiesCalendar() {
         {WEEKDAYS.map((day) => (
           <b key={day}>{day}</b>
         ))}
-        {cells.map((cell, index) => (
+        {visible.map((cell, index) => (
           <span
             key={`${cell.day}-${index}`}
             className={cell.today ? "pdv-cal-today" : cell.muted ? "pdv-cal-muted" : undefined}
           >
-            {cell.day ?? ""}
+            {cell.day}
           </span>
         ))}
       </div>
@@ -336,8 +303,9 @@ function DashboardBoard({ client }: { client: ClientUser }) {
         <section className="pdv-notice" role="alert" aria-labelledby="pdv-cert-title">
           <ShieldAlert size={22} aria-hidden="true" />
           <p>
-            <strong id="pdv-cert-title">ATENÇÃO!</strong> O Certificado Digital para Emissão de
-            NFS-e está Vencido. Vencimento: {CERTIFICATE_DUE}.{" "}
+            <strong id="pdv-cert-title">ATENÇÃO!</strong> Certificado Digital A1 / NFS-e não está
+            conectado à autoridade certificadora. Upload real e validade ficam estáticos até haver
+            integração.{" "}
             <button className="pdv-renew" type="button">
               Clique aqui e renove...
             </button>
@@ -474,12 +442,10 @@ function DashboardBoard({ client }: { client: ClientUser }) {
               visible={visible["Clientes que mais compraram nos últimos 30 dias"]}
             >
               <ul className="pdv-zebra pdv-buyers">
-                {TOP_BUYERS.map((row) => (
-                  <li key={row.name}>
-                    <span className="pdv-buyer-name">{row.name}</span>
-                    <strong className="pdv-buyer-val">{row.amount}</strong>
-                  </li>
-                ))}
+                <li>
+                  <span className="pdv-buyer-name">Nenhuma venda nos últimos 30 dias.</span>
+                  <strong className="pdv-buyer-val">R$ 0,00</strong>
+                </li>
               </ul>
             </Module>
 
@@ -527,10 +493,10 @@ function DashboardBoard({ client }: { client: ClientUser }) {
               visible={visible["$ Total de Contas a Receber"]}
             >
               <MoneyPeriods
-                total={RECEIVABLES.total}
-                today={RECEIVABLES.today}
-                week={RECEIVABLES.week}
-                month={RECEIVABLES.month}
+                total={ZERO_MONEY.total}
+                today={ZERO_MONEY.today}
+                week={ZERO_MONEY.week}
+                month={ZERO_MONEY.month}
               />
             </Module>
 
@@ -541,10 +507,10 @@ function DashboardBoard({ client }: { client: ClientUser }) {
               visible={visible["$ Total de Contas a Pagar"]}
             >
               <MoneyPeriods
-                total={PAYABLES.total}
-                today={PAYABLES.today}
-                week={PAYABLES.week}
-                month={PAYABLES.month}
+                total={ZERO_MONEY.total}
+                today={ZERO_MONEY.today}
+                week={ZERO_MONEY.week}
+                month={ZERO_MONEY.month}
               />
             </Module>
 

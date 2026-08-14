@@ -47,7 +47,7 @@ function RadioSimNao({
   onChange: (next: boolean) => void;
 }) {
   return (
-    <fieldset className="pdv-cad-radios pdv-cad-radios-stack">
+    <fieldset className="pdv-cad-radios pdv-cad-radios-stack pdv-cad-radios-yn">
       <legend className="pdv-sr">{name}</legend>
       <label>
         <input type="radio" name={name} checked={value} onChange={() => onChange(true)} />
@@ -125,8 +125,8 @@ export default function ClassificacaoClientes() {
 
   return (
     <CadastroShell>
-      <section className="pdv-cad-page" aria-labelledby="pdv-cad-class-title">
-        <div className="pdv-cad-sheet pdv-cad-sheet-wide">
+      <section className="pdv-cad-page pdv-cad-classif-page" aria-labelledby="pdv-cad-class-title">
+        <div className="pdv-cad-sheet pdv-cad-sheet-wide pdv-cad-classif">
           <h1 id="pdv-cad-class-title">CLASSIFICAÇÃO DOS CLIENTES</h1>
           <div className="pdv-cad-actions">
             {inactive ? (
@@ -153,18 +153,31 @@ export default function ClassificacaoClientes() {
             </p>
           ) : null}
 
-          <div className="pdv-cad-table-wrap">
-            <table className="pdv-cad-table pdv-cad-table-edit">
+          <div className="pdv-cad-table-wrap pdv-cad-classif-wrap">
+            <table className="pdv-cad-table pdv-cad-table-edit pdv-cad-classif-table">
+              <colgroup>
+                <col className="pdv-cad-classif-col-cod" />
+                <col className="pdv-cad-classif-col-auto" />
+                <col className="pdv-cad-classif-col-nome" />
+                <col className="pdv-cad-classif-col-desc" />
+                <col className="pdv-cad-classif-col-promo" />
+                <col className="pdv-cad-classif-col-cred" />
+                <col className="pdv-cad-classif-col-yn" />
+                <col className="pdv-cad-classif-col-fisc" />
+                <col className="pdv-cad-classif-col-ordem" />
+                <col className="pdv-cad-classif-col-yn" />
+                <col className="pdv-cad-classif-col-upd" />
+              </colgroup>
               <thead>
                 <tr>
                   <th>Cod</th>
                   <th>Automação</th>
                   <th>Classificação</th>
                   <th>
-                    Desconto na Venda % <Info size={14} aria-hidden="true" />
+                    Desconto na Venda % <Info size={12} aria-hidden="true" />
                   </th>
                   <th>
-                    Desconto sobre Promoção <Info size={14} aria-hidden="true" />
+                    Desconto sobre Promoção <Info size={12} aria-hidden="true" />
                   </th>
                   <th>Limite de Crédito</th>
                   <th>Liberar Consignado</th>
@@ -188,6 +201,7 @@ export default function ClassificacaoClientes() {
                           row.name
                         ) : (
                           <input
+                            className="pdv-cad-classif-name"
                             value={row.name}
                             onChange={(event) => patch(row.code, { name: event.target.value })}
                             aria-label="Classificação"
@@ -195,16 +209,18 @@ export default function ClassificacaoClientes() {
                         )}
                       </td>
                       <td>
-                        <fieldset className="pdv-cad-radios pdv-cad-radios-stack">
+                        <fieldset className="pdv-cad-radios pdv-cad-radios-stack pdv-cad-classif-stack">
                           <legend className="pdv-sr">Desconto na Venda %</legend>
                           <label>
-                            <input
-                              type="radio"
-                              name={`disc-${row.code}`}
-                              checked={row.discountType === "geral"}
-                              onChange={() => patch(row.code, { discountType: "geral" })}
-                            />
-                            Desconto geral:
+                            <span className="pdv-cad-classif-line">
+                              <input
+                                type="radio"
+                                name={`disc-${row.code}`}
+                                checked={row.discountType === "geral"}
+                                onChange={() => patch(row.code, { discountType: "geral" })}
+                              />
+                              Desconto geral:
+                            </span>
                             {row.discountType === "geral" ? (
                               <input
                                 className="pdv-cad-mini"
@@ -216,13 +232,15 @@ export default function ClassificacaoClientes() {
                             ) : null}
                           </label>
                           <label>
-                            <input
-                              type="radio"
-                              name={`disc-${row.code}`}
-                              checked={row.discountType === "categoria"}
-                              onChange={() => patch(row.code, { discountType: "categoria" })}
-                            />
-                            Desconto categoria:
+                            <span className="pdv-cad-classif-line">
+                              <input
+                                type="radio"
+                                name={`disc-${row.code}`}
+                                checked={row.discountType === "categoria"}
+                                onChange={() => patch(row.code, { discountType: "categoria" })}
+                              />
+                              Desconto categoria:
+                            </span>
                           </label>
                         </fieldset>
                       </td>
@@ -241,25 +259,29 @@ export default function ClassificacaoClientes() {
                         {locked ? (
                           `Com Limite: R$ ${formatBrMoney(row.creditLimit)}`
                         ) : (
-                          <fieldset className="pdv-cad-radios pdv-cad-radios-stack">
+                          <fieldset className="pdv-cad-radios pdv-cad-radios-stack pdv-cad-classif-stack">
                             <legend className="pdv-sr">Limite de Crédito</legend>
                             <label>
-                              <input
-                                type="radio"
-                                name={`cred-${row.code}`}
-                                checked={row.creditUnlimited}
-                                onChange={() => patch(row.code, { creditUnlimited: true })}
-                              />
-                              Ilimitado
+                              <span className="pdv-cad-classif-line">
+                                <input
+                                  type="radio"
+                                  name={`cred-${row.code}`}
+                                  checked={row.creditUnlimited}
+                                  onChange={() => patch(row.code, { creditUnlimited: true })}
+                                />
+                                Ilimitado
+                              </span>
                             </label>
                             <label>
-                              <input
-                                type="radio"
-                                name={`cred-${row.code}`}
-                                checked={!row.creditUnlimited}
-                                onChange={() => patch(row.code, { creditUnlimited: false })}
-                              />
-                              Com Limite : R$
+                              <span className="pdv-cad-classif-line">
+                                <input
+                                  type="radio"
+                                  name={`cred-${row.code}`}
+                                  checked={!row.creditUnlimited}
+                                  onChange={() => patch(row.code, { creditUnlimited: false })}
+                                />
+                                Com Limite: R$
+                              </span>
                               <input
                                 className="pdv-cad-mini"
                                 value={formatBrMoney(row.creditLimit)}
@@ -324,6 +346,7 @@ export default function ClassificacaoClientes() {
                     </td>
                     <td>
                       <input
+                        className="pdv-cad-classif-name"
                         value={createRow.name}
                         onChange={(event) => setCreateRow({ ...createRow, name: event.target.value })}
                         aria-label="Classificação"
@@ -338,25 +361,29 @@ export default function ClassificacaoClientes() {
                       />
                     </td>
                     <td>
-                      <fieldset className="pdv-cad-radios pdv-cad-radios-stack">
+                      <fieldset className="pdv-cad-radios pdv-cad-radios-stack pdv-cad-classif-stack">
                         <legend className="pdv-sr">Limite de Crédito</legend>
                         <label>
-                          <input
-                            type="radio"
-                            name="cred-new"
-                            checked={createRow.creditUnlimited}
-                            onChange={() => setCreateRow({ ...createRow, creditUnlimited: true })}
-                          />
-                          Ilimitado
+                          <span className="pdv-cad-classif-line">
+                            <input
+                              type="radio"
+                              name="cred-new"
+                              checked={createRow.creditUnlimited}
+                              onChange={() => setCreateRow({ ...createRow, creditUnlimited: true })}
+                            />
+                            Ilimitado
+                          </span>
                         </label>
                         <label>
-                          <input
-                            type="radio"
-                            name="cred-new"
-                            checked={!createRow.creditUnlimited}
-                            onChange={() => setCreateRow({ ...createRow, creditUnlimited: false })}
-                          />
-                          Com Limite : R$
+                          <span className="pdv-cad-classif-line">
+                            <input
+                              type="radio"
+                              name="cred-new"
+                              checked={!createRow.creditUnlimited}
+                              onChange={() => setCreateRow({ ...createRow, creditUnlimited: false })}
+                            />
+                            Com Limite: R$
+                          </span>
                           <input
                             className="pdv-cad-mini"
                             value={formatBrMoney(createRow.creditLimit)}

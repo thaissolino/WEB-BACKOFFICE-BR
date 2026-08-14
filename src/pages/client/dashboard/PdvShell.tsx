@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { useClientAuth } from "../../../hooks/clientAuth";
 import { api } from "../../../services/api";
-import { STORES, STORE_STORAGE_KEY, type StoreOption } from "./mockData";
+import { CAIXA_STORAGE_KEY, NENHUM_CAIXA, STORE_STORAGE_KEY, toStoreOption, type StoreOption } from "./mockData";
 import MenuBar from "./MenuBar";
 import PdvTip from "./PdvTip";
 import ConfigModal from "./ConfigModal";
@@ -27,17 +27,20 @@ import {
   type PdvUiConfig,
 } from "./pdvUiConfig";
 import "./dashboard.css";
+import "./pdv-modals.css";
 
 type PdvSession = {
   query: string;
   storeId: string;
   storeName: string;
+  stores: StoreOption[];
 };
 
 const PdvSessionContext = createContext<PdvSession>({
   query: "",
-  storeId: STORES[0].id,
-  storeName: STORES[0].name,
+  storeId: "",
+  storeName: "",
+  stores: [],
 });
 
 const PdvUiConfigContext = createContext<PdvUiConfig>(EMPTY_PDV_UI_CONFIG);
@@ -52,7 +55,7 @@ export function usePdvUiConfig() {
 
 export function PdvLoading() {
   return (
-    <div className="pdv-root" lang="pt-BR">
+    <div className="pdv-root" data-surface="cream" lang="pt-BR">
       <main className="pdv-main">
         <p className="pdv-welcome">Carregando…</p>
       </main>
@@ -61,9 +64,8 @@ export function PdvLoading() {
 }
 
 function readStoredStoreId() {
-  if (typeof sessionStorage === "undefined") return STORES[0].id;
-  const stored = sessionStorage.getItem(STORE_STORAGE_KEY);
-  return STORES.some((item) => item.id === stored) ? stored! : STORES[0].id;
+  if (typeof sessionStorage === "undefined") return "";
+  return sessionStorage.getItem(STORE_STORAGE_KEY) || "";
 }
 
 function StoreCluster({
@@ -116,7 +118,7 @@ function StoreCluster({
             aria-label="Lista de lojas. Selecione a loja que desejar gerenciar"
             onClick={() => setOpen((current) => !current)}
           >
-            <span>{selected.label}</span>
+            <span>{selected?.label ?? "Lista de lojas"}</span>
             <ChevronDown className="pdv-shop-caret" size={16} strokeWidth={2} aria-hidden="true" />
           </button>
         </PdvTip>
@@ -129,7 +131,7 @@ function StoreCluster({
                 className="pdv-shop-option"
                 type="button"
                 role="option"
-                aria-selected={item.id === selected.id}
+                aria-selected={item.id === selected?.id}
                 onClick={() => {
                   onChange(item.id);
                   setOpen(false);
@@ -161,6 +163,7 @@ export default function PdvShell({
   const location = useLocation();
   const [query, setQuery] = useState("");
   const [storeId, setStoreId] = useState(readStoredStoreId);
+  const [stores, setStores] = useState<StoreOption[]>([]);
   const [pendingStoreId, setPendingStoreId] = useState<string | null>(null);
   const [periodFrom, setPeriodFrom] = useState("");
   const [periodTo, setPeriodTo] = useState("");
@@ -169,15 +172,45 @@ export default function PdvShell({
   const [logoSrc, setLogoSrc] = useState<string | null>(null);
   const [logoTick, setLogoTick] = useState(0);
 
-  const storeName = STORES.find((item) => item.id === storeId)?.name ?? STORES[0].name;
-  const currentStore = STORES.find((item) => item.id === storeId) ?? STORES[0];
-  const pendingStore = STORES.find((item) => item.id === pendingStoreId);
+  const currentStore = stores.find((item) => item.id === storeId) ?? stores[0];
+  const storeName = currentStore?.name ?? "";
+  const pendingStore = stores.find((item) => item.id === pendingStoreId);
 
   useEffect(() => {
-    sessionStorage.setItem(STORE_STORAGE_KEY, storeId);
+    let active = true;
+    api
+      .get("/clients/stores")
+      .then(({ data }) => {
+        if (!active) return;
+        const raw = Array.isArray(data?.stores) ? data.stores : Array.isArray(data) ? data : [];
+        const list = (
+          raw as Array<{ id: string; name: string; storeCode?: string | null; code?: string | null }>
+        )
+          .filter((item) => item?.id)
+          .map(toStoreOption);
+        setStores(list);
+        setStoreId((current) => {
+          if (current && list.some((item) => item.id === current)) return current;
+          return list[0]?.id ?? "";
+        });
+      })
+      .catch(() => {
+        if (active) setStores([]);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (storeId) sessionStorage.setItem(STORE_STORAGE_KEY, storeId);
   }, [storeId]);
 
   useEffect(() => {
+    if (!storeId) {
+      setLogoSrc(null);
+      return;
+    }
     let active = true;
     let objectUrl: string | null = null;
 
@@ -292,7 +325,9 @@ export default function PdvShell({
   }
 
   function goCaixa() {
-    navigate("/client/caixa");
+    const caixa = typeof sessionStorage === "undefined" ? "" : sessionStorage.getItem(CAIXA_STORAGE_KEY) || "";
+    if (caixa && caixa !== NENHUM_CAIXA) navigate("/client/pdv");
+    else navigate("/client/caixa");
   }
 
   const showCloseDemo = isDashboardVisible(uiConfig, "close-demo");
@@ -300,8 +335,8 @@ export default function PdvShell({
 
   return (
     <PdvUiConfigContext.Provider value={uiConfig}>
-    <PdvSessionContext.Provider value={{ query, storeId, storeName }}>
-      <div className="pdv-root" lang="pt-BR">
+    <PdvSessionContext.Provider value={{ query, storeId, storeName, stores }}>
+      <div className="pdv-root" data-surface="cream" lang="pt-BR">
         <a className="pdv-skip" href="#pdv-main">
           Ir para o conteúdo
         </a>
@@ -369,7 +404,7 @@ export default function PdvShell({
                 className="pdv-ico pdv-ico-cart"
                 type="button"
                 aria-label="Carrinho"
-                aria-current={location.pathname === "/client/caixa" ? "page" : undefined}
+                aria-current={location.pathname === "/client/caixa" || location.pathname === "/client/pdv" ? "page" : undefined}
                 onClick={goCaixa}
               >
                 <ShoppingCart size={22} strokeWidth={2.2} aria-hidden="true" />
@@ -466,7 +501,7 @@ export default function PdvShell({
                 </div>
               ) : null}
               <StoreCluster
-                stores={STORES}
+                stores={stores}
                 value={storeId}
                 onChange={requestStoreChange}
                 onHome={handleHome}
@@ -505,7 +540,7 @@ export default function PdvShell({
               aria-labelledby="pdv-store-confirm-title"
             >
               <p id="pdv-store-confirm-title">
-                Deseja realmente sair da loja {currentStore.name} para acessar a loja{" "}
+                Deseja realmente sair da loja {currentStore?.name} para acessar a loja{" "}
                 {pendingStore.name}?
               </p>
               <div className="pdv-confirm-actions">

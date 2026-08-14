@@ -66,8 +66,8 @@ export default function CadastrarFornecedor() {
       <section className="pdv-cad-page" aria-labelledby="pdv-cad-forn-form-title">
         <div className="pdv-cad-sheet">
           <h1 id="pdv-cad-forn-form-title">CADASTRAR FORNECEDOR</h1>
-          <button className="pdv-cad-btn pdv-cad-btn-back" type="button" onClick={() => navigate("/client/fornecedores")}>
-            ← Voltar
+          <button className="pdv-cad-btn pdv-cad-btn-back pdv-voltar" type="button" onClick={() => navigate("/client/fornecedores")}>
+            Voltar
           </button>
 
           <form className="pdv-cad-form" onSubmit={onSubmit}>

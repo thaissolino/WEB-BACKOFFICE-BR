@@ -34,11 +34,11 @@ export default function CadastrarFormStub({ entity = "cliente" }: { entity?: "cl
           <div className="pdv-cad-head">
             <h1 id="pdv-cad-form-title">{title}</h1>
             <button
-              className="pdv-cad-btn pdv-cad-btn-back"
+              className="pdv-cad-btn pdv-cad-btn-back pdv-voltar"
               type="button"
               onClick={() => navigate(state?.tipo ? backTo : listTo, { state })}
             >
-              ← Voltar
+              Voltar
             </button>
           </div>
           {state?.name ? <p className="pdv-cad-kicker">{state.name}</p> : null}

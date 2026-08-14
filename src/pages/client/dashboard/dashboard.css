@@ -43,10 +43,22 @@
   box-sizing: border-box;
 }
 
-/* Light surfaces: beat UA dark color-scheme (white buttontext on beige). */
+/* Light surfaces: beat UA dark color-scheme (white ButtonText on beige).
+   :where() is 0-specificity — keep it for inputs/labels. Sheet buttons in
+   .pdv-main need a real selector so .pdv-cad-btn-green { color:#fff } cannot
+   paint white ink on a Tailwind/MUI-transparent fill. Header/strip stay as-is. */
 .pdv-root :where(button, a, label, summary, input, select, kbd, textarea) {
   color: var(--ink) !important;
   -webkit-text-fill-color: var(--ink) !important;
+}
+
+.pdv-root[data-surface="cream"] .pdv-main button,
+.pdv-root[data-surface="cream"] .pdv-main [type="button"],
+.pdv-root[data-surface="cream"] .pdv-main [type="submit"],
+.pdv-root[data-surface="cream"] .pdv-main [type="reset"],
+.pdv-root[data-surface="cream"] .pdv-confirm-card button {
+  color: #111 !important;
+  -webkit-text-fill-color: #111 !important;
 }
 
 .pdv-sr {
@@ -59,6 +71,17 @@
   clip: rect(0, 0, 0, 0);
   white-space: nowrap;
   border: 0;
+}
+
+/* WM10/PDV block arrow: filled triangle + short wide stem. Not Lucide, not ←. */
+.pdv-voltar::before {
+  content: "";
+  display: block;
+  width: 15px;
+  height: 13px;
+  flex: 0 0 auto;
+  background: currentColor;
+  clip-path: polygon(0 50%, 62% 0, 62% 26%, 100% 26%, 100% 74%, 62% 74%, 62% 100%);
 }
 
 .pdv-skip {
@@ -1062,7 +1085,8 @@
   font-size: 0.95rem;
 }
 
-.pdv-renew {
+.pdv-renew,
+.pdv-root[data-surface="cream"] .pdv-main button.pdv-renew {
   min-height: 2.25rem;
   padding: 0;
   background: transparent;
@@ -1200,7 +1224,8 @@
   white-space: nowrap;
 }
 
-.pdv-more {
+.pdv-more,
+.pdv-root[data-surface="cream"] .pdv-main button.pdv-more {
   margin-top: 8px;
   min-height: 2.4rem;
   padding: 0;
@@ -1407,8 +1432,10 @@
   padding: 0 14px;
   border-radius: 0.55rem;
   border: 1px solid var(--line);
-  background: #fff;
-  color: var(--ink);
+  background: #fff !important;
+  background-color: #fff !important;
+  color: #111 !important;
+  -webkit-text-fill-color: #111 !important;
 }
 
 .pdv-cal-toolbar {
@@ -1430,8 +1457,10 @@
   padding: 0 12px;
   border-radius: 0.45rem;
   border: 1px solid var(--line);
-  background: #fff;
-  color: var(--ink);
+  background: #fff !important;
+  background-color: #fff !important;
+  color: #111 !important;
+  -webkit-text-fill-color: #111 !important;
 }
 
 .pdv-cal-views {
@@ -1439,8 +1468,10 @@
   gap: 4px;
 }
 
-.pdv-cal-views button[aria-pressed="true"] {
-  background: #2a241e;
+.pdv-cal-views button[aria-pressed="true"],
+.pdv-root[data-surface="cream"] .pdv-main .pdv-cal-views button[aria-pressed="true"] {
+  background: #2a241e !important;
+  background-color: #2a241e !important;
   color: #fff !important;
   -webkit-text-fill-color: #fff !important;
   border-color: #2a241e;
@@ -1506,14 +1537,16 @@
   overflow: hidden;
 }
 
-.pdv-play {
+.pdv-play,
+.pdv-root[data-surface="cream"] .pdv-main button.pdv-play {
   position: absolute;
   inset: 0;
   margin: auto;
   width: 3.2rem;
   height: 3.2rem;
   border-radius: 50%;
-  background: #fff;
+  background: #fff !important;
+  background-color: #fff !important;
   color: #b91c1c !important;
   -webkit-text-fill-color: #b91c1c !important;
 }
@@ -1574,6 +1607,8 @@
   border: 1px solid var(--line);
   border-radius: var(--radius);
   padding: 16px 18px 20px;
+  overflow: visible;
+  isolation: isolate;
 }
 
 .pdv-caixa-head {
@@ -1610,6 +1645,9 @@
   align-items: center;
   gap: 10px 16px;
   margin-bottom: 16px;
+  overflow: visible;
+  position: relative;
+  z-index: 2;
 }
 
 .pdv-caixa-row > label {
@@ -1626,7 +1664,12 @@
   flex: 1 1 16rem;
   max-width: 36rem;
   min-width: min(100%, 16rem);
-  z-index: 8;
+  overflow: visible;
+  z-index: 1;
+}
+
+.pdv-caixa-combo[data-open="true"] {
+  z-index: 40;
 }
 
 .pdv-caixa-trigger {
@@ -1639,8 +1682,10 @@
   padding: 0 10px 0 12px;
   border: 1px solid #8a8378;
   border-radius: 2px;
-  background: #fff;
-  color: var(--ink);
+  background: #fff !important;
+  background-color: #fff !important;
+  color: #111 !important;
+  -webkit-text-fill-color: #111 !important;
   font: inherit;
   font-size: 0.95rem;
   font-weight: 600;
@@ -1657,7 +1702,7 @@
   position: absolute;
   top: calc(100% + 2px);
   left: 0;
-  z-index: 12;
+  z-index: 40;
   width: 100%;
   min-width: 16rem;
   background: #fff;
@@ -1673,6 +1718,8 @@
   padding: 0 8px;
   border: 1px solid #c5c5c5;
   background: #fff;
+  position: relative;
+  z-index: 1;
 }
 
 .pdv-caixa-filter svg {
@@ -1716,8 +1763,10 @@
   padding: 0 12px;
   border: 0;
   border-radius: 0;
-  background: #fff;
-  color: var(--ink);
+  background: #fff !important;
+  background-color: #fff !important;
+  color: #111 !important;
+  -webkit-text-fill-color: #111 !important;
   font: inherit;
   font-size: 0.92rem;
   font-weight: 600;
@@ -1727,8 +1776,12 @@
 
 .pdv-caixa-option:hover,
 .pdv-caixa-option:focus-visible,
-.pdv-caixa-option[aria-selected="true"] {
-  background: #1d6fd8;
+.pdv-caixa-option[aria-selected="true"],
+.pdv-root[data-surface="cream"] .pdv-main button.pdv-caixa-option:hover,
+.pdv-root[data-surface="cream"] .pdv-main button.pdv-caixa-option:focus-visible,
+.pdv-root[data-surface="cream"] .pdv-main button.pdv-caixa-option[aria-selected="true"] {
+  background: #1d6fd8 !important;
+  background-color: #1d6fd8 !important;
   color: #fff !important;
   -webkit-text-fill-color: #fff !important;
   outline: none;
@@ -1741,7 +1794,7 @@
   gap: 10px;
   overflow: visible;
   position: relative;
-  z-index: 9;
+  z-index: 0;
 }
 
 .pdv-caixa-actions .pdv-tip {
@@ -1757,9 +1810,10 @@
   padding: 0 14px;
   border: 1px solid #2a241e;
   border-radius: 3px;
-  background: #ececec;
-  color: #1a1511 !important;
-  -webkit-text-fill-color: #1a1511 !important;
+  background: #ececec !important;
+  background-color: #ececec !important;
+  color: #111 !important;
+  -webkit-text-fill-color: #111 !important;
   font: inherit;
   font-size: 0.92rem;
   font-weight: 700;
@@ -1823,7 +1877,10 @@
   padding: 0 14px;
   border: 1px solid #2a241e;
   border-radius: 3px;
-  background: #ececec;
+  background: #ececec !important;
+  background-color: #ececec !important;
+  color: #111 !important;
+  -webkit-text-fill-color: #111 !important;
   font: inherit;
   font-weight: 700;
   cursor: pointer;
@@ -1848,8 +1905,10 @@
   border: 1px solid var(--line);
   border-bottom: 0;
   border-radius: 3px 3px 0 0;
-  background: #ececec;
-  color: var(--ink);
+  background: #ececec !important;
+  background-color: #ececec !important;
+  color: #111 !important;
+  -webkit-text-fill-color: #111 !important;
   font: inherit;
   font-size: 0.88rem;
   font-weight: 700;
@@ -1860,9 +1919,12 @@
   background: #e0e0e0;
 }
 
-.pdv-loja-tab[aria-selected="true"] {
-  background: #fff;
-  color: #1d6fd8;
+.pdv-loja-tab[aria-selected="true"],
+.pdv-root[data-surface="cream"] .pdv-main button.pdv-loja-tab[aria-selected="true"] {
+  background: #fff !important;
+  background-color: #fff !important;
+  color: #1d6fd8 !important;
+  -webkit-text-fill-color: #1d6fd8 !important;
 }
 
 .pdv-loja-panel h2 {

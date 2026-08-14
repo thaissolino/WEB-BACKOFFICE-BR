@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from "react";
 import { ArrowLeftRight, ChevronDown } from "lucide-react";
 import { OverlaySearch, useDismissable } from "./SelectOverlay";
-import { FLAT_CATEGORIES, type FlatOption } from "./demoData";
+import type { FlatOption } from "./categoryModel";
 
 function matches(item: FlatOption, query: string) {
   if (!query) return true;
@@ -15,6 +15,7 @@ export default function CategorySelect({
   required = false,
   labelledBy,
   placeholder,
+  options,
 }: {
   selected: string[];
   onChange: (next: string[]) => void;
@@ -22,12 +23,13 @@ export default function CategorySelect({
   required?: boolean;
   labelledBy?: string;
   placeholder: string;
+  options: FlatOption[];
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const wrapRef = useRef<HTMLDivElement>(null);
   const q = query.trim().toLowerCase();
-  const items = useMemo(() => FLAT_CATEGORIES.filter((item) => matches(item, q)), [q]);
+  const items = useMemo(() => options.filter((item) => matches(item, q)), [options, q]);
 
   useDismissable(open, () => setOpen(false), wrapRef);
 
@@ -35,7 +37,7 @@ export default function CategorySelect({
     selected.length === 0
       ? placeholder
       : selected
-          .map((id) => FLAT_CATEGORIES.find((item) => item.id === id)?.label ?? id)
+          .map((id) => options.find((item) => item.id === id)?.label ?? id)
           .join(", ");
 
   function toggle(id: string) {

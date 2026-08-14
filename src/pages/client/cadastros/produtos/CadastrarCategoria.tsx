@@ -1,12 +1,11 @@
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Folder } from "lucide-react";
 import CadastroShell from "../CadastroShell";
-import {
-  CATEGORY_TYPE_OPTIONS,
-  DEMO_CATEGORY_ROWS,
-  GRADE_OPTIONS,
-} from "./demoData";
+import { createCatalog, getCatalog, updateCatalog } from "../catalog/catalogApi";
+import { parseError } from "../../../../services/api";
+import { categoryFromCatalog, slugifyCategory, type ProductCategory } from "./categoryModel";
+import { CATEGORY_TYPE_OPTIONS, GRADE_OPTIONS } from "./productOptions";
 
 const EMPTY = {
   name: "",
@@ -26,49 +25,97 @@ const EMPTY = {
 export default function CadastrarCategoria() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
-  const editId = params.get("id") || "";
-  const parentId = params.get("pai") || "";
-  const editing = DEMO_CATEGORY_ROWS.find((item) => item.id === editId);
-  const parent = DEMO_CATEGORY_ROWS.find((item) => item.id === parentId);
-
-  const initial = useMemo(() => {
-    if (!editing) return EMPTY;
-    const [ncm, ncmx] = editing.ncm.includes(".")
-      ? [editing.ncm.slice(0, 4), editing.ncm.slice(5)]
-      : [editing.ncm, ""];
-    return {
-      name: editing.name,
-      description: editing.description,
-      commission: editing.commission,
-      profit: editing.profit,
-      maxDiscount: editing.discount,
-      defaultDiscount: editing.defaultDiscount,
-      defaultDiscountValue: editing.defaultDiscountValue || "0,00",
-      ncmSuggest: editing.ncmSuggest,
-      ncm,
-      ncmx,
-      grade: editing.grade,
-      type: editing.type,
-    };
-  }, [editing]);
-
-  const [form, setForm] = useState(initial);
+  const editId = Number(params.get("id") || 0);
+  const parentCode = Number(params.get("pai") || 0);
+  const [editing, setEditing] = useState<ProductCategory | null>(null);
+  const [parent, setParent] = useState<ProductCategory | null>(null);
+  const [form, setForm] = useState(EMPTY);
   const [status, setStatus] = useState("");
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    setForm(initial);
-    setStatus("");
-  }, [initial]);
+    if (!editId) {
+      setEditing(null);
+      return;
+    }
+    getCatalog("product_category", editId)
+      .then((item) => {
+        const row = categoryFromCatalog(item);
+        setEditing(row);
+        const [ncm, ncmx] = row.ncm.includes(".")
+          ? [row.ncm.slice(0, 4), row.ncm.slice(5)]
+          : [row.ncm, ""];
+        setForm({
+          name: row.name,
+          description: row.description,
+          commission: row.commission,
+          profit: row.profit,
+          maxDiscount: row.discount,
+          defaultDiscount: row.defaultDiscount,
+          defaultDiscountValue: row.defaultDiscountValue || "0,00",
+          ncmSuggest: row.ncmSuggest,
+          ncm,
+          ncmx,
+          grade: row.grade,
+          type: row.type,
+        });
+      })
+      .catch(() => setStatus("Não foi possível carregar a categoria."));
+  }, [editId]);
+
+  useEffect(() => {
+    if (!parentCode) {
+      setParent(null);
+      return;
+    }
+    getCatalog("product_category", parentCode)
+      .then((item) => setParent(categoryFromCatalog(item)))
+      .catch(() => setParent(null));
+  }, [parentCode]);
 
   const title = editing ? "ATUALIZAR CATEGORIA" : "CADASTRAR CATEGORIA";
 
-  function onSubmit(event: FormEvent) {
+  async function onSubmit(event: FormEvent) {
     event.preventDefault();
     if (!form.name.trim()) {
       setStatus("Informe a categoria.");
       return;
     }
-    setStatus(editing ? "Categoria atualizada (demo)." : "Categoria cadastrada (demo).");
+    const ncm = [form.ncm, form.ncmx].filter(Boolean).join(".");
+    const payload = {
+      slug: editing?.id || slugifyCategory(form.name),
+      parentSlug: parent?.id || editing?.parentId || "",
+      grade: form.grade,
+      commission: form.commission,
+      discount: form.maxDiscount,
+      profit: form.profit,
+      type: form.type,
+      description: form.description,
+      ncmSuggest: form.ncmSuggest,
+      ncm,
+      defaultDiscount: form.defaultDiscount,
+      defaultDiscountValue: form.defaultDiscountValue,
+    };
+    setSaving(true);
+    try {
+      if (editing) {
+        await updateCatalog("product_category", editing.code, {
+          name: form.name.trim(),
+          payload,
+          active: editing.active,
+        });
+      } else {
+        await createCatalog("product_category", {
+          name: form.name.trim(),
+          payload,
+        });
+      }
+      navigate("/client/produtos/categorias");
+    } catch (err) {
+      setStatus(parseError(err).friend || "Não foi possível salvar a categoria.");
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
@@ -77,11 +124,11 @@ export default function CadastrarCategoria() {
         <div className="pdv-cad-sheet">
           <h1 id="pdv-cat-form-title">{title}</h1>
           <button
-            className="pdv-cad-btn pdv-cad-btn-back"
+            className="pdv-cad-btn pdv-cad-btn-back pdv-voltar"
             type="button"
             onClick={() => navigate("/client/produtos/categorias")}
           >
-            ← Voltar
+            Voltar
           </button>
 
           <form className="pdv-cad-form" onSubmit={onSubmit}>
@@ -266,8 +313,8 @@ export default function CadastrarCategoria() {
             ) : null}
 
             <div className="pdv-cad-form-go">
-              <button className="pdv-cad-btn pdv-cad-btn-green" type="submit">
-                {editing ? "Atualizar" : "Cadastrar"}
+              <button className="pdv-cad-btn pdv-cad-btn-green" type="submit" disabled={saving}>
+                {saving ? "Salvando…" : editing ? "Atualizar" : "Cadastrar"}
               </button>
             </div>
           </form>

@@ -1,0 +1,78 @@
+import { type FilterPageProps } from "../pdv/FilterPage"
+
+export { RelatorioScreen } from "./RelatorioScreen"
+
+const date = (key: string, label: string) => ({ key, label, kind: "date" as const })
+const sel = (key: string, label: string, options: string[]) => ({ key, label, kind: "select" as const, options })
+const txt = (key: string, label: string) => ({ key, label })
+
+function rel(path: string, title: string, fields: FilterPageProps["fields"], columns: string[], hint?: string): FilterPageProps & { path: string } {
+  return { path, title, fields, columns, hint, submitLabel: "Buscar" }
+}
+
+export const RELATORIOS: Array<FilterPageProps & { path: string }> = [
+  rel("auditoria/autorizacao-venda", "AUTORIZAÇÃO DE VENDA", [date("inicio", "Data inicio"), date("fim", "Data fim"), txt("usuario", "Usuário")], ["Data", "Usuário", "Venda", "Valor"]),
+  rel("auditoria/estoque", "AUDITORIA ESTOQUE", [date("inicio", "Data inicio"), txt("produto", "Produto")], ["Data", "Produto", "Antes", "Depois", "Usuário"]),
+  rel("auditoria/geral-log", "GERAL DE LOG", [date("inicio", "Data inicio"), txt("usuario", "Usuário")], ["Data", "Usuário", "Evento"]),
+  rel("auditoria/itens-excluido", "ITENS EXCLUÍDO DA VENDA", [date("inicio", "Data inicio")], ["Data", "Venda", "Produto", "Usuário"]),
+  rel("auditoria/preco-venda", "PREÇO DE VENDA", [date("inicio", "Data inicio"), txt("produto", "Produto")], ["Data", "Produto", "Antes", "Depois"]),
+  rel("auditoria/preco-compra", "PREÇO DE COMPRA", [date("inicio", "Data inicio"), txt("produto", "Produto")], ["Data", "Produto", "Antes", "Depois"]),
+  rel("clientes/marketing", "MARKETING", [txt("nome", "Nome"), sel("classificacao", "Classificação", ["Todas"])], ["Código", "Nome", "Telefone", "E-mail"]),
+  rel("clientes/sem-movimentacao", "CLIENTES SEM MOVIMENTAÇÃO", [date("inicio", "Data inicio"), date("fim", "Data fim")], ["Código", "Nome", "Última movimentação"]),
+  rel("clientes/impressao", "IMPRESSÃO/CARTA/E-MAIL", [txt("nome", "Nome")], ["Cliente", "Modelo", "Data"]),
+  rel("clientes/caixa", "RELATÓRIO CAIXA DE CLIENTES", [txt("cliente", "Cliente"), date("inicio", "Data inicio")], ["Cliente", "Data", "Valor"]),
+  rel("clientes/movimentacao", "MOVIMENTAÇÃO", [txt("cliente", "Cliente"), date("inicio", "Data inicio")], ["Cliente", "Data", "Tipo", "Valor"]),
+  rel("compras/detalhada", "COMPRAS DETALHADA", [date("inicio", "Data inicio"), txt("fornecedor", "Fornecedor")], ["Código", "Fornecedor", "Data", "Total"]),
+  rel("compras/sugestao", "SUGESTÃO DE COMPRA", [txt("produto", "Produto"), sel("categoria", "Categoria", ["Todas"])], ["Produto", "Estoque", "Mínimo", "Sugerido"]),
+  rel("despesa", "DESPESA", [date("inicio", "Data inicio")], ["Mês", "Plano de conta", "Total"]),
+  rel("documentos-fiscais", "DOCUMENTOS FISCAIS", [date("inicio", "Data inicio")], ["Número", "Tipo", "Valor", "Status"], "Relatório fiscal sem SEFAZ conectada."),
+  rel("documentos-fiscais/totalizador", "TOTALIZADOR", [date("inicio", "Data inicio")], ["CFOP", "Base", "ICMS", "Total"]),
+  rel("documentos-fiscais/nfse", "NFS-E", [date("inicio", "Data inicio")], ["Número", "Tomador", "Valor"], "NFS-e de terceiro."),
+  rel("documentos-fiscais/totalizador-nfse", "TOTALIZADOR (NFS-E)", [date("inicio", "Data inicio")], ["Serviço", "Total"]),
+  rel("dre", "DRE GERENCIAL", [date("inicio", "Data inicio"), date("fim", "Data fim")], ["Conta", "Valor"]),
+  rel("estoque", "ESTOQUE", [txt("produto", "Produto"), sel("categoria", "Categoria", ["Todas"])], ["Código", "Produto", "Estoque", "Custo"]),
+  rel("estoque/detalhado", "ESTOQUE DETALHADO", [txt("produto", "Produto")], ["Código", "Produto", "Grade", "Estoque"]),
+  rel("estoque/por-grade", "ESTOQUE POR GRADE", [txt("grade", "Grade")], ["Grade", "Produto", "Estoque"]),
+  rel("estoque/por-status", "ESTOQUE POR STATUS", [sel("status", "Status", ["Todos"])], ["Produto", "Status", "Estoque"]),
+  rel("estoque/sem-movimentacao", "ESTOQUE SEM MOVIMENTAÇÃO", [txt("dias", "Dias")], ["Produto", "Última movimentação", "Estoque"]),
+  rel("estoque/minimo-maximo", "MÍNIMO E MÁXIMO", [txt("produto", "Produto")], ["Produto", "Mínimo", "Máximo", "Estoque"]),
+  rel("estoque/retroativo", "ESTOQUE RETROATIVO", [date("data", "Data")], ["Produto", "Estoque na data"]),
+  rel("estoque/contagem", "CONTAGEM ESTOQUE", [date("inicio", "Data inicio")], ["Código", "Data", "Tipo", "Usuário"]),
+  rel("estoque/fiscal", "ESTOQUE FISCAL", [txt("produto", "Produto")], ["Produto", "Estoque fiscal"]),
+  rel("estoque/livro-inventario", "LIVRO DE REGISTRO DE INVENTÁRIO", [date("data", "Data")], ["Produto", "Quantidade", "Valor"]),
+  rel("etiquetas/produtos", "ETIQUETAS PRODUTOS", [txt("produto", "Produto")], ["Produto", "Código", "Preço"]),
+  rel("etiquetas/sigep/etiqueta", "ETIQUETA SIGEP", [txt("rastreio", "Rastreio")], ["Rastreio", "Destinatário"], "SIGEP Correios não está conectado."),
+  rel("etiquetas/sigep/postagem", "POSTAGEM SIGEP", [date("inicio", "Data inicio")], ["Objeto", "Data"], "SIGEP Correios não está conectado."),
+  rel("etiquetas/sigep/pacotes", "PACOTES SIGEP", [], ["Pacote", "Peso"], "SIGEP Correios não está conectado."),
+  rel("etiquetas/envio/cliente", "ETIQUETA DE ENVIO CLIENTE", [txt("cliente", "Cliente")], ["Cliente", "Endereço"]),
+  rel("etiquetas/envio/venda", "ETIQUETA DE ENVIO VENDA", [txt("venda", "Cod. Vendas")], ["Venda", "Cliente", "Endereço"]),
+  rel("financeiro/caixa", "CAIXA", [date("inicio", "Data Caixa inicio"), date("fim", "Data Caixa fim")], ["Caixa", "Data", "Saldo"]),
+  rel("financeiro/cheque", "CHEQUE", [date("inicio", "Data inicio")], ["Número", "Titular", "Valor", "Vencimento"]),
+  rel("financeiro/cobranca", "COBRANÇA", [date("inicio", "Data inicio")], ["Cliente", "Vencimento", "Valor"]),
+  rel("financeiro/conferencia-cartao", "CONFERÊNCIA DE CARTÃO", [date("inicio", "Data inicio")], ["Bandeira", "Valor", "Taxa"]),
+  rel("financeiro/recebimento", "RECEBIMENTO", [date("inicio", "Data inicio")], ["Cliente", "Forma", "Valor"]),
+  rel("produto/tabela-preco", "TABELA DE PREÇO", [sel("tabela", "Tabela de Preço", ["Todas"])], ["Produto", "Tabela", "Preço"]),
+  rel("produto/lote", "LOTE", [txt("produto", "Produto")], ["Produto", "Lote", "Validade", "Quantidade"]),
+  rel("produto/tabela-preco-cliente", "TABELA DE PREÇO CLIENTE", [txt("cliente", "Cliente")], ["Cliente", "Produto", "Preço"]),
+  rel("venda/cliente-loja", "CLIENTE/LOJA", [date("inicio", "Data inicio"), txt("cliente", "Cliente")], ["Cliente", "Loja", "Total"]),
+  rel("venda/comissao", "COMISSÃO", [date("inicio", "Data inicio"), txt("usuario", "Usuário")], ["Usuário", "Venda", "Comissão"]),
+  rel("venda/custos-vendas", "CUSTOS E VENDAS", [date("inicio", "Data inicio")], ["Produto", "Custo", "Venda", "Lucro"]),
+  rel("venda/custo-x-preco", "CUSTO X PREÇO DE VENDA", [txt("produto", "Produto")], ["Produto", "Custo", "Preço"]),
+  rel("venda/descontos", "DESCONTOS EM VENDAS", [date("inicio", "Data inicio")], ["Venda", "Produto", "Desconto"]),
+  rel("venda/forma-pagamento", "FORMA DE PAGAMENTO", [date("inicio", "Data inicio")], ["Forma", "Quantidade", "Total"]),
+  rel("venda/itens", "ITENS DAS VENDAS", [date("inicio", "Data inicio")], ["Venda", "Produto", "Qtd", "Total"]),
+  rel("venda/meta", "META", [date("inicio", "Data inicio")], ["Loja", "Meta", "Realizado"]),
+  rel("venda/vale-desconto", "VALE DESCONTO", [date("inicio", "Data inicio")], ["Código", "Cliente", "Valor"]),
+  rel("venda/vale-presente", "VALE PRESENTE", [date("inicio", "Data inicio")], ["Código", "Cliente", "Valor"]),
+  rel("venda/resumida", "VENDA RESUMIDA", [date("inicio", "Data inicio"), date("fim", "Data fim")], ["Venda", "Cliente", "Total"]),
+  rel("venda/vendedores-mes", "VENDEDORES / MES", [txt("mes", "Mês")], ["Vendedor", "Mês", "Total"]),
+  rel("venda/cliente-mes", "CLIENTE / MES", [txt("mes", "Mês")], ["Cliente", "Mês", "Total"]),
+  rel("venda-gerencial/giro", "GIRO DE MERCADORIAS", [date("inicio", "Data inicio"), sel("categoria", "Categoria", ["Todas"])], ["Categoria", "Quantidade", "Total"]),
+  rel("venda-gerencial/giro-transferencia", "GIRO DE MERCADORIAS POR TRANSFERÊNCIA", [date("inicio", "Data inicio")], ["Categoria", "Quantidade"]),
+  rel("venda-gerencial/faturamento", "FATURAMENTO", [date("inicio", "Data inicio")], ["Período", "Total"]),
+  rel("venda-gerencial/faturamento-totalizador", "FATURAMENTO TOTALIZADOR", [date("inicio", "Data inicio")], ["Grupo", "Total"]),
+  rel("venda-gerencial/lucratividade", "LUCRATIVIDADE", [date("inicio", "Data inicio")], ["Produto", "Margem"]),
+  rel("venda-gerencial/produto-mais-vendido", "PRODUTO MAIS VENDIDO", [date("inicio", "Data inicio")], ["Produto", "Quantidade", "Total"]),
+  rel("venda-gerencial/giro-grade", "GIRO POR GRADE", [date("inicio", "Data inicio")], ["Grade", "Quantidade"]),
+  rel("venda-gerencial/aproveitamento", "APROVEITAMENTO DE VENDA", [date("inicio", "Data inicio")], ["Vendedor", "Aproveitamento"]),
+]

@@ -57,8 +57,12 @@
   gap: 6px;
   min-height: 40px;
   padding: 0 12px;
-  border: 1px solid transparent;
+  border: 1px solid #c5c5c5;
   border-radius: 4px;
+  background: #fff;
+  background-color: #fff;
+  color: #111;
+  -webkit-text-fill-color: #111;
   font: inherit;
   font-size: 0.92rem;
   font-weight: 700;
@@ -72,9 +76,10 @@
 
 .pdv-cad-btn-green {
   background: #43a047;
+  background-color: #43a047;
   border-color: #2e7d32;
-  color: #fff !important;
-  -webkit-text-fill-color: #fff !important;
+  color: #fff;
+  -webkit-text-fill-color: #fff;
 }
 
 .pdv-cad-btn-green svg {
@@ -83,9 +88,10 @@
 
 .pdv-cad-btn-red {
   background: #e57373;
+  background-color: #e57373;
   border-color: #d32f2f;
-  color: #fff !important;
-  -webkit-text-fill-color: #fff !important;
+  color: #fff;
+  -webkit-text-fill-color: #fff;
 }
 
 .pdv-cad-btn-red svg {
@@ -94,9 +100,10 @@
 
 .pdv-cad-btn-blue {
   background: #42a5f5;
+  background-color: #42a5f5;
   border-color: #1e88e5;
-  color: #fff !important;
-  -webkit-text-fill-color: #fff !important;
+  color: #fff;
+  -webkit-text-fill-color: #fff;
 }
 
 .pdv-cad-btn-blue svg,
@@ -107,16 +114,23 @@
 .pdv-cad-btn-back,
 .pdv-cad-btn-verify {
   background: #64b5f6;
+  background-color: #64b5f6;
   border-color: #42a5f5;
-  color: #fff !important;
-  -webkit-text-fill-color: #fff !important;
+  color: #fff;
+  -webkit-text-fill-color: #fff;
   margin-bottom: 14px;
+}
+
+.pdv-cad-btn-back.pdv-voltar::before {
+  background: #fff;
 }
 
 .pdv-cad-btn-ghost {
   background: #fff;
+  background-color: #fff;
   border-color: #c5c5c5;
-  color: var(--ink) !important;
+  color: #111;
+  -webkit-text-fill-color: #111;
 }
 
 .pdv-cad-filters {
@@ -170,6 +184,13 @@
   font-weight: 500;
 }
 
+.pdv-cad-check-input:focus,
+.pdv-cad-check-input:focus-visible {
+  outline: none;
+  border-color: #64b5f6;
+  box-shadow: 0 0 0 1px #90caf9;
+}
+
 .pdv-cad-filters-go {
   display: flex;
   flex-wrap: wrap;
@@ -182,6 +203,14 @@
 .pdv-cad-table-wrap {
   overflow: auto;
   border: 1px solid #d7d0c4;
+}
+
+.pdv-apoio-swatch {
+  display: inline-block;
+  width: 1.4rem;
+  height: 1.4rem;
+  border: 1px solid #8a8378;
+  vertical-align: middle;
 }
 
 .pdv-cad-table {
@@ -819,7 +848,9 @@
   border: 1px solid #c5c5c5;
   border-radius: 4px;
   background: #fff;
-  color: var(--ink) !important;
+  background-color: #fff;
+  color: #111;
+  -webkit-text-fill-color: #111;
   font: inherit;
   font-size: 0.9rem;
   font-weight: 700;
@@ -837,9 +868,10 @@
 
 .pdv-prod-btn-blue {
   background: #42a5f5;
+  background-color: #42a5f5;
   border-color: #1e88e5;
-  color: #fff !important;
-  -webkit-text-fill-color: #fff !important;
+  color: #fff;
+  -webkit-text-fill-color: #fff;
 }
 
 .pdv-prod-btn-blue svg,
@@ -908,10 +940,244 @@
 }
 
 .pdv-prod-more {
-  min-height: 48px;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px 14px;
   margin-top: 12px;
-  border: 1px dashed #d7d0c4;
+  padding: 12px;
+  border: 1px solid #d7d0c4;
   background: #f7f5f0;
+}
+
+.pdv-prod-more > label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.pdv-prod-more-cmp {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.pdv-prod-more-cmp legend {
+  padding: 0;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.pdv-prod-more-ops {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  margin: 4px 0;
+  font-weight: 600;
+}
+
+.pdv-prod-more-ops label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin: 0;
+  font-size: 0.8rem;
+}
+
+.pdv-prod-more-amt {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 6px;
+  align-items: center;
+}
+
+.pdv-prod-more-amt span {
+  font-weight: 700;
+}
+
+.pdv-prod-grade-title {
+  margin: 16px 0 8px;
+  font-size: 1rem;
+}
+
+.pdv-prod-grade-wrap {
+  max-height: min(70vh, 42rem);
+}
+
+.pdv-prod-grade-table {
+  width: max-content;
+  min-width: 100%;
+  border-collapse: collapse;
+  font-size: 0.78rem;
+}
+
+.pdv-prod-grade-table th,
+.pdv-prod-grade-table td {
+  padding: 4px 6px;
+  border: 1px solid #d7d0c4;
+  text-align: center;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.pdv-prod-grade-table thead {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.pdv-prod-grade-table thead th {
+  background: #ececec;
+  color: #1565c0;
+  font-weight: 700;
+}
+
+.pdv-prod-grade-name {
+  text-align: left;
+  max-width: 22rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pdv-prod-grade-pv,
+.pdv-prod-grade-ea {
+  font-variant-numeric: tabular-nums;
+}
+
+.pdv-prod-grade-table tbody tr {
+  cursor: pointer;
+}
+
+.pdv-prod-grade-table tbody tr:nth-child(even) {
+  background: #f7f5f0;
+}
+
+.pdv-prod-grade-table tbody tr:hover,
+.pdv-cad-table tbody tr[data-selected="true"],
+.pdv-prod-grade-table tbody tr[data-selected="true"] {
+  background: #d6ebf8;
+}
+
+.pdv-cad-table tbody tr[data-pick],
+.pdv-prod-grade-table tbody tr {
+  cursor: pointer;
+}
+
+.pdv-prod-grade-photo {
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 48px;
+  padding: 0;
+  border: 0;
+  background: #fff;
+  cursor: pointer;
+}
+
+.pdv-prod-grade-photo img {
+  width: 64px;
+  height: 48px;
+  object-fit: cover;
+}
+
+.pdv-prod-grade-ph,
+.pdv-prod-grade-nophoto {
+  display: block;
+  width: 64px;
+  height: 48px;
+  background: #f0ece4;
+}
+
+.pdv-prod-grade-plus {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  margin: 0 auto;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #1565c0 !important;
+  cursor: pointer;
+}
+
+.pdv-prod-grade-plus:hover,
+.pdv-prod-grade-plus:focus-visible {
+  color: #0d47a1 !important;
+  outline: none;
+}
+
+.pdv-prod-estoque-modal,
+.pdv-prod-photo-modal {
+  width: min(44rem, 100%);
+}
+
+.pdv-prod-estoque-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 14px;
+  border-bottom: 1px solid #d7d0c4;
+}
+
+.pdv-prod-estoque-head h2 {
+  margin: 0;
+  font-size: 1rem;
+  text-transform: uppercase;
+}
+
+.pdv-prod-estoque-body {
+  overflow: auto;
+  max-height: min(70vh, 36rem);
+  padding: 12px 14px 16px;
+}
+
+.pdv-prod-estoque-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.pdv-prod-estoque-table th,
+.pdv-prod-estoque-table td {
+  padding: 6px 8px;
+  border: 1px solid #cfcfcf;
+  text-align: center;
+}
+
+.pdv-prod-estoque-store td,
+.pdv-prod-estoque-total td {
+  background: #5dade2;
+  color: #fff !important;
+  -webkit-text-fill-color: #fff !important;
+  font-weight: 700;
+  text-align: left;
+}
+
+.pdv-prod-estoque-total td:nth-child(2),
+.pdv-prod-estoque-total td:nth-child(3) {
+  text-align: center;
+}
+
+.pdv-prod-estoque-gap td {
+  border: 0;
+  background: #fff;
+}
+
+.pdv-prod-photo-view {
+  display: grid;
+  place-items: center;
+  min-height: 12rem;
+  padding: 16px;
+}
+
+.pdv-prod-photo-view img {
+  max-width: 100%;
+  max-height: 70vh;
+  object-fit: contain;
 }
 
 .pdv-prod-stub {
@@ -1379,6 +1645,61 @@
   text-align: right;
 }
 
+.pdv-prod-photo-panel {
+  margin: 1rem 0 1.25rem;
+  padding: 0.9rem 1rem 1rem;
+  border: 1px solid color-mix(in srgb, var(--ink-soft) 28%, transparent);
+  background: color-mix(in srgb, var(--paper) 92%, #d7e4f2);
+}
+
+.pdv-prod-photo-panel h2 {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin: 0 0 0.35rem;
+  font-size: 0.95rem;
+}
+
+.pdv-prod-photo-grid {
+  display: grid;
+  grid-template-columns: minmax(12rem, 1.4fr) minmax(10rem, 1fr) auto;
+  gap: 0.75rem;
+  align-items: end;
+  margin-top: 0.65rem;
+}
+
+.pdv-prod-photo-grid label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-size: 0.82rem;
+}
+
+.pdv-prod-photo-grid select,
+.pdv-prod-photo-grid input[type="file"] {
+  min-height: 2.2rem;
+}
+
+.pdv-prod-photo-preview {
+  margin-top: 0.75rem;
+  min-height: 4.5rem;
+}
+
+.pdv-prod-photo-preview img {
+  display: block;
+  max-width: 220px;
+  max-height: 160px;
+  object-fit: contain;
+  border: 1px solid color-mix(in srgb, var(--ink-soft) 24%, transparent);
+  background: #fff;
+}
+
+@media (max-width: 720px) {
+  .pdv-prod-photo-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 .pdv-cad-grade-row td:first-child {
   padding-left: 28px;
   color: var(--ink-soft);
@@ -1453,6 +1774,7 @@
   .pdv-cad-filters-stock,
   .pdv-cad-filters-cat,
   .pdv-prod-list-grid,
+  .pdv-prod-more,
   .pdv-prod-cols,
   .pdv-prod-row,
   .pdv-prod-modal-row {
@@ -1465,5 +1787,550 @@
   .pdv-prod-modal-row > span {
     justify-content: flex-start;
     text-align: left;
+  }
+}
+
+/* Cream PDV /client: beat Tailwind/MUI [type=button] { background: transparent }
+   and the dashboard .pdv-main button { color:#111 } contract.
+   Light/outline → black. Solid green/blue/red → white on forced fill.
+   Scoped to .pdv-root[data-surface=cream] — never .pdv-page / .pdv-chrome. */
+.pdv-root[data-surface="cream"] .pdv-main .pdv-cad-btn,
+.pdv-root[data-surface="cream"] .pdv-main .pdv-cad-btn-ghost,
+.pdv-root[data-surface="cream"] .pdv-main .pdv-prod-btn,
+.pdv-root[data-surface="cream"] .pdv-main .pdv-prod-tab,
+.pdv-root[data-surface="cream"] .pdv-main .pdv-cad-toggle,
+.pdv-root[data-surface="cream"] .pdv-main .pdv-cad-seg button,
+.pdv-root[data-surface="cream"] .pdv-main .pdv-prod-select-trigger,
+.pdv-root[data-surface="cream"] .pdv-main .pdv-cad-ms-trigger,
+.pdv-root[data-surface="cream"] .pdv-main .pdv-prod-catalog-menu button,
+.pdv-root[data-surface="cream"] .pdv-main .pdv-prod-opt,
+.pdv-root[data-surface="cream"] .pdv-main .pdv-prod-check,
+.pdv-root[data-surface="cream"] .pdv-main .pdv-prod-collapse,
+.pdv-root[data-surface="cream"] .pdv-main .pdv-cad-manage-list button {
+  background: #fff !important;
+  background-color: #fff !important;
+  color: #111 !important;
+  -webkit-text-fill-color: #111 !important;
+}
+
+.pdv-root[data-surface="cream"] .pdv-main .pdv-prod-tab[aria-selected="true"],
+.pdv-root[data-surface="cream"] .pdv-main .pdv-prod-collapse,
+.pdv-root[data-surface="cream"] .pdv-main .pdv-cad-toggle {
+  background: #ececec !important;
+  background-color: #ececec !important;
+  color: #111 !important;
+  -webkit-text-fill-color: #111 !important;
+}
+
+.pdv-root[data-surface="cream"] .pdv-main .pdv-cad-toggle[aria-pressed="true"] {
+  background: #c8e6c9 !important;
+  background-color: #c8e6c9 !important;
+  color: #111 !important;
+  -webkit-text-fill-color: #111 !important;
+}
+
+.pdv-root[data-surface="cream"] .pdv-main button.pdv-cad-btn-green,
+.pdv-root[data-surface="cream"] .pdv-main button.pdv-cad-btn-green[type="button"],
+.pdv-root[data-surface="cream"] .pdv-main button.pdv-cad-btn-green[type="submit"] {
+  background: #43a047 !important;
+  background-color: #43a047 !important;
+  border-color: #2e7d32;
+  color: #fff !important;
+  -webkit-text-fill-color: #fff !important;
+}
+
+.pdv-root[data-surface="cream"] .pdv-main button.pdv-cad-btn-red,
+.pdv-root[data-surface="cream"] .pdv-main button.pdv-cad-btn-red[type="button"],
+.pdv-root[data-surface="cream"] .pdv-main button.pdv-cad-btn-red[type="submit"] {
+  background: #e57373 !important;
+  background-color: #e57373 !important;
+  border-color: #d32f2f;
+  color: #fff !important;
+  -webkit-text-fill-color: #fff !important;
+}
+
+.pdv-root[data-surface="cream"] .pdv-main button.pdv-cad-btn-blue,
+.pdv-root[data-surface="cream"] .pdv-main button.pdv-cad-btn-blue[type="button"],
+.pdv-root[data-surface="cream"] .pdv-main button.pdv-cad-btn-blue[type="submit"],
+.pdv-root[data-surface="cream"] .pdv-main button.pdv-prod-btn-blue,
+.pdv-root[data-surface="cream"] .pdv-main button.pdv-prod-btn-blue[type="button"],
+.pdv-root[data-surface="cream"] .pdv-main button.pdv-prod-btn-blue[type="submit"] {
+  background: #42a5f5 !important;
+  background-color: #42a5f5 !important;
+  border-color: #1e88e5;
+  color: #fff !important;
+  -webkit-text-fill-color: #fff !important;
+}
+
+.pdv-root[data-surface="cream"] .pdv-main button.pdv-cad-btn-back,
+.pdv-root[data-surface="cream"] .pdv-main button.pdv-cad-btn-verify,
+.pdv-root[data-surface="cream"] .pdv-main button.pdv-cad-btn-back[type="button"],
+.pdv-root[data-surface="cream"] .pdv-main button.pdv-cad-btn-verify[type="submit"] {
+  background: #64b5f6 !important;
+  background-color: #64b5f6 !important;
+  border-color: #42a5f5;
+  color: #fff !important;
+  -webkit-text-fill-color: #fff !important;
+}
+
+.pdv-root[data-surface="cream"] .pdv-main button.pdv-prod-plus,
+.pdv-root[data-surface="cream"] .pdv-main button.pdv-prod-toggle {
+  background: #42a5f5 !important;
+  background-color: #42a5f5 !important;
+  color: #fff !important;
+  -webkit-text-fill-color: #fff !important;
+}
+
+.pdv-root[data-surface="cream"] .pdv-main button.pdv-prod-toggle[aria-checked="false"] {
+  background: #ececec !important;
+  background-color: #ececec !important;
+  border-color: #8a8378;
+  color: #111 !important;
+  -webkit-text-fill-color: #111 !important;
+}
+
+.pdv-root[data-surface="cream"] .pdv-main .pdv-cad-seg button[data-on="true"] {
+  background: #42a5f5 !important;
+  background-color: #42a5f5 !important;
+  color: #fff !important;
+  -webkit-text-fill-color: #fff !important;
+}
+
+.pdv-root[data-surface="cream"] .pdv-main button.pdv-prod-win-min,
+.pdv-root[data-surface="cream"] .pdv-main button.pdv-prod-win-close,
+.pdv-root[data-surface="cream"] .pdv-main .pdv-prod-overlay-search button {
+  background: #1a1511 !important;
+  background-color: #1a1511 !important;
+  color: #fff !important;
+  -webkit-text-fill-color: #fff !important;
+}
+
+.pdv-root[data-surface="cream"] .pdv-main .pdv-cad-icon-btn {
+  background: transparent !important;
+  background-color: transparent !important;
+  color: #1565c0 !important;
+  -webkit-text-fill-color: #1565c0 !important;
+}
+
+.pdv-root[data-surface="cream"] .pdv-main .pdv-cad-icon-btn.pdv-cad-icon-add {
+  color: #2e7d32 !important;
+  -webkit-text-fill-color: #2e7d32 !important;
+}
+
+.pdv-root[data-surface="cream"] .pdv-main .pdv-cad-manage-list button {
+  background: transparent !important;
+  background-color: transparent !important;
+  color: #1565c0 !important;
+  -webkit-text-fill-color: #1565c0 !important;
+}
+
+.pdv-root[data-surface="cream"] .pdv-main .pdv-cad-cheques {
+  background: #90caf9 !important;
+  background-color: #90caf9 !important;
+  color: #0d47a1 !important;
+  -webkit-text-fill-color: #0d47a1 !important;
+}
+
+.pdv-root[data-surface="cream"] .pdv-main .pdv-prod-btn:hover,
+.pdv-root[data-surface="cream"] .pdv-main .pdv-prod-btn:focus-visible,
+.pdv-root[data-surface="cream"] .pdv-main .pdv-prod-tab:hover,
+.pdv-root[data-surface="cream"] .pdv-main .pdv-prod-tab:focus-visible,
+.pdv-root[data-surface="cream"] .pdv-main .pdv-prod-catalog-menu button:hover,
+.pdv-root[data-surface="cream"] .pdv-main .pdv-prod-catalog-menu button:focus-visible,
+.pdv-root[data-surface="cream"] .pdv-main .pdv-prod-opt:hover,
+.pdv-root[data-surface="cream"] .pdv-main .pdv-prod-check:hover,
+.pdv-root[data-surface="cream"] .pdv-main .pdv-prod-opt:focus-visible,
+.pdv-root[data-surface="cream"] .pdv-main .pdv-prod-collapse:hover,
+.pdv-root[data-surface="cream"] .pdv-main .pdv-prod-collapse:focus-visible {
+  background: #5dade2 !important;
+  background-color: #5dade2 !important;
+  color: #fff !important;
+  -webkit-text-fill-color: #fff !important;
+}
+
+.pdv-root[data-surface="cream"] .pdv-main .pdv-prod-btn-blue:hover,
+.pdv-root[data-surface="cream"] .pdv-main .pdv-prod-btn-blue:focus-visible,
+.pdv-root[data-surface="cream"] .pdv-main button.pdv-prod-plus:hover,
+.pdv-root[data-surface="cream"] .pdv-main button.pdv-prod-plus:focus-visible {
+  background: #1e88e5 !important;
+  background-color: #1e88e5 !important;
+  color: #fff !important;
+  -webkit-text-fill-color: #fff !important;
+}
+
+.pdv-root[data-surface="cream"] .pdv-main .pdv-prod-opt[data-active="true"] {
+  background: #1565c0 !important;
+  background-color: #1565c0 !important;
+  color: #fff !important;
+  -webkit-text-fill-color: #fff !important;
+}
+
+.pdv-root[data-surface="cream"] .pdv-main .pdv-cad-btn-green svg,
+.pdv-root[data-surface="cream"] .pdv-main .pdv-cad-btn-red svg,
+.pdv-root[data-surface="cream"] .pdv-main .pdv-cad-btn-blue svg,
+.pdv-root[data-surface="cream"] .pdv-main .pdv-cad-btn-back svg,
+.pdv-root[data-surface="cream"] .pdv-main .pdv-cad-btn-verify svg,
+.pdv-root[data-surface="cream"] .pdv-main .pdv-prod-btn-blue svg,
+.pdv-root[data-surface="cream"] .pdv-main .pdv-prod-plus svg {
+  color: #fff !important;
+}
+
+.pdv-root[data-surface="cream"] .pdv-main button.pdv-voltar::before {
+  background: #fff !important;
+}
+
+/* CLASSIFICAÇÃO DOS CLIENTES — dense table, no horizontal scroll.
+   Scoped to this page only. Do not reuse on other cadastros tables. */
+.pdv-cad-classif-page {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.pdv-cad-classif.pdv-cad-sheet-wide {
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: hidden;
+  overflow-y: visible;
+  padding: 12px 10px 16px;
+}
+
+.pdv-cad-classif-wrap {
+  overflow-x: hidden;
+  overflow-y: visible;
+  max-width: 100%;
+}
+
+.pdv-cad-classif-table {
+  table-layout: fixed;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  font-size: 0.78rem;
+  line-height: 1.2;
+}
+
+.pdv-cad-classif-col-cod {
+  width: 3.2%;
+}
+
+.pdv-cad-classif-col-auto {
+  width: 4.2%;
+}
+
+.pdv-cad-classif-col-nome {
+  width: 12%;
+}
+
+.pdv-cad-classif-col-desc {
+  width: 14.5%;
+}
+
+.pdv-cad-classif-col-promo {
+  width: 8.5%;
+}
+
+.pdv-cad-classif-col-cred {
+  width: 13.5%;
+}
+
+.pdv-cad-classif-col-yn {
+  width: 7.5%;
+}
+
+.pdv-cad-classif-col-fisc {
+  width: 11%;
+}
+
+.pdv-cad-classif-col-ordem {
+  width: 5.4%;
+}
+
+.pdv-cad-classif-col-upd {
+  width: 5.2%;
+}
+
+.pdv-cad-classif-table th,
+.pdv-cad-classif-table td {
+  padding: 5px 4px;
+  vertical-align: top;
+  overflow-wrap: break-word;
+  word-break: normal;
+}
+
+.pdv-cad-classif-table th svg {
+  display: inline;
+  vertical-align: text-top;
+  flex-shrink: 0;
+}
+
+.pdv-cad-classif-table tbody tr:nth-child(odd) {
+  background: #fff;
+}
+
+.pdv-cad-classif-table tbody tr:nth-child(even) {
+  background: #e3f2fd;
+}
+
+.pdv-cad-classif-table tbody tr:hover {
+  background: #b3e5fc;
+}
+
+.pdv-cad-classif-table fieldset {
+  min-width: 0;
+}
+
+.pdv-cad-classif-table .pdv-cad-radios {
+  gap: 2px;
+  min-width: 0;
+}
+
+.pdv-cad-classif-table .pdv-cad-radios-stack {
+  gap: 2px;
+}
+
+.pdv-cad-classif-table th {
+  white-space: normal;
+  line-height: 1.15;
+  font-size: 0.76rem;
+}
+
+.pdv-cad-classif-table .pdv-cad-radios label,
+.pdv-cad-classif-table .pdv-cad-classif-stack label {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  min-width: 0;
+  font-size: 0.76rem;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.pdv-cad-classif-table .pdv-cad-radios-yn label {
+  flex-direction: row;
+  align-items: center;
+  gap: 3px;
+  white-space: nowrap;
+}
+
+.pdv-cad-classif-line {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  min-width: 0;
+}
+
+.pdv-cad-classif-table input[type="radio"] {
+  width: 13px;
+  height: 13px;
+  min-width: 13px;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  accent-color: #1565c0;
+  flex: 0 0 auto;
+}
+
+.pdv-cad-classif-table .pdv-cad-classif-name,
+.pdv-cad-classif-table .pdv-cad-mini {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  min-height: 24px;
+  padding: 1px 4px;
+  font-size: 0.76rem;
+}
+
+.pdv-cad-classif-table .pdv-cad-mini {
+  width: 3.8rem;
+  max-width: 100%;
+  margin-left: 0;
+}
+
+.pdv-cad-classif-stack .pdv-cad-mini {
+  margin-left: 16px;
+}
+
+.pdv-cad-classif-table td:nth-child(9) .pdv-cad-mini {
+  width: 2.6rem;
+  margin-left: 0;
+}
+
+.pdv-cad-classif-table td:nth-child(2),
+.pdv-cad-classif-table td:nth-child(11),
+.pdv-cad-classif-table th:nth-child(2),
+.pdv-cad-classif-table th:nth-child(11) {
+  text-align: center;
+  vertical-align: middle;
+}
+
+.pdv-cad-classif-table td:first-child {
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  vertical-align: middle;
+}
+
+.pdv-prod-collapse[aria-expanded="true"] svg:last-child {
+  transform: rotate(180deg);
+}
+
+.pdv-prod-grade-tab {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin: 12px 0 8px;
+}
+
+.pdv-prod-grade-panel {
+  border: 1px solid #d7d0c4;
+  background: #fff;
+}
+
+.pdv-prod-grade-panel h2 {
+  margin: 0;
+  padding: 8px 12px;
+  background: #ececec;
+  font-size: 0.95rem;
+}
+
+.pdv-prod-grade-panel p {
+  margin: 0;
+  padding: 14px 12px;
+}
+
+.pdv-prod-photo-slots {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.pdv-prod-photo-slot {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+}
+
+.pdv-prod-photo-ph {
+  display: grid;
+  place-items: center;
+  width: 150px;
+  height: 150px;
+  color: #ccc;
+}
+
+.pdv-prod-photo-preview-img {
+  width: 150px;
+  height: 150px;
+  object-fit: cover;
+  border: 1px solid #d7d0c4;
+}
+
+.pdv-prod-file {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  cursor: pointer;
+}
+
+.pdv-prod-file input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+
+.pdv-prod-file-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 400;
+}
+
+.pdv-prod-file-action {
+  flex-shrink: 0;
+  padding: 4px 10px;
+  border: 1px solid #8a8378;
+  background: #ececec;
+  font-weight: 700;
+}
+
+.pdv-cad-inline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.pdv-cad-check-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 6px 12px;
+}
+
+.pdv-cad-split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+
+.pdv-cad-split select[multiple] {
+  min-height: 220px;
+}
+
+.pdv-date-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 14px;
+}
+
+.pdv-loc-kanban,
+.pdv-etiqueta-canvas {
+  min-height: 280px;
+  border: 1px dashed #c5c5c5;
+  background: #faf8f4;
+  display: grid;
+  place-items: center;
+  color: #6b655c;
+}
+
+.pdv-etiqueta-canvas[data-papel="A4"] {
+  min-height: 360px;
+}
+
+.pdv-cad-sub {
+  margin: 18px 0 10px;
+  font-size: 1.02rem;
+  font-weight: 700;
+}
+
+.pdv-sale-hits {
+  list-style: none;
+  margin: 0 0 12px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.pdv-sale-hits .pdv-cfg-item {
+  width: 100%;
+  text-align: left;
+}
+
+.pdv-sale-total {
+  margin: 12px 0;
+  font-size: 1.15rem;
+}
+
+@media (max-width: 720px) {
+  .pdv-cad-split {
+    grid-template-columns: 1fr;
   }
 }

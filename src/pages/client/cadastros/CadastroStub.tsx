@@ -16,8 +16,8 @@ export default function CadastroStub({
         <div className="pdv-cad-sheet">
           <div className="pdv-cad-head">
             <h1 id="pdv-cad-stub-title">{title}</h1>
-            <button className="pdv-cad-btn pdv-cad-btn-back" type="button" onClick={() => navigate(backTo)}>
-              ← Voltar
+            <button className="pdv-cad-btn pdv-cad-btn-back pdv-voltar" type="button" onClick={() => navigate(backTo)}>
+              Voltar
             </button>
           </div>
         </div>

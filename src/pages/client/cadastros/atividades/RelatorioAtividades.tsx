@@ -3,8 +3,9 @@ import { useSearchParams } from "react-router-dom";
 import { Check, Eraser, Info } from "lucide-react";
 import { api } from "../../../../services/api";
 import CadastroShell from "../CadastroShell";
-import { MOCK_CUSTOMERS } from "../clientes/types";
-import { MOCK_SUPPLIERS, type PdvSupplier } from "../fornecedores/types";
+import type { StoreCustomer } from "../clientes/types";
+import type { PdvSupplier } from "../fornecedores/types";
+import { listCatalog } from "../catalog/catalogApi";
 
 const EMPTY = {
   usuario: "Nenhum selecionado",
@@ -21,23 +22,37 @@ const EMPTY = {
   realizada: "Todas",
 };
 
-const DEMO_USERS = ["Nenhum selecionado", "MARINA ALVES", "CARLOS NUNES", "JULIANA FREITAS"];
-
 export default function RelatorioAtividades() {
   const [params] = useSearchParams();
   const [draft, setDraft] = useState(EMPTY);
-  const [suppliers, setSuppliers] = useState<PdvSupplier[]>(MOCK_SUPPLIERS);
+  const [suppliers, setSuppliers] = useState<PdvSupplier[]>([]);
+  const [customers, setCustomers] = useState<StoreCustomer[]>([]);
+  const [users, setUsers] = useState<string[]>(["Nenhum selecionado"]);
+  const [activityTypes, setActivityTypes] = useState<string[]>(["Nenhum selecionado"]);
 
   useEffect(() => {
     api
       .get("/clients/suppliers")
       .then(({ data }) => {
-        const list = (data.suppliers as PdvSupplier[]) ?? [];
-        if (list.length) setSuppliers(list);
+        setSuppliers((data.suppliers as PdvSupplier[]) ?? []);
       })
       .catch(() => {
-        setSuppliers(MOCK_SUPPLIERS);
+        setSuppliers([]);
       });
+    api
+      .get("/clients/customers")
+      .then(({ data }) => {
+        setCustomers((data.customers as StoreCustomer[]) ?? []);
+      })
+      .catch(() => {
+        setCustomers([]);
+      });
+    listCatalog("user", true)
+      .then((items) => setUsers(["Nenhum selecionado", ...items.map((item) => item.name)]))
+      .catch(() => setUsers(["Nenhum selecionado"]));
+    listCatalog("activity_type", true)
+      .then((items) => setActivityTypes(["Nenhum selecionado", ...items.map((item) => item.name)]))
+      .catch(() => setActivityTypes(["Nenhum selecionado"]));
   }, []);
 
   useEffect(() => {
@@ -46,18 +61,18 @@ export default function RelatorioAtividades() {
     setDraft((current) => {
       const next = { ...current };
       if (cliente) {
-        const found = MOCK_CUSTOMERS.find((item) => item.code === cliente || item.id === cliente);
+        const found = customers.find((item) => item.code === cliente || item.id === cliente);
         next.nomeCliente = found?.name ?? cliente;
       }
       if (fornecedor) {
-        const found = [...suppliers, ...MOCK_SUPPLIERS].find(
+        const found = suppliers.find(
           (item) => String(item.code) === fornecedor || item.fantasia === fornecedor,
         );
         next.fornecedor = found ? String(found.code) : fornecedor;
       }
       return next;
     });
-  }, [params, suppliers]);
+  }, [params, suppliers, customers]);
 
   const supplierOptions = useMemo(() => {
     const seen = new Set<number>();
@@ -98,7 +113,7 @@ export default function RelatorioAtividades() {
               <label>
                 Usuário
                 <select value={draft.usuario} onChange={(event) => setDraft({ ...draft, usuario: event.target.value })}>
-                  {DEMO_USERS.map((item) => (
+                  {users.map((item) => (
                     <option key={item} value={item}>
                       {item}
                     </option>
@@ -160,7 +175,9 @@ export default function RelatorioAtividades() {
                   value={draft.tipoAtividade}
                   onChange={(event) => setDraft({ ...draft, tipoAtividade: event.target.value })}
                 >
-                  <option>Nenhum selecionado</option>
+                  {activityTypes.map((item) => (
+                    <option key={item}>{item}</option>
+                  ))}
                 </select>
               </label>
               <label>

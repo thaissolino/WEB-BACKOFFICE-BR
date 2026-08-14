@@ -1,12 +1,11 @@
 import { Navigate, useNavigate } from "react-router-dom";
 import { useClientAuth } from "../../hooks/clientAuth";
 import PdvShell, { PdvLoading, usePdvSession } from "./dashboard/PdvShell";
-import { STORES } from "./dashboard/mockData";
 
 function StubBoard({ title }: { title: string }) {
   const navigate = useNavigate();
-  const { storeId, storeName } = usePdvSession();
-  const store = STORES.find((item) => item.id === storeId);
+  const { storeId, storeName, stores } = usePdvSession();
+  const store = stores.find((item) => item.id === storeId);
   const storeLabel = store?.label ?? storeName;
 
   return (

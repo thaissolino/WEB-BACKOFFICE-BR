@@ -6,11 +6,23 @@ export type StoreOption = {
   label: string;
 };
 
-export const STORES: StoreOption[] = [
-  { id: "estoque-1", name: "ESTOQUE 1", stock: "ESTOQUE 1", code: "001598", label: "001598 - ESTOQUE 1" },
-  { id: "estoque-2", name: "ESTOQUE 2", stock: "ESTOQUE 2", code: "001839", label: "001839 - ESTOQUE 2" },
-  { id: "conecta-store", name: "CONECTA STORE", stock: "CONECTA STORE", code: "001937", label: "001937 - CONECTA STORE" },
-];
+export function toStoreOption(store: {
+  id: string;
+  name: string;
+  storeCode?: string | null;
+  code?: string | null;
+}): StoreOption {
+  const raw = String(store.storeCode || store.code || "").trim();
+  const code = /^\d{1,6}$/.test(raw) ? raw.padStart(6, "0") : raw;
+  const name = String(store.name || "").trim();
+  return {
+    id: store.id,
+    name,
+    stock: name,
+    code,
+    label: code && name ? `${code} - ${name}` : name || code,
+  };
+}
 
 export const NEWS = [
   "Novos filtros nos Relatórios de Clientes",
@@ -29,71 +41,42 @@ export const PLAN = {
   pdv: "Ilimitado",
   storage: "1,53 MB",
   files: "75",
-  lastPayment: "02/08/2018",
+  lastPayment: "—",
   monthly: "Em dia",
 };
 
-export const TOP_BUYERS = [
-  { name: "MARCELO BAUTZ - REVENDA", amount: "R$ 1.669.070,00" },
-  { name: "LOJA VILASTORE - REVENDA", amount: "R$ 906.500,00" },
-  { name: "LOJA CONECTA STORE - REVENDA", amount: "R$ 259.250,00" },
-  { name: "XREELETRO - REVENDA", amount: "R$ 141.200,00" },
-  { name: "WELLINGTON JACOMINI - REVENDA", amount: "R$ 100.000,00" },
-  { name: "RODOLFO BARTH - REVENDA", amount: "R$ 50.500,00" },
-];
-
-export const PAYABLES = {
-  total: "R$ 776.750,00",
-  today: "0,00",
-  week: "0,00",
-  month: "0,00",
-};
-
-export const RECEIVABLES = {
-  total: "R$ 892.400,00",
-  today: "0,00",
-  week: "0,00",
-  month: "0,00",
-};
-
-export const PERIOD_LABELS = {
-  today: "HOJE 12/08/2026",
-  week: "ESTA SEMANA 9/8 A 15/8",
-  month: "ESTE MÊS AGOSTO DE 2026",
-};
-
-export const BILLING_SERIES = [
-  25000, 18000, 32000, 22000, 45000, 38000, 160000, 245000, 330000, 430000, 575000, 88000,
-];
+export function periodLabels(now = new Date()) {
+  const months = [
+    "JANEIRO",
+    "FEVEREIRO",
+    "MARÇO",
+    "ABRIL",
+    "MAIO",
+    "JUNHO",
+    "JULHO",
+    "AGOSTO",
+    "SETEMBRO",
+    "OUTUBRO",
+    "NOVEMBRO",
+    "DEZEMBRO",
+  ];
+  const start = new Date(now);
+  start.setDate(now.getDate() - now.getDay());
+  const end = new Date(start);
+  end.setDate(start.getDate() + 6);
+  return {
+    today: `HOJE ${now.toLocaleDateString("pt-BR")}`,
+    week: `ESTA SEMANA ${start.getDate()}/${start.getMonth() + 1} A ${end.getDate()}/${end.getMonth() + 1}`,
+    month: `ESTE MÊS ${months[now.getMonth()]} DE ${now.getFullYear()}`,
+  };
+}
 
 export const SOCIAL_VIDEOS = {
   featured: "GestorVix SISTEMA ERP | NOTAS FISCAIS...",
   latest: "Entenda o GestorVix | Sistema online...",
 };
 
-export const CERTIFICATE_DUE = "09/12/2025";
-
 export const NENHUM_CAIXA = "Nenhum >>";
-
-export const CAIXAS = [
-  NENHUM_CAIXA,
-  "ADMINISTRATIVO - ESTOQUE",
-  "BARTH",
-  "MARCELO",
-  "VITOR IMPORTS",
-  "ALLENDER",
-  "ANTONIO JUNIOR",
-  "BRENNO CARNEIRO",
-  "LOJA VILASTORE",
-  "DINHEIRO EM ESPECIE",
-  "CARTAO DA SEMANA",
-  "CAIXA CENTRAL",
-  "LOJA CONECTASTORE",
-  "WELLINGTON ARACRUZ",
-  "UAIPLACE",
-  "WILLIAN AR",
-  "XREELETRO",
-] as const;
 
 export const STORE_STORAGE_KEY = "pdv-store-id";
 export const CAIXA_STORAGE_KEY = "pdv-selected-caixa";

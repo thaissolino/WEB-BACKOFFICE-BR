@@ -4,7 +4,9 @@ import { Check, ChevronDown, Search } from "lucide-react";
 import { useClientAuth } from "../../hooks/clientAuth";
 import PdvShell, { PdvLoading } from "./dashboard/PdvShell";
 import PdvTip from "./dashboard/PdvTip";
-import { CAIXA_STORAGE_KEY, CAIXAS, NENHUM_CAIXA } from "./dashboard/mockData";
+import { CAIXA_STORAGE_KEY, NENHUM_CAIXA } from "./dashboard/mockData";
+import { listCatalog } from "./cadastros/catalog/catalogApi";
+import { parseError } from "../../services/api";
 
 const ABRIR_PDV_TIP = `Troca a sessão do caixa.
 Abre o PVD(tela de venda) e faz no caixa
@@ -13,21 +15,13 @@ caso esteja com valores diferentes de zero(0,00)
 e a 'Transferência de Saldo' esteja
 parametrizado como 'Abertura de Caixa'.`;
 
-function isKnownCaixa(value: string) {
-  return (CAIXAS as readonly string[]).includes(value);
-}
-
-function readStoredCaixa() {
-  if (typeof sessionStorage === "undefined") return NENHUM_CAIXA;
-  const stored = sessionStorage.getItem(CAIXA_STORAGE_KEY);
-  return stored && isKnownCaixa(stored) ? stored : NENHUM_CAIXA;
-}
-
 function CaixaCombo({
   value,
+  options,
   onChange,
 }: {
   value: string;
+  options: string[];
   onChange: (next: string) => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -35,11 +29,11 @@ function CaixaCombo({
   const wrapRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
 
-  const options = useMemo(() => {
+  const filtered = useMemo(() => {
     const q = filter.trim().toLowerCase();
-    if (!q) return [...CAIXAS];
-    return CAIXAS.filter((item) => item.toLowerCase().includes(q));
-  }, [filter]);
+    if (!q) return options;
+    return options.filter((item) => item.toLowerCase().includes(q));
+  }, [filter, options]);
 
   useEffect(() => {
     function onPointerDown(event: PointerEvent) {
@@ -91,10 +85,10 @@ function CaixaCombo({
             />
           </div>
           <ul className="pdv-caixa-options" role="listbox" aria-label="SELECIONAR CAIXA">
-            {options.length === 0 ? (
+            {filtered.length === 0 ? (
               <li className="pdv-caixa-empty">Nenhum caixa encontrado.</li>
             ) : (
-              options.map((item) => (
+              filtered.map((item) => (
                 <li key={item} role="presentation">
                   <button
                     className="pdv-caixa-option"
@@ -120,10 +114,28 @@ function CaixaCombo({
 
 function TrocarCaixaBoard() {
   const navigate = useNavigate();
-  const initial = readStoredCaixa();
-  const [picked, setPicked] = useState(initial);
-  const [active, setActive] = useState(initial);
+  const [names, setNames] = useState<string[]>([NENHUM_CAIXA]);
+  const [picked, setPicked] = useState(NENHUM_CAIXA);
+  const [active, setActive] = useState(NENHUM_CAIXA);
   const [notice, setNotice] = useState("");
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    listCatalog("cash_register", true)
+      .then((rows) => {
+        const next = [NENHUM_CAIXA, ...rows.map((item) => item.name)];
+        setNames(next);
+        const stored =
+          typeof sessionStorage === "undefined" ? "" : sessionStorage.getItem(CAIXA_STORAGE_KEY) || "";
+        const current = stored && next.includes(stored) ? stored : NENHUM_CAIXA;
+        setPicked(current);
+        setActive(current);
+        setError("");
+      })
+      .catch((err) => {
+        setError(parseError(err).friend || "Não foi possível carregar os caixas.");
+      });
+  }, []);
 
   function applyCaixa() {
     if (picked === NENHUM_CAIXA) {
@@ -158,7 +170,7 @@ function TrocarCaixaBoard() {
 
         <div className="pdv-caixa-row">
           <label htmlFor="pdv-caixa-trigger">SELECIONAR CAIXA</label>
-          <CaixaCombo value={picked} onChange={setPicked} />
+          <CaixaCombo value={picked} options={names} onChange={setPicked} />
         </div>
 
         <div className="pdv-caixa-actions">
@@ -176,6 +188,11 @@ function TrocarCaixaBoard() {
           </PdvTip>
         </div>
 
+        {error ? (
+          <p className="pdv-caixa-notice" role="alert">
+            {error}
+          </p>
+        ) : null}
         {notice ? (
           <p className="pdv-caixa-notice" role="status">
             {notice}
