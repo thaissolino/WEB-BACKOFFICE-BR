@@ -43,6 +43,13 @@ export function NewInvoiceForm({
   const selectedSupplier = suppliers.find((s) => s.id === currentInvoice.supplierId);
   const isBrlSupplier = selectedSupplier?.currency === "BRL";
 
+  const selectedCarrier1 = carriers.find((c) => c.id === currentInvoice.carrierId);
+  const selectedCarrier2 = carriers.find((c) => c.id === currentInvoice.carrier2Id);
+  const carrier1IsPerKg = selectedCarrier1?.type === "perKg";
+  const carrier2IsPerKg = selectedCarrier2?.type === "perKg";
+  const lockCarrier1 = isBrlSupplier || carrier2IsPerKg;
+  const lockCarrier2 = isBrlSupplier || carrier1IsPerKg;
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     if(name === "number"){
@@ -165,6 +172,9 @@ export function NewInvoiceForm({
         <label className="block text-sm font-medium text-gray-700 mb-1">
           Freteiro
           {isBrlSupplier && <span className="ml-2 text-xs text-amber-600">(Bloqueado — fornecedor em R$)</span>}
+          {carrier2IsPerKg && (
+            <span className="ml-2 text-xs text-amber-600">(Bloqueado — Freteiro 2 é por kg)</span>
+          )}
         </label>
         <div className="flex gap-2 items-center">
           <select
@@ -173,17 +183,26 @@ export function NewInvoiceForm({
             onChange={(e) => {
               const newId = e.target.value;
               const c = carriers.find((x) => x.id === newId);
-              // Ao trocar de freteiro, copiar a % atual do cadastro como snapshot inicial
+              const isPerKg = c?.type === "perKg";
+              // Ao trocar de freteiro, copiar a % atual do cadastro como snapshot inicial.
+              // Freteiro por kg não combina com um segundo freteiro.
               setCurrentInvoice({
                 ...currentInvoice,
                 carrierId: newId,
                 carrierRateSnapshot: c?.value ?? null,
+                ...(isPerKg ? { carrier2Id: "", carrier2RateSnapshot: null } : {}),
               });
             }}
-            disabled={isBrlSupplier}
-            title={isBrlSupplier ? "Fornecedor em R$ — apenas o frete SP está disponível" : ""}
+            disabled={lockCarrier1}
+            title={
+              isBrlSupplier
+                ? "Fornecedor em R$ — apenas o frete SP está disponível"
+                : carrier2IsPerKg
+                  ? "Freteiro 2 é por kg — o outro freteiro fica bloqueado"
+                  : ""
+            }
             className={`flex-1 border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500 ${
-              isBrlSupplier ? "bg-gray-100 cursor-not-allowed" : ""
+              lockCarrier1 ? "bg-gray-100 cursor-not-allowed" : ""
             }`}
           >
             <option value="">Selecione um freteiro</option>
@@ -212,6 +231,9 @@ export function NewInvoiceForm({
         <label className="block text-sm font-medium text-gray-700 mb-1">
           Freteiro 2
           {isBrlSupplier && <span className="ml-2 text-xs text-amber-600">(Bloqueado — fornecedor em R$)</span>}
+          {carrier1IsPerKg && (
+            <span className="ml-2 text-xs text-amber-600">(Bloqueado — Freteiro 1 é por kg)</span>
+          )}
         </label>
         <div className="flex gap-2 items-center">
           <select
@@ -220,16 +242,24 @@ export function NewInvoiceForm({
             onChange={(e) => {
               const newId = e.target.value;
               const c = carriers.find((x) => x.id === newId);
+              const isPerKg = c?.type === "perKg";
               setCurrentInvoice({
                 ...currentInvoice,
                 carrier2Id: newId,
                 carrier2RateSnapshot: c?.value ?? null,
+                ...(isPerKg ? { carrierId: "", carrierRateSnapshot: null } : {}),
               });
             }}
-            disabled={isBrlSupplier}
-            title={isBrlSupplier ? "Fornecedor em R$ — apenas o frete SP está disponível" : ""}
+            disabled={lockCarrier2}
+            title={
+              isBrlSupplier
+                ? "Fornecedor em R$ — apenas o frete SP está disponível"
+                : carrier1IsPerKg
+                  ? "Freteiro 1 é por kg — o outro freteiro fica bloqueado"
+                  : ""
+            }
             className={`flex-1 border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500 ${
-              isBrlSupplier ? "bg-gray-100 cursor-not-allowed" : ""
+              lockCarrier2 ? "bg-gray-100 cursor-not-allowed" : ""
             }`}
           >
             <option value="">Selecione um freteiro</option>

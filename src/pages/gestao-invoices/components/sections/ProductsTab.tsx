@@ -61,6 +61,8 @@ export function ProductsTab() {
   // O filtro visual usa searchInput diretamente (instantâneo).
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
+  const [editingCell, setEditingCell] = useState<{ id: string; field: "price" | "weight" } | null>(null);
+  const [editingValue, setEditingValue] = useState("");
   const { setOpenNotification } = useNotification();
   const { isLoading: isActionLoading, executeAction } = useActionLoading();
 
@@ -71,7 +73,7 @@ export function ProductsTab() {
       const response = await api.get<any>("/invoice/product", {
         params: {
           search: trimmedSearch || undefined,
-          limit: 1000,
+          limit: 5000,
           page: 1,
         },
       });
@@ -265,42 +267,40 @@ export function ProductsTab() {
       }
 
       try {
+      let createdProduct: Product | null = null;
       if (currentProduct.id) {
-        await api.patch(`/invoice/product/${currentProduct.id}`, currentProduct);
-        // Swal.fire({
-        //   icon: "success",
-        //   title: "Sucesso!",
-        //   text: "Produto atualizado com sucesso.",
-        //   confirmButtonText: "Ok",
-        //   buttonsStyling: false,
-        //   customClass: {
-        //     confirmButton: "bg-green-600 text-white hover:bg-green-700 px-4 py-2 rounded font-semibold",
-        //   },
-        // });
+        const { data: updated } = await api.patch(`/invoice/product/${currentProduct.id}`, currentProduct);
+        setAllProducts((prev) =>
+          prev.map((p) => (p.id === currentProduct.id ? { ...p, ...updated, ...currentProduct } : p))
+        );
         setOpenNotification({
           type: "success",
           title: "Sucesso!",
           notification: "Produto atualizado com sucesso!",
         });
       } else {
-        await api.post("/invoice/product", currentProduct);
-        // Swal.fire({
-        //   icon: "success",
-        //   title: "Sucesso!",
-        //   text: "Produto criado com sucesso.",
-        //   confirmButtonText: "Ok",
-        //   buttonsStyling: false,
-        //   customClass: {
-        //     confirmButton: "bg-green-600 text-white hover:bg-green-700 px-4 py-2 rounded font-semibold",
-        //   },
-        // });
+        const { data: created } = await api.post("/invoice/product", currentProduct);
+        createdProduct = created;
+        setSearchInput("");
+        setSearchTerm("");
+        setAllProducts((prev) => {
+          if (prev.some((p) => p.id === created.id)) return prev;
+          return [...prev, created];
+        });
         setOpenNotification({
           type: "success",
           title: "Sucesso!",
           notification: "Produto criado com sucesso!",
         });
       }
+        window.dispatchEvent(new Event("productsUpdated"));
         await fetchData();
+        if (createdProduct) {
+          setAllProducts((prev) => {
+            if (prev.some((p) => p.id === createdProduct!.id)) return prev;
+            return [...prev, createdProduct!];
+          });
+        }
         setShowModal(false);
         setCurrentProduct(null);
       } catch (error: any) {
@@ -333,6 +333,55 @@ export function ProductsTab() {
     }, "saveProduct").catch((error: any) => {
       console.error("Erro no executeAction:", error);
     });
+  };
+
+  const startCellEdit = (product: Product, field: "price" | "weight") => {
+    if (isActionLoading) return;
+    const current = field === "price" ? product.priceweightAverage : product.weightAverage;
+    setEditingCell({ id: product.id, field });
+    setEditingValue(current === 0 ? "" : String(current));
+  };
+
+  const cancelCellEdit = () => {
+    setEditingCell(null);
+    setEditingValue("");
+  };
+
+  const commitCellEdit = async (product: Product) => {
+    if (!editingCell || editingCell.id !== product.id) return;
+    const parsed = editingValue.trim() === "" ? 0 : parseFloat(editingValue.replace(",", "."));
+    if (isNaN(parsed) || parsed < 0) {
+      cancelCellEdit();
+      return;
+    }
+
+    const payload =
+      editingCell.field === "price"
+        ? { priceweightAverage: parsed }
+        : { weightAverage: parsed };
+    const previous = { ...product };
+
+    setAllProducts((prev) =>
+      prev.map((p) => (p.id === product.id ? { ...p, ...payload } : p))
+    );
+    cancelCellEdit();
+
+    try {
+      await api.patch(`/invoice/product/${product.id}`, payload);
+      window.dispatchEvent(new Event("productsUpdated"));
+    } catch (error) {
+      console.error("Erro ao atualizar produto:", error);
+      setAllProducts((prev) => prev.map((p) => (p.id === product.id ? previous : p)));
+      Swal.fire({
+        icon: "error",
+        title: "Erro!",
+        text: "Não foi possível atualizar o produto.",
+        buttonsStyling: false,
+        customClass: {
+          confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
+        },
+      });
+    }
   };
 
   useEffect(() => {
@@ -476,10 +525,16 @@ export function ProductsTab() {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Código
                 </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th
+                  className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"
+                  title="Clique duas vezes no valor para editar"
+                >
                   Preço Médio ($)
                 </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th
+                  className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"
+                  title="Clique duas vezes no valor para editar"
+                >
                   Peso Médio (kg)
                 </th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -510,11 +565,73 @@ export function ProductsTab() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{product.name}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{product.code}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right">
-                        R$ {product.priceweightAverage.toFixed(2)}
+                      <td
+                        className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right"
+                        onDoubleClick={() => startCellEdit(product, "price")}
+                        title="Clique duas vezes para editar o preço"
+                      >
+                        {editingCell?.id === product.id && editingCell.field === "price" ? (
+                          <input
+                            autoFocus
+                            type="text"
+                            inputMode="decimal"
+                            value={editingValue}
+                            onChange={(e) => {
+                              const value = e.target.value.replace(",", ".");
+                              if (/^\d*\.?\d{0,2}$/.test(value) || value === "") {
+                                setEditingValue(value);
+                              }
+                            }}
+                            onBlur={() => commitCellEdit(product)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                e.preventDefault();
+                                commitCellEdit(product);
+                              }
+                              if (e.key === "Escape") {
+                                e.preventDefault();
+                                cancelCellEdit();
+                              }
+                            }}
+                            className="w-24 ml-auto text-right border border-blue-400 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                          />
+                        ) : (
+                          <span className="cursor-text">R$ {product.priceweightAverage.toFixed(2)}</span>
+                        )}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right">
-                        {product.weightAverage.toFixed(2)} kg
+                      <td
+                        className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right"
+                        onDoubleClick={() => startCellEdit(product, "weight")}
+                        title="Clique duas vezes para editar o peso"
+                      >
+                        {editingCell?.id === product.id && editingCell.field === "weight" ? (
+                          <input
+                            autoFocus
+                            type="text"
+                            inputMode="decimal"
+                            value={editingValue}
+                            onChange={(e) => {
+                              const value = e.target.value.replace(",", ".");
+                              if (/^\d*\.?\d{0,2}$/.test(value) || value === "") {
+                                setEditingValue(value);
+                              }
+                            }}
+                            onBlur={() => commitCellEdit(product)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                e.preventDefault();
+                                commitCellEdit(product);
+                              }
+                              if (e.key === "Escape") {
+                                e.preventDefault();
+                                cancelCellEdit();
+                              }
+                            }}
+                            className="w-24 ml-auto text-right border border-blue-400 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                          />
+                        ) : (
+                          <span className="cursor-text">{product.weightAverage.toFixed(2)} kg</span>
+                        )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                         <button

@@ -112,6 +112,8 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
     // received e receivedQuantity têm valores padrão
   });
   const [valorRaw, setValorRaw] = useState("");
+  const [editingCell, setEditingCell] = useState<{ id: string; field: "value" | "weight" } | null>(null);
+  const [editingValue, setEditingValue] = useState("");
   const { isLoading: isActionLoading, executeAction } = useActionLoading();
 
   useEffect(() => {
@@ -137,7 +139,7 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
       const [invoiceResponse, supplierResponse, productsResponse] = await Promise.all([
         api.get("/invoice/get"),
         api.get("/invoice/supplier"),
-        api.get("/invoice/product"),
+        api.get("/invoice/product", { params: { limit: 5000, page: 1 } }),
       ]);
 
       console.log("📋 [INVOICE HISTORY] Resposta completa:", invoiceResponse);
@@ -272,6 +274,8 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
   const closeModal = () => {
     setIsModalOpen(false);
     setSelectedInvoice(null);
+    setIsEditMode(false);
+    setShowAddProductForm(false);
   };
 
   const getShippingTypeText = (type: string) => {
@@ -357,13 +361,59 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
         weight: "",
       });
       setValorRaw("");
-      setShowAddProductForm(false);
     }, "addNewProduct").catch((error) => {
       console.error("Erro ao adicionar produto:", error);
     });
   };
 
+  const commitInvoiceProductCell = async (
+    product: InvoiceData["products"][number],
+    field: "value" | "weight",
+    raw: string
+  ) => {
+    if (!selectedInvoice) return;
+    const parsed = raw.trim() === "" ? 0 : parseFloat(raw.replace(",", "."));
+    if (isNaN(parsed) || parsed < 0) {
+      setEditingCell(null);
+      return;
+    }
+
+    const nextValue = field === "value" ? parsed : product.value;
+    const nextWeight = field === "weight" ? parsed : product.weight;
+    const nextTotal = nextValue * product.quantity;
+
+    try {
+      await api.patch("/invoice/update/product", {
+        idProductInvoice: product.id,
+        bodyupdate: {
+          value: nextValue,
+          weight: nextWeight,
+          total: nextTotal,
+        },
+      });
+      const updatedProduct = { ...product, value: nextValue, weight: nextWeight, total: nextTotal };
+      const updatedProducts = selectedInvoice.products.map((p) => (p.id === product.id ? updatedProduct : p));
+      const updatedInvoice = { ...selectedInvoice, products: updatedProducts };
+      setSelectedInvoice(updatedInvoice);
+      setInvoices((prev) => prev.map((inv) => (inv.id === updatedInvoice.id ? updatedInvoice : inv)));
+    } catch (error) {
+      console.error("Erro ao atualizar produto da invoice:", error);
+      Swal.fire({
+        icon: "error",
+        title: "Erro",
+        text: "Não foi possível atualizar o produto.",
+      });
+    } finally {
+      setEditingCell(null);
+      setEditingValue("");
+    }
+  };
+
   const totalQuantidade = selectedInvoice?.products.reduce((sum, product) => sum + product.quantity, 0);
+  const totalPeso = selectedInvoice?.products.reduce(
+    (sum, product) => sum + (Number(product.weight) || 0) * (Number(product.quantity) || 0),
+    0
+  );
   const supplierCurrency: SupplierCurrency = selectedInvoice?.supplier?.currency ?? null;
   const isBrlSupplier = isBrlSupplierCurrency(supplierCurrency);
   const moneySymbol = productCurrencySymbol(supplierCurrency);
@@ -847,7 +897,7 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
               </div>
               <div>
                 <span id="modalInvoiceStatus" className="px-3 py-1 rounded-full text-xs font-medium"></span>
-                <button onClick={() => setIsModalOpen(false)} className="ml-2 text-gray-500 hover:text-gray-700">
+                <button onClick={closeModal} className="ml-2 text-gray-500 hover:text-gray-700">
                   <XIcon className="mr-2 inline" size={26} />
                 </button>
               </div>
@@ -883,7 +933,7 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
                         Valor ({moneySymbol})
                       </th>
                       <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Peso (kg)
+                        Peso total (kg)
                       </th>
                       <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Total ({moneySymbol})
@@ -908,10 +958,70 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
                             </div>
                           </td>
                           <td className="px-4 py-2 text-sm text-right">{product.quantity}</td>
-                          <td className="px-4 py-2 text-sm text-right">
-                            {formatProductMoney(product.value, supplierCurrency)}
+                          <td
+                            className="px-4 py-2 text-sm text-right"
+                            onDoubleClick={() => {
+                              if (!isEditMode) return;
+                              setEditingCell({ id: product.id, field: "value" });
+                              setEditingValue(String(product.value));
+                            }}
+                            title={isEditMode ? "Clique duas vezes para editar o preço" : undefined}
+                          >
+                            {isEditMode && editingCell?.id === product.id && editingCell.field === "value" ? (
+                              <input
+                                autoFocus
+                                type="text"
+                                inputMode="decimal"
+                                value={editingValue}
+                                onChange={(e) => setEditingValue(e.target.value)}
+                                onBlur={() => commitInvoiceProductCell(product, "value", editingValue)}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") {
+                                    e.preventDefault();
+                                    commitInvoiceProductCell(product, "value", editingValue);
+                                  }
+                                  if (e.key === "Escape") {
+                                    setEditingCell(null);
+                                  }
+                                }}
+                                className="w-24 ml-auto text-right border border-blue-400 rounded px-2 py-1"
+                              />
+                            ) : (
+                              formatProductMoney(product.value, supplierCurrency)
+                            )}
                           </td>
-                          <td className="px-4 py-2 text-sm text-right">{product.weight.toFixed(2)}</td>
+                          <td
+                            className="px-4 py-2 text-sm text-right"
+                            onDoubleClick={() => {
+                              if (!isEditMode) return;
+                              setEditingCell({ id: product.id, field: "weight" });
+                              setEditingValue(String(product.weight));
+                            }}
+                            title={isEditMode ? "Clique duas vezes para editar o peso unitário" : undefined}
+                          >
+                            {isEditMode && editingCell?.id === product.id && editingCell.field === "weight" ? (
+                              <input
+                                autoFocus
+                                type="text"
+                                inputMode="decimal"
+                                value={editingValue}
+                                onChange={(e) => setEditingValue(e.target.value)}
+                                onBlur={() => commitInvoiceProductCell(product, "weight", editingValue)}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") {
+                                    e.preventDefault();
+                                    commitInvoiceProductCell(product, "weight", editingValue);
+                                  }
+                                  if (e.key === "Escape") {
+                                    setEditingCell(null);
+                                  }
+                                }}
+                                className="w-24 ml-auto text-right border border-blue-400 rounded px-2 py-1"
+                              />
+                            ) : (
+                              ((Number(product.weight) || 0) * (Number(product.quantity) || 0)).toFixed(2)
+                            )}
+                          </td>
                           <td className="px-4 py-2 text-sm text-right">
                             {formatProductMoney(product.total, supplierCurrency)}
                           </td>
@@ -979,9 +1089,11 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
               </div>
 
               <div className="bg-gray-50 p-4 rounded-2xl border shadow-sm text-center">
-                <p className="text-sm text-gray-600">Total de Itens (Qtd)</p>
+                <p className="text-sm text-gray-600">Total de Itens / Peso</p>
                 <p id="taxCost" className="text-lg font-semibold">
                   Qtd {totalQuantidade}
+                  <span className="mx-2 text-gray-400 font-normal">·</span>
+                  {(totalPeso || 0).toFixed(2)} kg
                 </p>
               </div>
             </div>
