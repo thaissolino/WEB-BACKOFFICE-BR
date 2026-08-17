@@ -8,7 +8,7 @@ type Props = {
     quantity: number;
     receivedQuantity: number;
     quantityAnalizer?: number;
-    product: { name: string };
+    product?: { name: string };
   };
   onClose: () => void;
   onConfirm: (analiseQuantity: number) => Promise<void>;
@@ -35,8 +35,11 @@ export function ModalAnaliseProduct({ product, onClose, onConfirm }: Props) {
 
   const handleConfirm = async () => {
     setIsLoading(true);
-    await onConfirm(Number(quantity));
-    setIsLoading(false);
+    try {
+      await onConfirm(Number(quantity));
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return createPortal(
@@ -50,7 +53,7 @@ export function ModalAnaliseProduct({ product, onClose, onConfirm }: Props) {
         </div>
 
         <p className="mb-2 text-sm text-gray-700">
-          Produto: <strong>{product.product.name}</strong>
+          Produto: <strong>{product.product?.name || "Produto"}</strong>
         </p>
         <p className="text-sm text-gray-600 mb-4">
           Quantidade restante: <strong>{maxAvailable}</strong>

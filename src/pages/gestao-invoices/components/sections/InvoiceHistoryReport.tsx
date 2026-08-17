@@ -124,6 +124,33 @@ type ProductData = {
     active: boolean;
   };
 };
+
+function remainingQty(item: {
+  quantity: number;
+  quantityAnalizer?: number;
+  receivedQuantity?: number;
+}) {
+  return Math.max(0, item.quantity - (item.quantityAnalizer || 0) - (item.receivedQuantity || 0));
+}
+
+function remainingTotal(item: {
+  value: number;
+  quantity: number;
+  quantityAnalizer?: number;
+  receivedQuantity?: number;
+}) {
+  return item.value * remainingQty(item);
+}
+
+function remainingWeight(item: {
+  weight: number;
+  quantity: number;
+  quantityAnalizer?: number;
+  receivedQuantity?: number;
+}) {
+  return item.weight * remainingQty(item);
+}
+
 type InvoiceHistoryReportProps = {
   invoiceHistory: InvoiceData[];
   setInvoiceHistory: React.Dispatch<React.SetStateAction<InvoiceData[]>>;
@@ -190,7 +217,7 @@ export function InvoiceHistoryReport({
       const [invoiceResponse, supplierResponse, productsResponse, exchangeResponse] = await Promise.all([
         api.get("/invoice/get"),
         api.get("/invoice/supplier"),
-        api.get("/invoice/product"),
+        api.get("/invoice/product", { params: { limit: 5000, page: 1 } }),
         api.get("/invoice/exchange-records"),
       ]);
       setExchangeResponse(exchangeResponse.data);
@@ -284,6 +311,9 @@ export function InvoiceHistoryReport({
   const closeModal = () => {
     setIsModalOpen(false);
     setSelectedInvoice(null);
+    setIsEditMode(false);
+    setIsSavingId("");
+    setSelectedProductToAnalyze(null);
   };
 
   const getShippingTypeText = (type: string) => {
@@ -491,12 +521,22 @@ export function InvoiceHistoryReport({
                               </button>
                             </div>
                           ) : (
-                            <button
-                              onClick={() => openModal(invoice, false)}
-                              className="text-blue-600 hover:text-blue-900"
-                            >
-                              <Eye size={16} />
-                            </button>
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => openModal(invoice, true)}
+                                className="text-green-600 hover:text-green-900"
+                                title="Editar"
+                              >
+                                <Edit size={16} />
+                              </button>
+                              <button
+                                onClick={() => openModal(invoice, false)}
+                                className="text-blue-600 hover:text-blue-900"
+                                title="Visualizar"
+                              >
+                                <Eye size={16} />
+                              </button>
+                            </div>
                           )}
                         </div>
                       </td>
@@ -589,14 +629,19 @@ export function InvoiceHistoryReport({
               </div>
               <div>
                 <span id="modalInvoiceStatus" className="px-3 py-1 rounded-full text-xs font-medium"></span>
-                <button onClick={() => setIsModalOpen(false)} className="ml-2 text-gray-500 hover:text-gray-700">
+                <button onClick={closeModal} className="ml-2 text-gray-500 hover:text-gray-700">
                   <XIcon className="mr-2 inline" size={26} />
                 </button>
               </div>
             </div>
 
             <div className="mt-2">
-              <h4 className="font-medium mb-2 text-blue-700 border-b pb-2">Produtos Pendentes</h4>
+              <h4 className="font-medium mb-2 text-blue-700 border-b pb-2">
+                Produtos Pendentes
+                <span className="ml-2 text-sm font-normal text-gray-600">
+                  (valor a receber)
+                </span>
+              </h4>
               <div className="overflow-x-auto bg-white p-4 rounded-2xl shadow-md border border-gray-200">
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
@@ -611,7 +656,7 @@ export function InvoiceHistoryReport({
                         {isBrlSupplier ? `Valor (${moneySymbol})` : "Valor ($)"}
                       </th>
                       <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Peso (kg)
+                        Peso total (kg)
                       </th>
                       <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                         {isBrlSupplier ? `Total (${moneySymbol})` : "Total ($)"}
@@ -655,28 +700,39 @@ export function InvoiceHistoryReport({
                             </div>
                           </td>
                           <td className="px-4 py-2 text-sm text-right">
-                            {product.quantity - product.quantityAnalizer - product.receivedQuantity}
+                            {remainingQty(product)}
                           </td>
                           <td className="px-4 py-2 text-sm text-right">
                             {formatProductMoney(product.value, supplierCurrency)}
                           </td>
-                          <td className="px-4 py-2 text-sm text-right">{product.weight.toFixed(2)}</td>
+                          <td className="px-4 py-2 text-sm text-right">{remainingWeight(product).toFixed(2)}</td>
                           <td className="px-4 py-2 text-sm text-right">
-                            {formatProductMoney(product.total, supplierCurrency)}
+                            {formatProductMoney(remainingTotal(product), supplierCurrency)}
                           </td>
                           {isEditMode && (
                             <td className="px-4 py-2 text-sm text-right">
                               <div className="flex justify-end items-center gap-2">
                                 <button
-                                  onClick={() => setSelectedProductToAnalyze(product)}
-                                  disabled={
-                                    product.quantityAnalizer + product.quantityAnalizer >= product.quantity ||
-                                    product.receivedQuantity >= product.quantity
+                                  onClick={() =>
+                                    setSelectedProductToAnalyze({
+                                      ...product,
+                                      product:
+                                        product.product ||
+                                        products.find((p) => p.id === product.productId) || {
+                                          id: product.productId,
+                                          name: "Produto",
+                                          code: "",
+                                          priceweightAverage: 0,
+                                          weightAverage: 0,
+                                          description: "",
+                                          active: true,
+                                        },
+                                    })
                                   }
+                                  disabled={remainingQty(product) <= 0}
                                   className={`flex items-center gap-1 text-white px-2 py-1 rounded-md text-sm transition font-medium shadow-sm 
                       ${
-                        product.quantityAnalizer + product.quantityAnalizer >= product.quantity ||
-                        product.receivedQuantity >= product.quantity
+                        remainingQty(product) <= 0
                           ? "bg-gray-400 cursor-not-allowed opacity-60"
                           : "bg-yellow-600 hover:bg-yellow-500"
                       }`}
@@ -859,43 +915,33 @@ export function InvoiceHistoryReport({
                       ))}
                     <tr className="bg-yellow-100 font-semibold">
                       <td className="flex flex-start items-center px-4 py-2 text-sm text-right text-gray-800">
-                        Subtotal
+                        Subtotal pendente
                       </td>
                       <td className="px-4 py-2 text-sm text-right text-gray-800">
                         {selectedInvoice.products
                           .filter((item) => {
                             if (item.received) return false;
-                            const availableQuantity = item.quantity - item.quantityAnalizer - item.receivedQuantity;
-                            return availableQuantity > 0;
+                            return remainingQty(item) > 0;
                           })
-                          .reduce(
-                            (sum, item) => sum + (item.quantity - item.quantityAnalizer - item.receivedQuantity),
-                            0
-                          )}
+                          .reduce((sum, item) => sum + remainingQty(item), 0)}
                       </td>
                       <td className="px-4 py-2 text-sm text-right text-gray-800">—</td>
                       <td className="px-4 py-2 text-sm text-right text-gray-800">
                         {selectedInvoice.products
                           .filter((item) => {
                             if (item.received) return false;
-                            const availableQuantity = item.quantity - item.quantityAnalizer - item.receivedQuantity;
-                            return availableQuantity > 0;
+                            return remainingQty(item) > 0;
                           })
-                          .reduce(
-                            (sum, item) =>
-                              sum + item.weight * (item.quantity - item.quantityAnalizer - item.receivedQuantity),
-                            0
-                          )
+                          .reduce((sum, item) => sum + remainingWeight(item), 0)
                           .toFixed(2)}
                       </td>
                       <td className="px-4 py-2 text-sm text-right text-gray-800">
                         {selectedInvoice.products
                           .filter((item) => {
                             if (item.received) return false;
-                            const availableQuantity = item.quantity - item.quantityAnalizer - item.receivedQuantity;
-                            return availableQuantity > 0;
+                            return remainingQty(item) > 0;
                           })
-                          .reduce((sum, item) => sum + item.total, 0)
+                          .reduce((sum, item) => sum + remainingTotal(item), 0)
                           .toLocaleString("pt-BR", {
                             minimumFractionDigits: 2,
                             maximumFractionDigits: 2,
@@ -924,7 +970,7 @@ export function InvoiceHistoryReport({
                         {isBrlSupplier ? `Valor (${moneySymbol})` : "Valor ($)"}
                       </th>
                       <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Peso (kg)
+                        Peso total (kg)
                       </th>
                       <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                         {isBrlSupplier ? `Total (${moneySymbol})` : "Total ($)"}
@@ -977,7 +1023,9 @@ export function InvoiceHistoryReport({
                               });
                             })()}
                           </td>
-                          <td className="px-4 py-2 text-sm text-right">{product.weight.toFixed(2)}</td>
+                          <td className="px-4 py-2 text-sm text-right">
+                            {(product.weight * Math.abs(product.quantityAnalizer)).toFixed(2)}
+                          </td>
                           <td className="px-4 py-2 text-sm text-right">
                             {(() => {
                               const taxCarrie = selectedInvoice.carrier
@@ -1082,6 +1130,7 @@ export function InvoiceHistoryReport({
                           <button
                             onClick={async () => {
                               setIsSavingId("all");
+                              try {
                               const productsToReceive = selectedInvoice.products.filter(
                                 (item) => item.analising && !item.received
                               );
@@ -1150,7 +1199,11 @@ export function InvoiceHistoryReport({
                                 });
                               }
 
-                              setIsSavingId(""); // encerra loading
+                              } catch (error) {
+                                console.error("Erro ao receber todos os produtos:", error);
+                              } finally {
+                                setIsSavingId("");
+                              }
                             }}
                             disabled={isSavingId === "all"}
                             className={`ml-auto flex items-center gap-2 px-3 py-1 rounded-md text-sm font-medium shadow-sm transition
@@ -1279,7 +1332,7 @@ export function InvoiceHistoryReport({
                         {isBrlSupplier ? `Valor (${moneySymbol})` : "Valor ($)"}
                       </th>
                       <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Peso (kg)
+                        Peso total (kg)
                       </th>
                       <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                         {isBrlSupplier ? `Total (${moneySymbol})` : "Total ($)"}
@@ -1329,7 +1382,9 @@ export function InvoiceHistoryReport({
                               });
                             })()}
                           </td>
-                          <td className="px-4 py-2 text-sm text-right">{product.weight.toFixed(2)}</td>
+                          <td className="px-4 py-2 text-sm text-right">
+                            {(product.weight * product.receivedQuantity).toFixed(2)}
+                          </td>
                           <td className="px-4 py-2 text-sm text-right">
                             {(() => {
                               const taxCarrie = selectedInvoice.carrier
@@ -1578,6 +1633,7 @@ export function InvoiceHistoryReport({
                         quantityAnalizer: selectedProductToAnalyze.quantityAnalizer + quantityAnalizer,
                       },
                     });
+                    setIsSavingId("");
 
                     const { data: updatedInvoices } = await api.get("/invoice/get");
 
@@ -1592,6 +1648,7 @@ export function InvoiceHistoryReport({
                     console.error("Erro ao enviar para análise", err);
                   } finally {
                     setIsSaving(false);
+                    setIsSavingId("");
                     setSelectedProductToAnalyze(null);
                   }
                 }}

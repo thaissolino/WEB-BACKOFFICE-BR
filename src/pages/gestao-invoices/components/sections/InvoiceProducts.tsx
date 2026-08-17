@@ -84,41 +84,33 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
   const { isLoading: isActionLoading, executeAction } = useActionLoading();
 
   useEffect(() => {
-    const fetchData = async () => {
-      setIsLoading(true);
+    const fetchData = async (showSpinner = true) => {
+      if (showSpinner) setIsLoading(true);
       try {
         const [productsResponse, carriersResponse, suppliersResponse] = await Promise.all([
-          api.get("/invoice/product"),
+          api.get("/invoice/product", { params: { limit: 5000, page: 1 } }),
           api.get("/invoice/carriers"),
           api.get("/invoice/supplier"),
         ]);
-        console.log("Produtos recebidos do backend:", productsResponse.data);
-        // O backend agora retorna { products: [...], totalProducts: ..., page: ..., limit: ..., totalPages: ... }
         const productsList = Array.isArray(productsResponse.data)
           ? productsResponse.data
           : productsResponse.data.products || [];
-        console.log("Lista de produtos processada:", productsList);
-        // Verificar se os produtos têm priceweightAverage
-        if (productsList.length > 0) {
-          console.log("Primeiro produto exemplo:", productsList[0]);
-          console.log("Preço do primeiro produto:", productsList[0].priceweightAverage);
-        }
         setProducts(productsList);
         setCarriers(carriersResponse.data);
         setSuppliers(suppliersResponse.data);
       } catch (error) {
         console.error("Erro ao carregar dados:", error);
-        // Swal.fire({
-        //   icon: 'error',
-        //   title: 'Erro',
-        //   text: 'Erro ao carregar dados',
-        //   confirmButtonColor: '#3085d6',
-        // });
       } finally {
-        setIsLoading(false);
+        if (showSpinner) setIsLoading(false);
       }
     };
     fetchData();
+
+    const handleProductsUpdated = () => {
+      fetchData(false);
+    };
+    window.addEventListener("productsUpdated", handleProductsUpdated);
+    return () => window.removeEventListener("productsUpdated", handleProductsUpdated);
   }, []);
 
   const supplierCurrency: SupplierCurrency =
@@ -250,7 +242,7 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
   // (snapshot quando existir, senão o valor atual do cadastro do freteiro).
   const shippingStrategies: Record<string, (rate: number, item: InvoiceProduct) => number> = {
     percentage: (rate, item) => item.value * (rate / 100) * item.quantity,
-    perKg: (rate, item) => item.weight * rate,
+    perKg: (rate, item) => item.weight * item.quantity * rate,
     perUnit: (rate, item) => item.quantity * rate,
   };
 
@@ -352,7 +344,7 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
     });
 
     resetProductAddFields();
-    setShowProductForm(false);
+    setShowProductForm(true);
   };
 
   const handleImportSuccess = (data: any) => {
@@ -814,6 +806,10 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
   }
 
   const totalQuantidade = currentInvoice.products.reduce((sum, product) => sum + product.quantity, 0);
+  const totalPeso = currentInvoice.products.reduce(
+    (sum, product) => sum + (Number(product.weight) || 0) * (Number(product.quantity) || 0),
+    0
+  );
 
   return (
     <div className="lg:col-span-2 bg-white p-6 rounded-lg shadow-md">
@@ -1126,7 +1122,7 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
                   Valor ({moneySymbol})
                 </th>
                 <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Peso (kg)
+                  Peso total (kg)
                 </th>
                 <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Total ({moneySymbol})
@@ -1237,7 +1233,9 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
                         <td className="px-4 py-2 text-sm text-right">
                           {formatProductMoney(product.value, supplierCurrency)}
                         </td>
-                        <td className="px-4 py-2 text-sm text-right">{product.weight.toFixed(2)}</td>
+                        <td className="px-4 py-2 text-sm text-right">
+                          {((Number(product.weight) || 0) * (Number(product.quantity) || 0)).toFixed(2)}
+                        </td>
                         <td className="px-4 py-2 text-sm text-right">
                           {formatProductMoney(product.total, supplierCurrency)}
                         </td>
@@ -1310,11 +1308,13 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
                 </p>
               </div>
 
-              {/* TOTAL DE ITENS */}
+              {/* TOTAL DE ITENS + PESO */}
               <div className="bg-gray-50 p-4 rounded-2xl border shadow-sm text-center">
-                <p className="text-sm text-gray-600">Total de Itens (Qtd):</p>
+                <p className="text-sm text-gray-600">Total de Itens / Peso:</p>
                 <p id="taxCost" className="text-lg font-bold mt-1">
                   Qtd {totalQuantidade}
+                  <span className="mx-2 text-gray-400 font-normal">·</span>
+                  {totalPeso.toFixed(2)} kg
                 </p>
               </div>
             </div>
