@@ -59,11 +59,25 @@ export function ProductImeis({ invoiceProductId, productName }: ProductImeisProp
   };
 
   const parseInput = (input: string) => {
-    const rawTokens = input
+    const chunks = input
       .split(/[,\n;:]+/g)
-      .flatMap((chunk) => chunk.split(/\s+/g))
       .map((item) => item.trim())
       .filter(Boolean);
+
+    const rawTokens: string[] = [];
+    for (const chunk of chunks) {
+      const digitsOnly = chunk.replace(/[^\d]/g, "");
+      if (/^\d{15}$/.test(digitsOnly) && /^[\d\s]+$/.test(chunk)) {
+        rawTokens.push(digitsOnly);
+        continue;
+      }
+      rawTokens.push(
+        ...chunk
+          .split(/\s+/g)
+          .map((item) => item.trim())
+          .filter(Boolean),
+      );
+    }
 
     const valid: string[] = [];
     const invalid: string[] = [];

@@ -16,18 +16,41 @@ export type IdentifierInputPreview = {
 
 const normalizeCandidate = (value: string): string => value.replace(/[^A-Za-z0-9]/g, "").toUpperCase();
 
+/** Normaliza IMEI/serial removendo espaços, hífens etc. Ex.: "35 003523 653788 4" → "350035236537884" */
+export const normalizeImeiOrSerial = normalizeCandidate;
+
 const isValidImei = (value: string): boolean => /^\d{15}$/.test(value);
 
 const isValidSerial = (value: string): boolean => /^(?=.*[A-Z])(?=.*\d)[A-Z0-9]{10,15}$/.test(value);
 
 const isValidIdentifier = (value: string): boolean => isValidImei(value) || isValidSerial(value);
 
-const tokenizeIdentifiers = (input: string): string[] =>
-  input
+const tokenizeIdentifiers = (input: string): string[] => {
+  const chunks = input
     .split(/[,\n;:]+/g)
-    .flatMap((chunk) => chunk.split(/\s+/g))
-    .map((item) => item.trim())
+    .map((chunk) => chunk.trim())
     .filter(Boolean);
+
+  const tokens: string[] = [];
+
+  for (const chunk of chunks) {
+    // Linha só com dígitos/espaços formando um IMEI de 15 dígitos (ex. tela Sobre do iPhone)
+    const digitsOnly = chunk.replace(/[^\d]/g, "");
+    if (/^\d{15}$/.test(digitsOnly) && /^[\d\s]+$/.test(chunk)) {
+      tokens.push(digitsOnly);
+      continue;
+    }
+
+    tokens.push(
+      ...chunk
+        .split(/\s+/g)
+        .map((item) => item.trim())
+        .filter(Boolean),
+    );
+  }
+
+  return tokens;
+};
 
 export const previewIdentifiersInput = (existing: string[], input: string): IdentifierInputPreview => {
   const tokens = tokenizeIdentifiers(input);

@@ -55,10 +55,25 @@ interface ImeiListResponse {
 const AFI_SUPPLIER_REGEX = /AFI\s+WIRELESS\s+INC/i;
 
 function parseBulkIdentifiers(input: string): string[] {
-  const tokens = input
-    .split(/[\s,.;:\n\r\t]+/g)
+  const chunks = input
+    .split(/[,;:\n\r]+/g)
     .map((item) => item.trim())
     .filter(Boolean);
+
+  const tokens: string[] = [];
+  for (const chunk of chunks) {
+    const digitsOnly = chunk.replace(/[^\d]/g, "");
+    if (/^\d{15}$/.test(digitsOnly) && /^[\d\s]+$/.test(chunk)) {
+      tokens.push(digitsOnly);
+      continue;
+    }
+    tokens.push(
+      ...chunk
+        .split(/[\s.]+/g)
+        .map((item) => item.replace(/[^A-Za-z0-9]/g, "").toUpperCase())
+        .filter((item) => item.length >= 10),
+    );
+  }
 
   return Array.from(new Set(tokens));
 }

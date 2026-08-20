@@ -4,6 +4,7 @@ import { api } from "../../../../services/api";
 import { useNotification } from "../../../../hooks/notification";
 import { matchSearchTerms } from "../utils/searchMatch";
 import { formatDateToBR } from "../utils/format";
+import { normalizeImeiOrSerial } from "../utils/imeiInput";
 
 interface ImeiData {
   id: string;
@@ -92,14 +93,19 @@ export function ImeiSearchTab() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Filtrar IMEIs conforme digita (busca por múltiplos termos: imei, produto, invoice)
+  // Filtrar IMEIs conforme digita (busca por IMEI normalizado + produto/invoice)
   useEffect(() => {
     if (!searchTerm.trim()) {
       setFilteredImeis(allImeis);
     } else {
-      const searchableText = (item: ImeiListItem) =>
-        `${item.imei} ${item.productName} ${item.invoiceNumber}`.trim();
-      const filtered = allImeis.filter((item) => matchSearchTerms(searchTerm, searchableText(item)));
+      const normalizedSearch = normalizeImeiOrSerial(searchTerm);
+      const filtered = allImeis.filter((item) => {
+        const normalizedImei = normalizeImeiOrSerial(item.imei);
+        if (normalizedSearch && normalizedImei.includes(normalizedSearch)) {
+          return true;
+        }
+        return matchSearchTerms(searchTerm, `${item.productName} ${item.invoiceNumber}`.trim());
+      });
       setFilteredImeis(filtered);
     }
   }, [searchTerm, allImeis]);
@@ -159,10 +165,11 @@ export function ImeiSearchTab() {
   };
 
   const handleSearch = async (imeiToSearch?: string) => {
-    const trimmedImei = imeiToSearch || searchTerm.trim();
+    const rawImei = imeiToSearch || searchTerm;
+    const normalizedImei = normalizeImeiOrSerial(rawImei);
 
     // Se estiver vazio, listar todos os IMEIs
-    if (!trimmedImei) {
+    if (!normalizedImei && !rawImei.trim()) {
       if (allImeisData.length > 0) {
         // Mostrar listagem de todos os IMEIs
         setImeiData(null);
@@ -179,14 +186,25 @@ export function ImeiSearchTab() {
       }
     }
 
+    if (normalizedImei.length < 10) {
+      setOpenNotification({
+        type: "warning",
+        title: "Atenção",
+        notification: "Informe um IMEI com pelo menos 10 caracteres (espaços são ignorados).",
+      });
+      return;
+    }
+
     setIsSearching(true);
     setNotFound(false);
     setImeiData(null);
     setShowDropdown(false);
 
     try {
-      // ✅ CORRETO: Endpoint é /invoice/imei/search (singular), não /invoice/imeis/search (plural)
-      const response = await api.get(`/invoice/imei/search?imei=${encodeURIComponent(trimmedImei)}`);
+      // Endpoint: /invoice/imei/search (singular). Envia IMEI já normalizado (sem espaços).
+      const response = await api.get(`/invoice/imei/search`, {
+        params: { imei: normalizedImei },
+      });
       setImeiData(response.data);
       setNotFound(false);
     } catch (error: any) {
@@ -241,7 +259,7 @@ export function ImeiSearchTab() {
             <div className="relative flex-1">
               <input
                 type="text"
-                placeholder="Digite ou selecione um IMEI"
+                placeholder="Digite ou cole o IMEI (espaços são ignorados)"
                 value={searchTerm}
                 onChange={(e) => {
                   setSearchTerm(e.target.value);
@@ -326,7 +344,7 @@ export function ImeiSearchTab() {
       {notFound && (
         <div className="bg-yellow-50 border border-yellow-200 rounded-2xl p-6 text-center">
           <div className="text-yellow-600 text-lg font-semibold mb-2">IMEI não encontrado</div>
-          <p className="text-gray-600">O IMEI <strong>{searchTerm}</strong> não está cadastrado no sistema.</p>
+          <p className="text-gray-600">O IMEI <strong className="font-mono">{normalizeImeiOrSerial(searchTerm) || searchTerm}</strong> não está cadastrado no sistema.</p>
         </div>
       )}
 
