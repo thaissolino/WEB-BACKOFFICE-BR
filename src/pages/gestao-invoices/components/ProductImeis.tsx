@@ -166,7 +166,7 @@ export function ProductImeis({ invoiceProductId, productName }: ProductImeisProp
         onChange={(e) => setDraftInput(e.target.value)}
         rows={4}
         placeholder="Cole IMEIs/seriais separados por vírgula, ponto e vírgula, dois pontos, espaço ou quebra de linha"
-        className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:ring-2 focus:ring-blue-400 focus:border-blue-400"
+        className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs text-gray-900 placeholder:text-gray-500 font-mono focus:ring-2 focus:ring-blue-400 focus:border-blue-400"
       />
       <div className="text-[11px] text-gray-500">
         Formato aceito: IMEI (15 dígitos) ou serial alfanumérico (10–15, com letra e número). Pode colar vários de uma vez.
@@ -256,7 +256,7 @@ export function ProductImeis({ invoiceProductId, productName }: ProductImeisProp
                     key={imei.id || index}
                     className="flex items-center justify-between bg-white border border-gray-200 rounded px-2 py-1.5 hover:bg-blue-50 transition-colors"
                   >
-                    <span className="text-xs font-mono text-gray-800">{imei.imei}</span>
+                    <span className="text-xs font-mono text-black">{imei.imei}</span>
                     <button
                       onClick={() => copyToClipboard(imei.imei)}
                       className="text-blue-600 hover:text-blue-700 p-1"

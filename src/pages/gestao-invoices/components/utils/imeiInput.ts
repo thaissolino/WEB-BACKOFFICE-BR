@@ -16,7 +16,12 @@ export type IdentifierInputPreview = {
 
 const normalizeCandidate = (value: string): string => value.replace(/[^A-Za-z0-9]/g, "").toUpperCase();
 
-/** Normaliza IMEI/serial removendo espaços, hífens etc. Ex.: "35 003523 653788 4" → "350035236537884" */
+/**
+ * Normaliza IMEI/serial removendo espaços, hífens etc.
+ * Casos de teste:
+ * - "35 003523 653788 4" → "350035236537884"
+ * - "35 003523 691618 7" → "350035236916187"
+ */
 export const normalizeImeiOrSerial = normalizeCandidate;
 
 const isValidImei = (value: string): boolean => /^\d{15}$/.test(value);
