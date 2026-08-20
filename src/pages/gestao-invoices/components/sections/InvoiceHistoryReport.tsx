@@ -656,7 +656,7 @@ export function InvoiceHistoryReport({
                         {isBrlSupplier ? `Valor (${moneySymbol})` : "Valor ($)"}
                       </th>
                       <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Peso total (kg)
+                        Peso (kg)
                       </th>
                       <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                         {isBrlSupplier ? `Total (${moneySymbol})` : "Total ($)"}
@@ -705,7 +705,9 @@ export function InvoiceHistoryReport({
                           <td className="px-4 py-2 text-sm text-right">
                             {formatProductMoney(product.value, supplierCurrency)}
                           </td>
-                          <td className="px-4 py-2 text-sm text-right">{remainingWeight(product).toFixed(2)}</td>
+                          <td className="px-4 py-2 text-sm text-right">
+                            {(Number(product.weight) || 0).toFixed(2)}
+                          </td>
                           <td className="px-4 py-2 text-sm text-right">
                             {formatProductMoney(remainingTotal(product), supplierCurrency)}
                           </td>
@@ -970,7 +972,7 @@ export function InvoiceHistoryReport({
                         {isBrlSupplier ? `Valor (${moneySymbol})` : "Valor ($)"}
                       </th>
                       <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Peso total (kg)
+                        Peso (kg)
                       </th>
                       <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                         {isBrlSupplier ? `Total (${moneySymbol})` : "Total ($)"}
@@ -1024,7 +1026,7 @@ export function InvoiceHistoryReport({
                             })()}
                           </td>
                           <td className="px-4 py-2 text-sm text-right">
-                            {(product.weight * Math.abs(product.quantityAnalizer)).toFixed(2)}
+                            {(Number(product.weight) || 0).toFixed(2)}
                           </td>
                           <td className="px-4 py-2 text-sm text-right">
                             {(() => {
@@ -1332,7 +1334,7 @@ export function InvoiceHistoryReport({
                         {isBrlSupplier ? `Valor (${moneySymbol})` : "Valor ($)"}
                       </th>
                       <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Peso total (kg)
+                        Peso (kg)
                       </th>
                       <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                         {isBrlSupplier ? `Total (${moneySymbol})` : "Total ($)"}
@@ -1383,7 +1385,7 @@ export function InvoiceHistoryReport({
                             })()}
                           </td>
                           <td className="px-4 py-2 text-sm text-right">
-                            {(product.weight * product.receivedQuantity).toFixed(2)}
+                            {(Number(product.weight) || 0).toFixed(2)}
                           </td>
                           <td className="px-4 py-2 text-sm text-right">
                             {(() => {

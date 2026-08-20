@@ -79,6 +79,11 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
   const [productPickMode, setProductPickMode] = useState<"name" | "code" | null>(null);
   const [codeInput, setCodeInput] = useState("");
   const [editingProductIndex, setEditingProductIndex] = useState<number | null>(null);
+  const [editingCell, setEditingCell] = useState<{
+    index: number;
+    field: "value" | "weight" | "total";
+  } | null>(null);
+  const [editingValue, setEditingValue] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const { setOpenNotification } = useNotification();
   const { isLoading: isActionLoading, executeAction } = useActionLoading();
@@ -161,8 +166,57 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
     setCurrentInvoice({ ...currentInvoice, products: newProducts });
   };
 
+  const commitProductCell = (
+    index: number,
+    field: "value" | "weight" | "total",
+    raw: string
+  ) => {
+    const product = currentInvoice.products[index];
+    if (!product) {
+      setEditingCell(null);
+      setEditingValue("");
+      return;
+    }
+
+    const parsed = raw.trim() === "" ? 0 : parseFloat(raw.replace(",", "."));
+    if (isNaN(parsed) || parsed < 0) {
+      setEditingCell(null);
+      setEditingValue("");
+      return;
+    }
+
+    const quantity = Number(product.quantity) || 0;
+    let nextValue = Number(product.value) || 0;
+    let nextWeight = Number(product.weight) || 0;
+    let nextTotal = Number(product.total) || 0;
+
+    if (field === "value") {
+      nextValue = parsed;
+      nextTotal = nextValue * quantity;
+    } else if (field === "weight") {
+      nextWeight = parsed;
+    } else {
+      nextTotal = parsed;
+      nextValue = quantity > 0 ? nextTotal / quantity : 0;
+    }
+
+    const newProducts = [...currentInvoice.products];
+    newProducts[index] = {
+      ...product,
+      value: nextValue,
+      weight: nextWeight,
+      total: nextTotal,
+      price: nextValue,
+    };
+    setCurrentInvoice({ ...currentInvoice, products: newProducts });
+    setEditingCell(null);
+    setEditingValue("");
+  };
+
   const editProduct = (index: number) => {
     const product = currentInvoice.products[index];
+    setEditingCell(null);
+    setEditingValue("");
     setProductForm({
       productId: product.id,
       quantity: product.quantity.toString(),
@@ -178,6 +232,8 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
 
   const cancelEdit = () => {
     setEditingProductIndex(null);
+    setEditingCell(null);
+    setEditingValue("");
     resetProductAddFields();
   };
 
@@ -1042,7 +1098,7 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Peso (kg)</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Peso unitário (kg)</label>
               <input
                 type="number"
                 step="0.01"
@@ -1122,7 +1178,7 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
                   Valor ({moneySymbol})
                 </th>
                 <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Peso total (kg)
+                  Peso (kg)
                 </th>
                 <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Total ({moneySymbol})
@@ -1191,7 +1247,7 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
                             />
                           </div>
                           <div className="w-20">
-                            <label className="block text-xs font-medium text-gray-600 mb-1">Peso</label>
+                            <label className="block text-xs font-medium text-gray-600 mb-1">Peso unit.</label>
                             <input
                               type="number"
                               step="0.01"
@@ -1230,14 +1286,104 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
                             "-"}
                         </td>
                         <td className="px-4 py-2 text-sm text-right">{product.quantity}</td>
-                        <td className="px-4 py-2 text-sm text-right">
-                          {formatProductMoney(product.value, supplierCurrency)}
+                        <td
+                          className="px-4 py-2 text-sm text-right"
+                          onDoubleClick={() => {
+                            if (isActionLoading) return;
+                            setEditingCell({ index, field: "value" });
+                            setEditingValue(String(product.value ?? ""));
+                          }}
+                          title="Clique duas vezes para editar o valor unitário"
+                        >
+                          {editingCell?.index === index && editingCell.field === "value" ? (
+                            <input
+                              autoFocus
+                              type="text"
+                              inputMode="decimal"
+                              value={editingValue}
+                              onChange={(e) => setEditingValue(e.target.value)}
+                              onBlur={() => commitProductCell(index, "value", editingValue)}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") {
+                                  e.preventDefault();
+                                  commitProductCell(index, "value", editingValue);
+                                }
+                                if (e.key === "Escape") {
+                                  setEditingCell(null);
+                                  setEditingValue("");
+                                }
+                              }}
+                              className="w-24 ml-auto text-right border border-blue-400 rounded px-2 py-1"
+                            />
+                          ) : (
+                            formatProductMoney(product.value, supplierCurrency)
+                          )}
                         </td>
-                        <td className="px-4 py-2 text-sm text-right">
-                          {((Number(product.weight) || 0) * (Number(product.quantity) || 0)).toFixed(2)}
+                        <td
+                          className="px-4 py-2 text-sm text-right"
+                          onDoubleClick={() => {
+                            if (isActionLoading) return;
+                            setEditingCell({ index, field: "weight" });
+                            setEditingValue(String(product.weight ?? ""));
+                          }}
+                          title="Clique duas vezes para editar o peso unitário"
+                        >
+                          {editingCell?.index === index && editingCell.field === "weight" ? (
+                            <input
+                              autoFocus
+                              type="text"
+                              inputMode="decimal"
+                              value={editingValue}
+                              onChange={(e) => setEditingValue(e.target.value)}
+                              onBlur={() => commitProductCell(index, "weight", editingValue)}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") {
+                                  e.preventDefault();
+                                  commitProductCell(index, "weight", editingValue);
+                                }
+                                if (e.key === "Escape") {
+                                  setEditingCell(null);
+                                  setEditingValue("");
+                                }
+                              }}
+                              className="w-24 ml-auto text-right border border-blue-400 rounded px-2 py-1"
+                            />
+                          ) : (
+                            (Number(product.weight) || 0).toFixed(2)
+                          )}
                         </td>
-                        <td className="px-4 py-2 text-sm text-right">
-                          {formatProductMoney(product.total, supplierCurrency)}
+                        <td
+                          className="px-4 py-2 text-sm text-right"
+                          onDoubleClick={() => {
+                            if (isActionLoading) return;
+                            setEditingCell({ index, field: "total" });
+                            setEditingValue(String(product.total ?? ""));
+                          }}
+                          title="Clique duas vezes para editar o total (recalcula o valor unitário)"
+                        >
+                          {editingCell?.index === index && editingCell.field === "total" ? (
+                            <input
+                              autoFocus
+                              type="text"
+                              inputMode="decimal"
+                              value={editingValue}
+                              onChange={(e) => setEditingValue(e.target.value)}
+                              onBlur={() => commitProductCell(index, "total", editingValue)}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") {
+                                  e.preventDefault();
+                                  commitProductCell(index, "total", editingValue);
+                                }
+                                if (e.key === "Escape") {
+                                  setEditingCell(null);
+                                  setEditingValue("");
+                                }
+                              }}
+                              className="w-24 ml-auto text-right border border-blue-400 rounded px-2 py-1"
+                            />
+                          ) : (
+                            formatProductMoney(product.total, supplierCurrency)
+                          )}
                         </td>
                         <td className="px-4 py-2 text-center">
                           <div className="flex items-center justify-center gap-2">
