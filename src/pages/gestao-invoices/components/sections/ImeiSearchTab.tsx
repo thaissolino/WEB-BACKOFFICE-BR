@@ -6,14 +6,18 @@ import { matchSearchTerms } from "../utils/searchMatch";
 import { formatDateToBR } from "../utils/format";
 import { normalizeImeiOrSerial } from "../utils/imeiInput";
 
+/** Alinhado ao backend (IMEI_SEARCH_MIN_LENGTH) — LIKE / contains. */
+const IMEI_SEARCH_MIN_LENGTH = 8;
+
 interface ImeiData {
-  id: string;
+  id?: string;
   imei: string;
   createdAt: string;
   product: {
     id: string;
     name: string;
     code: string;
+    description?: string | null;
   };
   invoice: {
     id: string;
@@ -41,6 +45,11 @@ interface ImeiData {
   };
 }
 
+interface ImeiSearchResponse extends ImeiData {
+  count?: number;
+  results?: ImeiData[];
+}
+
 interface ImeiListResponse {
   imeis: ImeiData[];
   pagination: {
@@ -57,6 +66,26 @@ interface ImeiListItem {
   invoiceNumber: string;
 }
 
+function toListItem(item: ImeiData): ImeiListItem {
+  return {
+    imei: item.imei,
+    productName: item.product?.name ?? "",
+    invoiceNumber: item.invoice?.number ?? "",
+  };
+}
+
+function filterImeisLocally(items: ImeiListItem[], term: string): ImeiListItem[] {
+  if (!term.trim()) return items;
+  const normalizedSearch = normalizeImeiOrSerial(term);
+  return items.filter((item) => {
+    const normalizedImei = normalizeImeiOrSerial(item.imei);
+    if (normalizedSearch && normalizedImei.includes(normalizedSearch)) {
+      return true;
+    }
+    return matchSearchTerms(term, `${item.productName} ${item.invoiceNumber}`.trim());
+  });
+}
+
 export function ImeiSearchTab() {
   const [searchTerm, setSearchTerm] = useState("");
   const [isSearching, setIsSearching] = useState(false);
@@ -65,6 +94,7 @@ export function ImeiSearchTab() {
   const [allImeis, setAllImeis] = useState<ImeiListItem[]>([]);
   const [filteredImeis, setFilteredImeis] = useState<ImeiListItem[]>([]);
   const [isLoadingImeis, setIsLoadingImeis] = useState(false);
+  const [isFilteringRemote, setIsFilteringRemote] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
   const [allImeisData, setAllImeisData] = useState<ImeiData[]>([]);
   const [pagination, setPagination] = useState({
@@ -74,14 +104,13 @@ export function ImeiSearchTab() {
     totalPages: 0,
   });
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const remoteFilterSeq = useRef(0);
   const { setOpenNotification } = useNotification();
 
-  // Carregar todos os IMEIs ao montar o componente
   useEffect(() => {
     fetchAllImeis();
   }, []);
 
-  // Fechar dropdown ao clicar fora
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
@@ -93,51 +122,104 @@ export function ImeiSearchTab() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Filtrar IMEIs conforme digita (busca por IMEI normalizado + produto/invoice)
+  // Filtro local imediato + busca remota normalizada (com/sem espaços) se a página local não tiver o IMEI
   useEffect(() => {
     if (!searchTerm.trim()) {
       setFilteredImeis(allImeis);
-    } else {
-      const normalizedSearch = normalizeImeiOrSerial(searchTerm);
-      const filtered = allImeis.filter((item) => {
-        const normalizedImei = normalizeImeiOrSerial(item.imei);
-        if (normalizedSearch && normalizedImei.includes(normalizedSearch)) {
-          return true;
-        }
-        return matchSearchTerms(searchTerm, `${item.productName} ${item.invoiceNumber}`.trim());
-      });
-      setFilteredImeis(filtered);
+      setIsFilteringRemote(false);
+      return;
     }
+
+    const localFiltered = filterImeisLocally(allImeis, searchTerm);
+    setFilteredImeis(localFiltered);
+
+    const normalizedSearch = normalizeImeiOrSerial(searchTerm);
+    // Busca no servidor quando não achou na página local e o termo parece IMEI (≥ min chars)
+    if (localFiltered.length > 0 || normalizedSearch.length < IMEI_SEARCH_MIN_LENGTH) {
+      setIsFilteringRemote(false);
+      return;
+    }
+
+    const seq = ++remoteFilterSeq.current;
+    setIsFilteringRemote(true);
+    const timer = setTimeout(async () => {
+      try {
+        const response = await api.get<ImeiListResponse>("/invoice/imeis/list-all", {
+          params: {
+            page: 1,
+            limit: 50,
+            imei: normalizedSearch,
+          },
+        });
+        if (seq !== remoteFilterSeq.current) return;
+
+        const remoteList = (response.data.imeis || []).map(toListItem);
+        setFilteredImeis(remoteList);
+
+        // Mescla no cache local para próximas digitações
+        if (remoteList.length > 0) {
+          setAllImeis((prev) => {
+            const seen = new Set(prev.map((item) => normalizeImeiOrSerial(item.imei)));
+            const merged = [...prev];
+            for (const item of remoteList) {
+              const key = normalizeImeiOrSerial(item.imei);
+              if (!seen.has(key)) {
+                seen.add(key);
+                merged.push(item);
+              }
+            }
+            return merged;
+          });
+          setAllImeisData((prev) => {
+            const seen = new Set(prev.map((item) => normalizeImeiOrSerial(item.imei)));
+            const merged = [...prev];
+            for (const item of response.data.imeis || []) {
+              const key = normalizeImeiOrSerial(item.imei);
+              if (!seen.has(key)) {
+                seen.add(key);
+                merged.push(item);
+              }
+            }
+            return merged;
+          });
+        }
+      } catch {
+        if (seq === remoteFilterSeq.current) {
+          // Mantém lista local vazia; o botão Buscar ainda consulta /imei/search
+        }
+      } finally {
+        if (seq === remoteFilterSeq.current) {
+          setIsFilteringRemote(false);
+        }
+      }
+    }, 300);
+
+    return () => {
+      clearTimeout(timer);
+    };
   }, [searchTerm, allImeis]);
 
   const fetchAllImeis = async (page: number = 1, limit: number = 100) => {
     setIsLoadingImeis(true);
     try {
-      // Endpoint com paginação e suporte a filtros opcionais
       const response = await api.get<ImeiListResponse>("/invoice/imeis/list-all", {
         params: {
           page,
           limit,
         },
       });
-      
+
       const data: ImeiListResponse = response.data;
       const imeisData: ImeiData[] = data.imeis || [];
-      
-      // Se for a primeira página, substituir; senão, adicionar (para scroll infinito futuro)
+
       if (page === 1) {
         setAllImeisData(imeisData);
       } else {
         setAllImeisData((prev) => [...prev, ...imeisData]);
       }
-      
-      // Atualizar lista simplificada para dropdown
-      const imeisList: ImeiListItem[] = imeisData.map((item: ImeiData) => ({
-        imei: item.imei,
-        productName: item.product?.name ?? "",
-        invoiceNumber: item.invoice?.number ?? "",
-      }));
-      
+
+      const imeisList: ImeiListItem[] = imeisData.map(toListItem);
+
       if (page === 1) {
         setAllImeis(imeisList);
         setFilteredImeis(imeisList);
@@ -145,15 +227,12 @@ export function ImeiSearchTab() {
         setAllImeis((prev) => [...prev, ...imeisList]);
         setFilteredImeis((prev) => [...prev, ...imeisList]);
       }
-      
-      // Atualizar paginação
+
       if (data.pagination) {
         setPagination(data.pagination);
       }
     } catch (error: any) {
       console.warn("Lista de IMEIs não carregada:", error?.response?.status ?? error?.message);
-      // Não mostrar erro para o usuário - apenas logar e deixar lista vazia
-      // A busca individual ainda funciona mesmo sem a lista completa
       if (page === 1) {
         setAllImeis([]);
         setFilteredImeis([]);
@@ -168,29 +247,26 @@ export function ImeiSearchTab() {
     const rawImei = imeiToSearch || searchTerm;
     const normalizedImei = normalizeImeiOrSerial(rawImei);
 
-    // Se estiver vazio, listar todos os IMEIs
     if (!normalizedImei && !rawImei.trim()) {
       if (allImeisData.length > 0) {
-        // Mostrar listagem de todos os IMEIs
         setImeiData(null);
         setNotFound(false);
         setShowDropdown(false);
         return;
-      } else {
-        setOpenNotification({
-          type: "warning",
-          title: "Atenção",
-          notification: "Nenhum IMEI cadastrado no sistema",
-        });
-        return;
       }
-    }
-
-    if (normalizedImei.length < 10) {
       setOpenNotification({
         type: "warning",
         title: "Atenção",
-        notification: "Informe um IMEI com pelo menos 10 caracteres (espaços são ignorados).",
+        notification: "Nenhum IMEI cadastrado no sistema",
+      });
+      return;
+    }
+
+    if (normalizedImei.length < IMEI_SEARCH_MIN_LENGTH) {
+      setOpenNotification({
+        type: "warning",
+        title: "Atenção",
+        notification: `Informe pelo menos ${IMEI_SEARCH_MIN_LENGTH} caracteres do IMEI (espaços são ignorados). Busca parcial é permitida.`,
       });
       return;
     }
@@ -201,12 +277,58 @@ export function ImeiSearchTab() {
     setShowDropdown(false);
 
     try {
-      // Endpoint: /invoice/imei/search (singular). Envia IMEI já normalizado (sem espaços).
-      const response = await api.get(`/invoice/imei/search`, {
+      // Sempre envia normalizado: "35 003523 653788 4" → "350035236537884"
+      // API: exact → LIKE contains; pode devolver 1 objeto ou vários em results[]
+      const response = await api.get<ImeiSearchResponse>(`/invoice/imei/search`, {
         params: { imei: normalizedImei },
       });
-      setImeiData(response.data);
+      const data = response.data;
+      const results =
+        Array.isArray(data.results) && data.results.length > 0
+          ? data.results
+          : data.imei
+            ? [data]
+            : [];
+
+      if (results.length === 0) {
+        setNotFound(true);
+        setImeiData(null);
+        return;
+      }
+
+      if (results.length === 1) {
+        setImeiData(results[0]);
+        setNotFound(false);
+        return;
+      }
+
+      // Vários matches (LIKE): popula dropdown para o usuário escolher
+      const listItems = results.map((item) => ({
+        imei: item.imei,
+        productName: item.product?.name ?? "",
+        invoiceNumber: item.invoice?.number ?? "",
+      }));
+      setFilteredImeis(listItems);
+      setAllImeisData((prev) => {
+        const seen = new Set(prev.map((item) => normalizeImeiOrSerial(item.imei)));
+        const merged = [...prev];
+        for (const item of results) {
+          const key = normalizeImeiOrSerial(item.imei);
+          if (!seen.has(key)) {
+            seen.add(key);
+            merged.push(item);
+          }
+        }
+        return merged;
+      });
+      setImeiData(null);
       setNotFound(false);
+      setShowDropdown(true);
+      setOpenNotification({
+        type: "warning",
+        title: "Vários IMEIs encontrados",
+        notification: `${results.length} resultados para "${normalizedImei}". Selecione um na lista.`,
+      });
     } catch (error: any) {
       if (error.response?.status === 404) {
         setNotFound(true);
@@ -253,13 +375,12 @@ export function ImeiSearchTab() {
           Selecione ou digite o IMEI para encontrar informações sobre o produto, invoice e fornecedor.
         </p>
 
-        {/* Campo de Busca com Dropdown */}
         <div className="relative" ref={dropdownRef}>
           <div className="flex gap-3">
             <div className="relative flex-1">
               <input
                 type="text"
-                placeholder="Digite ou cole o IMEI (espaços são ignorados)"
+                placeholder="IMEI completo ou parcial (≥8 chars; espaços ignorados)"
                 value={searchTerm}
                 onChange={(e) => {
                   setSearchTerm(e.target.value);
@@ -267,17 +388,19 @@ export function ImeiSearchTab() {
                 }}
                 onFocus={() => setShowDropdown(true)}
                 onKeyPress={handleKeyPress}
-                className="w-full px-4 py-2 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full px-4 py-2 pr-10 border border-gray-300 rounded-lg text-gray-900 placeholder:text-gray-500 font-mono focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:text-gray-900 disabled:opacity-100"
                 disabled={isSearching}
               />
               <button
+                type="button"
                 onClick={() => setShowDropdown(!showDropdown)}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-800"
               >
                 <ChevronDown size={20} />
               </button>
             </div>
             <button
+              type="button"
               onClick={() => handleSearch()}
               disabled={isSearching}
               className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-xl flex items-center gap-2 disabled:bg-gray-400 disabled:cursor-not-allowed shadow-sm"
@@ -296,13 +419,12 @@ export function ImeiSearchTab() {
             </button>
           </div>
 
-          {/* Dropdown de IMEIs */}
           {showDropdown && (
             <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-80 overflow-y-auto">
-              {isLoadingImeis ? (
+              {isLoadingImeis || isFilteringRemote ? (
                 <div className="p-4 text-center text-gray-500">
                   <Loader2 className="animate-spin mx-auto mb-2" size={20} />
-                  Carregando IMEIs...
+                  {isFilteringRemote ? "Buscando IMEI..." : "Carregando IMEIs..."}
                 </div>
               ) : filteredImeis.length === 0 ? (
                 <div className="p-4 text-center text-gray-500">
@@ -312,12 +434,12 @@ export function ImeiSearchTab() {
                 <ul>
                   {filteredImeis.map((item, index) => (
                     <li
-                      key={index}
+                      key={`${normalizeImeiOrSerial(item.imei)}-${index}`}
                       onClick={() => handleSelectImei(item.imei)}
                       className="px-4 py-3 hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-b-0"
                     >
-                      <div className="font-mono text-sm font-semibold text-gray-900">{item.imei}</div>
-                      <div className="text-xs text-gray-600 mt-1">
+                      <div className="font-mono text-sm font-semibold text-black">{item.imei}</div>
+                      <div className="text-xs text-gray-700 mt-1">
                         {item.productName} • Invoice #{item.invoiceNumber}
                       </div>
                     </li>
@@ -328,7 +450,6 @@ export function ImeiSearchTab() {
           )}
         </div>
 
-        {/* Informação de quantos IMEIs existem */}
         <div className="mt-3 text-sm text-gray-500">
           {isLoadingImeis ? (
             "Carregando..."
@@ -340,26 +461,27 @@ export function ImeiSearchTab() {
         </div>
       </div>
 
-      {/* Resultado da Busca */}
       {notFound && (
         <div className="bg-yellow-50 border border-yellow-200 rounded-2xl p-6 text-center">
           <div className="text-yellow-600 text-lg font-semibold mb-2">IMEI não encontrado</div>
-          <p className="text-gray-600">O IMEI <strong className="font-mono">{normalizeImeiOrSerial(searchTerm) || searchTerm}</strong> não está cadastrado no sistema.</p>
+          <p className="text-gray-600">
+            O IMEI{" "}
+            <strong className="font-mono text-black">{normalizeImeiOrSerial(searchTerm) || searchTerm}</strong>{" "}
+            não está cadastrado no sistema.
+          </p>
         </div>
       )}
 
       {imeiData && (
         <div className="space-y-4">
-          {/* IMEI Info */}
           <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4">
             <div className="text-sm text-gray-600 mb-1">IMEI Encontrado</div>
-            <div className="text-2xl font-bold text-blue-700">{imeiData.imei}</div>
+            <div className="text-2xl font-bold font-mono text-black">{imeiData.imei}</div>
             <div className="text-xs text-gray-500 mt-1">
               Cadastrado em: {formatDateToBR(imeiData.createdAt)}
             </div>
           </div>
 
-          {/* Produto */}
           <div className="bg-white border border-gray-200 rounded-lg p-4">
             <div className="flex items-center gap-2 mb-3 text-blue-700 font-semibold">
               <Package size={20} />
@@ -379,7 +501,6 @@ export function ImeiSearchTab() {
             </div>
           </div>
 
-          {/* Invoice */}
           <div className="bg-white border border-gray-200 rounded-lg p-4">
             <div className="flex items-center gap-2 mb-3 text-blue-700 font-semibold">
               <FileText size={20} />
@@ -400,7 +521,6 @@ export function ImeiSearchTab() {
             </div>
           </div>
 
-          {/* Fornecedor */}
           <div className="bg-white border border-gray-200 rounded-lg p-4">
             <div className="flex items-center gap-2 mb-3 text-blue-700 font-semibold">
               <Building2 size={20} />
@@ -409,7 +529,6 @@ export function ImeiSearchTab() {
             <div className="font-semibold text-lg text-gray-900">{imeiData.invoice.supplier.name}</div>
           </div>
 
-          {/* Freteiros */}
           {(imeiData.invoice.carrier || imeiData.invoice.carrier2) && (
             <div className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm">
               <div className="flex items-center gap-2 mb-3 text-blue-700 font-semibold">
@@ -433,7 +552,6 @@ export function ImeiSearchTab() {
             </div>
           )}
 
-          {/* Detalhes do Produto na Invoice */}
           <div className="bg-white border border-gray-200 rounded-lg p-4">
             <div className="flex items-center gap-2 mb-3 text-blue-700 font-semibold">
               <DollarSign size={20} />
@@ -471,9 +589,8 @@ export function ImeiSearchTab() {
         </div>
       )}
 
-      {/* Estado Inicial */}
       {!imeiData && !notFound && !isSearching && (
-        <div className="text-center py-12 text-gray-400">
+        <div className="text-center py-12 text-gray-500">
           <Search size={64} className="mx-auto mb-4 opacity-20" />
           <p>Selecione ou digite um IMEI e clique em Buscar para ver as informações</p>
           {allImeis.length > 0 && (
@@ -484,4 +601,3 @@ export function ImeiSearchTab() {
     </div>
   );
 }
-
