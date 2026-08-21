@@ -34,24 +34,20 @@ export function useBackofficeNavItems() {
     }
   };
 
+  const isGestor = user?.role === "MASTER" || user?.role === "ADMIN";
+
   const items: BackofficeNavItem[] = [
-    { id: "home", label: "Menu Principal", to: "/backoffice" },
+    { id: "home", label: "HOME", to: "/backoffice" },
   ];
 
-  if (user?.role === "OPERATOR") {
-    items.push({ id: "profile", label: "Meu Perfil", to: "/meu-perfil-operator" });
+  if (isGestor) {
+    items.push(
+      { id: "cadastro-lojistas", label: "Cadastro lojistas", to: "/cadastro-lojistas", group: "Gestão" },
+      { id: "cadastro-produtos", label: "Cadastro produtos", to: "/cadastro-produtos", group: "Gestão" },
+      { id: "gerenciar-lojistas", label: "Gerenciar lojistas", to: "/gerenciar-lojistas", group: "Gestão" },
+    );
   }
-  if (user?.role === "MASTER") {
-    items.push({ id: "profile", label: "Meu Perfil", to: "/meu-perfil-master" });
-  }
-  if (user?.role === "MASTER" || user?.role === "ADMIN") {
-    items.push({ id: "pdv", label: "Config. PDV", to: "/pdv-config", group: "PDV" });
-    items.push({ id: "commercial-client-create", label: "Cadastrar cliente comercial", to: "/clientes-comerciais/cadastrar", group: "Lojas" });
-    items.push({ id: "commercial-clients", label: "Gerenciar clientes comerciais", to: "/clientes-comerciais", group: "Lojas" });
-    items.push({ id: "store-create", label: "Cadastrar loja", to: "/lojas/cadastrar", group: "Lojas" });
-    items.push({ id: "stores", label: "Gerenciar lojas", to: "/lojas", group: "Lojas" });
-    items.push({ id: "stock", label: "Estoque", to: "/estoque", group: "Lojas" });
-  }
+
   if (canShowTab("CRIAR_USUARIO")) {
     items.push({ id: "create-user", label: "Criar Usuário", to: "/create-form-user", group: "Novo cadastro" });
   }
@@ -86,14 +82,7 @@ export function useBackofficeNavItems() {
     canBackup: user?.role === "MASTER",
     isActive: (to: string) => {
       if (location.pathname === to) return true;
-      if (to === "/lojas" && location.pathname.startsWith("/lojas/") && location.pathname !== "/lojas/cadastrar") {
-        return true;
-      }
-      if (
-        to === "/clientes-comerciais" &&
-        location.pathname.startsWith("/clientes-comerciais/") &&
-        location.pathname !== "/clientes-comerciais/cadastrar"
-      ) {
+      if (to === "/gerenciar-lojistas" && location.pathname.startsWith("/gerenciar-lojistas/")) {
         return true;
       }
       return false;

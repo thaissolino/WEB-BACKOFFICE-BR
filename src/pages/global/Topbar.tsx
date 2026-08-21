@@ -5,7 +5,6 @@ import InputBase from "@mui/material/InputBase";
 import LightModeOutlinedIcon from "@mui/icons-material/LightModeOutlined";
 import DarkModeOutlinedIcon from "@mui/icons-material/DarkModeOutlined";
 import NotificationsOutlinedIcon from "@mui/icons-material/NotificationsOutlined";
-import PersonOutlinedIcon from "@mui/icons-material/PersonOutlined";
 import SearchIcon from "@mui/icons-material/Search";
 import HeaderMenu from "./Headerbar";
 import { ModesPopover } from "../../components/ui-mode/ModesPopover";
@@ -69,9 +68,6 @@ const Topbar: React.FC<TopbarProps> = ({ setIsSidebar, isSidebar }) => {
           <NotificationsOutlinedIcon />
         </IconButton>
         <ModesPopover />
-        <IconButton>
-          <PersonOutlinedIcon />
-        </IconButton>
       </Box>
     </Box>
   );

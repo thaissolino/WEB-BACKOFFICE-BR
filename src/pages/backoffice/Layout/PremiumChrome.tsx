@@ -8,7 +8,6 @@ import {
   Menu,
   Moon,
   Sun,
-  User,
   X,
 } from "lucide-react";
 import { useTheme } from "@mui/material/styles";
@@ -19,7 +18,7 @@ import { api } from "../../../services/api";
 import "./premium-chrome.css";
 
 export function PremiumChrome() {
-  const { items, displayName, roleLabel, onLogout, canBackup, isActive, user } = useBackofficeNavItems();
+  const { items, roleLabel, onLogout, canBackup, isActive } = useBackofficeNavItems();
   const colorMode = useContext(ColorModeContext);
   const theme = useTheme();
   const isDark = theme.palette.mode !== "light";
@@ -35,9 +34,6 @@ export function PremiumChrome() {
   useEffect(() => {
     setDrawerOpen(false);
   }, [location.pathname]);
-
-  const profilePath =
-    user?.role === "OPERATOR" ? "/meu-perfil-operator" : "/meu-perfil-master";
 
   async function handleLogout() {
     onLogout();
@@ -73,7 +69,14 @@ export function PremiumChrome() {
   const nav = (
     <aside className="pdv-chrome-aside" aria-label="Navegação do backoffice">
       <div className="pdv-chrome-brand">
-        <p className="pdv-chrome-kicker">PDV · Operação</p>
+        <img
+          className="pdv-chrome-avatar"
+          alt="profile-user"
+          src="/assets/user.png"
+          width={72}
+          height={72}
+        />
+        <p className="pdv-chrome-kicker">Gestor · Admin</p>
         <strong>Black Rabbit</strong>
       </div>
       <nav className="pdv-chrome-nav">
@@ -139,7 +142,7 @@ export function PremiumChrome() {
               </button>
               <div>
                 <p className="pdv-chrome-kicker">Backoffice</p>
-                <strong>{displayName}</strong>
+                <strong>Painel gestor</strong>
               </div>
             </div>
             <div className="pdv-chrome-header-actions">
@@ -155,17 +158,6 @@ export function PremiumChrome() {
                 <Bell size={18} />
               </button>
               <ModesPopover variant="premium" />
-              <button
-                className="pdv-chrome-icon"
-                type="button"
-                aria-label="Meu perfil"
-                onClick={() => navigate(profilePath)}
-              >
-                <User size={18} />
-              </button>
-              <button className="pdv-chrome-user" type="button" onClick={() => navigate(profilePath)}>
-                {displayName}
-              </button>
             </div>
           </header>
         )}

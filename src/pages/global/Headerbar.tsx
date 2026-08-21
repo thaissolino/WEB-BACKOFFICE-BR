@@ -18,12 +18,12 @@ import HomeOutlinedIcon from "@mui/icons-material/HomeOutlined";
 import PeopleOutlinedIcon from "@mui/icons-material/PeopleOutlined";
 import PersonAddIcon from "@mui/icons-material/PersonAdd";
 import MenuOutlinedIcon from "@mui/icons-material/MenuOutlined";
-import TableChartOutlinedIcon from "@mui/icons-material/TableChartOutlined";
-import PersonOutlinedIcon from "@mui/icons-material/PersonOutlined";
 import AdminPanelSettingsOutlinedIcon from "@mui/icons-material/AdminPanelSettingsOutlined";
 import { useAuthBackoffice } from "../../hooks/authBackoffice";
-import { EnhancedModal } from "../../components/modals/harCodedModal";
 import DescriptionOutlinedIcon from "@mui/icons-material/DescriptionOutlined";
+import StorefrontOutlinedIcon from "@mui/icons-material/StorefrontOutlined";
+import Inventory2OutlinedIcon from "@mui/icons-material/Inventory2Outlined";
+import GroupsOutlinedIcon from "@mui/icons-material/GroupsOutlined";
 import { usePermissionStore } from "../../store/permissionsStore";
 
 interface HeaderMenuProps {
@@ -142,16 +142,41 @@ const HeaderMenu: React.FC<HeaderMenuProps> = () => {
             },
           }}
         >
-          <MenuItem onClick={handleMenuClose} component={Link} to="/" sx={{ color: colors.grey[100] }}>
+          <MenuItem onClick={handleMenuClose} component={Link} to="/backoffice" sx={{ color: colors.grey[100] }}>
             <HomeOutlinedIcon sx={{ mr: 1, color: colors.greenAccent[500] }} />
-            Menu Principal
+            HOME
           </MenuItem>
 
-          {user?.role === "OPERATOR" && (
-            <MenuItem onClick={handleMenuClose} component={Link} to="/meu-perfil" sx={{ color: colors.grey[100] }}>
-              <PersonOutlinedIcon sx={{ mr: 1, color: colors.greenAccent[500] }} />
-              Meu Perfil
-            </MenuItem>
+          {(user?.role === "MASTER" || user?.role === "ADMIN") && (
+            <>
+              <MenuItem
+                onClick={handleMenuClose}
+                component={Link}
+                to="/cadastro-lojistas"
+                sx={{ color: colors.grey[100] }}
+              >
+                <GroupsOutlinedIcon sx={{ mr: 1, color: colors.greenAccent[500] }} />
+                Cadastro lojistas
+              </MenuItem>
+              <MenuItem
+                onClick={handleMenuClose}
+                component={Link}
+                to="/cadastro-produtos"
+                sx={{ color: colors.grey[100] }}
+              >
+                <Inventory2OutlinedIcon sx={{ mr: 1, color: colors.greenAccent[500] }} />
+                Cadastro produtos
+              </MenuItem>
+              <MenuItem
+                onClick={handleMenuClose}
+                component={Link}
+                to="/gerenciar-lojistas"
+                sx={{ color: colors.grey[100] }}
+              >
+                <StorefrontOutlinedIcon sx={{ mr: 1, color: colors.greenAccent[500] }} />
+                Gerenciar lojistas
+              </MenuItem>
+            </>
           )}
 
           {canShowTab("CRIAR_USUARIO") && (

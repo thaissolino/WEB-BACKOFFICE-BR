@@ -8,18 +8,13 @@ import "react-pro-sidebar/dist/css/styles.css";
 import { tokens } from "../../theme";
 import HomeOutlinedIcon from "@mui/icons-material/HomeOutlined";
 import PeopleOutlinedIcon from "@mui/icons-material/PeopleOutlined";
-import TableChartOutlinedIcon from "@mui/icons-material/TableChartOutlined";
 import PersonOutlinedIcon from "@mui/icons-material/PersonOutlined";
 import MenuOutlinedIcon from "@mui/icons-material/MenuOutlined";
 import PersonAddIcon from "@mui/icons-material/PersonAdd";
 import AdminPanelSettingsOutlinedIcon from "@mui/icons-material/AdminPanelSettingsOutlined";
 import { useAuthBackoffice } from "../../hooks/authBackoffice";
-import { EnhancedModal } from "../../components/modals/harCodedModal";
-import SettingsOutlinedIcon from "@mui/icons-material/SettingsOutlined";
 import StorefrontOutlinedIcon from "@mui/icons-material/StorefrontOutlined";
 import Inventory2OutlinedIcon from "@mui/icons-material/Inventory2Outlined";
-import AddBusinessOutlinedIcon from "@mui/icons-material/AddBusinessOutlined";
-import BadgeOutlinedIcon from "@mui/icons-material/BadgeOutlined";
 import GroupsOutlinedIcon from "@mui/icons-material/GroupsOutlined";
 import DescriptionOutlinedIcon from "@mui/icons-material/DescriptionOutlined";
 import BackupIcon from "@mui/icons-material/Backup";
@@ -71,7 +66,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebar }) => {
   const { onLogout } = useAuthBackoffice();
 
   // Monitor selected state to open modal when "Gerenciar Planilhas" is selected
-  const [selected, setSelected] = useState("Dashboard");
+  const [selected, setSelected] = useState("HOME");
 
   // Componente Item modificado para estar dentro do Sidebar e ter acesso ao estado
   const Item: React.FC<ItemProps> = ({ title, to, icon, selected, setSelected, requiresValidation = false }) => {
@@ -514,121 +509,58 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebar }) => {
           </MenuItem>
 
           {!isCollapsed && (
-            <Box mb="25px">
+            <Box mb="25px" textAlign="center">
               <Box display="flex" justifyContent="center" alignItems="center">
                 <img
                   alt="profile-user"
                   width="100px"
                   height="100px"
-                  src={`../../assets/user.png`}
+                  src="/assets/user.png"
                   style={{ cursor: "pointer", borderRadius: "50%" }}
                 />
               </Box>
-              <Box textAlign="center">
-                {user && user.role !== "MASTER" ? (
-                  <>
-                    <Typography variant="h2" color={colors.grey[100]} fontWeight="bold" sx={{ m: "10px 0 0 0" }}>
-                      {/* Exibe primeiro e último nome do usuário */}
-                      {user.name ? `${user.name.split(" ")[0]} ${user.name.split(" ").slice(-1)[0]}` : "Usuário"}
-                    </Typography>
-                    <Typography variant="h5" color={colors.greenAccent[500]}>
-                      {user.role === "OPERATOR" ? "OPERADOR" : "VP Administrador"}
-                    </Typography>
-                  </>
-                ) : (
-                  <>
-                    <Typography variant="h2" color={colors.grey[100]} fontWeight="bold" sx={{ m: "10px 0 0 0" }}>
-                      Ed Rocha
-                    </Typography>
-                    <Typography variant="h5" color={colors.greenAccent[500]}>
-                      VP Administrador
-                    </Typography>
-                  </>
-                )}
-              </Box>
+              <Typography variant="h5" color={colors.greenAccent[500]} sx={{ m: "10px 0 0 0" }}>
+                Painel gestor
+              </Typography>
             </Box>
           )}
 
           <Box paddingLeft={isCollapsed ? undefined : "10%"}>
             {
               <Item
-                title="Menu Principal"
-                to="/"
+                title="HOME"
+                to="/backoffice"
                 icon={<HomeOutlinedIcon />}
                 selected={selected}
                 setSelected={setSelected}
               />
             }
 
-            {user?.role === "OPERATOR" && (
-              <Item
-                title="Meu Perfil"
-                to="/meu-perfil-operator"
-                icon={<PersonOutlinedIcon />}
-                selected={selected}
-                setSelected={setSelected}
-              />
-            )}
-            {user?.role === "MASTER" && (
-              <Item
-                title="Meu Perfil"
-                to="/meu-perfil-master"
-                icon={<PersonOutlinedIcon />}
-                selected={selected}
-                setSelected={setSelected}
-              />
-            )}
             {(user?.role === "MASTER" || user?.role === "ADMIN") && (
               <>
                 {!isCollapsed && (
                   <Typography variant="h6" color={colors.greenAccent[300]} sx={{ m: "15px 0 5px 20px" }}>
-                    PDV
+                    Gestão
                   </Typography>
                 )}
                 <Item
-                  title="Config. PDV"
-                  to="/pdv-config"
-                  icon={<SettingsOutlinedIcon />}
-                  selected={selected}
-                  setSelected={setSelected}
-                />
-                {!isCollapsed && (
-                  <Typography variant="h6" color={colors.greenAccent[300]} sx={{ m: "15px 0 5px 20px" }}>
-                    Lojas
-                  </Typography>
-                )}
-                <Item
-                  title="Cadastrar cliente comercial"
-                  to="/clientes-comerciais/cadastrar"
-                  icon={<BadgeOutlinedIcon />}
-                  selected={selected}
-                  setSelected={setSelected}
-                />
-                <Item
-                  title="Gerenciar clientes comerciais"
-                  to="/clientes-comerciais"
+                  title="Cadastro lojistas"
+                  to="/cadastro-lojistas"
                   icon={<GroupsOutlinedIcon />}
                   selected={selected}
                   setSelected={setSelected}
                 />
                 <Item
-                  title="Cadastrar loja"
-                  to="/lojas/cadastrar"
-                  icon={<AddBusinessOutlinedIcon />}
-                  selected={selected}
-                  setSelected={setSelected}
-                />
-                <Item
-                  title="Gerenciar lojas"
-                  to="/lojas"
-                  icon={<StorefrontOutlinedIcon />}
-                  selected={selected}
-                  setSelected={setSelected}
-                />
-                <Item
-                  title="Estoque"
-                  to="/estoque"
+                  title="Cadastro produtos"
+                  to="/cadastro-produtos"
                   icon={<Inventory2OutlinedIcon />}
+                  selected={selected}
+                  setSelected={setSelected}
+                />
+                <Item
+                  title="Gerenciar lojistas"
+                  to="/gerenciar-lojistas"
+                  icon={<StorefrontOutlinedIcon />}
                   selected={selected}
                   setSelected={setSelected}
                 />
