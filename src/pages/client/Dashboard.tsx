@@ -32,6 +32,7 @@ import {
 import { DASHBOARD_SHORTCUTS } from "./dashboard/menuData";
 import PdvShell, { PdvLoading, usePdvSession, usePdvUiConfig } from "./dashboard/PdvShell";
 import { accordionWidgetId, isDashboardVisible } from "./dashboard/pdvUiConfig";
+import { usePdvLayoutMode } from "../../store/pdvLayoutMode";
 
 const SHORTCUT_ICONS: Record<string, ReactNode> = {
   "cadastro-clientes": <Users size={22} aria-hidden="true" />,
@@ -315,6 +316,50 @@ function DashboardBoard({ client }: { client: ClientUser }) {
     if (!q) return DASHBOARD_SHORTCUTS;
     return DASHBOARD_SHORTCUTS.filter((item) => item.label.toLowerCase().includes(q));
   }, [query]);
+
+  const layoutMode = usePdvLayoutMode((state) => state.mode);
+
+  // Layout "Clássico" (temporário): estrutura invoices-like com a paleta premium.
+  if (layoutMode === "classic") {
+    return (
+      <div className="pdvc-board">
+        {showWelcome ? (
+          <header className="pdvc-page-head">
+            <h1 className="pdvc-page-title">Seja bem vindo, {client.name}</h1>
+            <p className="pdvc-page-sub">
+              <span>
+                Loja Atual: <strong>{storeName}</strong>
+              </span>
+              <span className="pdvc-chip">Visualiza preço de compra: Sim</span>
+            </p>
+          </header>
+        ) : null}
+
+        <nav className="pdvc-card" aria-label="Atalhos do painel">
+          <div className="pdvc-card-head">
+            <h2 className="pdvc-card-title">Acesso rápido</h2>
+            <p className="pdvc-card-sub">Atalhos para os cadastros mais usados da loja</p>
+          </div>
+          <div className="pdvc-shortcut-grid">
+            {shortcuts.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                className="pdvc-shortcut"
+                onClick={() => navigate(item.href)}
+              >
+                <span className="pdvc-shortcut-icon" aria-hidden="true">
+                  {SHORTCUT_ICONS[item.id]}
+                </span>
+                <span className="pdvc-shortcut-label">{item.label}</span>
+              </button>
+            ))}
+          </div>
+          {shortcuts.length === 0 ? <p className="pdvc-empty">Nada encontrado.</p> : null}
+        </nav>
+      </div>
+    );
+  }
 
   return (
     <>
