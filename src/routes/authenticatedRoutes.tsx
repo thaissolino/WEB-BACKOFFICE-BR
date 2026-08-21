@@ -64,10 +64,10 @@ import StoreDetail from "../pages/stores/StoreDetail";
 import StoreLoja from "../pages/stores/StoreLoja";
 import StoreParamStubPage from "../pages/stores/StoreParamStubPage";
 import StockOverview from "../pages/stores/StockOverview";
+import GestorCadastroProdutos from "../pages/stores/GestorCadastroProdutos";
 import CreateCommercialClient from "../pages/commercial-clients/CreateCommercialClient";
 import CommercialClientsList from "../pages/commercial-clients/CommercialClientsList";
 import CommercialClientDetail from "../pages/commercial-clients/CommercialClientDetail";
-
 const BACKOFFICE_ROUTE = "/backoffice";
 const LOGIN_ROUTE = "/signin/backoffice";
 
@@ -212,6 +212,9 @@ export function Router() {
           }
         >
           <Route path="backoffice" element={<Dashboard />} />
+          <Route path="cadastro-lojistas" element={<CreateStore />} />
+          <Route path="cadastro-produtos" element={<GestorCadastroProdutos />} />
+          <Route path="gerenciar-lojistas" element={<StoresList />} />
           <Route path="pdv-config" element={<PdvConfig />} />
           <Route path="clientes-comerciais/cadastrar" element={<CreateCommercialClient />} />
           <Route path="clientes-comerciais" element={<CommercialClientsList />} />

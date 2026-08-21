@@ -34,8 +34,9 @@ import {
 
 const emptyProduct = { name: "", sku: "", quantity: "0", price: "" };
 
-export default function StoreDetailClassic() {
-  const { id } = useParams();
+export default function StoreDetailClassic({ storeId: storeIdProp }: { storeId?: string } = {}) {
+  const { id: idParam } = useParams();
+  const id = storeIdProp || idParam;
   const navigate = useNavigate();
   const theme = useTheme();
   const colors = tokens(theme.palette.mode);

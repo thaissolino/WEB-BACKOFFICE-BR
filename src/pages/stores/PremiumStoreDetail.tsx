@@ -15,8 +15,9 @@ import {
 
 const emptyProduct = { name: "", sku: "", quantity: "0", price: "" };
 
-export default function PremiumStoreDetail() {
-  const { id } = useParams();
+export default function PremiumStoreDetail({ storeId: storeIdProp }: { storeId?: string } = {}) {
+  const { id: idParam } = useParams();
+  const id = storeIdProp || idParam;
   const navigate = useNavigate();
   const [store, setStore] = useState<Store | null>(null);
   const [metrics, setMetrics] = useState<StoreMetrics | null>(null);

@@ -157,6 +157,16 @@
   padding: 22px 18px 18px;
 }
 
+.pdv-chrome-avatar {
+  display: block;
+  width: 72px;
+  height: 72px;
+  margin: 0 0 12px;
+  border-radius: 50%;
+  object-fit: cover;
+  cursor: pointer;
+}
+
 .pdv-chrome-brand strong {
   display: block;
   font-family: var(--font-display);
