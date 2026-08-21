@@ -7,6 +7,7 @@ import {
   Home,
   ImagePlus,
   LogOut,
+  Menu,
   Package,
   Search,
   Settings,
@@ -14,8 +15,10 @@ import {
 } from "lucide-react";
 import { useClientAuth } from "../../../hooks/clientAuth";
 import { api } from "../../../services/api";
+import { usePdvLayoutMode, type PdvLayoutMode } from "../../../store/pdvLayoutMode";
 import { CAIXA_STORAGE_KEY, NENHUM_CAIXA, STORE_STORAGE_KEY, toStoreOption, type StoreOption } from "./mockData";
 import MenuBar from "./MenuBar";
+import ClassicDrawer from "./ClassicDrawer";
 import PdvTip from "./PdvTip";
 import ConfigModal from "./ConfigModal";
 import SupportModal from "./SupportModal";
@@ -27,6 +30,7 @@ import {
   type PdvUiConfig,
 } from "./pdvUiConfig";
 import "./dashboard.css";
+import "./dashboard-classic.css";
 import "./pdv-modals.css";
 
 type PdvSession = {
@@ -54,8 +58,9 @@ export function usePdvUiConfig() {
 }
 
 export function PdvLoading() {
+  const layoutMode = usePdvLayoutMode((state) => state.mode);
   return (
-    <div className="pdv-root" data-surface="cream" lang="pt-BR">
+    <div className="pdv-root" data-surface="cream" data-layout={layoutMode} lang="pt-BR">
       <main className="pdv-main">
         <p className="pdv-welcome">Carregando…</p>
       </main>
@@ -68,16 +73,45 @@ function readStoredStoreId() {
   return sessionStorage.getItem(STORE_STORAGE_KEY) || "";
 }
 
+/** Toggle TEMPORÁRIO de layout (Clássico/Premium) — remover ao definir o layout final. */
+function LayoutModeToggle() {
+  const mode = usePdvLayoutMode((state) => state.mode);
+  const setMode = usePdvLayoutMode((state) => state.setMode);
+
+  const options: { value: PdvLayoutMode; label: string }[] = [
+    { value: "classic", label: "Clássico" },
+    { value: "premium", label: "Premium" },
+  ];
+
+  return (
+    <div className="pdv-layout-toggle" role="group" aria-label="Estilo do painel">
+      {options.map((option) => (
+        <button
+          key={option.value}
+          type="button"
+          aria-pressed={mode === option.value}
+          title={`Usar layout ${option.label}`}
+          onClick={() => setMode(option.value)}
+        >
+          {option.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 function StoreCluster({
   stores,
   value,
   onChange,
   onHome,
+  home = true,
 }: {
   stores: StoreOption[];
   value: string;
   onChange: (id: string) => void;
   onHome: () => void;
+  home?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -100,9 +134,11 @@ function StoreCluster({
 
   return (
     <div className="pdv-shop" ref={wrapRef} data-open={open ? "true" : undefined}>
-      <button className="pdv-shop-home" type="button" aria-label="HOME" onClick={onHome}>
-        <Home size={18} strokeWidth={2.2} aria-hidden="true" />
-      </button>
+      {home ? (
+        <button className="pdv-shop-home" type="button" aria-label="HOME" onClick={onHome}>
+          <Home size={18} strokeWidth={2.2} aria-hidden="true" />
+        </button>
+      ) : null}
       <div className="pdv-shop-pick">
         <PdvTip
           label="Lista de lojas"
@@ -171,6 +207,9 @@ export default function PdvShell({
   const [uiConfig, setUiConfig] = useState<PdvUiConfig>(EMPTY_PDV_UI_CONFIG);
   const [logoSrc, setLogoSrc] = useState<string | null>(null);
   const [logoTick, setLogoTick] = useState(0);
+  const layoutMode = usePdvLayoutMode((state) => state.mode);
+  const isClassic = layoutMode === "classic";
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
   const currentStore = stores.find((item) => item.id === storeId) ?? stores[0];
   const storeName = currentStore?.name ?? "";
@@ -334,16 +373,77 @@ export default function PdvShell({
   const showPeriod = isDashboardVisible(uiConfig, "period");
   const onDashboard = location.pathname === "/client/dashboard";
 
+  // Controles compartilhados entre a toolbar premium e a faixa mínima do clássico.
+  const closeDemoButton = showCloseDemo ? (
+    <PdvTip label="Clique aqui para fechar todas as caixas.">
+      <button
+        className="pdv-close-demo"
+        onClick={closePanels}
+        type="button"
+        title="Clique aqui para fechar todas as caixas."
+        aria-label="Clique aqui para fechar todas as caixas."
+      >
+        <Package size={16} strokeWidth={2.2} aria-hidden="true" />
+        Fechar demonstrativo
+      </button>
+    </PdvTip>
+  ) : null;
+
+  const periodControl = showPeriod ? (
+    <div className="pdv-period" role="group" aria-label="Período">
+      <label className="pdv-period-kicker" htmlFor="pdv-de">
+        Período:
+      </label>
+      <span className="pdv-date-slot">
+        <Calendar className="pdv-date-icon" size={14} strokeWidth={2} aria-hidden="true" />
+        <input
+          id="pdv-de"
+          className="pdv-date"
+          type="date"
+          value={periodFrom}
+          onChange={(event) => setPeriodFrom(event.target.value)}
+        />
+      </span>
+      <label className="pdv-period-sep" htmlFor="pdv-ate">
+        até
+      </label>
+      <span className="pdv-date-slot">
+        <Calendar className="pdv-date-icon" size={14} strokeWidth={2} aria-hidden="true" />
+        <input
+          id="pdv-ate"
+          className="pdv-date"
+          type="date"
+          value={periodTo}
+          onChange={(event) => setPeriodTo(event.target.value)}
+        />
+      </span>
+    </div>
+  ) : null;
+
   return (
     <PdvUiConfigContext.Provider value={uiConfig}>
     <PdvSessionContext.Provider value={{ query, storeId, storeName, stores }}>
-      <div className="pdv-root" data-surface="cream" lang="pt-BR">
+      <div className="pdv-root" data-surface="cream" data-layout={layoutMode} lang="pt-BR">
         <a className="pdv-skip" href="#pdv-main">
           Ir para o conteúdo
         </a>
 
         <header className="pdv-header">
           <div className="pdv-brand">
+            {isClassic ? (
+              <PdvTip label="Menu">
+                <button
+                  className="pdv-burger"
+                  type="button"
+                  aria-label="Abrir menu"
+                  aria-haspopup="dialog"
+                  aria-expanded={drawerOpen}
+                  onClick={() => setDrawerOpen(true)}
+                >
+                  <Menu size={20} strokeWidth={2.2} aria-hidden="true" />
+                </button>
+              </PdvTip>
+            ) : null}
             <PdvTip label="Logo da loja">
               <button
                 className="pdv-store-logo"
@@ -365,9 +465,19 @@ export default function PdvShell({
                 </span>
               </button>
             </PdvTip>
-            <button className="pdv-catalog" type="button">
-              CATÁLOGO DE PRODUTOS
-            </button>
+            {isClassic ? (
+              <StoreCluster
+                stores={stores}
+                value={storeId}
+                onChange={requestStoreChange}
+                onHome={handleHome}
+                home={false}
+              />
+            ) : (
+              <button className="pdv-catalog" type="button">
+                CATÁLOGO DE PRODUTOS
+              </button>
+            )}
           </div>
 
           <form className="pdv-search" onSubmit={onSearch} role="search">
@@ -385,11 +495,13 @@ export default function PdvShell({
                 type="search"
                 autoComplete="off"
                 aria-keyshortcuts="F1"
+                placeholder={isClassic ? "Pesquisar no menu (F1)" : undefined}
               />
             </div>
           </form>
 
           <nav className="pdv-icons" aria-label="Atalhos">
+            <LayoutModeToggle />
             <PdvTip label="Voltar ao painel">
               <button
                 className="pdv-ico pdv-ico-home"
@@ -401,43 +513,47 @@ export default function PdvShell({
                 <Home size={22} strokeWidth={2.2} aria-hidden="true" />
               </button>
             </PdvTip>
-            <PdvTip label="Carrinho">
-              <button
-                className="pdv-ico pdv-ico-cart"
-                type="button"
-                aria-label="Carrinho"
-                aria-current={location.pathname === "/client/caixa" || location.pathname === "/client/pdv" ? "page" : undefined}
-                onClick={goCaixa}
-              >
-                <ShoppingCart size={22} strokeWidth={2.2} aria-hidden="true" />
-              </button>
-            </PdvTip>
-            <PdvTip label="Configure seu sistema">
-              <button
-                className="pdv-ico pdv-ico-gear"
-                type="button"
-                aria-label="Configure seu sistema"
-                aria-haspopup="dialog"
-                aria-expanded={chromeModal === "config"}
-                data-open={chromeModal === "config" ? "true" : undefined}
-                onClick={() => setChromeModal("config")}
-              >
-                <Settings size={22} strokeWidth={2.2} aria-hidden="true" />
-              </button>
-            </PdvTip>
-            <PdvTip label="Visualizar os canais de atendimento">
-              <button
-                className="pdv-ico pdv-ico-headset"
-                type="button"
-                aria-label="Visualizar os canais de atendimento"
-                aria-haspopup="dialog"
-                aria-expanded={chromeModal === "support"}
-                data-open={chromeModal === "support" ? "true" : undefined}
-                onClick={() => setChromeModal("support")}
-              >
-                <Headphones size={22} strokeWidth={2.2} aria-hidden="true" />
-              </button>
-            </PdvTip>
+            {!isClassic ? (
+              <>
+                <PdvTip label="Carrinho">
+                  <button
+                    className="pdv-ico pdv-ico-cart"
+                    type="button"
+                    aria-label="Carrinho"
+                    aria-current={location.pathname === "/client/caixa" || location.pathname === "/client/pdv" ? "page" : undefined}
+                    onClick={goCaixa}
+                  >
+                    <ShoppingCart size={22} strokeWidth={2.2} aria-hidden="true" />
+                  </button>
+                </PdvTip>
+                <PdvTip label="Configure seu sistema">
+                  <button
+                    className="pdv-ico pdv-ico-gear"
+                    type="button"
+                    aria-label="Configure seu sistema"
+                    aria-haspopup="dialog"
+                    aria-expanded={chromeModal === "config"}
+                    data-open={chromeModal === "config" ? "true" : undefined}
+                    onClick={() => setChromeModal("config")}
+                  >
+                    <Settings size={22} strokeWidth={2.2} aria-hidden="true" />
+                  </button>
+                </PdvTip>
+                <PdvTip label="Visualizar os canais de atendimento">
+                  <button
+                    className="pdv-ico pdv-ico-headset"
+                    type="button"
+                    aria-label="Visualizar os canais de atendimento"
+                    aria-haspopup="dialog"
+                    aria-expanded={chromeModal === "support"}
+                    data-open={chromeModal === "support" ? "true" : undefined}
+                    onClick={() => setChromeModal("support")}
+                  >
+                    <Headphones size={22} strokeWidth={2.2} aria-hidden="true" />
+                  </button>
+                </PdvTip>
+              </>
+            ) : null}
             <PdvTip label="Sair">
               <button
                 className="pdv-ico pdv-ico-exit"
@@ -451,66 +567,29 @@ export default function PdvShell({
           </nav>
         </header>
 
-        <div className="pdv-strip">
-          <MenuBar uiConfig={uiConfig} />
+        {!isClassic ? (
+          <div className="pdv-strip">
+            <MenuBar uiConfig={uiConfig} />
 
-          <div className="pdv-toolbar">
-            <div className="pdv-toolbar-start">
-              {showCloseDemo ? (
-                <PdvTip label="Clique aqui para fechar todas as caixas.">
-                  <button
-                    className="pdv-close-demo"
-                    onClick={closePanels}
-                    type="button"
-                    title="Clique aqui para fechar todas as caixas."
-                    aria-label="Clique aqui para fechar todas as caixas."
-                  >
-                    <Package size={16} strokeWidth={2.2} aria-hidden="true" />
-                    Fechar demonstrativo
-                  </button>
-                </PdvTip>
-              ) : null}
-            </div>
-            <div className="pdv-toolbar-end">
-              {showPeriod ? (
-                <div className="pdv-period" role="group" aria-label="Período">
-                  <label className="pdv-period-kicker" htmlFor="pdv-de">
-                    Período:
-                  </label>
-                  <span className="pdv-date-slot">
-                    <Calendar className="pdv-date-icon" size={14} strokeWidth={2} aria-hidden="true" />
-                    <input
-                      id="pdv-de"
-                      className="pdv-date"
-                      type="date"
-                      value={periodFrom}
-                      onChange={(event) => setPeriodFrom(event.target.value)}
-                    />
-                  </span>
-                  <label className="pdv-period-sep" htmlFor="pdv-ate">
-                    até
-                  </label>
-                  <span className="pdv-date-slot">
-                    <Calendar className="pdv-date-icon" size={14} strokeWidth={2} aria-hidden="true" />
-                    <input
-                      id="pdv-ate"
-                      className="pdv-date"
-                      type="date"
-                      value={periodTo}
-                      onChange={(event) => setPeriodTo(event.target.value)}
-                    />
-                  </span>
-                </div>
-              ) : null}
-              <StoreCluster
-                stores={stores}
-                value={storeId}
-                onChange={requestStoreChange}
-                onHome={handleHome}
-              />
+            <div className="pdv-toolbar">
+              <div className="pdv-toolbar-start">{closeDemoButton}</div>
+              <div className="pdv-toolbar-end">
+                {periodControl}
+                <StoreCluster
+                  stores={stores}
+                  value={storeId}
+                  onChange={requestStoreChange}
+                  onHome={handleHome}
+                />
+              </div>
             </div>
           </div>
-        </div>
+        ) : onDashboard && (closeDemoButton || periodControl) ? (
+          <div className="pdvc-tools">
+            {closeDemoButton}
+            {periodControl}
+          </div>
+        ) : null}
 
         <main
           className={variant === "form" ? "pdv-main pdv-main-form" : "pdv-main"}
@@ -518,6 +597,16 @@ export default function PdvShell({
         >
           {children}
         </main>
+
+        <ClassicDrawer
+          open={isClassic && drawerOpen}
+          storeName={storeName}
+          uiConfig={uiConfig}
+          onClose={() => setDrawerOpen(false)}
+          onCart={goCaixa}
+          onConfig={() => setChromeModal("config")}
+          onSupport={() => setChromeModal("support")}
+        />
 
         <ConfigModal
           open={chromeModal === "config"}
