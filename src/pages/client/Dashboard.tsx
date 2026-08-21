@@ -16,6 +16,10 @@ import {
   Share2,
   ShieldAlert,
   Star,
+  Users,
+  Truck,
+  UserCog,
+  List,
   Wallet,
 } from "lucide-react";
 import { useClientAuth, type ClientUser } from "../../hooks/clientAuth";
@@ -25,8 +29,16 @@ import {
   SOCIAL_VIDEOS,
   periodLabels,
 } from "./dashboard/mockData";
+import { DASHBOARD_SHORTCUTS } from "./dashboard/menuData";
 import PdvShell, { PdvLoading, usePdvSession, usePdvUiConfig } from "./dashboard/PdvShell";
 import { accordionWidgetId, isDashboardVisible } from "./dashboard/pdvUiConfig";
+
+const SHORTCUT_ICONS: Record<string, ReactNode> = {
+  "cadastro-clientes": <Users size={22} aria-hidden="true" />,
+  "cadastro-fornecedores": <Truck size={22} aria-hidden="true" />,
+  "cadastro-usuarios": <UserCog size={22} aria-hidden="true" />,
+  "produtos-listar": <List size={22} aria-hidden="true" />,
+};
 
 const MODULES = [
   "Novidades do Sistema",
@@ -283,6 +295,7 @@ function DashboardBoard({ client }: { client: ClientUser }) {
   const uiConfig = usePdvUiConfig();
   const boardRef = useRef<HTMLDivElement>(null);
 
+  // Demonstrativo: lógica de visibilidade dos widgets (mantida para reativar depois).
   const visible = useMemo(() => {
     return Object.fromEntries(
       MODULES.map((title) => {
@@ -297,9 +310,16 @@ function DashboardBoard({ client }: { client: ClientUser }) {
   const showWelcome = isDashboardVisible(uiConfig, "welcome");
   const showCertificate = isDashboardVisible(uiConfig, "certificate-alert");
 
+  const shortcuts = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return DASHBOARD_SHORTCUTS;
+    return DASHBOARD_SHORTCUTS.filter((item) => item.label.toLowerCase().includes(q));
+  }, [query]);
+
   return (
     <>
-        {showCertificate ? (
+        {/* Demonstrativo: alerta de certificado oculto até o cliente pedir de volta */}
+        {false && showCertificate ? (
         <section className="pdv-notice" role="alert" aria-labelledby="pdv-cert-title">
           <ShieldAlert size={22} aria-hidden="true" />
           <p>
@@ -325,7 +345,29 @@ function DashboardBoard({ client }: { client: ClientUser }) {
         </div>
         ) : null}
 
-        {visibleCount === 0 ? (
+        <nav className="pdv-home-shortcuts" aria-label="Atalhos do painel">
+          <p className="pdv-home-shortcuts-title">Acesso rápido</p>
+          <div className="pdv-home-shortcuts-grid">
+            {shortcuts.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                className="pdv-home-shortcut"
+                onClick={() => navigate(item.href)}
+              >
+                <span className="pdv-icon" aria-hidden="true">
+                  {SHORTCUT_ICONS[item.id]}
+                </span>
+                <span className="pdv-home-shortcut-label">{item.label}</span>
+              </button>
+            ))}
+          </div>
+          {shortcuts.length === 0 ? <p className="pdv-empty">Nada encontrado.</p> : null}
+        </nav>
+
+        {/* Demonstrativo: widgets/cards ocultos — reativar (trocar false por true) quando o cliente definir o conteúdo */}
+        {false &&
+          (visibleCount === 0 ? (
           <p className="pdv-empty">Nada encontrado.</p>
         ) : (
           <div className="pdv-modules" ref={boardRef}>
@@ -596,7 +638,7 @@ function DashboardBoard({ client }: { client: ClientUser }) {
               </div>
             </Module>
           </div>
-        )}
+        ))}
     </>
   );
 }
