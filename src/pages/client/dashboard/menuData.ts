@@ -24,6 +24,17 @@ export function showsSubmenuArrow(item: PdvMenuItem) {
   return Boolean(item.hasSubmenu || hasKnownChildren(item));
 }
 
+/**
+ * Atalhos MVP na home/dashboard do lojista (não na menubar).
+ * Menubar continua com PDV_MENUS completo.
+ */
+export const DASHBOARD_SHORTCUTS: { id: string; label: string; href: string }[] = [
+  { id: "cadastro-clientes", label: "Cadastro clientes", href: "/client/clientes" },
+  { id: "cadastro-fornecedores", label: "Cadastro fornecedores", href: "/client/fornecedores" },
+  { id: "cadastro-usuarios", label: "Cadastro usuários", href: "/client/usuarios" },
+  { id: "produtos-listar", label: "Produtos listar", href: "/client/produtos" },
+];
+
 export const PDV_MENUS: PdvMenuRoot[] = [
   {
     id: "cadastros",

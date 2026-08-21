@@ -366,6 +366,8 @@
 }
 
 .pdv-ico-home {
+  min-width: 44px;
+  min-height: 44px;
   color: #1e88e5 !important;
   -webkit-text-fill-color: #1e88e5 !important;
 }
@@ -539,7 +541,9 @@
 }
 
 .pdv-dd-trigger:hover,
-.pdv-dd[data-open="true"] > .pdv-dd-trigger {
+.pdv-dd[data-open="true"] > .pdv-dd-trigger,
+.pdv-menubar > .pdv-dd-trigger[data-active="true"],
+.pdv-menubar > .pdv-dd-trigger[aria-current="page"] {
   background: var(--menu-hot);
   color: #fff !important;
   -webkit-text-fill-color: #fff !important;
@@ -1046,6 +1050,80 @@
   font-weight: 600;
   letter-spacing: -0.02em;
   line-height: 1.2;
+}
+
+.pdv-home-shortcuts {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.pdv-home-shortcuts-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--ink-soft);
+  letter-spacing: -0.01em;
+}
+
+.pdv-home-shortcuts-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+@media (min-width: 720px) {
+  .pdv-home-shortcuts-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+.pdv-home-shortcut {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  min-height: 7.5rem;
+  padding: 14px 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--sheet);
+  text-align: left;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: border-color 160ms var(--ease), box-shadow 160ms var(--ease), transform 160ms var(--ease);
+}
+
+.pdv-root[data-surface="cream"] .pdv-main button.pdv-home-shortcut {
+  color: var(--ink) !important;
+  -webkit-text-fill-color: var(--ink) !important;
+}
+
+.pdv-home-shortcut:hover {
+  border-color: #c9b79a;
+  box-shadow: 0 6px 18px rgba(26, 21, 17, 0.06);
+  transform: translateY(-1px);
+}
+
+.pdv-home-shortcut:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.pdv-home-shortcut .pdv-icon {
+  width: 2.4rem;
+  height: 2.4rem;
+}
+
+.pdv-home-shortcut-label {
+  font-family: var(--font-display);
+  font-size: 1.02rem;
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: -0.02em;
 }
 
 .pdv-shop-bar {

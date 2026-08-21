@@ -332,6 +332,7 @@ export default function PdvShell({
 
   const showCloseDemo = isDashboardVisible(uiConfig, "close-demo");
   const showPeriod = isDashboardVisible(uiConfig, "period");
+  const onDashboard = location.pathname === "/client/dashboard";
 
   return (
     <PdvUiConfigContext.Provider value={uiConfig}>
@@ -389,12 +390,13 @@ export default function PdvShell({
           </form>
 
           <nav className="pdv-icons" aria-label="Atalhos">
-            <PdvTip label="Acessar a Home">
+            <PdvTip label="Voltar ao painel">
               <button
                 className="pdv-ico pdv-ico-home"
                 onClick={handleHome}
                 type="button"
-                aria-label="Acessar a Home"
+                title="Voltar ao painel"
+                aria-label="Voltar ao painel"
               >
                 <Home size={22} strokeWidth={2.2} aria-hidden="true" />
               </button>
