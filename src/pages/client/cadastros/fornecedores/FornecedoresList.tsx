@@ -87,6 +87,10 @@ export default function FornecedoresList({ inactive = false }: { inactive?: bool
       <section className="pdv-cad-page" aria-labelledby="pdv-cad-forn-title">
         <div className="pdv-cad-sheet pdv-cad-sheet-wide">
           <h1 id="pdv-cad-forn-title">FORNECEDORES</h1>
+          <p className="pdv-cad-hint">
+            Fornecedores particulares da sua conta de lojista. Os fornecedores da Central
+            (usados nas invoices) são separados e não aparecem aqui.
+          </p>
           <div className="pdv-cad-actions">
             <button
               className="pdv-cad-btn pdv-cad-btn-green"

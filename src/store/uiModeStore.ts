@@ -31,7 +31,10 @@ function readSnapshot(userId?: string): UiModeSnapshot {
       pages = enableReadyPages(pages);
     }
     return {
-      globalMode: parsed.globalMode === "premium" ? "premium" : "classic",
+      globalMode:
+        parsed.globalMode === "premium" || parsed.globalMode === "alternative"
+          ? parsed.globalMode
+          : "classic",
       pages,
     };
   } catch {

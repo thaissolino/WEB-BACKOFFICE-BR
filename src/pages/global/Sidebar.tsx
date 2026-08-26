@@ -15,6 +15,7 @@ import AdminPanelSettingsOutlinedIcon from "@mui/icons-material/AdminPanelSettin
 import { useAuthBackoffice } from "../../hooks/authBackoffice";
 import StorefrontOutlinedIcon from "@mui/icons-material/StorefrontOutlined";
 import Inventory2OutlinedIcon from "@mui/icons-material/Inventory2Outlined";
+import LocalShippingOutlinedIcon from "@mui/icons-material/LocalShippingOutlined";
 import GroupsOutlinedIcon from "@mui/icons-material/GroupsOutlined";
 import DescriptionOutlinedIcon from "@mui/icons-material/DescriptionOutlined";
 import BackupIcon from "@mui/icons-material/Backup";
@@ -554,6 +555,20 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebar }) => {
                   title="Cadastro produtos"
                   to="/cadastro-produtos"
                   icon={<Inventory2OutlinedIcon />}
+                  selected={selected}
+                  setSelected={setSelected}
+                />
+                <Item
+                  title="Cadastro fornecedores"
+                  to="/cadastro-fornecedores"
+                  icon={<PeopleOutlinedIcon />}
+                  selected={selected}
+                  setSelected={setSelected}
+                />
+                <Item
+                  title="Cadastro freteiros"
+                  to="/cadastro-freteiros"
+                  icon={<LocalShippingOutlinedIcon />}
                   selected={selected}
                   setSelected={setSelected}
                 />

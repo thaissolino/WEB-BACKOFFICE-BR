@@ -18,6 +18,8 @@ export type ClientUser = {
   sex: string;
   createdAt: string;
   updatedAt: string;
+  /** true = senha provisória gerada pela Central; PDV exige troca no 1º acesso. */
+  mustChangePassword?: boolean;
 };
 
 type RegisterClientParams = {
@@ -34,7 +36,7 @@ type ClientAuthContextData = {
   isClientAuthenticated: boolean;
   client: ClientUser | null;
   loadingClient: boolean;
-  clientSignIn: (params: { identifier: string; password: string }) => Promise<void>;
+  clientSignIn: (params: { identifier: string; password: string }) => Promise<ClientUser>;
   clientRegister: (params: RegisterClientParams) => Promise<void>;
   clientForgotPassword: (email: string) => Promise<void>;
   clientLogout: () => void;
@@ -61,6 +63,7 @@ export function ClientAuthProvider({ children }: { children: React.ReactNode }) 
       localStorage.setItem(CLIENT_TOKEN_KEY, data.token);
       localStorage.setItem(CLIENT_USER_KEY, JSON.stringify(data.client));
       setClient(data.client);
+      return data.client as ClientUser;
     },
     []
   );
