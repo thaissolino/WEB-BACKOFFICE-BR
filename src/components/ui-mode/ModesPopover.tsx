@@ -81,6 +81,7 @@ export function ModesPopover({ variant = "classic" }: { variant?: "classic" | "p
           </h2>
           <p className="modes-popover__hint">
             Clássico mantém o layout atual. Premium só entra onde a página estiver ligada.
+            Alternativo usa o visual claro estilo invoice com as cores do PDV nas telas de Gestão.
           </p>
 
           <div className="modes-popover__seg" role="group" aria-label="Modo global">
@@ -98,12 +99,25 @@ export function ModesPopover({ variant = "classic" }: { variant?: "classic" | "p
             >
               Premium
             </button>
+            <button
+              type="button"
+              aria-pressed={globalMode === "alternative"}
+              onClick={() => setGlobalMode("alternative")}
+            >
+              Alternativo
+            </button>
           </div>
 
           {globalMode === "classic" ? (
             <p className="modes-popover__note">
               Modo clássico ativo: todas as páginas usam o layout original, mesmo com o toggle da
               página ligado.
+            </p>
+          ) : null}
+          {globalMode === "alternative" ? (
+            <p className="modes-popover__note">
+              Modo alternativo ativo: as telas de Gestão (produtos, fornecedores, freteiros e
+              lojistas) usam o layout claro com a paleta do PDV.
             </p>
           ) : null}
         </div>

@@ -1,0 +1,176 @@
+/*
+ * Páginas de Gestão (Cadastro produtos / fornecedores / freteiros / lojistas).
+ * Base: visual claro no padrão do módulo Gerenciar Invoices.
+ * Modo "Alternativo" (toggle Clássico/Premium/Alternativo): mesma estrutura,
+ * mas com a paleta de cores do PDV (paper/sheet/ink/accent do dashboard do lojista).
+ */
+
+.gestao-page {
+  min-height: 100%;
+  background: #f9fafb; /* gray-50, igual ao Gerenciar Invoices */
+}
+
+.gestao-page__inner {
+  width: 100%;
+  padding: 16px 12px 32px;
+}
+
+.gestao-page__header {
+  margin-bottom: 16px;
+}
+
+.gestao-page__header h1 {
+  margin: 0;
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: #1e40af; /* blue-800 */
+}
+
+.gestao-page__header p {
+  margin: 4px 0 0;
+  color: #4b5563; /* gray-600 */
+}
+
+.gestao-page__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid #bfdbfe;
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+/* ===================== MODO ALTERNATIVO (cores do PDV) ===================== */
+
+.gestao-page--alt {
+  --paper: #f4f1ea;
+  --sheet: #fffdf8;
+  --ink: #1a1511;
+  --ink-soft: #4a433c;
+  --accent: #8b3d12;
+  --accent-strong: #6f300e;
+  --accent-soft: #c4842a;
+  --ok: #14532d;
+  --alert: #9f1d1d;
+  --line: #ddd4c6;
+
+  background: var(--paper);
+  color: var(--ink);
+}
+
+.gestao-page--alt .gestao-page__header h1 {
+  color: var(--accent);
+  font-family: "Outfit", "Plus Jakarta Sans", sans-serif;
+  letter-spacing: -0.02em;
+}
+
+.gestao-page--alt .gestao-page__header p {
+  color: var(--ink-soft);
+}
+
+.gestao-page--alt .gestao-page__badge {
+  border-color: var(--line);
+  background: var(--sheet);
+  color: var(--accent);
+}
+
+/* Superfícies e bordas */
+.gestao-page--alt .bg-white {
+  background-color: var(--sheet) !important;
+}
+
+.gestao-page--alt .bg-gray-50 {
+  background-color: var(--paper) !important;
+}
+
+.gestao-page--alt .bg-gray-100,
+.gestao-page--alt .bg-blue-50,
+.gestao-page--alt .bg-blue-100 {
+  background-color: #efe9dd !important;
+}
+
+.gestao-page--alt .border,
+.gestao-page--alt .border-b,
+.gestao-page--alt .border-t,
+.gestao-page--alt .border-gray-200,
+.gestao-page--alt .border-gray-300 {
+  border-color: var(--line) !important;
+}
+
+/* Ações primárias (azul invoice -> accent PDV) */
+.gestao-page--alt .bg-blue-500,
+.gestao-page--alt .bg-blue-600,
+.gestao-page--alt .bg-blue-700,
+.gestao-page--alt .hover\:bg-blue-600:hover,
+.gestao-page--alt .hover\:bg-blue-700:hover {
+  background-color: var(--accent) !important;
+}
+
+.gestao-page--alt .bg-blue-600:hover,
+.gestao-page--alt .bg-blue-500:hover {
+  background-color: var(--accent-strong) !important;
+}
+
+.gestao-page--alt .text-blue-500,
+.gestao-page--alt .text-blue-600,
+.gestao-page--alt .text-blue-700,
+.gestao-page--alt .text-blue-800 {
+  color: var(--accent) !important;
+}
+
+/* Confirmações e alertas */
+.gestao-page--alt .bg-green-600,
+.gestao-page--alt .bg-green-700,
+.gestao-page--alt .hover\:bg-green-700:hover {
+  background-color: var(--ok) !important;
+}
+
+.gestao-page--alt .bg-red-500,
+.gestao-page--alt .bg-red-600,
+.gestao-page--alt .bg-red-700,
+.gestao-page--alt .hover\:bg-red-700:hover {
+  background-color: var(--alert) !important;
+}
+
+.gestao-page--alt .text-red-600,
+.gestao-page--alt .text-red-700 {
+  color: var(--alert) !important;
+}
+
+.gestao-page--alt .text-green-600,
+.gestao-page--alt .text-green-700 {
+  color: var(--ok) !important;
+}
+
+/* Texto padrão */
+.gestao-page--alt .text-gray-500,
+.gestao-page--alt .text-gray-600,
+.gestao-page--alt .text-gray-700 {
+  color: var(--ink-soft) !important;
+}
+
+.gestao-page--alt .text-gray-800,
+.gestao-page--alt .text-gray-900 {
+  color: var(--ink) !important;
+}
+
+/* Inputs */
+.gestao-page--alt input,
+.gestao-page--alt select,
+.gestao-page--alt textarea {
+  background-color: var(--sheet);
+  border-color: var(--line);
+  color: var(--ink);
+}
+
+.gestao-page--alt input:focus,
+.gestao-page--alt select:focus,
+.gestao-page--alt textarea:focus {
+  outline-color: var(--accent-soft);
+  border-color: var(--accent-soft);
+}

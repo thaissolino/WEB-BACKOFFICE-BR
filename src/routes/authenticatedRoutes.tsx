@@ -65,6 +65,10 @@ import StoreLoja from "../pages/stores/StoreLoja";
 import StoreParamStubPage from "../pages/stores/StoreParamStubPage";
 import StockOverview from "../pages/stores/StockOverview";
 import GestorCadastroProdutos from "../pages/stores/GestorCadastroProdutos";
+import GestorCadastroFornecedores from "../pages/gestor/GestorCadastroFornecedores";
+import GestorCadastroFreteiros from "../pages/gestor/GestorCadastroFreteiros";
+import GestorCadastroLojistas from "../pages/gestor/GestorCadastroLojistas";
+import TrocarSenhaCliente from "../pages/client/TrocarSenha";
 import CreateCommercialClient from "../pages/commercial-clients/CreateCommercialClient";
 import CommercialClientsList from "../pages/commercial-clients/CommercialClientsList";
 import CommercialClientDetail from "../pages/commercial-clients/CommercialClientDetail";
@@ -119,6 +123,7 @@ export function Router() {
         }
       >
         <Route path="client/dashboard" element={<ClientDashboard />} />
+        <Route path="client/trocar-senha" element={<TrocarSenhaCliente />} />
         <Route path="client/caixa" element={<TrocarCaixa />} />
         <Route path="client/pdv" element={<ClientPdv />} />
         <Route path="client/loja" element={<ClientLoja />} />
@@ -212,8 +217,10 @@ export function Router() {
           }
         >
           <Route path="backoffice" element={<Dashboard />} />
-          <Route path="cadastro-lojistas" element={<CreateStore />} />
+          <Route path="cadastro-lojistas" element={<GestorCadastroLojistas />} />
           <Route path="cadastro-produtos" element={<GestorCadastroProdutos />} />
+          <Route path="cadastro-fornecedores" element={<GestorCadastroFornecedores />} />
+          <Route path="cadastro-freteiros" element={<GestorCadastroFreteiros />} />
           <Route path="gerenciar-lojistas" element={<StoresList />} />
           <Route path="pdv-config" element={<PdvConfig />} />
           <Route path="clientes-comerciais/cadastrar" element={<CreateCommercialClient />} />

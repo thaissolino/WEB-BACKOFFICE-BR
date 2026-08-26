@@ -44,6 +44,8 @@ export function useBackofficeNavItems() {
     items.push(
       { id: "cadastro-lojistas", label: "Cadastro lojistas", to: "/cadastro-lojistas", group: "Gestão" },
       { id: "cadastro-produtos", label: "Cadastro produtos", to: "/cadastro-produtos", group: "Gestão" },
+      { id: "cadastro-fornecedores", label: "Cadastro fornecedores", to: "/cadastro-fornecedores", group: "Gestão" },
+      { id: "cadastro-freteiros", label: "Cadastro freteiros", to: "/cadastro-freteiros", group: "Gestão" },
       { id: "gerenciar-lojistas", label: "Gerenciar lojistas", to: "/gerenciar-lojistas", group: "Gestão" },
     );
   }

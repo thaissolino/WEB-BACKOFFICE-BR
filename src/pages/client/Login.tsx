@@ -47,8 +47,9 @@ export default function ClientLogin() {
     setIsSubmitting(true);
     try {
       const value = byDocument ? digitsOnly(identifier) : identifier.trim();
-      await clientSignIn({ identifier: value, password });
-      navigate("/client/dashboard");
+      const client = await clientSignIn({ identifier: value, password });
+      // Primeiro acesso com senha provisória gerada pela Central: força a troca.
+      navigate(client?.mustChangePassword ? "/client/trocar-senha" : "/client/dashboard");
     } catch (_error) {
       setErrorMessage(
         byDocument

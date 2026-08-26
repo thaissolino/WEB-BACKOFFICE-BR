@@ -2,6 +2,8 @@ export const PAGE_MODE_KEYS = [
   { key: "dashboard", path: "/backoffice", label: "Dashboard", premiumReady: true },
   { key: "gestorCadastroLojistas", path: "/cadastro-lojistas", label: "Cadastro lojistas", premiumReady: true },
   { key: "gestorCadastroProdutos", path: "/cadastro-produtos", label: "Cadastro produtos", premiumReady: true },
+  { key: "gestorCadastroFornecedores", path: "/cadastro-fornecedores", label: "Cadastro fornecedores", premiumReady: true },
+  { key: "gestorCadastroFreteiros", path: "/cadastro-freteiros", label: "Cadastro freteiros", premiumReady: true },
   { key: "gestorGerenciarLojistas", path: "/gerenciar-lojistas", label: "Gerenciar lojistas", premiumReady: true },
   { key: "team", path: "/team", label: "Gerenciar Grupos", premiumReady: true },
   { key: "users", path: "/users", label: "Gerenciar Usuários", premiumReady: true },
@@ -19,7 +21,12 @@ export const PAGE_MODE_KEYS = [
 ] as const;
 
 export type PageModeKey = (typeof PAGE_MODE_KEYS)[number]["key"];
-export type GlobalUiMode = "classic" | "premium";
+/**
+ * classic = layout original; premium = chrome premium;
+ * alternative = layout claro estilo invoice com a paleta de cores do PDV
+ * (aplicado nas páginas de Gestão preparadas para isso).
+ */
+export type GlobalUiMode = "classic" | "premium" | "alternative";
 
 export type PageModeFlags = Record<PageModeKey, boolean>;
 
@@ -32,6 +39,8 @@ export const DEFAULT_PAGE_FLAGS: PageModeFlags = {
   dashboard: true,
   gestorCadastroLojistas: true,
   gestorCadastroProdutos: true,
+  gestorCadastroFornecedores: true,
+  gestorCadastroFreteiros: true,
   gestorGerenciarLojistas: true,
   team: true,
   users: true,
