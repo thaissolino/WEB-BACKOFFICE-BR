@@ -1,4 +1,4 @@
-import { FormEvent, useMemo, useState } from "react";
+﻿import { FormEvent, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useClientAuth } from "../../hooks/clientAuth";
 import { VitrineAuthLayout } from "./vitrine/VitrineAuthLayout";
@@ -85,7 +85,7 @@ export default function ClientRegister() {
         age: fields.age ? Number(age) : undefined,
         sex: fields.sex ? (sex as ClientSex) : undefined,
       });
-      navigate("/signin/client");
+      navigate("/signin/lojista");
     } catch (_error) {
       setErrorMessage(
         byDocument
@@ -251,7 +251,7 @@ export default function ClientRegister() {
       )}
 
       <div className="vitrine-foot">
-        <Link className="vitrine-link" to="/signin/client">
+        <Link className="vitrine-link" to="/signin/lojista">
           Já tenho conta
         </Link>
       </div>

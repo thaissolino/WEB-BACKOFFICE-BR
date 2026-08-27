@@ -117,7 +117,7 @@ export default function PremiumStoresList() {
   return (
     <PremiumStage
       title="Lojas"
-      hint={`${filtered.length} vitrines · ${activeCount} ativas`}
+      hint={`${filtered.length} lojas · ${activeCount} ativas`}
       actions={
         <>
           <button className="br-btn br-btn-ghost" type="button" onClick={openTestStoresDialog}>

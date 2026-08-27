@@ -25,6 +25,8 @@ import BackupIcon from "@mui/icons-material/Backup";
 import ListIcon from "@mui/icons-material/List";
 import DownloadIcon from "@mui/icons-material/Download";
 import RestoreIcon from "@mui/icons-material/Restore";
+import CardMembershipOutlinedIcon from "@mui/icons-material/CardMembershipOutlined";
+import WarehouseOutlinedIcon from "@mui/icons-material/WarehouseOutlined";
 import { usePermissionStore } from "../../store/permissionsStore";
 import { api } from "../../services/api";
 
@@ -548,16 +550,23 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebar }) => {
                   </Typography>
                 )}
                 <Item
-                  title="Cadastro lojistas"
+                  title="Cadastrar lojista"
                   to="/cadastro-lojistas"
                   icon={<GroupsOutlinedIcon />}
                   selected={selected}
                   setSelected={setSelected}
                 />
                 <Item
-                  title="Cadastro produtos"
-                  to="/cadastro-produtos"
-                  icon={<Inventory2OutlinedIcon />}
+                  title="Cadastrar loja"
+                  to="/lojas"
+                  icon={<StorefrontOutlinedIcon />}
+                  selected={selected}
+                  setSelected={setSelected}
+                />
+                <Item
+                  title="Cadastro planos"
+                  to="/cadastro-planos"
+                  icon={<CardMembershipOutlinedIcon />}
                   selected={selected}
                   setSelected={setSelected}
                 />
@@ -569,6 +578,13 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebar }) => {
                   setSelected={setSelected}
                 />
                 <Item
+                  title="Cadastro produtos"
+                  to="/cadastro-produtos"
+                  icon={<Inventory2OutlinedIcon />}
+                  selected={selected}
+                  setSelected={setSelected}
+                />
+                <Item
                   title="Cadastro freteiros"
                   to="/cadastro-freteiros"
                   icon={<LocalShippingOutlinedIcon />}
@@ -576,9 +592,9 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebar }) => {
                   setSelected={setSelected}
                 />
                 <Item
-                  title="Gerenciar lojistas"
-                  to="/gerenciar-lojistas"
-                  icon={<StorefrontOutlinedIcon />}
+                  title="Estoque atacado"
+                  to="/estoque-atacado"
+                  icon={<WarehouseOutlinedIcon />}
                   selected={selected}
                   setSelected={setSelected}
                 />

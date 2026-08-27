@@ -1,4 +1,4 @@
-import { ReactNode, useMemo, useRef, useState } from "react";
+﻿import { ReactNode, useMemo, useRef, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import {
   Activity,
@@ -692,7 +692,7 @@ export default function ClientDashboard() {
   const { client, loadingClient } = useClientAuth();
 
   if (loadingClient) return <PdvLoading />;
-  if (!client) return <Navigate to="/signin/client" replace />;
+  if (!client) return <Navigate to="/signin/lojista" replace />;
 
   return (
     <PdvShell>

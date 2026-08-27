@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useState } from "react"
+﻿import { FormEvent, useEffect, useState } from "react"
 import { Navigate, useNavigate } from "react-router-dom"
 import { useClientAuth } from "../../hooks/clientAuth"
 import PdvShell, { PdvLoading, usePdvSession } from "./dashboard/PdvShell"
@@ -194,7 +194,7 @@ export default function ClientPdv() {
   const { client, loadingClient } = useClientAuth()
 
   if (loadingClient) return <PdvLoading />
-  if (!client) return <Navigate to="/signin/client" replace />
+  if (!client) return <Navigate to="/signin/lojista" replace />
 
   return (
     <PdvShell variant="form">

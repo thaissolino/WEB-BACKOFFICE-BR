@@ -1,4 +1,4 @@
-import { FormEvent, useState } from "react";
+﻿import { FormEvent, useState } from "react";
 import { Link } from "react-router-dom";
 import { useClientAuth } from "../../hooks/clientAuth";
 import { VitrineAuthLayout } from "./vitrine/VitrineAuthLayout";
@@ -62,7 +62,7 @@ export default function ClientForgotPassword() {
       </form>
 
       <div className="vitrine-foot">
-        <Link className="vitrine-link" to="/signin/client">
+        <Link className="vitrine-link" to="/signin/lojista">
           Voltar para o login
         </Link>
       </div>

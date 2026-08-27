@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+﻿import { Link } from "react-router-dom";
 import "./styles.css";
 
 export default function ClientHome() {
@@ -6,7 +6,7 @@ export default function ClientHome() {
     <div className="client-shell">
       <div className="client-nav client-container">
         <span className="client-brand">PDV GestorVix</span>
-        <Link className="client-btn client-btn-secondary" to="/home">
+        <Link className="client-btn client-btn-secondary" to="/signin/backoffice">
           Acesso Backoffice
         </Link>
       </div>
@@ -19,7 +19,7 @@ export default function ClientHome() {
             RabbitMQ.
           </p>
           <div className="client-cta-row">
-            <Link className="client-btn client-btn-primary" to="/signin/client">
+            <Link className="client-btn client-btn-primary" to="/signin/lojista">
               Entrar
             </Link>
             <Link className="client-btn client-btn-secondary" to="/signup/client">
