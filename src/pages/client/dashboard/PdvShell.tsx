@@ -12,6 +12,7 @@ import {
   Search,
   Settings,
   ShoppingCart,
+  UserRound,
 } from "lucide-react";
 import { useClientAuth } from "../../../hooks/clientAuth";
 import { api } from "../../../services/api";
@@ -554,6 +555,17 @@ export default function PdvShell({
                 </PdvTip>
               </>
             ) : null}
+            <PdvTip label="Meu perfil / trocar senha">
+              <button
+                className="pdv-ico pdv-ico-profile"
+                type="button"
+                aria-label="Meu perfil / trocar senha"
+                aria-current={location.pathname === "/client/trocar-senha" ? "page" : undefined}
+                onClick={() => navigate("/client/trocar-senha")}
+              >
+                <UserRound size={22} strokeWidth={2.2} aria-hidden="true" />
+              </button>
+            </PdvTip>
             <PdvTip label="Sair">
               <button
                 className="pdv-ico pdv-ico-exit"

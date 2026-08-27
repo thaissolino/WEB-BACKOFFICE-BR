@@ -12,6 +12,9 @@ export default function PremiumStoresList() {
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<Store | null>(null);
+  const [deleting, setDeleting] = useState<Store | null>(null);
+  const [testStores, setTestStores] = useState<Store[] | null>(null);
+  const [busy, setBusy] = useState(false);
   const [toast, setToast] = useState({ open: false, message: "" });
 
   async function load(term = search) {
@@ -70,14 +73,60 @@ export default function PremiumStoresList() {
     }
   }
 
+  async function confirmDelete() {
+    if (!deleting) return;
+    setBusy(true);
+    try {
+      await api.delete(`/backoffice/stores/${deleting.id}`);
+      setToast({ open: true, message: `Loja "${deleting.name}" excluída.` });
+      setDeleting(null);
+      load();
+    } catch (err) {
+      const parsed = parseError(err);
+      setToast({ open: true, message: parsed.friend || parsed.message || "Não foi possível excluir a loja." });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function openTestStoresDialog() {
+    try {
+      const { data } = await api.get("/backoffice/stores/test-data");
+      setTestStores(data.stores || []);
+    } catch (err) {
+      const parsed = parseError(err);
+      setToast({ open: true, message: parsed.friend || parsed.message || "Não foi possível listar as lojas de teste." });
+    }
+  }
+
+  async function confirmDeleteTestStores() {
+    setBusy(true);
+    try {
+      const { data } = await api.delete("/backoffice/stores/test-data");
+      setToast({ open: true, message: `${data.deletedCount} loja(s) de teste excluída(s).` });
+      setTestStores(null);
+      load();
+    } catch (err) {
+      const parsed = parseError(err);
+      setToast({ open: true, message: parsed.friend || parsed.message || "Não foi possível excluir as lojas de teste." });
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <PremiumStage
       title="Lojas"
       hint={`${filtered.length} vitrines · ${activeCount} ativas`}
       actions={
-        <button className="br-btn br-btn-brass" type="button" onClick={() => navigate("/lojas/cadastrar")}>
-          Nova loja
-        </button>
+        <>
+          <button className="br-btn br-btn-ghost" type="button" onClick={openTestStoresDialog}>
+            Excluir lojas de teste
+          </button>
+          <button className="br-btn br-btn-brass" type="button" onClick={() => navigate("/lojas/cadastrar")}>
+            Nova loja
+          </button>
+        </>
       }
     >
       <section className="br-panel">
@@ -123,6 +172,9 @@ export default function PremiumStoresList() {
                   </button>
                   <button className="br-btn br-btn-ghost" type="button" onClick={() => toggleStatus(store)}>
                     {store.status === "ACTIVE" ? "Desativar" : "Ativar"}
+                  </button>
+                  <button className="br-btn br-btn-ghost" type="button" onClick={() => setDeleting(store)}>
+                    Excluir
                   </button>
                 </div>
               </div>
@@ -197,6 +249,63 @@ export default function PremiumStoresList() {
           </div>
         </div>
       ) : null}
+      {deleting ? (
+        <div className="br-dialog" role="dialog" aria-labelledby="delete-loja" aria-modal="true">
+          <div className="br-dialog-card">
+            <h2 id="delete-loja">Excluir loja</h2>
+            <p>
+              Excluir definitivamente a loja <strong>{deleting.name}</strong>? Produtos,
+              movimentações de estoque e logs também serão removidos. Esta ação não pode ser desfeita.
+            </p>
+            <div className="br-actions" style={{ marginTop: 14 }}>
+              <button className="br-btn" type="button" onClick={() => setDeleting(null)} disabled={busy}>
+                Cancelar
+              </button>
+              <button className="br-btn br-btn-brass" type="button" onClick={confirmDelete} disabled={busy}>
+                Excluir definitivamente
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {testStores !== null ? (
+        <div className="br-dialog" role="dialog" aria-labelledby="delete-test-lojas" aria-modal="true">
+          <div className="br-dialog-card">
+            <h2 id="delete-test-lojas">Excluir lojas de teste</h2>
+            {testStores.length === 0 ? (
+              <p>Nenhuma loja de teste encontrada.</p>
+            ) : (
+              <>
+                <p>
+                  As lojas abaixo foram identificadas como <strong>lojas de teste</strong> (nome com
+                  &quot;teste&quot;/&quot;test&quot; ou criadas pelos seeds de demonstração) e serão
+                  excluídas definitivamente, junto com produtos e movimentações:
+                </p>
+                <ul>
+                  {testStores.map((store) => (
+                    <li key={store.id}>
+                      {store.name} ({store.slug})
+                    </li>
+                  ))}
+                </ul>
+                <p>Esta ação não pode ser desfeita.</p>
+              </>
+            )}
+            <div className="br-actions" style={{ marginTop: 14 }}>
+              <button className="br-btn" type="button" onClick={() => setTestStores(null)} disabled={busy}>
+                Cancelar
+              </button>
+              {testStores.length > 0 ? (
+                <button className="br-btn br-btn-brass" type="button" onClick={confirmDeleteTestStores} disabled={busy}>
+                  Excluir {testStores.length} loja(s) de teste
+                </button>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       <BrToast open={toast.open} message={toast.message} onClose={() => setToast({ open: false, message: "" })} />
     </PremiumStage>
   );

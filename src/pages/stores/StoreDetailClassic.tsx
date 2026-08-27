@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   Alert,
+  Autocomplete,
   Box,
   Button,
   Dialog,
@@ -25,6 +26,7 @@ import {
   formatDateTime,
   formatMoney,
   movementLabel,
+  type CatalogProduct,
   type MovementType,
   type StockMovement,
   type Store,
@@ -48,6 +50,8 @@ export default function StoreDetailClassic({ storeId: storeIdProp }: { storeId?:
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [productForm, setProductForm] = useState(emptyProduct);
+  const [catalog, setCatalog] = useState<CatalogProduct[]>([]);
+  const [catalogPick, setCatalogPick] = useState<CatalogProduct | null>(null);
   const [stockDialog, setStockDialog] = useState<{ product: StoreProduct; type: MovementType; quantity: string; note: string } | null>(null);
   const [toast, setToast] = useState({ open: false, type: "success" as "success" | "error", message: "" });
 
@@ -85,6 +89,20 @@ export default function StoreDetailClassic({ storeId: storeIdProp }: { storeId?:
     loadMovements();
   }, [id]);
 
+  // Catálogo oficial das invoices, para vincular o item de estoque (opcional).
+  useEffect(() => {
+    (async () => {
+      try {
+        const { data } = await api.get("/invoice/product", { params: { limit: 5000, page: 1 } });
+        const items: CatalogProduct[] = Array.isArray(data) ? data : data.products || [];
+        setCatalog(items.filter((item) => item.active !== false));
+      } catch {
+        // Sem catálogo disponível: o formulário continua funcionando sem vínculo.
+        setCatalog([]);
+      }
+    })();
+  }, []);
+
   async function createProduct(event: FormEvent) {
     event.preventDefault();
     if (!id) return;
@@ -94,8 +112,10 @@ export default function StoreDetailClassic({ storeId: storeIdProp }: { storeId?:
         sku: productForm.sku.trim(),
         quantity: Number(productForm.quantity || 0),
         price: productForm.price === "" ? null : Number(productForm.price),
+        catalogProductId: catalogPick?.id ?? null,
       });
       setProductForm(emptyProduct);
+      setCatalogPick(null);
       setToast({ open: true, type: "success", message: "Produto cadastrado." });
       await loadStore();
       await loadMovements();
@@ -184,10 +204,32 @@ export default function StoreDetailClassic({ storeId: storeIdProp }: { storeId?:
         onSubmit={createProduct}
         display="grid"
         gap={1}
-        gridTemplateColumns={isMobile ? "1fr" : "2fr 1fr 1fr 1fr auto"}
+        gridTemplateColumns={isMobile ? "1fr" : "2fr 2fr 1fr 1fr 1fr auto"}
         mb={2}
         alignItems="center"
       >
+        <Autocomplete
+          size="small"
+          options={catalog}
+          value={catalogPick}
+          onChange={(_, value) => {
+            setCatalogPick(value);
+            if (value) {
+              // Pré-preenche nome e SKU a partir do catálogo (editáveis).
+              setProductForm((c) => ({
+                ...c,
+                name: c.name.trim() ? c.name : value.name,
+                sku: c.sku.trim() ? c.sku : value.code,
+              }));
+            }
+          }}
+          getOptionLabel={(option) => `${option.code} — ${option.name}`}
+          isOptionEqualToValue={(option, value) => option.id === value.id}
+          renderInput={(params) => (
+            <TextField {...params} variant="filled" label="Catálogo oficial (opcional)" />
+          )}
+          noOptionsText="Nenhum produto no catálogo"
+        />
         <TextField size="small" variant="filled" label="Nome" value={productForm.name} onChange={(e) => setProductForm((c) => ({ ...c, name: e.target.value }))} required />
         <TextField size="small" variant="filled" label="SKU" value={productForm.sku} onChange={(e) => setProductForm((c) => ({ ...c, sku: e.target.value }))} required />
         <TextField size="small" variant="filled" type="number" label="Qtd inicial" value={productForm.quantity} onChange={(e) => setProductForm((c) => ({ ...c, quantity: e.target.value }))} />
@@ -203,6 +245,11 @@ export default function StoreDetailClassic({ storeId: storeIdProp }: { storeId?:
             <Box key={product.id} p={2} sx={{ backgroundColor: colors.primary[400], border: `1px solid ${colors.grey[700]}` }}>
               <Typography fontWeight={700}>{product.name}</Typography>
               <Typography variant="body2">{product.sku} · {product.quantity} un · {formatMoney(product.price)}</Typography>
+              {product.catalogName ? (
+                <Typography variant="caption" color={colors.greenAccent[400]}>
+                  Catálogo: {product.catalogCode ? `${product.catalogCode} — ` : ""}{product.catalogName}
+                </Typography>
+              ) : null}
               <Box display="flex" gap={1} mt={1} flexWrap="wrap">
                 <Button size="small" variant="outlined" onClick={() => setStockDialog({ product, type: "IN", quantity: "1", note: "" })}>Estoque</Button>
                 <Button size="small" color="error" variant="outlined" onClick={() => removeProduct(product.id)}>Excluir</Button>
@@ -217,6 +264,7 @@ export default function StoreDetailClassic({ storeId: storeIdProp }: { storeId?:
               <tr>
                 <th>Produto</th>
                 <th>SKU</th>
+                <th>Catálogo oficial</th>
                 <th>Qtd</th>
                 <th>Preço</th>
                 <th>Ações</th>
@@ -227,6 +275,11 @@ export default function StoreDetailClassic({ storeId: storeIdProp }: { storeId?:
                 <tr key={product.id}>
                   <td>{product.name}</td>
                   <td>{product.sku}</td>
+                  <td>
+                    {product.catalogName
+                      ? `${product.catalogCode ? `${product.catalogCode} — ` : ""}${product.catalogName}`
+                      : "—"}
+                  </td>
                   <td>{product.quantity}</td>
                   <td>{formatMoney(product.price)}</td>
                   <td>

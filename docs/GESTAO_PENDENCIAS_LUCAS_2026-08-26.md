@@ -85,22 +85,75 @@ o que **ficou para decidir/fazer depois** e a regra de **separação Central vs 
 
 ---
 
-## Ficou pra decidir/fazer depois (NÃO feito nesta leva)
+## Leva 2 (26/08/2026 — noite): pendências implementadas + deploy
 
-1. **Estoque** (itens 6–7 das dúvidas) — definição de como o estoque por loja
-   conversa com a base oficial de produtos das invoices (hoje há `store_products`
-   separado, usado pelas telas Gerenciar lojistas/Estoque).
-2. **Esconder/reorganizar "Black Rabbit" no menu** — apenas planejado; nenhuma
-   mudança de visibilidade foi feita.
-3. **"Criar Usuário" Black/Mensageria** — não mexido, por decisão de escopo.
-4. **Bug de exclusão de usuário da mensageria** — não investigado nesta leva.
-5. **Qualquer limpeza/apagamento de base** — descartado; o pedido original era equívoco.
-6. **Migrar os fornecedores legados (seed) do PDV** para donos específicos, ou
-   decidi-los como "compartilhados" permanentes (`clientId IS NULL`).
-7. **E-mail transacional dedicado** — hoje o envio da senha usa SMTP genérico
-   (`MAIL_HOST/USER/PASS`); avaliar template e remetente próprios.
-8. **Tela "Meu perfil / trocar senha" dentro do PDV** — hoje a troca acontece na
-   rota `/client/trocar-senha` (forçada no 1º acesso); avaliar entrada pelo menu.
+Status dos 8 itens que estavam "pra depois":
+
+1. **Estoque ligado ao catálogo oficial — FEITO.** `store_products` ganhou coluna
+   **aditiva e nullable** `catalogProductId` (criada com `ADD COLUMN IF NOT EXISTS`,
+   sem FK para não travar boot; **nenhum dado existente foi alterado**). No detalhe
+   da loja (clássico e premium) há um seletor **"Catálogo oficial (opcional)"** que
+   busca `GET /invoice/product`, pré-preenche nome/SKU e grava o vínculo; a lista
+   mostra a coluna "Catálogo oficial". Produtos antigos continuam sem vínculo, tudo
+   funciona como antes.
+2. **Menu Black/Mensageria agrupado — FEITO.** Criar Usuário, Gerenciar Grupos,
+   Gerenciar Usuários, Gerenciar Operadores e Gerenciar Tokens agora ficam num grupo
+   **colapsado e menos destacado "Black / Mensageria (legado)"** (submenu na sidebar
+   clássica; bloco `<details>` no chrome premium). **Nada foi apagado**, só reorganizado.
+   Gerenciar Invoices continua em destaque no menu principal.
+3. **"Criar Usuário" Black/Mensageria** — mantido como está (decisão: não investir).
+   Só mudou de lugar no menu (item 2 acima).
+4. **Exclusão de usuário da mensageria — FEITO (soft delete).** O bug era um hard
+   delete em cascata manual (`DELETE /graphic/delete`) que apagava grupos, mensagens,
+   contatos etc. e quebrava com erro de FK a cada tabela nova (erro `P2025`/FK visto
+   nos logs de prod). Agora a conta é apenas marcada `status = DELETED` + `blocked`,
+   some das listagens e não loga mais (QR login exige `ACTIVE`). **Nenhuma mensagem/
+   grupo é apagado**; reversível voltando o status para `ACTIVE` no banco.
+5. **Limpeza/apagamento de base** — continua descartado. Nenhum DELETE/UPDATE em
+   massa foi executado em produção (regra de segurança do usuário).
+6. **Fornecedores legados do PDV — FEITO (caminho seguro).** O seed automático foi
+   **desativado por padrão** (só roda com `PDV_SUPPLIERS_SEED=true`; bases novas não
+   recebem mais os fictícios). Em produção **nada foi alterado**: os legados
+   (`clientId IS NULL`) continuam visíveis para não quebrar lojistas. Para desativar
+   depois, há o script `backend/scripts/deactivate-legacy-pdv-suppliers.ts`
+   (preview por padrão; `--apply` marca `active = FALSE`, reversível) — **não foi
+   executado em produção**, fica a decisão para o usuário.
+7. **E-mail remetente dedicado — FEITO (mínimo).** O envio de senha do lojista agora
+   respeita `MAIL_FROM_NAME` / `MAIL_FROM` (fallback: nome "GestorVix" + conta SMTP
+   autenticada). Sem troca de provedor, sem projeto grande.
+8. **Meu perfil / trocar senha no PDV — FEITO.** Novo botão (ícone de pessoa) no
+   cabeçalho do PDV, ao lado de "Sair", nos modos clássico e premium, apontando para
+   `/client/trocar-senha` (a tela já suportava troca voluntária).
+
+### Deploy de 26/08 (noite) — o que foi para produção
+
+- **Backend** (`api-black-rabbit`): build local `tsup` → `tar`/`scp` →
+  swap de `/root/Black-Rabbit-API/build` (backup em
+  `/root/Black-Rabbit-API/build-backup-20260826-224306`) → `pm2 restart api-black-rabbit`
+  (path absoluto nvm, **nenhum outro app PM2 tocado**).
+  Validação: `GET https://api.vilablackrabbit.com.br/backoffice/lojistas` respondia
+  **404** antes e responde **401** depois (rota existe, exige token). Porta 4444 ok,
+  boot limpo nos logs.
+- **Backoffice front** (`backoffice.vilablackrabbit.com.br`): build local `vite` →
+  dist publicado em `/root/backoffice-black-rabbit/dist` (o `serve` do PM2 na 4173 é
+  quem atende o domínio via Nginx) e também em `/var/www/backoffice-black-rabbit`.
+  Backups em `/root/office-dist-backup-20260826-224657` e
+  `/root/office-www-backup-20260826-224657`. Sem reload de Nginx (só arquivos estáticos).
+- **Banco de produção: intocado.** Zero DELETE/UPDATE manual. As únicas mudanças de
+  schema acontecem no boot do app e são todas `ADD COLUMN IF NOT EXISTS` /
+  `CREATE TABLE IF NOT EXISTS` (aditivas, sem backfill destrutivo).
+- **Atenção**: o restart do backend regenera o secret JWT em runtime (comportamento
+  já existente do app) — sessões abertas do backoffice precisaram relogar.
+
+### Como desfazer (rollback)
+
+- Backend: `mv /root/Black-Rabbit-API/build /root/Black-Rabbit-API/build-new-20260826 &&
+  cp -a /root/Black-Rabbit-API/build-backup-20260826-224306 /root/Black-Rabbit-API/build &&
+  pm2 restart api-black-rabbit` (pm2 do nvm).
+- Front: restaurar `/root/backoffice-black-rabbit/dist` a partir de
+  `/root/office-dist-backup-20260826-224657` (e `/var/www` do backup correspondente).
+- Soft delete: usuários marcados como excluídos podem ser reativados com
+  `UPDATE graphic_accounts SET status = 'ACTIVE', blocked = FALSE WHERE ...`.
 
 ---
 
@@ -115,3 +168,15 @@ o que **ficou para decidir/fazer depois** e a regra de **separação Central vs 
    vincular lojas; login no PDV com a senha provisória → redireciona para troca de senha.
 6. **PDV** `/client/fornecedores`: nota de separação; fornecedor criado por um lojista
    não aparece para outro lojista.
+
+### Testes da leva 2
+
+7. **Menu gestor**: itens da mensageria agora dentro de "Black / Mensageria (legado)"
+   (colapsado); Gerenciar Invoices continua fora, em destaque.
+8. **Estoque**: `/lojas/:id/estoque` → formulário tem "Catálogo oficial (opcional)";
+   escolher um produto pré-preenche nome/SKU e a lista mostra a coluna Catálogo.
+9. **Exclusão mensageria**: em Gerenciar Usuários, excluir um usuário de teste →
+   deve sumir da lista **sem erro 500**; mensagens/grupos permanecem no banco.
+10. **PDV**: ícone de pessoa no topo (ao lado de Sair) → abre `/client/trocar-senha`.
+11. **E-mail**: definir `MAIL_FROM_NAME`/`MAIL_FROM` no `.env` do backend para
+    personalizar o remetente da senha do lojista (opcional; tem fallback).
