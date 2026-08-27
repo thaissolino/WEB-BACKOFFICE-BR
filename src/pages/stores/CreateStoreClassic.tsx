@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import {
   Alert,
   Box,
@@ -16,24 +16,54 @@ import {
 import Header from "../../components/Header";
 import { api, parseError } from "../../services/api";
 import type { StoreStatus } from "./types";
-import type { CommercialClient } from "../commercial-clients/types";
+
+type LojistaOption = {
+  id: string;
+  name: string;
+  email: string;
+  document: string;
+};
+
+function formatCpfCnpj(value: string) {
+  const d = (value || "").replace(/\D/g, "").slice(0, 14);
+  if (d.length <= 11) {
+    return d
+      .replace(/(\d{3})(\d)/, "$1.$2")
+      .replace(/(\d{3})(\d)/, "$1.$2")
+      .replace(/(\d{3})(\d{1,2})$/, "$1-$2");
+  }
+  return d
+    .replace(/(\d{2})(\d)/, "$1.$2")
+    .replace(/(\d{3})(\d)/, "$1.$2")
+    .replace(/(\d{3})(\d)/, "$1/$2")
+    .replace(/(\d{4})(\d{1,2})$/, "$1-$2");
+}
+
+function formatPhone(value: string) {
+  const d = (value || "").replace(/\D/g, "").slice(0, 11);
+  if (d.length <= 10) {
+    return d.replace(/(\d{2})(\d)/, "($1) $2").replace(/(\d{4})(\d{1,4})$/, "$1-$2");
+  }
+  return d.replace(/(\d{2})(\d)/, "($1) $2").replace(/(\d{5})(\d{1,4})$/, "$1-$2");
+}
 
 export default function CreateStoreClassic() {
   const navigate = useNavigate();
-  const [params] = useSearchParams();
   const isMobile = useMediaQuery("(max-width:768px)");
   const [saving, setSaving] = useState(false);
-  const [clients, setClients] = useState<CommercialClient[]>([]);
+  const [lojistas, setLojistas] = useState<LojistaOption[]>([]);
   const [toast, setToast] = useState({ open: false, type: "success" as "success" | "error", message: "" });
   const [form, setForm] = useState({
     name: "",
     slug: "",
     document: "",
+    phone: "",
+    email: "",
     status: "ACTIVE" as StoreStatus,
     address: "",
     city: "",
     manager: "",
-    commercialClientId: params.get("clienteComercialId") || "",
+    clientId: "",
   });
 
   function setField(key: keyof typeof form, value: string) {
@@ -42,9 +72,9 @@ export default function CreateStoreClassic() {
 
   useEffect(() => {
     api
-      .get("/backoffice/commercial-clients")
-      .then(({ data }) => setClients(data.commercialClients || []))
-      .catch(() => setClients([]));
+      .get("/backoffice/lojistas")
+      .then(({ data }) => setLojistas(data.lojistas || []))
+      .catch(() => setLojistas([]));
   }, []);
 
   async function handleSubmit(event: FormEvent) {
@@ -58,12 +88,14 @@ export default function CreateStoreClassic() {
       const { data } = await api.post("/backoffice/stores", {
         name: form.name.trim(),
         slug: form.slug.trim() || undefined,
-        document: form.document.trim() || null,
+        document: form.document.replace(/\D/g, "") || null,
+        phone: form.phone.trim() || null,
+        email: form.email.trim() || null,
         status: form.status,
         address: form.address.trim() || null,
         city: form.city.trim() || null,
         manager: form.manager.trim() || null,
-        commercialClientId: form.commercialClientId || null,
+        clientId: form.clientId || null,
       });
       setToast({ open: true, type: "success", message: "Loja cadastrada." });
       navigate(`/lojas/${data.store.id}`);
@@ -77,7 +109,7 @@ export default function CreateStoreClassic() {
 
   return (
     <Box m="20px">
-      <Header title="Cadastrar loja" subtitle="Cadastro manual da vitrine / PDV" />
+      <Header title="Cadastrar loja" subtitle="Cadastro da loja do lojista (PDV)" />
       <Box
         component="form"
         onSubmit={handleSubmit}
@@ -86,30 +118,57 @@ export default function CreateStoreClassic() {
         gridTemplateColumns={isMobile ? "1fr" : "1fr 1fr"}
         maxWidth={720}
       >
-        <FormControl variant="filled" fullWidth sx={{ gridColumn: isMobile ? undefined : "1 / -1" }}>
-          <InputLabel>Cliente comercial</InputLabel>
-          <Select
-            value={form.commercialClientId}
-            label="Cliente comercial"
-            onChange={(event) => setField("commercialClientId", event.target.value)}
-          >
-            <MenuItem value="">Nenhum</MenuItem>
-            {clients.map((client) => (
-              <MenuItem key={client.id} value={client.id}>
-                {client.name}
-              </MenuItem>
-            ))}
-          </Select>
-          <FormHelperText>Um cliente comercial pode ter várias lojas.</FormHelperText>
-        </FormControl>
         <TextField
           fullWidth
           variant="filled"
-          label="Nome"
+          label="Nome loja"
           value={form.name}
           onChange={(event) => setField("name", event.target.value)}
           required
+          sx={{ gridColumn: isMobile ? undefined : "1 / -1" }}
         />
+        <TextField
+          fullWidth
+          variant="filled"
+          label="CNPJ / CPF"
+          value={form.document}
+          onChange={(event) => setField("document", formatCpfCnpj(event.target.value))}
+          inputProps={{ inputMode: "numeric" }}
+        />
+        <TextField
+          fullWidth
+          variant="filled"
+          label="Telefone"
+          value={form.phone}
+          onChange={(event) => setField("phone", formatPhone(event.target.value))}
+          inputProps={{ inputMode: "tel" }}
+        />
+        <TextField
+          fullWidth
+          variant="filled"
+          label="E-mail"
+          type="email"
+          value={form.email}
+          onChange={(event) => setField("email", event.target.value)}
+          sx={{ gridColumn: isMobile ? undefined : "1 / -1" }}
+        />
+        <FormControl variant="filled" fullWidth sx={{ gridColumn: isMobile ? undefined : "1 / -1" }}>
+          <InputLabel>Vincular lojista (opcional)</InputLabel>
+          <Select
+            value={form.clientId}
+            label="Vincular lojista (opcional)"
+            onChange={(event) => setField("clientId", event.target.value)}
+          >
+            <MenuItem value="">Nenhum</MenuItem>
+            {lojistas.map((lojista) => (
+              <MenuItem key={lojista.id} value={lojista.id}>
+                {lojista.name}
+                {lojista.email ? ` — ${lojista.email}` : ""}
+              </MenuItem>
+            ))}
+          </Select>
+          <FormHelperText>Lojista = conta de login do PDV. Não é obrigatório no cadastro.</FormHelperText>
+        </FormControl>
         <TextField
           fullWidth
           variant="filled"
@@ -117,13 +176,6 @@ export default function CreateStoreClassic() {
           placeholder="gerado a partir do nome"
           value={form.slug}
           onChange={(event) => setField("slug", event.target.value)}
-        />
-        <TextField
-          fullWidth
-          variant="filled"
-          label="Documento (opcional)"
-          value={form.document}
-          onChange={(event) => setField("document", event.target.value)}
         />
         <FormControl variant="filled" fullWidth>
           <InputLabel>Status</InputLabel>
@@ -173,4 +225,3 @@ export default function CreateStoreClassic() {
     </Box>
   );
 }
-

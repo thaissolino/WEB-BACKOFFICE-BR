@@ -1,5 +1,4 @@
 import { ReactNode } from "react";
-import { Link } from "react-router-dom";
 import { AuthSplitLayout } from "../../auth-split/AuthSplitLayout";
 import "./vitrine.css";
 
@@ -16,11 +15,6 @@ export function VitrineAuthLayout({ title, lede, children }: VitrineAuthLayoutPr
       <h1 className="vitrine-title">{title}</h1>
       <p className="vitrine-lede">{lede}</p>
       {children}
-      <p className="vitrine-foot">
-        <Link className="vitrine-link vitrine-muted-link" to="/home">
-          Voltar para a home
-        </Link>
-      </p>
     </AuthSplitLayout>
   );
 }

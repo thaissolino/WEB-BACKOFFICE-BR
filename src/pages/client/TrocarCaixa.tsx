@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+﻿import { useEffect, useMemo, useRef, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { Check, ChevronDown, Search } from "lucide-react";
 import { useClientAuth } from "../../hooks/clientAuth";
@@ -211,7 +211,7 @@ export default function TrocarCaixa() {
   const { client, loadingClient } = useClientAuth();
 
   if (loadingClient) return <PdvLoading />;
-  if (!client) return <Navigate to="/signin/client" replace />;
+  if (!client) return <Navigate to="/signin/lojista" replace />;
 
   return (
     <PdvShell variant="form">

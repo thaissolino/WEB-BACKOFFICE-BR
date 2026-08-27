@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useState } from "react";
+﻿import { FormEvent, useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuthBackoffice } from "../../../hooks/authBackoffice";
 import { AuthSplitLayout } from "../../auth-split/AuthSplitLayout";
@@ -175,7 +175,7 @@ export function SignIn() {
       </form>
 
       <div className="adm-signin-foot">
-        <Link className="adm-signin-link" to="/signin/client">
+        <Link className="adm-signin-link" to="/signin/lojista">
           Acesso do lojista
         </Link>
       </div>

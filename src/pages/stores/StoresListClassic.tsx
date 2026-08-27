@@ -140,7 +140,7 @@ export default function StoresListClassic() {
 
   return (
     <Box m="20px">
-      <Header title="Gerenciar lojas" subtitle="Listagem, edição e status das vitrines" />
+      <Header title="Cadastrar lojas" subtitle="Listagem, cadastro e status das lojas do lojista" />
       <Box display="flex" gap={1} flexWrap="wrap" mb={2}>
         <TextField
           size="small"

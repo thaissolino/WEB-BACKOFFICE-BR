@@ -158,7 +158,7 @@ export default function GestorCadastroLojistas() {
 
   return (
     <GestaoShell
-      title="Cadastro lojistas"
+      title="Cadastrar lojista"
       subtitle="Conta de acesso do lojista ao PDV. Senha gerada automaticamente, enviada por e-mail e trocada no primeiro acesso."
       badge="Fluxo: 1 lojista → várias lojas"
     >

@@ -262,8 +262,8 @@ const AuthBackofficeProvider = ({ children }: AuthBackofficeProviderProps) => {
       currentPath.startsWith("/new-password") ||
       currentPath.startsWith("/privacy") ||
       currentPath.startsWith("/recoveryPassword") ||
-      currentPath.startsWith("/create-account") ||
-      currentPath.startsWith("/home");
+      currentPath.startsWith("/create-account");
+      // currentPath.startsWith("/home"); // /home desativado
 
     const CAN_ACTIVATE =
       isAuthenticated &&
@@ -292,8 +292,8 @@ const AuthBackofficeProvider = ({ children }: AuthBackofficeProviderProps) => {
         pathCheck.startsWith("/new-password") ||
         pathCheck.startsWith("/privacy") ||
         pathCheck.startsWith("/recoveryPassword") ||
-        pathCheck.startsWith("/create-account") ||
-        pathCheck.startsWith("/home");
+        pathCheck.startsWith("/create-account");
+        // pathCheck.startsWith("/home"); // /home desativado
 
       if (!stillBackoffice || stillPublic || !isAuthenticated) {
         setIsModalOpen(false);

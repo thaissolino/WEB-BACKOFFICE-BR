@@ -22,7 +22,7 @@ import OperatorManager from "../pages/form-operators/OperatorsManagement";
 import OperatorsManagementPerfilEdit from "../pages/form-operators-perfil-edit/OperatorsManagementPerfilEdit";
 import AdmManagementPerfilEdit from "../pages/form-adm-perfil-edit/AdmManagementPerfilEdit";
 import { useClientAuth } from "../hooks/clientAuth";
-import { GestorVixHome } from "../pages/home/GestorVixHome";
+// import { GestorVixHome } from "../pages/home/GestorVixHome"; // /home desativado
 import ClientLogin from "../pages/client/Login";
 import ClientRegister from "../pages/client/Register";
 import ClientForgotPassword from "../pages/client/ForgotPassword";
@@ -68,6 +68,8 @@ import GestorCadastroProdutos from "../pages/stores/GestorCadastroProdutos";
 import GestorCadastroFornecedores from "../pages/gestor/GestorCadastroFornecedores";
 import GestorCadastroFreteiros from "../pages/gestor/GestorCadastroFreteiros";
 import GestorCadastroLojistas from "../pages/gestor/GestorCadastroLojistas";
+import GestorCadastroPlanos from "../pages/gestor/GestorCadastroPlanos";
+import GestorEstoqueAtacado from "../pages/gestor/GestorEstoqueAtacado";
 import TrocarSenhaCliente from "../pages/client/TrocarSenha";
 import CreateCommercialClient from "../pages/commercial-clients/CreateCommercialClient";
 import CommercialClientsList from "../pages/commercial-clients/CommercialClientsList";
@@ -91,12 +93,13 @@ export function Router() {
 
   return (
     <Routes>
-      <Route path="/" element={<Navigate to="/home" replace />} />
+      <Route path="/" element={<Navigate to="/signin/lojista" replace />} />
       <Route path="/adm" element={<Navigate to="/signin/backoffice" replace />} />
       <Route path="/signin/backoffice/adm" element={<Navigate to="/signin/backoffice" replace />} />
 
-      {/* Funil público GestorVix — sem formulário de senha */}
+      {/* Funil público GestorVix — desativado (pedido: não expor /home)
       <Route path="home" element={<GestorVixHome />} />
+      */}
 
       {/* Rota pública: sessão expirada (sem proteção de auth) */}
       <Route path="session-expired/backoffice" element={<SessionExpiredBackoffice />} />
@@ -109,7 +112,9 @@ export function Router() {
           />
         }
       >
-        <Route path="signin/client" element={<ClientLogin />} />
+        <Route path="signin/lojista" element={<ClientLogin />} />
+        {/* Compat: URL antiga do login do lojista */}
+        <Route path="signin/client" element={<Navigate to="/signin/lojista" replace />} />
         <Route path="signup/client" element={<ClientRegister />} />
         <Route path="forgot-password" element={<ClientForgotPassword />} />
       </Route>
@@ -118,7 +123,7 @@ export function Router() {
         element={
           <GuardedRoute
             isRouteAccessible={isClientAuthenticated}
-            redirectRoute="/signin/client"
+            redirectRoute="/signin/lojista"
           />
         }
       >
@@ -218,9 +223,11 @@ export function Router() {
         >
           <Route path="backoffice" element={<Dashboard />} />
           <Route path="cadastro-lojistas" element={<GestorCadastroLojistas />} />
+          <Route path="cadastro-planos" element={<GestorCadastroPlanos />} />
           <Route path="cadastro-produtos" element={<GestorCadastroProdutos />} />
           <Route path="cadastro-fornecedores" element={<GestorCadastroFornecedores />} />
           <Route path="cadastro-freteiros" element={<GestorCadastroFreteiros />} />
+          <Route path="estoque-atacado" element={<GestorEstoqueAtacado />} />
           <Route path="gerenciar-lojistas" element={<StoresList />} />
           <Route path="pdv-config" element={<PdvConfig />} />
           <Route path="clientes-comerciais/cadastrar" element={<CreateCommercialClient />} />

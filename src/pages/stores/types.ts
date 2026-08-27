@@ -6,12 +6,16 @@ export type Store = {
   name: string;
   slug: string;
   document: string | null;
+  phone?: string | null;
+  email?: string | null;
   status: StoreStatus;
   address: string | null;
   city: string | null;
   manager: string | null;
   commercialClientId: string | null;
   commercialClientName: string | null;
+  clientId?: string | null;
+  clientName?: string | null;
   storeCode?: string | null;
   createdAt: string;
   updatedAt: string;

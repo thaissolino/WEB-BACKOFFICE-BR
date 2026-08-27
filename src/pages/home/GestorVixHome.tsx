@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+﻿import { useEffect } from "react";
 import { Link } from "react-router-dom";
 import { AuthSplitLayout } from "../auth-split/AuthSplitLayout";
 import "./home-funnel.css";
@@ -26,7 +26,7 @@ export function GestorVixHome() {
       </p>
 
       <div className="home-funnel-cta">
-        <Link className="home-funnel-primary" to="/signin/client">
+        <Link className="home-funnel-primary" to="/signin/lojista">
           Portal do lojista
         </Link>
         <Link className="home-funnel-secondary" to="/signin/backoffice">
