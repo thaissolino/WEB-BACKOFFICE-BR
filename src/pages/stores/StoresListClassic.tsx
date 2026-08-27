@@ -35,6 +35,9 @@ export default function StoresListClassic() {
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<Store | null>(null);
+  const [deleting, setDeleting] = useState<Store | null>(null);
+  const [testStores, setTestStores] = useState<Store[] | null>(null);
+  const [busy, setBusy] = useState(false);
   const [toast, setToast] = useState({ open: false, type: "success" as "success" | "error", message: "" });
 
   async function load(term = search) {
@@ -94,6 +97,47 @@ export default function StoresListClassic() {
     }
   }
 
+  async function confirmDelete() {
+    if (!deleting) return;
+    setBusy(true);
+    try {
+      await api.delete(`/backoffice/stores/${deleting.id}`);
+      setToast({ open: true, type: "success", message: `Loja "${deleting.name}" excluída.` });
+      setDeleting(null);
+      load();
+    } catch (err) {
+      const parsed = parseError(err);
+      setToast({ open: true, type: "error", message: parsed.friend || parsed.message || "Não foi possível excluir a loja." });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function openTestStoresDialog() {
+    try {
+      const { data } = await api.get("/backoffice/stores/test-data");
+      setTestStores(data.stores || []);
+    } catch (err) {
+      const parsed = parseError(err);
+      setToast({ open: true, type: "error", message: parsed.friend || parsed.message || "Não foi possível listar as lojas de teste." });
+    }
+  }
+
+  async function confirmDeleteTestStores() {
+    setBusy(true);
+    try {
+      const { data } = await api.delete("/backoffice/stores/test-data");
+      setToast({ open: true, type: "success", message: `${data.deletedCount} loja(s) de teste excluída(s).` });
+      setTestStores(null);
+      load();
+    } catch (err) {
+      const parsed = parseError(err);
+      setToast({ open: true, type: "error", message: parsed.friend || parsed.message || "Não foi possível excluir as lojas de teste." });
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <Box m="20px">
       <Header title="Gerenciar lojas" subtitle="Listagem, edição e status das vitrines" />
@@ -114,6 +158,9 @@ export default function StoresListClassic() {
         </Button>
         <Button variant="outlined" color="inherit" onClick={() => navigate("/lojas/cadastrar")}>
           Nova loja
+        </Button>
+        <Button variant="outlined" color="error" onClick={openTestStoresDialog}>
+          Excluir lojas de teste
         </Button>
       </Box>
 
@@ -143,6 +190,9 @@ export default function StoresListClassic() {
                 </Button>
                 <Button size="small" variant="outlined" color={store.status === "ACTIVE" ? "secondary" : "success"} onClick={() => toggleStatus(store)}>
                   {store.status === "ACTIVE" ? "Desativar" : "Ativar"}
+                </Button>
+                <Button size="small" variant="outlined" color="error" onClick={() => setDeleting(store)}>
+                  Excluir
                 </Button>
               </Box>
             </Box>
@@ -189,6 +239,9 @@ export default function StoresListClassic() {
                       </Button>
                       <Button size="small" variant="outlined" color={store.status === "ACTIVE" ? "secondary" : "success"} onClick={() => toggleStatus(store)}>
                         {store.status === "ACTIVE" ? "Desativar" : "Ativar"}
+                      </Button>
+                      <Button size="small" variant="outlined" color="error" onClick={() => setDeleting(store)}>
+                        Excluir
                       </Button>
                     </Box>
                   </td>
@@ -280,6 +333,62 @@ export default function StoresListClassic() {
           <Button color="secondary" variant="contained" onClick={saveEdit}>
             Salvar
           </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={Boolean(deleting)} onClose={() => !busy && setDeleting(null)} fullWidth maxWidth="xs">
+        <DialogTitle>Excluir loja</DialogTitle>
+        <DialogContent>
+          <Typography>
+            Excluir definitivamente a loja <strong>{deleting?.name}</strong>?
+          </Typography>
+          <Typography variant="body2" color="text.secondary" mt={1}>
+            Produtos, movimentações de estoque e logs desta loja também serão removidos. Esta ação
+            não pode ser desfeita.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleting(null)} disabled={busy}>Cancelar</Button>
+          <Button color="error" variant="contained" onClick={confirmDelete} disabled={busy}>
+            Excluir definitivamente
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={testStores !== null} onClose={() => !busy && setTestStores(null)} fullWidth maxWidth="sm">
+        <DialogTitle>Excluir lojas de teste</DialogTitle>
+        <DialogContent>
+          {testStores && testStores.length === 0 ? (
+            <Typography>Nenhuma loja de teste encontrada.</Typography>
+          ) : (
+            <>
+              <Typography>
+                As lojas abaixo foram identificadas como <strong>lojas de teste</strong> (nome com
+                &quot;teste&quot;/&quot;test&quot; ou criadas pelos seeds de demonstração). Serão excluídas
+                definitivamente, junto com produtos e movimentações:
+              </Typography>
+              <Box component="ul" mt={1} pl={3}>
+                {(testStores || []).map((store) => (
+                  <li key={store.id}>
+                    <Typography variant="body2">
+                      {store.name} ({store.slug})
+                    </Typography>
+                  </li>
+                ))}
+              </Box>
+              <Typography variant="body2" color="error" mt={1}>
+                Esta ação não pode ser desfeita.
+              </Typography>
+            </>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setTestStores(null)} disabled={busy}>Cancelar</Button>
+          {testStores && testStores.length > 0 ? (
+            <Button color="error" variant="contained" onClick={confirmDeleteTestStores} disabled={busy}>
+              Excluir {testStores.length} loja(s) de teste
+            </Button>
+          ) : null}
         </DialogActions>
       </Dialog>
 

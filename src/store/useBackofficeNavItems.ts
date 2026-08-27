@@ -8,7 +8,11 @@ export type BackofficeNavItem = {
   label: string;
   to: string;
   group?: string;
+  /** Itens do produto antigo (Black/Mensageria): agrupados num bloco colapsado, sem apagar nada. */
+  legacy?: boolean;
 };
+
+export const LEGACY_GROUP_LABEL = "Black / Mensageria (legado)";
 
 export function useBackofficeNavItems() {
   const { user, onLogout } = useAuthBackoffice();
@@ -50,23 +54,26 @@ export function useBackofficeNavItems() {
     );
   }
 
-  if (canShowTab("CRIAR_USUARIO")) {
-    items.push({ id: "create-user", label: "Criar Usuário", to: "/create-form-user", group: "Novo cadastro" });
-  }
-  if (canShowTab("GERENCIAR_GRUPOS")) {
-    items.push({ id: "groups", label: "Gerenciar Grupos", to: "/team", group: "Usuário/Grupo" });
-  }
-  if (canShowTab("GERENCIAR_USUARIOS")) {
-    items.push({ id: "users", label: "Gerenciar Usuários", to: "/users", group: "Usuário/Grupo" });
-  }
-  if (canShowTab("GERENCIAR_OPERADORES")) {
-    items.push({ id: "operators", label: "Gerenciar Operadores", to: "/operators-management", group: "Usuário/Grupo" });
-  }
   if (canShowTab("GERENCIAR_INVOICES")) {
     items.push({ id: "invoices", label: "Gerenciar Invoices", to: "/invoices-management" });
   }
+
+  // Itens do produto antigo (Black/Mensageria): continuam acessíveis,
+  // mas agrupados num bloco único e menos destacado. Nada foi apagado.
+  if (canShowTab("CRIAR_USUARIO")) {
+    items.push({ id: "create-user", label: "Criar Usuário", to: "/create-form-user", group: LEGACY_GROUP_LABEL, legacy: true });
+  }
+  if (canShowTab("GERENCIAR_GRUPOS")) {
+    items.push({ id: "groups", label: "Gerenciar Grupos", to: "/team", group: LEGACY_GROUP_LABEL, legacy: true });
+  }
+  if (canShowTab("GERENCIAR_USUARIOS")) {
+    items.push({ id: "users", label: "Gerenciar Usuários", to: "/users", group: LEGACY_GROUP_LABEL, legacy: true });
+  }
+  if (canShowTab("GERENCIAR_OPERADORES")) {
+    items.push({ id: "operators", label: "Gerenciar Operadores", to: "/operators-management", group: LEGACY_GROUP_LABEL, legacy: true });
+  }
   if (canShowTab("GERENCIAR_TOKENS")) {
-    items.push({ id: "tokens", label: "Gerenciar Tokens", to: "/tokens-management" });
+    items.push({ id: "tokens", label: "Gerenciar Tokens", to: "/tokens-management", group: LEGACY_GROUP_LABEL, legacy: true });
   }
 
   const displayName = user?.name

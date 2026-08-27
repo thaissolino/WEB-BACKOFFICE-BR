@@ -13,12 +13,14 @@ import {
 import { useTheme } from "@mui/material/styles";
 import { ColorModeContext } from "../../../theme";
 import { ModesPopover } from "../../../components/ui-mode/ModesPopover";
-import { useBackofficeNavItems } from "../../../store/useBackofficeNavItems";
+import { LEGACY_GROUP_LABEL, useBackofficeNavItems } from "../../../store/useBackofficeNavItems";
 import { api } from "../../../services/api";
 import "./premium-chrome.css";
 
 export function PremiumChrome() {
   const { items, roleLabel, onLogout, canBackup, isActive } = useBackofficeNavItems();
+  const mainItems = items.filter((item) => !item.legacy);
+  const legacyItems = items.filter((item) => item.legacy);
   const colorMode = useContext(ColorModeContext);
   const theme = useTheme();
   const isDark = theme.palette.mode !== "light";
@@ -80,8 +82,8 @@ export function PremiumChrome() {
         <strong>Black Rabbit</strong>
       </div>
       <nav className="pdv-chrome-nav">
-        {items.map((item, index) => {
-          const showGroup = item.group && item.group !== items[index - 1]?.group;
+        {mainItems.map((item, index) => {
+          const showGroup = item.group && item.group !== mainItems[index - 1]?.group;
           return (
             <div key={item.id}>
               {showGroup ? <p className="pdv-chrome-group">{item.group}</p> : null}
@@ -91,6 +93,27 @@ export function PremiumChrome() {
             </div>
           );
         })}
+        {legacyItems.length > 0 ? (
+          <details
+            className="pdv-chrome-legacy"
+            open={legacyItems.some((item) => isActive(item.to))}
+            style={{ marginTop: 12, opacity: 0.72 }}
+          >
+            <summary
+              className="pdv-chrome-group"
+              style={{ cursor: "pointer", listStyle: "revert", margin: 0 }}
+            >
+              {LEGACY_GROUP_LABEL}
+            </summary>
+            {legacyItems.map((item) => (
+              <div key={item.id}>
+                <Link to={item.to} aria-current={isActive(item.to) ? "page" : undefined}>
+                  {item.label}
+                </Link>
+              </div>
+            ))}
+          </details>
+        ) : null}
         {canBackup ? (
           <div className="pdv-chrome-snapshot">
             <button type="button" onClick={() => setBackupOpen(true)}>

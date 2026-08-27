@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useState } from "react";
-import { Loader2, Mail, Plus, Store as StoreIcon, UserRound, X } from "lucide-react";
+import { Loader2, Mail, Plus, Store as StoreIcon, Trash2, UserRound, X } from "lucide-react";
 import { api, parseError } from "../../services/api";
 import GestaoShell from "./GestaoShell";
 
@@ -65,6 +65,8 @@ export default function GestorCadastroLojistas() {
     emailSent: boolean;
   } | null>(null);
   const [linking, setLinking] = useState<{ lojista: Lojista; storeIds: string[] } | null>(null);
+  const [deleting, setDeleting] = useState<Lojista | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   async function load() {
     setIsLoading(true);
@@ -116,6 +118,24 @@ export default function GestorCadastroLojistas() {
       setError(parsed.friend || parsed.message || "Não foi possível cadastrar o lojista.");
     } finally {
       setIsSubmitting(false);
+    }
+  }
+
+  async function handleDeleteLojista() {
+    if (!deleting) return;
+    setIsDeleting(true);
+    try {
+      const { data } = await api.delete(`/backoffice/lojistas/${deleting.id}`);
+      setLojistas(data.lojistas || []);
+      setAvailableStores(data.availableStores || []);
+      setDeleting(null);
+      setError("");
+    } catch (err) {
+      const parsed = parseError(err);
+      setError(parsed.friend || parsed.message || "Não foi possível excluir o lojista.");
+      setDeleting(null);
+    } finally {
+      setIsDeleting(false);
     }
   }
 
@@ -267,15 +287,26 @@ export default function GestorCadastroLojistas() {
                         {lojista.mustChangePassword ? " · aguardando 1º acesso" : ""}
                       </p>
                     </div>
-                    <button
-                      className="rounded border border-gray-300 px-2 py-1 text-xs font-semibold text-gray-700 hover:bg-gray-50"
-                      type="button"
-                      onClick={() => setLinking({ lojista, storeIds: [] })}
-                      disabled={availableStores.length === 0}
-                      title={availableStores.length === 0 ? "Nenhuma loja disponível" : "Vincular lojas"}
-                    >
-                      + Vincular loja
-                    </button>
+                    <div className="flex gap-1">
+                      <button
+                        className="rounded border border-gray-300 px-2 py-1 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+                        type="button"
+                        onClick={() => setLinking({ lojista, storeIds: [] })}
+                        disabled={availableStores.length === 0}
+                        title={availableStores.length === 0 ? "Nenhuma loja disponível" : "Vincular lojas"}
+                      >
+                        + Vincular loja
+                      </button>
+                      <button
+                        className="flex items-center gap-1 rounded border border-red-300 px-2 py-1 text-xs font-semibold text-red-600 hover:bg-red-50"
+                        type="button"
+                        onClick={() => setDeleting(lojista)}
+                        title="Excluir lojista"
+                      >
+                        <Trash2 size={12} aria-hidden />
+                        Excluir
+                      </button>
+                    </div>
                   </div>
                   <div className="mt-2 flex flex-wrap gap-1">
                     {lojista.stores.length === 0 ? (
@@ -328,6 +359,50 @@ export default function GestorCadastroLojistas() {
                 onClick={() => setCreated(null)}
               >
                 Entendi
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {/* Modal: confirmar exclusão de lojista */}
+      {deleting ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          role="dialog"
+          aria-labelledby="lojista-delete-title"
+        >
+          <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
+            <h2 id="lojista-delete-title" className="mb-2 text-lg font-bold text-gray-800">
+              Excluir lojista
+            </h2>
+            <p className="text-sm text-gray-600">
+              Excluir <strong>{deleting.name}</strong> ({deleting.email})? A conta de login do
+              PDV será removida definitivamente.
+            </p>
+            {deleting.stores.length > 0 ? (
+              <p className="mt-2 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                As {deleting.stores.length} loja(s) vinculada(s) não serão apagadas — ficarão sem
+                lojista e disponíveis para novo vínculo.
+              </p>
+            ) : null}
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                className="rounded border border-gray-300 px-4 py-2 font-semibold text-gray-700 hover:bg-gray-50"
+                type="button"
+                onClick={() => setDeleting(null)}
+                disabled={isDeleting}
+              >
+                Cancelar
+              </button>
+              <button
+                className="flex items-center gap-2 rounded bg-red-600 px-4 py-2 font-semibold text-white hover:bg-red-700 disabled:opacity-60"
+                type="button"
+                onClick={handleDeleteLojista}
+                disabled={isDeleting}
+              >
+                {isDeleting ? <Loader2 size={16} className="animate-spin" aria-hidden /> : <Trash2 size={16} aria-hidden />}
+                Excluir lojista
               </button>
             </div>
           </div>

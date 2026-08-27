@@ -24,8 +24,20 @@ export type StoreProduct = {
   sku: string;
   quantity: number;
   price: number | null;
+  /** Vínculo opcional com o catálogo oficial das invoices (tabela Product). */
+  catalogProductId?: string | null;
+  catalogName?: string | null;
+  catalogCode?: string | null;
   createdAt: string;
   updatedAt: string;
+};
+
+/** Item do catálogo oficial (GET /invoice/product) usado para vincular estoque. */
+export type CatalogProduct = {
+  id: string;
+  name: string;
+  code: string;
+  active?: boolean;
 };
 
 export type StoreMetrics = {

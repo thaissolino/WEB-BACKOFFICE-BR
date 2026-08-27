@@ -6,6 +6,7 @@ import {
   formatDateTime,
   formatMoney,
   movementLabel,
+  type CatalogProduct,
   type MovementType,
   type StockMovement,
   type Store,
@@ -26,6 +27,8 @@ export default function PremiumStoreDetail({ storeId: storeIdProp }: { storeId?:
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [productForm, setProductForm] = useState(emptyProduct);
+  const [catalog, setCatalog] = useState<CatalogProduct[]>([]);
+  const [catalogPickId, setCatalogPickId] = useState("");
   const [stockDialog, setStockDialog] = useState<{
     product: StoreProduct;
     type: MovementType;
@@ -68,6 +71,19 @@ export default function PremiumStoreDetail({ storeId: storeIdProp }: { storeId?:
     loadMovements();
   }, [id]);
 
+  // Catálogo oficial das invoices, para vincular o item de estoque (opcional).
+  useEffect(() => {
+    (async () => {
+      try {
+        const { data } = await api.get("/invoice/product", { params: { limit: 5000, page: 1 } });
+        const items: CatalogProduct[] = Array.isArray(data) ? data : data.products || [];
+        setCatalog(items.filter((item) => item.active !== false));
+      } catch {
+        setCatalog([]);
+      }
+    })();
+  }, []);
+
   async function createProduct(event: FormEvent) {
     event.preventDefault();
     if (!id) return;
@@ -77,8 +93,10 @@ export default function PremiumStoreDetail({ storeId: storeIdProp }: { storeId?:
         sku: productForm.sku.trim(),
         quantity: Number(productForm.quantity || 0),
         price: productForm.price === "" ? null : Number(productForm.price),
+        catalogProductId: catalogPickId || null,
       });
       setProductForm(emptyProduct);
+      setCatalogPickId("");
       await loadStore();
       await loadMovements();
     } catch (err) {
@@ -154,6 +172,31 @@ export default function PremiumStoreDetail({ storeId: storeIdProp }: { storeId?:
         <h2>Novo produto</h2>
         <div className="br-grid two">
           <label className="br-field">
+            <span>Catálogo oficial (opcional)</span>
+            <select
+              value={catalogPickId}
+              onChange={(e) => {
+                const nextId = e.target.value;
+                setCatalogPickId(nextId);
+                const picked = catalog.find((item) => item.id === nextId);
+                if (picked) {
+                  setProductForm((c) => ({
+                    ...c,
+                    name: c.name.trim() ? c.name : picked.name,
+                    sku: c.sku.trim() ? c.sku : picked.code,
+                  }));
+                }
+              }}
+            >
+              <option value="">Sem vínculo</option>
+              {catalog.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.code} — {item.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="br-field">
             <span>Nome</span>
             <input required value={productForm.name} onChange={(e) => setProductForm((c) => ({ ...c, name: e.target.value }))} />
           </label>
@@ -188,6 +231,9 @@ export default function PremiumStoreDetail({ storeId: storeIdProp }: { storeId?:
                   <strong>{product.name}</strong>
                   <small>
                     {product.sku} · {product.quantity} un · {formatMoney(product.price)}
+                    {product.catalogName
+                      ? ` · Catálogo: ${product.catalogCode ? `${product.catalogCode} — ` : ""}${product.catalogName}`
+                      : ""}
                   </small>
                 </div>
                 <div className="br-row-actions">

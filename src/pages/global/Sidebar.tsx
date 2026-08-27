@@ -1,7 +1,10 @@
 import type React from "react";
 
 import { useEffect, useState } from "react";
-import { ProSidebar, Menu, MenuItem } from "react-pro-sidebar";
+import { ProSidebar, Menu, MenuItem, SubMenu } from "react-pro-sidebar";
+
+// react-pro-sidebar 0.7 + React 18: tipos exigem props inexistentes; cast resolve.
+const LegacySubMenu = SubMenu as unknown as React.FC<any>;
 import { Box, Button, IconButton, Typography, useTheme, Snackbar, Alert, Dialog, DialogTitle, DialogContent, DialogActions } from "@mui/material";
 import { useLocation, useNavigate } from "react-router-dom"; // Removido o import do Link
 import "react-pro-sidebar/dist/css/styles.css";
@@ -581,56 +584,6 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebar }) => {
                 />
               </>
             )}
-            {canShowTab("CRIAR_USUARIO") && (
-              <>
-                {!isCollapsed && (
-                  <Typography variant="h6" color={colors.greenAccent[300]} sx={{ m: "15px 0 5px 20px" }}>
-                    Novo Cadastro:
-                  </Typography>
-                )}
-                <Item
-                  title="Criar Usuário"
-                  to="/create-form-user"
-                  icon={<PersonAddIcon />}
-                  selected={selected}
-                  setSelected={setSelected}
-                />
-              </>
-            )}
-            {canShowTab("GERENCIAR_GRUPOS") && (
-              <>
-                {!isCollapsed && (
-                  <Typography variant="h6" color={colors.greenAccent[300]} sx={{ m: "15px 0 5px 20px" }}>
-                    Usuário/Grupo
-                  </Typography>
-                )}
-                <Item
-                  title="Gerenciar Grupos"
-                  to="/team"
-                  icon={<PeopleOutlinedIcon />}
-                  selected={selected}
-                  setSelected={setSelected}
-                />
-              </>
-            )}
-            {canShowTab("GERENCIAR_USUARIOS") && (
-              <Item
-                title="Gerenciar Usuários"
-                to="/users"
-                icon={<PersonOutlinedIcon />}
-                selected={selected}
-                setSelected={setSelected}
-              />
-            )}
-            {canShowTab("GERENCIAR_OPERADORES") && (
-              <Item
-                title="Gerenciar Operadores"
-                to="/operators-management"
-                icon={<AdminPanelSettingsOutlinedIcon />} // OU PersonOutlinedIcon se preferir
-                selected={selected}
-                setSelected={setSelected}
-              />
-            )}
             {canShowTab("GERENCIAR_INVOICES") && (
               <Item
                 title="Gerenciar Invoices"
@@ -641,15 +594,67 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebar }) => {
                // requiresValidation={true}
               />
             )}
-            {canShowTab("GERENCIAR_TOKENS") && (
-              <Item
-                title="Gerenciar Tokens"
-                to="/tokens-management"
-                icon={<DescriptionOutlinedIcon />}
-                selected={selected}
-                setSelected={setSelected}
-                requiresValidation={true}
-              />
+            {/* Itens do produto antigo (Black/Mensageria): agrupados num submenu
+                colapsado e menos destacado. Nada foi removido — só reorganizado. */}
+            {(canShowTab("CRIAR_USUARIO") ||
+              canShowTab("GERENCIAR_GRUPOS") ||
+              canShowTab("GERENCIAR_USUARIOS") ||
+              canShowTab("GERENCIAR_OPERADORES") ||
+              canShowTab("GERENCIAR_TOKENS")) && (
+              <Box sx={{ opacity: 0.75, mt: "15px" }}>
+                <LegacySubMenu
+                  title="Black / Mensageria (legado)"
+                  icon={<Inventory2OutlinedIcon />}
+                  style={{ color: colors.grey[300] }}
+                >
+                  {canShowTab("CRIAR_USUARIO") && (
+                    <Item
+                      title="Criar Usuário"
+                      to="/create-form-user"
+                      icon={<PersonAddIcon />}
+                      selected={selected}
+                      setSelected={setSelected}
+                    />
+                  )}
+                  {canShowTab("GERENCIAR_GRUPOS") && (
+                    <Item
+                      title="Gerenciar Grupos"
+                      to="/team"
+                      icon={<PeopleOutlinedIcon />}
+                      selected={selected}
+                      setSelected={setSelected}
+                    />
+                  )}
+                  {canShowTab("GERENCIAR_USUARIOS") && (
+                    <Item
+                      title="Gerenciar Usuários"
+                      to="/users"
+                      icon={<PersonOutlinedIcon />}
+                      selected={selected}
+                      setSelected={setSelected}
+                    />
+                  )}
+                  {canShowTab("GERENCIAR_OPERADORES") && (
+                    <Item
+                      title="Gerenciar Operadores"
+                      to="/operators-management"
+                      icon={<AdminPanelSettingsOutlinedIcon />}
+                      selected={selected}
+                      setSelected={setSelected}
+                    />
+                  )}
+                  {canShowTab("GERENCIAR_TOKENS") && (
+                    <Item
+                      title="Gerenciar Tokens"
+                      to="/tokens-management"
+                      icon={<DescriptionOutlinedIcon />}
+                      selected={selected}
+                      setSelected={setSelected}
+                      requiresValidation={true}
+                    />
+                  )}
+                </LegacySubMenu>
+              </Box>
             )}
             {/* Botões de Snapshot - Apenas para MASTER */}
             {user?.role === "MASTER" && !isCollapsed && (
