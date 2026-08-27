@@ -23,4 +23,7 @@ jobs:
       - name: Push to personal mirror
         run: |
           git remote set-url origin https://token:${{ secrets.MIRROR_TOKEN }}@github.com/thaissolino/WEB-BACKOFFICE-BR.git
-          git push --mirror
+          # Espelha todas as branches sem deletar refs no destino.
+          # (git push --mirror tentava apagar 'main' no mirror e falhava,
+          # pois o checkout do Actions só cria ref local da branch do trigger.)
+          git push --force origin "refs/remotes/origin/*:refs/heads/*"
