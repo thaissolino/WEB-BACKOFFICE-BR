@@ -250,9 +250,10 @@ export function InvoiceHistoryReport({
   };
 
   const openModal = (invoice: InvoiceData, editMode: boolean) => {
-    // if(invoice) return
+    // Pendente (não paga) e concluída ficam somente leitura.
+    const canEdit = Boolean(editMode && invoice.paid && !invoice.completed);
     setSelectedInvoice(invoice);
-    setIsEditMode(editMode);
+    setIsEditMode(canEdit);
     setIsModalOpen(true);
   };
 
@@ -523,16 +524,9 @@ export function InvoiceHistoryReport({
                           ) : (
                             <div className="flex gap-2">
                               <button
-                                onClick={() => openModal(invoice, true)}
-                                className="text-green-600 hover:text-green-900"
-                                title="Editar"
-                              >
-                                <Edit size={16} />
-                              </button>
-                              <button
                                 onClick={() => openModal(invoice, false)}
                                 className="text-blue-600 hover:text-blue-900"
-                                title="Visualizar"
+                                title="Visualizar — invoice pendente não pode ser editada"
                               >
                                 <Eye size={16} />
                               </button>
