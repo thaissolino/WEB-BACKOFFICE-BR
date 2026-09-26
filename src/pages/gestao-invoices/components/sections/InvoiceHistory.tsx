@@ -281,16 +281,47 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
     setShowAddProductForm(false);
   };
 
-  const getShippingTypeText = (type: string) => {
-    switch (type) {
-      case "percentage":
-        return "%";
-      case "perKg":
-        return "$/kg";
-      case "perUnit":
-        return "$/un";
-      default:
-        return type;
+  const saveCarrierRate = async (
+    invoice: InvoiceData,
+    field: "carrierRateSnapshot" | "carrier2RateSnapshot",
+    newRate: number,
+  ) => {
+    try {
+      // Só os campos da invoice. Produtos, datas nulas e o id do freteiro 2
+      // (UUID) faziam a API recusar o pedido e a % não gravava.
+      await api.patch(`/invoice/update/${invoice.id}`, {
+        number: invoice.number,
+        supplierId: invoice.supplierId || invoice.supplier?.id,
+        carrierId: invoice.carrierId || invoice.carrier?.id || "",
+        taxaSpEs: Number(invoice.taxaSpEs) || 0,
+        amountTaxcarrier: Number(invoice.amountTaxcarrier) || 0,
+        amountTaxSpEs: Number(invoice.amountTaxSpEs) || 0,
+        subAmount: Number(invoice.subAmount) || 0,
+        overallValue: Number(invoice.overallValue) || 0,
+        paid: Boolean(invoice.paid),
+        completed: Boolean(invoice.completed),
+        [field]: newRate,
+      });
+      setSelectedInvoice((current) =>
+        current && current.id === invoice.id ? { ...current, [field]: newRate } : current,
+      );
+      setInvoices((current) =>
+        current.map((item) => (item.id === invoice.id ? { ...item, [field]: newRate } : item)),
+      );
+    } catch (err) {
+      console.error("Falha ao salvar override de % do freteiro:", err);
+      await Swal.fire({
+        icon: "error",
+        title: "Erro",
+        text: "Não foi possível salvar a % deste freteiro.",
+        confirmButtonText: "OK",
+        buttonsStyling: false,
+        customClass: {
+          confirmButton:
+            "!bg-blue-600 !text-white hover:!bg-blue-700 px-5 py-2.5 rounded-md font-semibold shadow-sm",
+        },
+      });
+      throw err;
     }
   };
 
@@ -418,6 +449,12 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
         icon: "error",
         title: "Erro",
         text: "Não foi possível atualizar o produto.",
+        confirmButtonText: "OK",
+        buttonsStyling: false,
+        customClass: {
+          confirmButton:
+            "!bg-blue-600 !text-white hover:!bg-blue-700 px-5 py-2.5 rounded-md font-semibold shadow-sm",
+        },
       });
     } finally {
       setEditingCell(null);
@@ -830,34 +867,10 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
                           0
                         }
                         label="Freteiro 1"
-                        onSave={async (newRate) => {
-                          try {
-                            await api.patch(`/invoice/update/${selectedInvoice.id}`, {
-                              ...selectedInvoice,
-                              date: selectedInvoice.date,
-                              carrier2Id: selectedInvoice.carrier2?.id
-                                ? Number(selectedInvoice.carrier2.id)
-                                : undefined,
-                              carrierRateSnapshot: newRate,
-                            });
-                            setSelectedInvoice({
-                              ...selectedInvoice,
-                              carrierRateSnapshot: newRate,
-                            });
-                            fetchInvoicesAndSuppliers();
-                          } catch (err) {
-                            console.error("Falha ao salvar override de % do freteiro:", err);
-                            Swal.fire({
-                              icon: "error",
-                              title: "Erro",
-                              text: "Não foi possível salvar a % deste freteiro.",
-                            });
-                          }
-                        }}
+                        onSave={(newRate) =>
+                          saveCarrierRate(selectedInvoice, "carrierRateSnapshot", newRate)
+                        }
                       />
-                      <span className="text-xs text-gray-500">
-                        {getShippingTypeText(selectedInvoice.carrier?.type || "")}
-                      </span>
                     </>
                   ) : (
                     <span>Não informado</span>
@@ -878,34 +891,10 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
                           0
                         }
                         label="Freteiro 2"
-                        onSave={async (newRate) => {
-                          try {
-                            await api.patch(`/invoice/update/${selectedInvoice.id}`, {
-                              ...selectedInvoice,
-                              date: selectedInvoice.date,
-                              carrier2Id: selectedInvoice.carrier2?.id
-                                ? Number(selectedInvoice.carrier2.id)
-                                : undefined,
-                              carrier2RateSnapshot: newRate,
-                            });
-                            setSelectedInvoice({
-                              ...selectedInvoice,
-                              carrier2RateSnapshot: newRate,
-                            });
-                            fetchInvoicesAndSuppliers();
-                          } catch (err) {
-                            console.error("Falha ao salvar override de % do freteiro 2:", err);
-                            Swal.fire({
-                              icon: "error",
-                              title: "Erro",
-                              text: "Não foi possível salvar a % deste freteiro.",
-                            });
-                          }
-                        }}
+                        onSave={(newRate) =>
+                          saveCarrierRate(selectedInvoice, "carrier2RateSnapshot", newRate)
+                        }
                       />
-                      <span className="text-xs text-gray-500">
-                        {getShippingTypeText(selectedInvoice.carrier2?.type || "")}
-                      </span>
                     </>
                   ) : (
                     <span>não existe</span>

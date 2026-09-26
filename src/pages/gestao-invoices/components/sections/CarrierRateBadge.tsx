@@ -7,7 +7,7 @@ interface CarrierRateBadgeProps {
   /** Valor atual (snapshot da nota OU valor do cadastro). */
   rate: number;
   /** Callback chamado ao salvar um novo valor (override da nota). */
-  onSave: (newRate: number) => void;
+  onSave: (newRate: number) => void | Promise<void>;
   /** Rótulo exibido no modal. */
   label?: string;
 }
@@ -43,15 +43,19 @@ export function CarrierRateBadge({ type, rate, onSave, label }: CarrierRateBadge
           maximumFractionDigits: 4,
         });
 
-  const handleSave = () => {
-    // Aceita tanto vírgula quanto ponto como separador decimal
+  const handleSave = async () => {
+    // Aceita tanto vírgula quanto ponto: 5,3 e 5.3
     const normalized = draft.replace(",", ".").trim();
     const parsed = Number(normalized);
-    if (!normalized || isNaN(parsed) || parsed < 0) {
+    if (!normalized || Number.isNaN(parsed) || parsed < 0) {
       return;
     }
-    onSave(parsed);
-    setOpen(false);
+    try {
+      await onSave(parsed);
+      setOpen(false);
+    } catch {
+      // O chamador exibe o alerta. O campo continua aberto para tentar de novo.
+    }
   };
 
   return (
@@ -67,7 +71,7 @@ export function CarrierRateBadge({ type, rate, onSave, label }: CarrierRateBadge
       </button>
 
       {open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40">
           <div className="bg-white rounded-lg shadow-lg w-full max-w-sm p-6">
             <h3 className="text-lg font-semibold text-gray-800 mb-1">
               Ajustar valor do {label ?? "freteiro"}
@@ -99,14 +103,14 @@ export function CarrierRateBadge({ type, rate, onSave, label }: CarrierRateBadge
               <button
                 type="button"
                 onClick={() => setOpen(false)}
-                className="px-3 py-1.5 rounded-md border border-gray-300 text-gray-700 hover:bg-gray-100"
+                className="px-4 py-2 rounded-md border border-gray-300 bg-white text-gray-800 font-semibold hover:bg-gray-100"
               >
                 Cancelar
               </button>
               <button
                 type="button"
                 onClick={handleSave}
-                className="px-3 py-1.5 rounded-md bg-blue-600 text-white hover:bg-blue-700"
+                className="px-4 py-2 rounded-md bg-blue-600 text-white font-semibold shadow-sm hover:bg-blue-700"
               >
                 Salvar
               </button>
