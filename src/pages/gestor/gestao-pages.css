@@ -8,6 +8,14 @@
 .gestao-page {
   min-height: 100%;
   background: #f9fafb; /* gray-50, igual ao Gerenciar Invoices */
+  color: #111827;
+}
+
+.gestao-page select,
+.gestao-page input,
+.gestao-page textarea {
+  color: #111827;
+  background-color: #ffffff;
 }
 
 .gestao-page__inner {

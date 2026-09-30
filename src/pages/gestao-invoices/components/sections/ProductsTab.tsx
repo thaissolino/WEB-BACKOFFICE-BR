@@ -523,7 +523,7 @@ export function ProductsTab() {
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value as "name" | "code")}
-              className="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-300"
+              className="border border-gray-200 rounded-xl bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-300"
             >
               <option value="name">Nome (Alfabético)</option>
               <option value="code">Código</option>
@@ -582,9 +582,9 @@ export function ProductsTab() {
       ) : (
         <div className="overflow-x-auto rounded-2xl border border-gray-100 shadow-sm">
           <table className="min-w-full divide-y divide-gray-100">
-            <thead className="bg-gray-50/80">
+            <thead className="bg-gray-100">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                   <input
                     type="checkbox"
                     checked={selectedProducts.length === products.length && products.length > 0}
@@ -592,24 +592,24 @@ export function ProductsTab() {
                     className="rounded"
                   />
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Foto</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nome</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Foto</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Nome</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                   Código
                 </th>
                 <th
-                  className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"
+                  className="px-6 py-3 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider"
                   title="Clique duas vezes no valor para editar"
                 >
                   Preço Médio ($)
                 </th>
                 <th
-                  className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"
+                  className="px-6 py-3 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider"
                   title="Clique duas vezes no valor para editar"
                 >
                   Peso Médio (kg)
                 </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider">
                   Ações
                 </th>
               </tr>
