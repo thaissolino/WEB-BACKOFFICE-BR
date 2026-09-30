@@ -13,6 +13,7 @@ export interface Product {
   weightAverage: number;
   description: string;
   active?: boolean;
+  photoFileId?: string | null;
 }
 
 // Remove acentos e baixa caso para comparação.
@@ -45,6 +46,42 @@ function productMatchesQuery(
       (word) => word === term || word.startsWith(term),
     );
   });
+}
+
+function ProductThumb({ productId, photoFileId }: { productId: string; photoFileId?: string | null }) {
+  const [src, setSrc] = useState("");
+
+  useEffect(() => {
+    if (!photoFileId) {
+      setSrc("");
+      return;
+    }
+    let url = "";
+    let cancelled = false;
+    api
+      .get(`/clients/products/${productId}/photo`, { responseType: "blob" })
+      .then(({ data }) => {
+        if (cancelled || !(data instanceof Blob) || data.size < 16) return;
+        url = URL.createObjectURL(data);
+        setSrc(url);
+      })
+      .catch(() => {
+        if (!cancelled) setSrc("");
+      });
+    return () => {
+      cancelled = true;
+      if (url) URL.revokeObjectURL(url);
+    };
+  }, [productId, photoFileId]);
+
+  if (!src) {
+    return (
+      <div className="flex h-14 w-14 items-center justify-center rounded-lg border border-dashed border-gray-300 bg-gray-50 text-[11px] text-gray-400">
+        Sem foto
+      </div>
+    );
+  }
+  return <img src={src} alt="" className="h-14 w-14 rounded-lg border border-gray-200 object-cover" />;
 }
 
 export function ProductsTab() {
@@ -82,7 +119,22 @@ export function ProductsTab() {
       const productsData: Product[] = Array.isArray(response.data)
         ? response.data
         : response.data.products || [];
-      setAllProducts(productsData);
+      let photoById = new Map<string, string | null>();
+      try {
+        const photos = await api.get("/clients/products", {
+          params: { ativo: showInactive ? "0" : "1" },
+        });
+        const list = (photos.data?.products || []) as Product[];
+        photoById = new Map(list.map((item) => [item.id, item.photoFileId || null]));
+      } catch {
+        photoById = new Map();
+      }
+      setAllProducts(
+        productsData.map((item) => ({
+          ...item,
+          photoFileId: photoById.get(item.id) ?? null,
+        })),
+      );
     } catch (error) {
       console.error("Erro ao buscar produtos:", error);
     } finally {
@@ -183,6 +235,54 @@ export function ProductsTab() {
         },
       });
     });
+  };
+
+  const saveProductPhoto = async (product: Product, file: File | undefined) => {
+    if (!file) return;
+    try {
+      const body = new FormData();
+      body.append("file", file);
+      const { data } = await api.post(`/clients/products/${product.id}/photo`, body);
+      const photoFileId = (data?.product?.photoFileId as string | undefined) || "updated";
+      setAllProducts((current) =>
+        current.map((item) => (item.id === product.id ? { ...item, photoFileId } : item)),
+      );
+    } catch (error) {
+      console.error("Erro ao salvar foto do produto:", error);
+      Swal.fire({
+        icon: "error",
+        title: "Erro",
+        text: "Não foi possível salvar a imagem.",
+        confirmButtonText: "OK",
+        buttonsStyling: false,
+        customClass: {
+          confirmButton:
+            "!bg-blue-600 !text-white hover:!bg-blue-700 px-5 py-2.5 rounded-md font-semibold",
+        },
+      });
+    }
+  };
+
+  const deleteProductPhoto = async (product: Product) => {
+    try {
+      await api.delete(`/clients/products/${product.id}/photo`);
+      setAllProducts((current) =>
+        current.map((item) => (item.id === product.id ? { ...item, photoFileId: null } : item)),
+      );
+    } catch (error) {
+      console.error("Erro ao apagar foto do produto:", error);
+      Swal.fire({
+        icon: "error",
+        title: "Erro",
+        text: "Não foi possível apagar a imagem.",
+        confirmButtonText: "OK",
+        buttonsStyling: false,
+        customClass: {
+          confirmButton:
+            "!bg-blue-600 !text-white hover:!bg-blue-700 px-5 py-2.5 rounded-md font-semibold",
+        },
+      });
+    }
   };
 
   const handleSave = async () => {
@@ -492,6 +592,7 @@ export function ProductsTab() {
                     className="rounded"
                   />
                 </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Foto</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nome</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Código
@@ -516,7 +617,7 @@ export function ProductsTab() {
             <tbody className="bg-white divide-y divide-gray-100">
               {products.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-4 text-center text-gray-500">
+                  <td colSpan={7} className="px-6 py-4 text-center text-gray-500">
                     {isLoading
                       ? "Carregando..."
                       : searchInput.trim()
@@ -537,6 +638,9 @@ export function ProductsTab() {
                           onChange={() => handleSelectProduct(product.id)}
                           className="rounded"
                         />
+                      </td>
+                      <td className="px-6 py-3">
+                        <ProductThumb productId={product.id} photoFileId={product.photoFileId} />
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{product.name}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{product.code}</td>
@@ -608,26 +712,52 @@ export function ProductsTab() {
                           <span className="cursor-text">{product.weightAverage.toFixed(2)} kg</span>
                         )}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <button
-                          onClick={() => handleEdit(product)}
-                          className="text-blue-600 hover:text-blue-900 mr-3"
-                          disabled={isActionLoading}
-                        >
-                          <Edit size={16} />
-                        </button>
-                        <button
-                          onClick={() => setProductsActive([product.id], showInactive)}
-                          className={
-                            showInactive
-                              ? "text-blue-600 hover:text-blue-900"
-                              : "text-amber-700 hover:text-amber-900"
-                          }
-                          title={showInactive ? "Ativar" : "Inativar"}
-                          disabled={isActionLoading}
-                        >
-                          {showInactive ? <RotateCcw size={16} /> : <Ban size={16} />}
-                        </button>
+                      <td className="px-6 py-4 text-right text-sm font-medium">
+                        <div className="flex flex-wrap justify-end gap-2">
+                          <button
+                            onClick={() => handleEdit(product)}
+                            className="rounded-lg border border-blue-200 px-2 py-1 text-xs font-semibold text-blue-700 hover:bg-blue-50"
+                            disabled={isActionLoading}
+                          >
+                            <Edit size={14} className="mr-1 inline" />
+                            Alterar
+                          </button>
+                          <label className="cursor-pointer rounded-lg bg-blue-600 px-2 py-1 text-xs font-semibold text-white hover:bg-blue-700">
+                            {product.photoFileId ? "Alterar foto" : "Adicionar foto"}
+                            <input
+                              type="file"
+                              accept="image/png,image/jpeg,image/webp,image/gif"
+                              className="hidden"
+                              disabled={isActionLoading}
+                              onChange={(event) => {
+                                const file = event.target.files?.[0];
+                                event.target.value = "";
+                                saveProductPhoto(product, file);
+                              }}
+                            />
+                          </label>
+                          {product.photoFileId ? (
+                            <button
+                              type="button"
+                              onClick={() => deleteProductPhoto(product)}
+                              className="rounded-lg border border-red-200 px-2 py-1 text-xs font-semibold text-red-700 hover:bg-red-50"
+                              disabled={isActionLoading}
+                            >
+                              Apagar foto
+                            </button>
+                          ) : null}
+                          <button
+                            onClick={() => setProductsActive([product.id], showInactive)}
+                            className={
+                              showInactive
+                                ? "rounded-lg border border-blue-200 px-2 py-1 text-xs font-semibold text-blue-700 hover:bg-blue-50"
+                                : "rounded-lg border border-amber-300 px-2 py-1 text-xs font-semibold text-amber-800 hover:bg-amber-50"
+                            }
+                            disabled={isActionLoading}
+                          >
+                            {showInactive ? "Ativar" : "Inativar"}
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
