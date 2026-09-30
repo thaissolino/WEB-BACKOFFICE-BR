@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { Plus, Edit, Trash2, Boxes, Loader2, Search } from "lucide-react";
+import { Plus, Edit, Ban, RotateCcw, Boxes, Loader2, Search } from "lucide-react";
 import Swal from "sweetalert2";
 import { api } from "../../../../services/api";
 import { useNotification } from "../../../../hooks/notification";
@@ -61,6 +61,7 @@ export function ProductsTab() {
   // O filtro visual usa searchInput diretamente (instantâneo).
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
+  const [showInactive, setShowInactive] = useState(false);
   const [editingCell, setEditingCell] = useState<{ id: string; field: "price" | "weight" } | null>(null);
   const [editingValue, setEditingValue] = useState("");
   const { setOpenNotification } = useNotification();
@@ -75,13 +76,13 @@ export function ProductsTab() {
           search: trimmedSearch || undefined,
           limit: 5000,
           page: 1,
+          active: showInactive ? "false" : "true",
         },
       });
       const productsData: Product[] = Array.isArray(response.data)
         ? response.data
         : response.data.products || [];
-      const activeProducts = productsData.filter((p: Product) => p.active !== false);
-      setAllProducts(activeProducts);
+      setAllProducts(productsData);
     } catch (error) {
       console.error("Erro ao buscar produtos:", error);
     } finally {
@@ -91,7 +92,7 @@ export function ProductsTab() {
 
   useEffect(() => {
     fetchData();
-  }, [searchTerm]);
+  }, [searchTerm, showInactive]);
 
   // Debounce da busca: 350ms após parar de digitar antes de enviar à API.
   useEffect(() => {
@@ -132,98 +133,56 @@ export function ProductsTab() {
     );
   };
 
-  const handleDeleteMultiple = async () => {
-    if (isActionLoading) return;
-    if (selectedProducts.length === 0) return;
+  const setProductsActive = async (ids: string[], active: boolean) => {
+    if (isActionLoading || ids.length === 0) return;
 
     const result = await Swal.fire({
-      title: "Tem certeza?",
-      text: `Você está prestes a excluir ${selectedProducts.length} produto(s). Esta ação não pode ser revertida!`,
+      title: active ? "Ativar produtos?" : "Inativar produtos?",
+      text: active
+        ? `${ids.length} produto(s) voltam para a lista de ativos.`
+        : `${ids.length} produto(s) saem da lista principal. Para ver de novo, marque "Ver desativados".`,
       icon: "warning",
       showCancelButton: true,
       buttonsStyling: false,
       customClass: {
-        confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold mr-2",
+        confirmButton: active
+          ? "bg-blue-600 text-white hover:bg-blue-700 px-4 py-2 rounded font-semibold mr-2"
+          : "bg-amber-600 text-white hover:bg-amber-700 px-4 py-2 rounded font-semibold mr-2",
         cancelButton: "bg-gray-500 text-white hover:bg-gray-600 px-4 py-2 rounded font-semibold",
       },
-      confirmButtonText: `Sim, excluir ${selectedProducts.length} produto(s)!`,
+      confirmButtonText: active ? "Sim, ativar" : "Sim, inativar",
       cancelButtonText: "Cancelar",
     });
 
-    if (result.isConfirmed) {
-      await executeAction(async () => {
-        await Promise.all(selectedProducts.map((id) => api.delete(`/invoice/product/${id}`)));
-        await fetchData();
-        setSelectedProducts([]);
-        setOpenNotification({
-          type: "success",
-          title: "Sucesso!",
-          notification: `${selectedProducts.length} produto(s) excluído(s) com sucesso!`,
-        });
-      }, "deleteMultipleProducts").catch((error) => {
-        console.error("Erro ao excluir produtos:", error);
-        Swal.fire({
-          icon: "error",
-          title: "Erro!",
-          text: "Não foi possível excluir os produtos.",
-          confirmButtonText: "Ok",
-          buttonsStyling: false,
-          customClass: {
-            confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
-          },
-        });
-      });
-    }
-  };
+    if (!result.isConfirmed) return;
 
-  const handleDelete = async (id: string) => {
-    const result = await Swal.fire({
-      title: "Tem certeza?",
-      text: "Você não poderá reverter esta ação!",
-      icon: "warning",
-      showCancelButton: true,
-      buttonsStyling: false, // desativa os estilos padrões do SweetAlert2
-      customClass: {
-        confirmButton: "bg-blue-600 text-white hover:bg-blue-700 px-4 py-2 rounded font-semibold mr-2",
-        cancelButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
-      },
-      confirmButtonText: "Sim, excluir!",
-      cancelButtonText: "Cancelar",
+    await executeAction(async () => {
+      await Promise.all(ids.map((id) => api.patch(`/invoice/product/${id}`, { active })));
+      await fetchData();
+      setSelectedProducts([]);
+      setOpenNotification({
+        type: "success",
+        title: "Sucesso!",
+        notification: active
+          ? `${ids.length} produto(s) ativado(s).`
+          : `${ids.length} produto(s) inativado(s).`,
+      });
+    }, `setProductsActive-${active}`).catch((error) => {
+      console.error("Erro ao alterar status do produto:", error);
+      Swal.fire({
+        icon: "error",
+        title: "Erro!",
+        text: active
+          ? "Não foi possível ativar os produtos."
+          : "Não foi possível inativar os produtos.",
+        confirmButtonText: "OK",
+        buttonsStyling: false,
+        customClass: {
+          confirmButton:
+            "!bg-blue-600 !text-white hover:!bg-blue-700 px-5 py-2.5 rounded-md font-semibold shadow-sm",
+        },
+      });
     });
-
-    if (result.isConfirmed) {
-      await executeAction(async () => {
-        await api.delete(`/invoice/product/${id}`);
-        await fetchData();
-        // Swal.fire({
-        //   icon: "success",
-        //   title: "Sucesso!",
-        //   text: "Produto excluído permanentemente.",
-        //   confirmButtonText: "Ok",
-        //   buttonsStyling: false,
-        //   customClass: {
-        //     confirmButton: "bg-green-600 text-white hover:bg-green-700 px-4 py-2 rounded font-semibold",
-        //   },
-        // });
-        setOpenNotification({
-          type: "success",
-          title: "Sucesso!",
-          notification: "Produto excluído permanentemente!",
-        });
-      }, `deleteProduct-${id}`).catch((error) => {
-        console.error("Erro ao excluir produto:", error);
-        Swal.fire({
-          icon: "error",
-          title: "Erro!",
-          text: "Não foi possível excluir o produto.",
-          confirmButtonText: "Ok",
-          buttonsStyling: false,
-          customClass: {
-            confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
-          },
-        });
-      });
-    }
   };
 
   const handleSave = async () => {
@@ -435,18 +394,30 @@ export function ProductsTab() {
         <div className="flex flex-wrap items-center gap-4">
           {selectedProducts.length > 0 && (
             <button
-              onClick={handleDeleteMultiple}
-              className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-xl flex items-center shadow-sm"
+              onClick={() => setProductsActive(selectedProducts, showInactive)}
+              className={
+                showInactive
+                  ? "bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl flex items-center shadow-sm"
+                  : "bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded-xl flex items-center shadow-sm"
+              }
               disabled={isActionLoading}
             >
-              {isSubmitting ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <Trash2 className="mr-2" size={16} />
-              )}
-              Excluir Selecionados ({selectedProducts.length})
+              {showInactive ? <RotateCcw className="mr-2" size={16} /> : <Ban className="mr-2" size={16} />}
+              {showInactive ? "Ativar" : "Inativar"} selecionados ({selectedProducts.length})
             </button>
           )}
+          <label className="flex items-center gap-2 text-sm font-medium text-gray-700 select-none">
+            <input
+              type="checkbox"
+              checked={showInactive}
+              onChange={(e) => {
+                setShowInactive(e.target.checked);
+                setSelectedProducts([]);
+              }}
+              className="rounded"
+            />
+            Ver desativados
+          </label>
           <div className="flex items-center gap-2">
             <label className="text-sm font-medium text-gray-700">Ordenar por:</label>
             <select
@@ -546,13 +517,17 @@ export function ProductsTab() {
               {products.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-6 py-4 text-center text-gray-500">
-                    {isLoading ? "Carregando..." : searchInput.trim() ? "Nenhum produto encontrado para o filtro." : "Nenhum produto cadastrado"}
+                    {isLoading
+                      ? "Carregando..."
+                      : searchInput.trim()
+                        ? "Nenhum produto encontrado para o filtro."
+                        : showInactive
+                          ? "Nenhum produto desativado."
+                          : "Nenhum produto cadastrado"}
                   </td>
                 </tr>
               ) : (
                 products.map((product) => {
-                  // Renderizar todos os produtos, independente do active
-                  // (o filtro active !== false estava escondendo produtos)
                   return (
                     <tr key={product.id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap">
@@ -642,11 +617,16 @@ export function ProductsTab() {
                           <Edit size={16} />
                         </button>
                         <button
-                          onClick={() => handleDelete(product.id)}
-                          className="text-red-600 hover:text-red-900"
+                          onClick={() => setProductsActive([product.id], showInactive)}
+                          className={
+                            showInactive
+                              ? "text-blue-600 hover:text-blue-900"
+                              : "text-amber-700 hover:text-amber-900"
+                          }
+                          title={showInactive ? "Ativar" : "Inativar"}
                           disabled={isActionLoading}
                         >
-                          {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 size={16} />}
+                          {showInactive ? <RotateCcw size={16} /> : <Ban size={16} />}
                         </button>
                       </td>
                     </tr>
