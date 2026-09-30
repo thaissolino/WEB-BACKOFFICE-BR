@@ -144,17 +144,22 @@ export default function InvocesManagement() {
   }, []);
 
   useEffect(() => {
-    if (!permissions?.GERENCIAR_INVOICES) return;
+    setActiveTab((current) => {
+      if (current) return current;
+      if (user?.role === "MASTER") return "invoices";
 
-    for (const [permKey, tab] of Object.entries(permissionTabMap)) {
-      const value = permissions.GERENCIAR_INVOICES[permKey as keyof typeof permissions.GERENCIAR_INVOICES];
+      const perms = permissions?.GERENCIAR_INVOICES;
+      if (!perms) return current;
 
-      if (Array.isArray(value) ? value.length > 0 : value === true) {
-        setActiveTab(tab);
-        break;
+      for (const [permKey, tab] of Object.entries(permissionTabMap)) {
+        const value = perms[permKey as keyof typeof perms];
+        if (Array.isArray(value) ? value.length > 0 : value === true) {
+          return tab;
+        }
       }
-    }
-  }, []);
+      return current;
+    });
+  }, [permissions, user]);
 
   const canShowTab = (key: string): boolean => {
     if (user?.role === "MASTER") return true;
