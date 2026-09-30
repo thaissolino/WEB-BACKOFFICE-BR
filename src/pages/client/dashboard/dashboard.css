@@ -1082,8 +1082,10 @@
 @media (min-width: 900px) {
   .pdv-home-shortcuts-grid {
     grid-template-columns: 1.35fr 1fr 1fr;
-    grid-template-rows: minmax(168px, 1fr) minmax(168px, 1fr);
-    min-height: calc(100dvh - 280px);
+    grid-template-rows: minmax(132px, 1fr) minmax(132px, 1fr);
+    flex: 1 1 auto;
+    min-height: 0;
+    max-height: calc(100dvh - 400px);
   }
 
   .pdv-home-shortcut-feature {
@@ -1136,8 +1138,8 @@
 
 .pdv-root .pdv-main button.pdv-home-shortcut-feature {
   justify-content: flex-end;
-  min-height: 280px;
-  padding: 28px;
+  min-height: 0;
+  padding: 22px 28px;
   background:
     radial-gradient(120% 80% at 100% 0%, rgba(196, 132, 42, 0.32), transparent 48%),
     #1a1511 !important;

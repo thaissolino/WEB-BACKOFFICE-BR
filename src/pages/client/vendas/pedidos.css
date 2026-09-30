@@ -79,8 +79,10 @@
 @media (min-width: 860px) {
   .loja-grid {
     grid-template-columns: 1.35fr 1fr 1fr;
-    grid-template-rows: minmax(210px, 1fr) minmax(210px, 1fr);
-    min-height: calc(100dvh - 210px);
+    grid-template-rows: minmax(132px, 1fr) minmax(132px, 1fr);
+    height: calc(100dvh - 300px);
+    min-height: 0;
+    max-height: calc(100dvh - 300px);
   }
 
   .loja-card-feature {
@@ -136,8 +138,8 @@
 
 .loja-card-feature {
   justify-content: flex-end;
-  min-height: 320px;
-  padding: 28px;
+  min-height: 0;
+  padding: 22px 28px;
   background:
     radial-gradient(120% 80% at 100% 0%, rgba(196, 132, 42, 0.28), transparent 46%),
     var(--ink);
