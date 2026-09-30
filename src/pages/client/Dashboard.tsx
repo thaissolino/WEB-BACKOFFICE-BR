@@ -20,6 +20,8 @@ import {
   Truck,
   UserCog,
   List,
+  ClipboardList,
+  ShoppingBag,
   Wallet,
 } from "lucide-react";
 import { useClientAuth, type ClientUser } from "../../hooks/clientAuth";
@@ -35,10 +37,19 @@ import { accordionWidgetId, isDashboardVisible } from "./dashboard/pdvUiConfig";
 import { usePdvLayoutMode } from "../../store/pdvLayoutMode";
 
 const SHORTCUT_ICONS: Record<string, ReactNode> = {
-  "cadastro-clientes": <Users size={22} aria-hidden="true" />,
-  "cadastro-fornecedores": <Truck size={22} aria-hidden="true" />,
-  "cadastro-usuarios": <UserCog size={22} aria-hidden="true" />,
-  "produtos-listar": <List size={22} aria-hidden="true" />,
+  "cadastro-clientes": <Users size={26} strokeWidth={1.75} aria-hidden="true" />,
+  "cadastro-fornecedores": <Truck size={26} strokeWidth={1.75} aria-hidden="true" />,
+  "cadastro-usuarios": <UserCog size={26} strokeWidth={1.75} aria-hidden="true" />,
+  "produtos-listar": <List size={26} strokeWidth={1.75} aria-hidden="true" />,
+  "meus-pedidos": <ClipboardList size={26} strokeWidth={1.75} aria-hidden="true" />,
+};
+
+const SHORTCUT_COPY: Record<string, string> = {
+  "cadastro-clientes": "Quem compra na loja.",
+  "cadastro-fornecedores": "Quem abastece a loja.",
+  "cadastro-usuarios": "Quem entra no painel.",
+  "produtos-listar": "Catálogo e estoque.",
+  "meus-pedidos": "Abrir, acompanhar e fechar os pedidos da loja.",
 };
 
 const MODULES = [
@@ -393,19 +404,30 @@ function DashboardBoard({ client }: { client: ClientUser }) {
         <nav className="pdv-home-shortcuts" aria-label="Atalhos do painel">
           <p className="pdv-home-shortcuts-title">Acesso rápido</p>
           <div className="pdv-home-shortcuts-grid">
-            {shortcuts.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                className="pdv-home-shortcut"
-                onClick={() => navigate(item.href)}
-              >
-                <span className="pdv-icon" aria-hidden="true">
-                  {SHORTCUT_ICONS[item.id]}
-                </span>
-                <span className="pdv-home-shortcut-label">{item.label}</span>
-              </button>
-            ))}
+            {shortcuts.map((item) => {
+              const feature = item.id === "meus-pedidos";
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  className={feature ? "pdv-home-shortcut pdv-home-shortcut-feature" : "pdv-home-shortcut"}
+                  onClick={() => navigate(item.href)}
+                >
+                  {feature ? <span className="pdv-home-shortcut-kicker">Pedidos</span> : null}
+                  {feature ? null : (
+                    <span className="pdv-home-shortcut-ico" aria-hidden="true">
+                      {SHORTCUT_ICONS[item.id]}
+                    </span>
+                  )}
+                  <span className="pdv-home-shortcut-label">{item.label}</span>
+                  <span className="pdv-home-shortcut-copy">{SHORTCUT_COPY[item.id]}</span>
+                  {feature ? <span className="pdv-home-shortcut-go">Abrir</span> : null}
+                  {feature ? (
+                    <ShoppingBag className="pdv-home-shortcut-mark" size={148} strokeWidth={1.15} aria-hidden="true" />
+                  ) : null}
+                </button>
+              );
+            })}
           </div>
           {shortcuts.length === 0 ? <p className="pdv-empty">Nada encontrado.</p> : null}
         </nav>

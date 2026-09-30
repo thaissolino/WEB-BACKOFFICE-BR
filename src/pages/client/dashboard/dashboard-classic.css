@@ -151,6 +151,12 @@
   }
 }
 
+@media (min-width: 1200px) {
+  .pdvc-shortcut-grid {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+}
+
 .pdvc-shortcut {
   display: flex;
   flex-direction: column;

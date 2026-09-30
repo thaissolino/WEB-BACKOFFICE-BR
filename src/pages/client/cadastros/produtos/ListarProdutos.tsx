@@ -592,7 +592,19 @@ function ProdutosBoard() {
                           onClick={() => selectProduct(item, true)}
                         >
                           <td>{item.code}</td>
-                          <td>{item.name}</td>
+                          <td>
+                            <span className="pdv-prod-name">
+                              {item.photoFileId ? (
+                                <GradePhotoThumb
+                                  productId={item.id}
+                                  photoFileId={item.photoFileId}
+                                  name={item.name}
+                                  onOpen={() => setPhotoProduct(item)}
+                                />
+                              ) : null}
+                              <span>{item.name}</span>
+                            </span>
+                          </td>
                           <td>{item.category || categoryLabel(item.categoryId, categoryOptions) || "—"}</td>
                           <td>{String(item.stockQuantity).replace(".", ",")}</td>
                           <td>{formatMoneyBr(item.salePrice || item.priceweightAverage)}</td>

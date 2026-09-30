@@ -1082,6 +1082,19 @@
   object-fit: cover;
 }
 
+.pdv-prod-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pdv-prod-name .pdv-prod-grade-photo,
+.pdv-prod-name .pdv-prod-grade-photo img,
+.pdv-prod-name .pdv-prod-grade-ph {
+  width: 28px;
+  height: 28px;
+}
+
 .pdv-prod-grade-ph,
 .pdv-prod-grade-nophoto {
   display: block;

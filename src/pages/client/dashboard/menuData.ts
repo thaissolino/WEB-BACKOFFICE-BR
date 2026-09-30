@@ -33,6 +33,7 @@ export const DASHBOARD_SHORTCUTS: { id: string; label: string; href: string }[] 
   { id: "cadastro-fornecedores", label: "Cadastro fornecedores", href: "/client/fornecedores" },
   { id: "cadastro-usuarios", label: "Cadastro usuários", href: "/client/usuarios" },
   { id: "produtos-listar", label: "Produtos listar", href: "/client/produtos" },
+  { id: "meus-pedidos", label: "Gestão de pedidos", href: "/client/pedidos" },
 ];
 
 export const PDV_MENUS: PdvMenuRoot[] = [

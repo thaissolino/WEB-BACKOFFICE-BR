@@ -1,4 +1,4 @@
-import { Navigate, Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { Layout as BackofficeLayout } from "../pages/backoffice/Layout/base";
 import { SignIn as BackofficeSignIn } from "../pages/backoffice/SignIn";
 import { SessionExpiredBackoffice } from "../pages/backoffice/SessionExpiredBackoffice";
@@ -29,6 +29,7 @@ import ClientForgotPassword from "../pages/client/ForgotPassword";
 import ClientDashboard from "../pages/client/Dashboard";
 import TrocarCaixa from "../pages/client/TrocarCaixa";
 import ClientPdv from "../pages/client/Pdv";
+import LojistaPedidos from "../pages/client/vendas/LojistaPedidos";
 import ClientLoja from "../pages/client/Loja";
 import ClientesList from "../pages/client/cadastros/clientes/ClientesList";
 import ChecarCliente from "../pages/client/cadastros/clientes/ChecarCliente";
@@ -87,6 +88,12 @@ function RequireAuthBackoffice({ children }: { children: JSX.Element }) {
   return children;
 }
 
+function LojistaAlias() {
+  const { pathname } = useLocation();
+  const next = pathname.replace(/^\/(?:vitrine\/)?lojista/, "/client/pedidos");
+  return <Navigate to={next === pathname ? "/client/pedidos" : next} replace />;
+}
+
 export function Router() {
   const { isAuthenticated } = useAuthBackoffice();
   const { isClientAuthenticated } = useClientAuth();
@@ -128,6 +135,12 @@ export function Router() {
         }
       >
         <Route path="client/dashboard" element={<ClientDashboard />} />
+        <Route path="client/pedidos" element={<LojistaPedidos />} />
+        <Route path="client/pedidos/*" element={<LojistaPedidos />} />
+        <Route path="vitrine/lojista" element={<LojistaAlias />} />
+        <Route path="vitrine/lojista/*" element={<LojistaAlias />} />
+        <Route path="lojista" element={<LojistaAlias />} />
+        <Route path="lojista/*" element={<LojistaAlias />} />
         <Route path="client/trocar-senha" element={<TrocarSenhaCliente />} />
         <Route path="client/caixa" element={<TrocarCaixa />} />
         <Route path="client/pdv" element={<ClientPdv />} />

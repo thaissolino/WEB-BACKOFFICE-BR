@@ -552,16 +552,16 @@
 .pdv-menu-panel,
 .pdv-menu-flyout {
   width: max-content;
-  min-width: 200px;
+  min-width: 220px;
   max-width: none;
   height: auto;
   max-height: none;
   overflow: visible !important;
-  padding: 4px 0;
-  background: #fff;
-  border: 1px solid var(--menu-line);
-  border-radius: 4px;
-  box-shadow: 0 6px 16px rgba(28, 24, 20, 0.14);
+  padding: 6px;
+  background: rgba(255, 253, 248, 0.96);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  box-shadow: 0 18px 44px rgba(26, 21, 17, 0.16);
   color: var(--ink);
 }
 
@@ -597,15 +597,16 @@
   justify-content: space-between;
   gap: 16px;
   width: 100%;
-  min-height: 36px;
-  padding: 0 12px 0 14px;
+  min-height: 40px;
+  padding: 0 12px;
   border: 0;
-  background: #fff;
+  border-radius: 10px;
+  background: transparent;
   color: #1a1511;
   -webkit-text-fill-color: #1a1511;
   font: inherit;
-  font-size: 0.88rem;
-  font-weight: 500;
+  font-size: 0.92rem;
+  font-weight: 600;
   text-align: left;
   white-space: nowrap;
   cursor: pointer;
@@ -636,9 +637,9 @@
 .pdv-menu-item:hover,
 .pdv-menu-item[data-active="true"],
 .pdv-menu-item:focus-visible {
-  background: var(--menu-hot);
-  color: #fff !important;
-  -webkit-text-fill-color: #fff !important;
+  background: rgba(26, 21, 17, 0.06);
+  color: var(--ink) !important;
+  -webkit-text-fill-color: var(--ink) !important;
 }
 
 .pdv-menu-item:hover .pdv-menu-star,
@@ -647,8 +648,8 @@
 .pdv-menu-item:hover .pdv-menu-arrow,
 .pdv-menu-item[data-active="true"] .pdv-menu-arrow,
 .pdv-menu-item:focus-visible .pdv-menu-arrow {
-  color: #fff !important;
-  -webkit-text-fill-color: #fff !important;
+  color: var(--ink-soft) !important;
+  -webkit-text-fill-color: var(--ink-soft) !important;
 }
 
 .pdv-menu-item:focus-visible,
@@ -1044,57 +1045,70 @@
 }
 
 .pdv-welcome {
-  margin: 0 0 6px;
+  margin: 0 0 8px;
   font-family: var(--font-display);
-  font-size: 1.12rem;
-  font-weight: 600;
-  letter-spacing: -0.02em;
-  line-height: 1.2;
+  font-size: clamp(1.6rem, 2.4vw, 2.15rem);
+  font-weight: 650;
+  letter-spacing: -0.04em;
+  line-height: 1.05;
 }
 
 .pdv-home-shortcuts {
-  flex: 0 0 auto;
+  flex: 1 1 auto;
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  margin-top: 4px;
+  gap: 12px;
+  margin-top: 8px;
+  min-height: 0;
 }
 
 .pdv-home-shortcuts-title {
   margin: 0;
   font-family: var(--font-display);
-  font-size: 0.95rem;
-  font-weight: 600;
+  font-size: 0.78rem;
+  font-weight: 700;
   color: var(--ink-soft);
-  letter-spacing: -0.01em;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
 }
 
 .pdv-home-shortcuts-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
+  grid-template-columns: 1fr;
+  gap: 12px;
+  flex: 1;
 }
 
-@media (min-width: 720px) {
+@media (min-width: 900px) {
   .pdv-home-shortcuts-grid {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: 1.35fr 1fr 1fr;
+    grid-template-rows: minmax(168px, 1fr) minmax(168px, 1fr);
+    min-height: calc(100dvh - 280px);
+  }
+
+  .pdv-home-shortcut-feature {
+    grid-column: 1;
+    grid-row: 1 / span 2;
   }
 }
 
 .pdv-home-shortcut {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 12px;
-  min-height: 7.5rem;
-  padding: 14px 14px 16px;
+  justify-content: flex-start;
+  gap: 6px;
+  min-height: 148px;
+  padding: 22px;
+  overflow: hidden;
   border: 1px solid var(--line);
-  border-radius: var(--radius);
+  border-radius: 18px;
   background: var(--sheet);
   text-align: left;
   cursor: pointer;
   touch-action: manipulation;
-  transition: border-color 160ms var(--ease), box-shadow 160ms var(--ease), transform 160ms var(--ease);
+  transition: transform 160ms var(--ease), border-color 160ms var(--ease);
 }
 
 .pdv-root[data-surface="cream"] .pdv-main button.pdv-home-shortcut {
@@ -1103,9 +1117,80 @@
 }
 
 .pdv-home-shortcut:hover {
-  border-color: #c9b79a;
-  box-shadow: 0 6px 18px rgba(26, 21, 17, 0.06);
-  transform: translateY(-1px);
+  transform: translateY(-2px);
+  border-color: #c9bba8;
+}
+
+.pdv-home-shortcut-ico {
+  display: grid;
+  place-items: center;
+  width: 2.4rem;
+  height: 2.4rem;
+  margin-bottom: 8px;
+  color: var(--accent);
+}
+
+.pdv-home-shortcut-ico svg {
+  color: var(--accent);
+}
+
+.pdv-root .pdv-main button.pdv-home-shortcut-feature {
+  justify-content: flex-end;
+  min-height: 280px;
+  padding: 28px;
+  background:
+    radial-gradient(120% 80% at 100% 0%, rgba(196, 132, 42, 0.32), transparent 48%),
+    #1a1511 !important;
+  border-color: #1a1511;
+}
+
+.pdv-root[data-surface="cream"] .pdv-main button.pdv-home-shortcut-feature,
+.pdv-root[data-surface="cream"] .pdv-main button.pdv-home-shortcut-feature .pdv-home-shortcut-label,
+.pdv-root[data-surface="cream"] .pdv-main button.pdv-home-shortcut-feature .pdv-home-shortcut-kicker,
+.pdv-root[data-surface="cream"] .pdv-main button.pdv-home-shortcut-feature .pdv-home-shortcut-copy,
+.pdv-root[data-surface="cream"] .pdv-main button.pdv-home-shortcut-feature .pdv-home-shortcut-go {
+  color: #fffdf8 !important;
+  -webkit-text-fill-color: #fffdf8 !important;
+}
+
+.pdv-home-shortcut-kicker {
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.pdv-home-shortcut-feature .pdv-home-shortcut-label {
+  max-width: 12ch;
+  font-size: clamp(2rem, 3.2vw, 3.1rem);
+  letter-spacing: -0.045em;
+  line-height: 0.95;
+}
+
+.pdv-home-shortcut-feature .pdv-home-shortcut-copy {
+  max-width: 16rem;
+  color: rgba(255, 253, 248, 0.78) !important;
+  -webkit-text-fill-color: rgba(255, 253, 248, 0.78) !important;
+}
+
+.pdv-home-shortcut-go {
+  margin-top: 14px;
+  font-weight: 700;
+}
+
+.pdv-home-shortcut-go::after {
+  content: " →";
+}
+
+.pdv-home-shortcut-mark {
+  position: absolute;
+  right: -18px;
+  bottom: -28px;
+  width: 210px;
+  height: 210px;
+  color: rgba(255, 253, 248, 0.12) !important;
+  -webkit-text-fill-color: rgba(255, 253, 248, 0.12) !important;
+  pointer-events: none;
 }
 
 .pdv-home-shortcut:focus-visible {
@@ -1113,17 +1198,19 @@
   outline-offset: 2px;
 }
 
-.pdv-home-shortcut .pdv-icon {
-  width: 2.4rem;
-  height: 2.4rem;
-}
-
 .pdv-home-shortcut-label {
   font-family: var(--font-display);
-  font-size: 1.02rem;
-  font-weight: 700;
-  line-height: 1.25;
-  letter-spacing: -0.02em;
+  font-size: 1.35rem;
+  font-weight: 650;
+  line-height: 1.05;
+  letter-spacing: -0.04em;
+}
+
+.pdv-home-shortcut-copy {
+  max-width: 16rem;
+  color: var(--ink-soft);
+  font-size: 0.95rem;
+  line-height: 1.35;
 }
 
 .pdv-shop-bar {
@@ -1131,12 +1218,13 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 8px 16px;
+  width: fit-content;
   min-height: 2.4rem;
-  padding: 6px 10px;
+  padding: 6px 14px;
   border: 1px solid var(--line);
-  border-radius: 0.5rem;
-  background: #fff;
-  font-size: 0.95rem;
+  border-radius: 999px;
+  background: var(--sheet);
+  font-size: 0.92rem;
 }
 
 .pdv-shop-bar strong {
@@ -2217,4 +2305,138 @@
   .pdv-tool {
     transition: none;
   }
+}
+
+/* Premium usa os mesmos cantos do Clássico: pílulas no chrome e cards mais redondos. */
+.pdv-root[data-layout="premium"] {
+  --ctrl-r: 999px;
+  --radius: 0.85rem;
+  --field-r: 999px;
+}
+
+.pdv-root[data-layout="premium"] .pdv-toolbar {
+  --field-r: 999px;
+}
+
+.pdv-root[data-layout="premium"] .pdv-header button.pdv-store-logo[type="button"] {
+  border-radius: 0.85rem;
+}
+
+.pdv-root[data-layout="premium"] .pdv-header {
+  min-height: 68px;
+  padding: 12px 20px;
+  gap: 18px 22px;
+}
+
+.pdv-root[data-layout="premium"] .pdv-main {
+  padding: 16px 20px 20px;
+  gap: 14px;
+}
+
+.pdv-root[data-layout="premium"] .pdv-strip {
+  flex-direction: row !important;
+  align-items: center;
+  gap: 18px;
+  width: auto;
+  margin: 16px 20px 0;
+  padding: 10px 12px;
+  background: var(--sheet) !important;
+  border: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  border-radius: 22px;
+  box-shadow: 0 12px 32px rgba(26, 21, 17, 0.05);
+}
+
+.pdv-root[data-layout="premium"] .pdv-menubar {
+  flex: 1 1 auto;
+  width: auto;
+  height: auto;
+  min-height: 0;
+  gap: 8px;
+  padding: 4px;
+  background: transparent;
+  border-bottom: 0;
+}
+
+.pdv-root[data-layout="premium"] .pdv-toolbar {
+  flex: 0 1 auto;
+  width: auto;
+  height: auto;
+  min-height: 0;
+  margin-left: auto;
+  padding: 4px;
+  gap: 12px;
+  background: transparent;
+  border: 0;
+  --field-r: 999px;
+  --field-h: 40px;
+}
+
+.pdv-root[data-layout="premium"] .pdv-toolbar-start,
+.pdv-root[data-layout="premium"] .pdv-toolbar-end {
+  gap: 12px;
+}
+
+.pdv-root[data-layout="premium"] .pdv-dd-trigger {
+  height: 40px;
+  min-height: 40px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  letter-spacing: 0.04em;
+}
+
+.pdv-root[data-layout="premium"] .pdv-dd-trigger:hover,
+.pdv-root[data-layout="premium"] .pdv-dd[data-open="true"] > .pdv-dd-trigger {
+  background: var(--ink);
+  color: #fffdf8 !important;
+  -webkit-text-fill-color: #fffdf8 !important;
+}
+
+.pdv-root[data-layout="premium"] .pdv-close-demo,
+.pdv-root[data-layout="premium"] .pdv-period,
+.pdv-root[data-layout="premium"] .pdv-shop {
+  height: 40px;
+  min-height: 40px;
+  border-radius: 999px;
+  border-color: transparent;
+  background: rgba(26, 21, 17, 0.05);
+  box-shadow: none;
+  --field-r: 999px;
+}
+
+.pdv-root[data-layout="premium"] .pdv-close-demo:hover {
+  background: var(--ink);
+  border-color: var(--ink);
+}
+
+.pdv-root[data-layout="premium"] .pdv-date {
+  width: 7.6rem;
+}
+
+.pdv-root[data-layout="premium"] .pdv-shop-trigger {
+  min-width: 11rem;
+}
+
+.pdv-root[data-layout="premium"] .pdv-search-input,
+.pdv-root[data-layout="premium"] .pdv-catalog,
+.pdv-root[data-layout="premium"] .pdv-shop,
+.pdv-root[data-layout="premium"] .pdv-shop-trigger,
+.pdv-root[data-layout="premium"] .pdv-ico,
+.pdv-root[data-layout="premium"] .pdv-ico-exit,
+.pdv-root[data-layout="premium"] .pdv-period,
+.pdv-root[data-layout="premium"] .pdv-close-demo,
+.pdv-root[data-layout="premium"] .pdv-tool {
+  border-radius: 999px;
+}
+
+.pdv-root[data-layout="premium"] .pdv-shop-list,
+.pdv-root[data-layout="premium"] .pdv-confirm-card,
+.pdv-root[data-layout="premium"] .pdv-tip-bubble {
+  border-radius: 0.9rem;
+}
+
+.pdv-root[data-layout="premium"] .pdv-shop-option {
+  border-radius: 0.6rem;
 }

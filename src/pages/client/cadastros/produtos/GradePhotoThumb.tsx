@@ -1,28 +1,16 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { api } from "../../../../services/api";
 
 const cache = new Map<string, string>();
 
-export default function GradePhotoThumb({
-  productId,
-  photoFileId,
-  name,
-  onOpen,
-}: {
-  productId: string;
-  photoFileId: string | null;
-  name: string;
-  onOpen: () => void;
-}) {
+function useProductPhoto(productId: string, photoFileId: string | null, node: HTMLElement | null) {
   const [src, setSrc] = useState(() => cache.get(productId) || "");
-  const cellRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     if (!photoFileId || cache.has(productId)) {
       if (cache.has(productId)) setSrc(cache.get(productId) || "");
       return;
     }
-    const node = cellRef.current;
     if (!node) return;
 
     let cancelled = false;
@@ -40,20 +28,56 @@ export default function GradePhotoThumb({
           })
           .catch(() => {});
       },
-      { rootMargin: "80px" },
+      { rootMargin: "120px" },
     );
     io.observe(node);
     return () => {
       cancelled = true;
       io.disconnect();
     };
-  }, [photoFileId, productId]);
+  }, [photoFileId, productId, node]);
+
+  return src;
+}
+
+export function ProductPhoto({
+  productId,
+  photoFileId,
+  name,
+}: {
+  productId: string;
+  photoFileId: string | null;
+  name: string;
+}) {
+  const [node, setNode] = useState<HTMLSpanElement | null>(null);
+  const src = useProductPhoto(productId, photoFileId, node);
+
+  return (
+    <span className="loja-photo" ref={setNode}>
+      {src ? <img src={src} alt={name} /> : <span className="loja-photo-empty" aria-hidden="true" />}
+    </span>
+  );
+}
+
+export default function GradePhotoThumb({
+  productId,
+  photoFileId,
+  name,
+  onOpen,
+}: {
+  productId: string;
+  photoFileId: string | null;
+  name: string;
+  onOpen: () => void;
+}) {
+  const [node, setNode] = useState<HTMLButtonElement | null>(null);
+  const src = useProductPhoto(productId, photoFileId, node);
 
   if (!photoFileId) return <span className="pdv-prod-grade-nophoto">&nbsp;</span>;
 
   return (
     <button
-      ref={cellRef}
+      ref={setNode}
       className="pdv-prod-grade-photo"
       type="button"
       onClick={(event) => {

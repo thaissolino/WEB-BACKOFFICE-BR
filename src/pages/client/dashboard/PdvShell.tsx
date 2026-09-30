@@ -39,6 +39,7 @@ type PdvSession = {
   storeId: string;
   storeName: string;
   stores: StoreOption[];
+  openStoreLogo: () => void;
 };
 
 const PdvSessionContext = createContext<PdvSession>({
@@ -46,6 +47,7 @@ const PdvSessionContext = createContext<PdvSession>({
   storeId: "",
   storeName: "",
   stores: [],
+  openStoreLogo: () => undefined,
 });
 
 const PdvUiConfigContext = createContext<PdvUiConfig>(EMPTY_PDV_UI_CONFIG);
@@ -423,7 +425,7 @@ export default function PdvShell({
 
   return (
     <PdvUiConfigContext.Provider value={uiConfig}>
-    <PdvSessionContext.Provider value={{ query, storeId, storeName, stores }}>
+    <PdvSessionContext.Provider value={{ query, storeId, storeName, stores, openStoreLogo: () => setChromeModal("logo") }}>
       <div className="pdv-root" data-surface="cream" data-layout={layoutMode} lang="pt-BR">
         <a className="pdv-skip" href="#pdv-main">
           Ir para o conteúdo
@@ -445,16 +447,13 @@ export default function PdvShell({
                 </button>
               </PdvTip>
             ) : null}
-            <PdvTip label="Logo da loja">
+            <PdvTip label="Página inicial">
               <button
                 className="pdv-store-logo"
                 type="button"
-                aria-label="Logo da loja"
-                aria-haspopup="dialog"
-                aria-expanded={chromeModal === "logo"}
-                data-open={chromeModal === "logo" ? "true" : undefined}
+                aria-label="Voltar à página inicial"
                 data-has-logo={logoSrc ? "true" : undefined}
-                onClick={() => setChromeModal("logo")}
+                onClick={handleHome}
               >
                 {logoSrc ? (
                   <img className="pdv-store-logo-img" src={logoSrc} alt="" />
@@ -475,7 +474,7 @@ export default function PdvShell({
                 home={false}
               />
             ) : (
-              <button className="pdv-catalog" type="button">
+              <button className="pdv-catalog" type="button" onClick={() => navigate("/client/produtos")}>
                 CATÁLOGO DE PRODUTOS
               </button>
             )}
