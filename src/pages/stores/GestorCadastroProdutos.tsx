@@ -1,19 +1,16 @@
 import GestaoShell from "../gestor/GestaoShell";
-import { ProductsTab } from "../gestao-invoices/components/sections/ProductsTab";
+import CatalogoProdutos from "./CatalogoProdutos";
 
 /**
- * Cadastro produtos (Gestão) — usa a base OFICIAL de produtos das invoices
- * (mesma tabela/API do Gerenciar Invoices: /invoice/product).
- * Somente a Central cadastra produtos; o lojista apenas consome no PDV.
+ * Cadastro produtos (Gestão) — catálogo com foto da mesma base das invoices.
  */
 export default function GestorCadastroProdutos() {
   return (
     <GestaoShell
-      title="Cadastro produtos"
-      subtitle="Base oficial de produtos das invoices. Tudo que é cadastrado aqui vale para as invoices e para o PDV."
-      badge="Somente a Central cadastra produtos — lojistas apenas consomem no PDV"
+      title="Catálogo de produtos"
+      subtitle="Lista com foto. Dá para adicionar, alterar e apagar a imagem de cada produto."
     >
-      <ProductsTab />
+      <CatalogoProdutos />
     </GestaoShell>
   );
 }
