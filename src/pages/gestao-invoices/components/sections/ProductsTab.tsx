@@ -48,8 +48,21 @@ function productMatchesQuery(
   });
 }
 
-function ProductThumb({ productId, photoFileId }: { productId: string; photoFileId?: string | null }) {
+function ProductThumb({
+  productId,
+  photoFileId,
+  onFile,
+  disabled,
+  large,
+}: {
+  productId: string;
+  photoFileId?: string | null;
+  onFile: (file: File | undefined) => void;
+  disabled?: boolean;
+  large?: boolean;
+}) {
   const [src, setSrc] = useState("");
+  const box = large ? "h-28 w-28" : "h-14 w-14";
 
   useEffect(() => {
     if (!photoFileId) {
@@ -74,14 +87,36 @@ function ProductThumb({ productId, photoFileId }: { productId: string; photoFile
     };
   }, [productId, photoFileId]);
 
-  if (!src) {
-    return (
-      <div className="flex h-14 w-14 items-center justify-center rounded-lg border border-dashed border-gray-300 bg-gray-50 text-[11px] text-gray-400">
-        Sem foto
-      </div>
-    );
-  }
-  return <img src={src} alt="" className="h-14 w-14 rounded-lg border border-gray-200 object-cover" />;
+  return (
+    <label
+      className={`relative inline-flex shrink-0 cursor-pointer ${box}`}
+      title={photoFileId ? "Clique para trocar a foto" : "Clique para adicionar a foto"}
+    >
+      {src ? (
+        <img src={src} alt="" className={`${box} rounded-lg border border-gray-200 object-cover`} />
+      ) : (
+        <span
+          className={`flex ${box} items-center justify-center rounded-lg border border-dashed border-gray-300 bg-gray-50 text-[11px] text-gray-400`}
+        >
+          Sem foto
+        </span>
+      )}
+      <span className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-blue-600 text-white shadow ring-2 ring-white">
+        <Plus size={14} aria-hidden />
+      </span>
+      <input
+        type="file"
+        accept="image/png,image/jpeg,image/webp,image/gif"
+        className="hidden"
+        disabled={disabled}
+        onChange={(event) => {
+          const file = event.target.files?.[0];
+          event.target.value = "";
+          onFile(file);
+        }}
+      />
+    </label>
+  );
 }
 
 export function ProductsTab() {
@@ -247,6 +282,9 @@ export function ProductsTab() {
       setAllProducts((current) =>
         current.map((item) => (item.id === product.id ? { ...item, photoFileId } : item)),
       );
+      setCurrentProduct((current) =>
+        current && current.id === product.id ? { ...current, photoFileId } : current,
+      );
     } catch (error) {
       console.error("Erro ao salvar foto do produto:", error);
       Swal.fire({
@@ -268,6 +306,9 @@ export function ProductsTab() {
       await api.delete(`/clients/products/${product.id}/photo`);
       setAllProducts((current) =>
         current.map((item) => (item.id === product.id ? { ...item, photoFileId: null } : item)),
+      );
+      setCurrentProduct((current) =>
+        current && current.id === product.id ? { ...current, photoFileId: null } : current,
       );
     } catch (error) {
       console.error("Erro ao apagar foto do produto:", error);
@@ -640,7 +681,12 @@ export function ProductsTab() {
                         />
                       </td>
                       <td className="px-6 py-3">
-                        <ProductThumb productId={product.id} photoFileId={product.photoFileId} />
+                        <ProductThumb
+                          productId={product.id}
+                          photoFileId={product.photoFileId}
+                          disabled={isActionLoading}
+                          onFile={(file) => saveProductPhoto(product, file)}
+                        />
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{product.name}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{product.code}</td>
@@ -722,30 +768,6 @@ export function ProductsTab() {
                             <Edit size={14} className="mr-1 inline" />
                             Alterar
                           </button>
-                          <label className="cursor-pointer rounded-lg bg-blue-600 px-2 py-1 text-xs font-semibold text-white hover:bg-blue-700">
-                            {product.photoFileId ? "Alterar foto" : "Adicionar foto"}
-                            <input
-                              type="file"
-                              accept="image/png,image/jpeg,image/webp,image/gif"
-                              className="hidden"
-                              disabled={isActionLoading}
-                              onChange={(event) => {
-                                const file = event.target.files?.[0];
-                                event.target.value = "";
-                                saveProductPhoto(product, file);
-                              }}
-                            />
-                          </label>
-                          {product.photoFileId ? (
-                            <button
-                              type="button"
-                              onClick={() => deleteProductPhoto(product)}
-                              className="rounded-lg border border-red-200 px-2 py-1 text-xs font-semibold text-red-700 hover:bg-red-50"
-                              disabled={isActionLoading}
-                            >
-                              Apagar foto
-                            </button>
-                          ) : null}
                           <button
                             onClick={() => setProductsActive([product.id], showInactive)}
                             className={
@@ -776,6 +798,33 @@ export function ProductsTab() {
           <div onClick={(e) => e.stopPropagation()} className="bg-white p-6 rounded-2xl w-full max-w-md shadow-xl border border-gray-100">
             <h3 className="text-lg font-medium mb-4">{currentProduct.id ? "Editar Produto" : "Novo Produto"}</h3>
             <div className="space-y-4">
+              {currentProduct.id ? (
+                <div>
+                  <span className="mb-2 block text-sm font-medium text-gray-700">Foto</span>
+                  <div className="flex items-center gap-4">
+                    <ProductThumb
+                      large
+                      productId={currentProduct.id}
+                      photoFileId={currentProduct.photoFileId}
+                      disabled={isActionLoading}
+                      onFile={(file) => saveProductPhoto(currentProduct, file)}
+                    />
+                    <div className="space-y-2">
+                      <p className="text-sm text-gray-500">Clique na foto para adicionar ou trocar.</p>
+                      {currentProduct.photoFileId ? (
+                        <button
+                          type="button"
+                          onClick={() => deleteProductPhoto(currentProduct)}
+                          className="rounded-lg border border-red-200 px-3 py-1.5 text-sm font-semibold text-red-700 hover:bg-red-50"
+                          disabled={isActionLoading}
+                        >
+                          Apagar foto
+                        </button>
+                      ) : null}
+                    </div>
+                  </div>
+                </div>
+              ) : null}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Nome</label>
                 <input
