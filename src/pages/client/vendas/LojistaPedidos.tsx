@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { ClipboardList, ScanLine, ShoppingBag, Truck, Wallet } from "lucide-react";
 import { api } from "../../../services/api";
 import { ProductPhoto } from "../cadastros/produtos/GradePhotoThumb";
+import PdvShell from "../dashboard/PdvShell";
 import "../dashboard/dashboard.css";
 import "./pedidos.css";
 
@@ -106,7 +107,6 @@ function cartTotal(lines: CartLine[], discount = 0) {
 function LojaFrame({ children }: { children: ReactNode }) {
   const { pathname } = useLocation();
   return (
-    <div className="pdv-root loja-vitrine">
       <div className="loja-pedidos">
         <div className="loja-top loja-no-print">
           <p className="loja-kicker">Gestão de pedidos</p>
@@ -124,7 +124,6 @@ function LojaFrame({ children }: { children: ReactNode }) {
         </nav>
         {children}
       </div>
-    </div>
   );
 }
 
@@ -761,5 +760,9 @@ export default function LojistaPedidos() {
       <Home />
     );
 
-  return <LojaFrame>{view}</LojaFrame>;
+  return (
+    <PdvShell className="loja-vitrine" showStrip={false}>
+      <LojaFrame>{view}</LojaFrame>
+    </PdvShell>
+  );
 }

@@ -2,7 +2,19 @@
   height: auto;
   min-height: 100dvh;
   overflow: visible;
-  padding: 20px 16px 40px;
+  padding: 0 0 28px;
+}
+
+.pdv-root.loja-vitrine .pdv-header {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+}
+
+.pdv-root.loja-vitrine .pdv-main {
+  overflow: visible;
+  flex: 0 1 auto;
+  padding-top: 8px;
 }
 
 .loja-top {
@@ -30,7 +42,7 @@
   flex-direction: column;
   gap: 16px;
   min-height: 0;
-  padding: 8px 4px 24px;
+  padding: 8px 0 24px;
 }
 
 .loja-nav {
@@ -80,9 +92,11 @@
   .loja-grid {
     grid-template-columns: 1.35fr 1fr 1fr;
     grid-template-rows: minmax(132px, 1fr) minmax(132px, 1fr);
-    height: calc(100dvh - 300px);
+    width: 100%;
+    margin-top: 34px;
+    height: calc(100dvh - 400px);
     min-height: 0;
-    max-height: calc(100dvh - 300px);
+    max-height: calc(100dvh - 400px);
   }
 
   .loja-card-feature {
@@ -547,6 +561,7 @@
 }
 
 @media print {
+  .pdv-header,
   .loja-nav,
   .loja-no-print {
     display: none !important;

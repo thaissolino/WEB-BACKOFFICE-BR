@@ -191,11 +191,15 @@ export default function PdvShell({
   onClosePanels,
   onHome,
   variant = "board",
+  className,
+  showStrip = true,
 }: {
   children: ReactNode;
   onClosePanels?: () => void;
   onHome?: () => void;
   variant?: "board" | "form";
+  className?: string;
+  showStrip?: boolean;
 }) {
   const { clientLogout } = useClientAuth();
   const navigate = useNavigate();
@@ -426,7 +430,7 @@ export default function PdvShell({
   return (
     <PdvUiConfigContext.Provider value={uiConfig}>
     <PdvSessionContext.Provider value={{ query, storeId, storeName, stores, openStoreLogo: () => setChromeModal("logo") }}>
-      <div className="pdv-root" data-surface="cream" data-layout={layoutMode} lang="pt-BR">
+      <div className={className ? `pdv-root ${className}` : "pdv-root"} data-surface="cream" data-layout={layoutMode} lang="pt-BR">
         <a className="pdv-skip" href="#pdv-main">
           Ir para o conteúdo
         </a>
@@ -578,7 +582,7 @@ export default function PdvShell({
           </nav>
         </header>
 
-        {!isClassic ? (
+        {showStrip && !isClassic ? (
           <div className="pdv-strip">
             <MenuBar uiConfig={uiConfig} />
 
@@ -595,7 +599,7 @@ export default function PdvShell({
               </div>
             </div>
           </div>
-        ) : onDashboard && (closeDemoButton || periodControl) ? (
+        ) : showStrip && onDashboard && (closeDemoButton || periodControl) ? (
           <div className="pdvc-tools">
             {closeDemoButton}
             {periodControl}
