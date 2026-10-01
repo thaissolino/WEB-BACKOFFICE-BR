@@ -27,6 +27,8 @@ import DownloadIcon from "@mui/icons-material/Download";
 import RestoreIcon from "@mui/icons-material/Restore";
 import CardMembershipOutlinedIcon from "@mui/icons-material/CardMembershipOutlined";
 import WarehouseOutlinedIcon from "@mui/icons-material/WarehouseOutlined";
+import AssignmentTurnedInOutlinedIcon from "@mui/icons-material/AssignmentTurnedInOutlined";
+import LocalOfferOutlinedIcon from "@mui/icons-material/LocalOfferOutlined";
 import { usePermissionStore } from "../../store/permissionsStore";
 import { api } from "../../services/api";
 
@@ -608,6 +610,24 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebar }) => {
                 selected={selected}
                 setSelected={setSelected}
                // requiresValidation={true}
+              />
+            )}
+            {(user?.role === "MASTER" || user?.role === "ADMIN" || canShowTab("GERENCIAR_INVOICES")) && (
+              <Item
+                title="Vendas concluídas"
+                to="/vendas-concluidas"
+                icon={<AssignmentTurnedInOutlinedIcon />}
+                selected={selected}
+                setSelected={setSelected}
+              />
+            )}
+            {(user?.role === "MASTER" || user?.role === "ADMIN" || canShowTab("GERENCIAR_INVOICES")) && (
+              <Item
+                title="Etiquetas da entrada"
+                to="/etiquetas-entrada"
+                icon={<LocalOfferOutlinedIcon />}
+                selected={selected}
+                setSelected={setSelected}
               />
             )}
             {/* Itens do produto antigo (Black/Mensageria): agrupados num submenu

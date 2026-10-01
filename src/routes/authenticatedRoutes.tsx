@@ -71,6 +71,8 @@ import GestorCadastroFreteiros from "../pages/gestor/GestorCadastroFreteiros";
 import GestorCadastroLojistas from "../pages/gestor/GestorCadastroLojistas";
 import GestorCadastroPlanos from "../pages/gestor/GestorCadastroPlanos";
 import GestorEstoqueAtacado from "../pages/gestor/GestorEstoqueAtacado";
+import GestorVendasConcluidas from "../pages/gestor/GestorVendasConcluidas";
+import GestorEtiquetasEntrada from "../pages/gestor/GestorEtiquetasEntrada";
 import TrocarSenhaCliente from "../pages/client/TrocarSenha";
 import CreateCommercialClient from "../pages/commercial-clients/CreateCommercialClient";
 import CommercialClientsList from "../pages/commercial-clients/CommercialClientsList";
@@ -264,6 +266,8 @@ export function Router() {
           <Route path="create-form-user" element={<FormUser />} />
           <Route path="cambioPage" element={<CambioPage />} />
           <Route path="invoices-management" element={<InvocesManagement />} />
+          <Route path="vendas-concluidas" element={<GestorVendasConcluidas />} />
+          <Route path="etiquetas-entrada" element={<GestorEtiquetasEntrada />} />
           <Route path="tokens-management" element={<TokensManagement />} />
           <Route path="meu-perfil-operator" element={<OperatorsManagementPerfilEdit />} />
           <Route path="meu-perfil-master" element={<AdmManagementPerfilEdit />} />

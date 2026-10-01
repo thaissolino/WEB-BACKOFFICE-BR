@@ -58,6 +58,11 @@ export function useBackofficeNavItems() {
     items.push({ id: "invoices", label: "Gerenciar Invoices", to: "/invoices-management" });
   }
 
+  if (isGestor || canShowTab("GERENCIAR_INVOICES")) {
+    items.push({ id: "vendas-concluidas", label: "Vendas concluídas", to: "/vendas-concluidas" });
+    items.push({ id: "etiquetas-entrada", label: "Etiquetas da entrada", to: "/etiquetas-entrada" });
+  }
+
   // Itens do produto antigo (Black/Mensageria): continuam acessíveis,
   // mas agrupados num bloco único e menos destacado. Nada foi apagado.
   if (canShowTab("CRIAR_USUARIO")) {

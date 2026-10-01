@@ -58,18 +58,40 @@ export const api = axios.create({
   baseURL: process.env.REACT_APP_API_URL || "http://localhost:3333"
 });
 
-// Interceptor global para adicionar token de autenticação automaticamente
+function isClientRequest(url: string) {
+  return url.includes("/clients/");
+}
+
+function onLojistaScreen() {
+  const path = window.location.pathname || "";
+  return (
+    path.startsWith("/client") ||
+    path.startsWith("/lojista") ||
+    path.startsWith("/vitrine/lojista")
+  );
+}
+
+/** Na tela do lojista o token é sempre o dele, mesmo com o operador logado no mesmo navegador. */
+function tokenForRequest(url: string) {
+  if (onLojistaScreen() || isClientRequest(url)) return localStorage.getItem("@client:token");
+  return localStorage.getItem("@backoffice:token");
+}
+
+// Sempre escolhe o token pelo endereço. O header padrão único misturava operador e lojista.
 api.interceptors.request.use(
   (config) => {
-    const existing = config.headers?.Authorization;
-    if (!existing) {
-      const isClientCall = String(config.url || "").includes("/clients/");
-      const token = isClientCall
-        ? localStorage.getItem("@client:token") || localStorage.getItem("@backoffice:token")
-        : localStorage.getItem("@backoffice:token") || localStorage.getItem("@client:token");
-      if (token) {
-        config.headers.Authorization = `Bearer ${token}`;
-      }
+    delete api.defaults.headers.common["Authorization"];
+    const url = String(config.url || "");
+    const token = tokenForRequest(url);
+    const headers = config.headers as { set?: (k: string, v: string, rewrite?: boolean) => void; delete?: (k: string) => void; Authorization?: string };
+    if (token && typeof headers?.set === "function") {
+      headers.set("Authorization", `Bearer ${token}`, true);
+    } else if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    } else if (typeof headers?.delete === "function") {
+      headers.delete("Authorization");
+    } else if (config.headers) {
+      delete config.headers.Authorization;
     }
     return config;
   },
@@ -89,28 +111,42 @@ api.interceptors.response.use(
 
     const requestUrl = (error.config?.url || "").toLowerCase();
     const hadAuthHeader = !!(error.config?.headers?.Authorization ?? error.config?.headers?.authorization);
-    const isLoginRequest = requestUrl.includes("/auth/backoffice") && error.config?.method?.toLowerCase() === "post";
+    const isClientCall = isClientRequest(requestUrl);
+    const isLoginRequest =
+      (requestUrl.includes("/auth/backoffice") && error.config?.method?.toLowerCase() === "post") ||
+      requestUrl.includes("/clients/login");
     const isAuthMeRequest = requestUrl.includes("/auth/me/backoffice");
     const currentPath = window.location.pathname || "";
     const isOnSignInPage =
       currentPath.startsWith("/signin/backoffice") ||
       currentPath === "/signin";
     const isOnSessionExpiredPage = currentPath.startsWith("/session-expired");
+    const isOnClientPage =
+      currentPath.startsWith("/client") ||
+      currentPath.startsWith("/signin/lojista") ||
+      currentPath.startsWith("/lojista") ||
+      currentPath.startsWith("/vitrine/lojista");
 
-    // Redirecionar para session-expired só quando: 401 + requisição foi COM token (sessão expirou/rejeitada)
-    const shouldRedirectToSessionExpired =
+    // 401 do lojista não apaga o operador, e o contrário também não.
+    if (is401 && hadAuthHeader && !isLoginRequest && isClientCall) {
+      localStorage.removeItem("@client:token");
+      localStorage.removeItem("@client:user");
+      if (isOnClientPage && !currentPath.startsWith("/signin")) {
+        window.location.href = "/signin/lojista";
+      }
+    } else if (
       is401 &&
       hadAuthHeader &&
       !isLoginRequest &&
       !isAuthMeRequest &&
+      !isClientCall &&
       !isOnSignInPage &&
-      !isOnSessionExpiredPage;
-
-    if (shouldRedirectToSessionExpired) {
+      !isOnSessionExpiredPage &&
+      !isOnClientPage
+    ) {
       localStorage.removeItem("@backoffice:token");
       localStorage.removeItem("@backoffice:user");
       localStorage.removeItem("@backoffice:account");
-      sessionStorage.clear();
       delete api.defaults.headers.common["Authorization"];
       window.location.href = "/session-expired/backoffice";
     }

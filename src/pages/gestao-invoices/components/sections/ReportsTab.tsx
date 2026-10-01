@@ -1,9 +1,17 @@
-import { useEffect, useState } from "react";
-import { ChartBar, Eye } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { ChartBar } from "lucide-react";
 import { formatCurrency } from "../../../cambiobackoffice/formatCurrencyUtil";
 import { InvoiceData, InvoiceHistory } from "./InvoiceHistory";
 import { api } from "../../../../services/api";
 import { InvoiceHistoryReport } from "./InvoiceHistoryReport";
+
+function isFinalizedInvoice(invoice: InvoiceData) {
+  return Boolean(invoice.completed && invoice.paid && invoice.labelsPrintedAt);
+}
+
+function isAwaitingPrint(invoice: InvoiceData) {
+  return Boolean(invoice.completed && invoice.paid && !isFinalizedInvoice(invoice));
+}
 
 export function ReportsTab() {
   const [invoices, setInvoices] = useState<InvoiceData[]>([]);
@@ -50,6 +58,12 @@ export function ReportsTab() {
     status: "all",
     supplier: "all",
   });
+  const [showReceipts, setShowReceipts] = useState(false);
+
+  const pickStatus = (status: string) => {
+    setShowReceipts(false);
+    setFilters({ ...filters, status });
+  };
 
   const filteredInvoices = invoices.filter((invoice) => {
 
@@ -86,7 +100,10 @@ export function ReportsTab() {
       return invoice.paid && !invoice.completed;
     }
     if (filters.status === "completed") {
-      return invoice.completed && invoice.paid;
+      return isAwaitingPrint(invoice);
+    }
+    if (filters.status === "finalized") {
+      return isFinalizedInvoice(invoice);
     }
     // status === "all" (Todos): pendentes + pagas, SEM concluídas
     return !invoice.completed;
@@ -94,8 +111,10 @@ export function ReportsTab() {
 
   const pendingCount = invoices.filter((inv) => !inv.completed && !inv.paid).length;
   const paidCount = invoices.filter((inv) => inv.paid && !inv.completed).length;
-  const completedCount = invoices.filter((inv) => inv.completed && inv.paid).length;
-  const totalInvoices = invoices.length;
+  const awaitingPrint = useMemo(() => invoices.filter(isAwaitingPrint), [invoices]);
+  const completedCount = awaitingPrint.length;
+  const printCount = completedCount;
+  const finalizedCount = invoices.filter(isFinalizedInvoice).length;
 
   return (
     <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
@@ -139,6 +158,7 @@ export function ReportsTab() {
               <option value="pending">Apenas Pendentes</option>
               <option value="paid">Apenas Pagas</option>
               <option value="completed">Apenas Concluídas</option>
+              <option value="finalized">Apenas Finalizadas</option>
             </select>
           </div>
           <div>
@@ -166,9 +186,9 @@ export function ReportsTab() {
       </div>
 
       {/* Dashboard de Status */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
         <button
-          onClick={() => setFilters({ ...filters, status: "pending" })}
+          onClick={() => pickStatus("pending")}
           className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm text-center"
         >
           <h3 className="text-lg font-medium mb-2 text-blue-700">Pendentes</h3>
@@ -176,7 +196,7 @@ export function ReportsTab() {
           <p className="text-sm text-gray-600">Invoices aguardando pagamento</p>
         </button>
         <button
-          onClick={() => setFilters({ ...filters, status: "paid" })}
+          onClick={() => pickStatus("paid")}
           className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm text-center"
         >
           <h3 className="text-lg font-medium mb-2 text-blue-700">Pagas</h3>
@@ -184,27 +204,56 @@ export function ReportsTab() {
           <p className="text-sm text-gray-600">Invoices pagas</p>
         </button>
         <button
-          onClick={() => setFilters({ ...filters, status: "completed" })}
+          onClick={() => pickStatus("completed")}
           className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm text-center"
         >
           <h3 className="text-lg font-medium mb-2 text-blue-700">Concluídas</h3>
           <p className="text-3xl font-bold text-blue-600">{completedCount}</p>
-          <p className="text-sm text-gray-600">Invoices finalizadas</p>
+          <p className="text-sm text-gray-600">Recebidas, aguardando impressão</p>
         </button>
         <button
-          onClick={() => setFilters({ ...filters, status: "all" })}
+          type="button"
+          onClick={() => setShowReceipts(true)}
+          className={`bg-white p-6 rounded-2xl border shadow-sm text-center ${
+            showReceipts ? "border-gray-900" : "border-gray-100"
+          }`}
+        >
+          <h3 className="text-lg font-medium mb-2 text-blue-700">Gerar etiquetas</h3>
+          <p className="text-3xl font-bold text-gray-900">{printCount}</p>
+          <p className="text-sm text-gray-600">Prontas para imprimir</p>
+        </button>
+        <button
+          onClick={() => pickStatus("finalized")}
           className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm text-center"
         >
-          <h3 className="text-lg font-medium mb-2 text-indigo-700">Total</h3>
-          <p className="text-3xl font-bold text-indigo-600">{totalInvoices}</p>
-          <p className="text-sm text-gray-600">Total de Invoices</p>
+          <h3 className="text-lg font-medium mb-2 text-indigo-700">Finalizadas</h3>
+          <p className="text-3xl font-bold text-indigo-600">{finalizedCount}</p>
+          <p className="text-sm text-gray-600">Depois da impressão</p>
         </button>
       </div>
 
       {/* Tabela de Relatórios */}
       {/* <InvoiceHistoryReport invoiceHistory={filteredInvoices} setInvoiceHistory={setInvoices} /> */}
       <InvoiceHistoryReport
-        invoiceHistory={filteredInvoices as unknown as import("./InvoiceHistoryReport").InvoiceData[]}
+        printTable={showReceipts}
+        printInvoiceIds={showReceipts ? awaitingPrint.map((invoice) => invoice.id) : undefined}
+        onLabelsPrinted={async ({ invoiceId, invoiceNumber }) => {
+          const id = invoiceId || invoices.find((invoice) => String(invoice.number) === String(invoiceNumber))?.id;
+          if (!id) return;
+          const stamped = new Date().toISOString();
+          setInvoices((current) =>
+            current.map((invoice) => (invoice.id === id ? { ...invoice, labelsPrintedAt: stamped } : invoice)),
+          );
+          try {
+            await api.post(`/invoice/labels-printed/${id}`);
+          } catch (error) {
+            console.error("Erro ao marcar impressão:", error);
+            setInvoices((current) =>
+              current.map((invoice) => (invoice.id === id ? { ...invoice, labelsPrintedAt: null } : invoice)),
+            );
+          }
+        }}
+        invoiceHistory={(showReceipts ? awaitingPrint : filteredInvoices) as unknown as import("./InvoiceHistoryReport").InvoiceData[]}
         setInvoiceHistory={
           setInvoices as unknown as React.Dispatch<React.SetStateAction<import("./InvoiceHistoryReport").InvoiceData[]>>
         }

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import "../gestor/gestao-pages.css";
 import { Tabs } from "./layout/Tabs";
 import { InvoicesTab } from "./components/sections/InvoicesTab";
 import { ProductsTab } from "./components/sections/ProductsTab";
@@ -177,7 +178,7 @@ export default function InvocesManagement() {
   return (
     <ActionLoadingProvider>
       <DisableButtonsWrapper>
-        <div className="bg-gray-50 min-h-screen">
+        <div className="gestao-page">
           <div className="w-full px-2 py-4">
             <header className="mb-4">
               <h1 className="text-3xl font-bold text-blue-800">Sistema de Gestão de Invoices</h1>

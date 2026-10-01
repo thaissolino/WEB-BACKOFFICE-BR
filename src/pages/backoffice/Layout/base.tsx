@@ -50,7 +50,9 @@ export function Layout() {
             className="content"
             sx={{
               flexGrow: 1,
-              overflow: "auto",
+              minWidth: 0,
+              minHeight: 0,
+              overflowY: "auto",
               display: "flex",
               flexDirection: "column",
               height: "100%",

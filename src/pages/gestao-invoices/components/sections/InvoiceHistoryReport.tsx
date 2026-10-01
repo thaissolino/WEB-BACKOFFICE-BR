@@ -1,5 +1,5 @@
-import { History, Eye, Edit, XIcon, RotateCcw, Check, Loader2, Undo2, AlertTriangle } from "lucide-react";
-import { useEffect, useState } from "react";
+import { History, Eye, Edit, XIcon, RotateCcw, Check, Loader2, Undo2, AlertTriangle, Printer } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import { api } from "../../../../services/api";
 import { Product } from "./ProductsTab";
 import { ModalAnaliseProduct } from "../modals/ModalAnaliseProduct";
@@ -12,6 +12,7 @@ import {
   productCurrencySymbol,
   SupplierCurrency,
 } from "../utils/invoiceCurrency";
+import { barcodeFromProductCode } from "../utils/productBarcode";
 
 export type exchange = {
   id: string;
@@ -151,14 +152,141 @@ function remainingWeight(item: {
   return item.weight * remainingQty(item);
 }
 
+type ReceiptPrintEntry = {
+  id: string;
+  date: string;
+  quantity: number;
+  invoiceId: string;
+  invoiceNumber: string;
+  supplierName: string;
+  productName: string;
+  productCode: string;
+  operator?: string;
+};
+
+type LabelRow = {
+  key: string;
+  date: string;
+  invoiceId: string;
+  invoiceNumber: string;
+  supplierName: string;
+  operator: string;
+  quantity: number;
+  items: { code: string; name: string; quantity: number }[];
+};
+
+const CODE128_PATTERNS = [
+  "212222", "222122", "222221", "121223", "121322", "131222", "122213", "122312", "132212", "221213",
+  "221312", "231212", "112232", "122132", "122231", "113222", "123122", "123221", "223211", "221132",
+  "221231", "213212", "223112", "312131", "311222", "321122", "321221", "312212", "322112", "322211",
+  "212123", "212321", "232121", "111323", "131123", "131321", "112313", "132113", "132311", "211313",
+  "231113", "231311", "112133", "112331", "132131", "113123", "113321", "133121", "313121", "211331",
+  "231131", "213113", "213311", "213131", "311123", "311321", "331121", "312113", "312311", "332111",
+  "314111", "221411", "431111", "111224", "111422", "121124", "121421", "141122", "141221", "112214",
+  "112412", "122114", "122411", "142112", "142211", "241211", "221114", "413111", "241112", "134111",
+  "111242", "121142", "121241", "114212", "124112", "124211", "411212", "421112", "421211", "212141",
+  "214121", "412121", "111143", "111341", "131141", "114113", "114311", "411113", "411311", "113141",
+  "114131", "311141", "411131", "211412", "211214", "211232", "2331112",
+];
+
+type LabelPdf = {
+  setFillColor: (r: number, g: number, b: number) => void;
+  setDrawColor: (r: number, g: number, b: number) => void;
+  setTextColor: (r: number, g: number, b: number) => void;
+  setLineWidth: (w: number) => void;
+  setFont: (name: string, style: string) => void;
+  setFontSize: (size: number) => void;
+  getTextWidth: (text: string) => number;
+  text: (text: string, x: number, y: number, options?: { angle?: number; align?: "left" | "center" | "right" }) => void;
+  rect: (x: number, y: number, w: number, h: number, style?: string) => void;
+  roundedRect: (x: number, y: number, w: number, h: number, rx: number, ry: number, style?: string) => void;
+};
+
+const SHEET_MARGIN = 8;
+const LABEL_GAP = 4;
+const LABEL_W = 95;
+const LABEL_H = 42;
+
+function labelsPerSheet() {
+  const cols = Math.floor((210 - SHEET_MARGIN * 2 + LABEL_GAP) / (LABEL_W + LABEL_GAP));
+  const rows = Math.floor((297 - SHEET_MARGIN * 2 + LABEL_GAP) / (LABEL_H + LABEL_GAP));
+  return { cols, rows, perPage: cols * rows };
+}
+
+function code128Symbols(value: string) {
+  const digits = value.replace(/\D/g, "");
+  const payload = digits.length % 2 === 0 ? digits : `0${digits}`;
+  const codes = [105];
+  for (let index = 0; index < payload.length; index += 2) {
+    codes.push(Number(payload.slice(index, index + 2)));
+  }
+  let checksum = codes[0];
+  for (let index = 1; index < codes.length; index += 1) checksum += codes[index] * index;
+  codes.push(checksum % 103, 106);
+  return codes;
+}
+
+function drawCode128(doc: LabelPdf, value: string, x: number, y: number, barHeight: number, moduleWidth: number) {
+  let cursor = x;
+  doc.setFillColor(0, 0, 0);
+  code128Symbols(value).forEach((code) => {
+    const pattern = CODE128_PATTERNS[code];
+    let bar = true;
+    for (const width of pattern) {
+      const span = Number(width) * moduleWidth;
+      if (bar) doc.rect(cursor, y, span, barHeight, "F");
+      cursor += span;
+      bar = !bar;
+    }
+  });
+  return cursor;
+}
+
+function drawEntryLabel(doc: LabelPdf, data: { code: string; name: string }, x: number, y: number) {
+  const barcode = barcodeFromProductCode(data.code);
+  const product = (data.name || "Produto").toUpperCase();
+  const moduleWidth = 0.42;
+  const barHeight = 14;
+
+  doc.setDrawColor(226, 232, 240);
+  doc.setLineWidth(0.3);
+  doc.roundedRect(x, y, LABEL_W, LABEL_H, 2.2, 2.2, "S");
+
+  doc.setTextColor(17, 24, 39);
+  doc.setFont("helvetica", "bold");
+  let nameSize = 9;
+  doc.setFontSize(nameSize);
+  while (nameSize > 6.5 && doc.getTextWidth(product) > LABEL_W - 8) {
+    nameSize -= 0.5;
+    doc.setFontSize(nameSize);
+  }
+  doc.text(product, x + (LABEL_W - doc.getTextWidth(product)) / 2, y + 8);
+
+  const symbolWidth = code128Symbols(barcode).reduce((total, code) => {
+    return total + CODE128_PATTERNS[code].split("").reduce((sum, part) => sum + Number(part), 0);
+  }, 0) * moduleWidth;
+  const barY = y + 11;
+  drawCode128(doc, barcode, x + (LABEL_W - symbolWidth) / 2, barY, barHeight, moduleWidth);
+
+  doc.setFont("courier", "normal");
+  doc.setFontSize(8);
+  doc.text(barcode, x + (LABEL_W - doc.getTextWidth(barcode)) / 2, barY + barHeight + 4.5);
+}
+
 type InvoiceHistoryReportProps = {
   invoiceHistory: InvoiceData[];
   setInvoiceHistory: React.Dispatch<React.SetStateAction<InvoiceData[]>>;
+  printTable?: boolean;
+  printInvoiceIds?: string[];
+  onLabelsPrinted?: (row: { invoiceId: string; invoiceNumber: string }) => void;
 };
 
 export function InvoiceHistoryReport({
   invoiceHistory: invoices,
   setInvoiceHistory: setInvoices,
+  printTable = false,
+  printInvoiceIds,
+  onLabelsPrinted,
 }: InvoiceHistoryReportProps) {
   const [receiptHistoryModal, setReceiptHistoryModal] = useState<{
     open: boolean;
@@ -176,6 +304,10 @@ export function InvoiceHistoryReport({
     invoiceNumber?: string;
   }>({ grouped: [], all: [] });
   const [loadingHistory, setLoadingHistory] = useState(false);
+  const [receiptEntries, setReceiptEntries] = useState<ReceiptPrintEntry[]>([]);
+  const [receiptLoading, setReceiptLoading] = useState(false);
+  const [receiptReload, setReceiptReload] = useState(0);
+  const [etiquetaList, setEtiquetaList] = useState<LabelRow | null>(null);
   const [expandedDate, setExpandedDate] = useState<string | null>(null);
   const [viewingEntry, setViewingEntry] = useState<any | null>(null);
   // const [invoices, setInvoices] = useState<InvoiceData[]>([]);
@@ -236,14 +368,91 @@ export function InvoiceHistoryReport({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only fetch
   }, []);
 
+  useEffect(() => {
+    setCurrentPage(0);
+  }, [printTable]);
+
+  useEffect(() => {
+    if (!isModalOpen || !etiquetaList) return;
+    const timer = window.setTimeout(() => {
+      document.getElementById("etiqueta-recebidos")?.scrollIntoView({ block: "start" });
+    }, 50);
+    return () => window.clearTimeout(timer);
+  }, [isModalOpen, etiquetaList]);
+
+  useEffect(() => {
+    if (!printTable) return;
+    let cancel = false;
+    setReceiptLoading(true);
+    api
+      .get("/invoice/receipt-history")
+      .then(({ data }) => {
+        if (cancel) return;
+        const grouped = Array.isArray(data?.grouped) ? data.grouped : [];
+        const entries = grouped.flatMap((group: { entries?: ReceiptPrintEntry[] }) => group.entries || []);
+        setReceiptEntries(entries);
+      })
+      .catch(() => {
+        if (!cancel) setReceiptEntries([]);
+      })
+      .finally(() => {
+        if (!cancel) setReceiptLoading(false);
+      });
+    return () => {
+      cancel = true;
+    };
+  }, [printTable, receiptReload]);
+
+  const printRows = useMemo(() => {
+    const rows = new Map<string, LabelRow>();
+    for (const entry of receiptEntries) {
+      const when = new Date(entry.date);
+      if (Number.isNaN(when.getTime())) continue;
+      const day = `${when.getFullYear()}-${String(when.getMonth() + 1).padStart(2, "0")}-${String(when.getDate()).padStart(2, "0")}`;
+      const name = entry.productName || "Produto";
+      const code = entry.productCode || "—";
+      const key = `${entry.invoiceId || entry.invoiceNumber}|${day}`;
+      if (printInvoiceIds && !printInvoiceIds.includes(entry.invoiceId) && !printInvoiceIds.includes(entry.invoiceNumber)) {
+        continue;
+      }
+      const quantity = Math.max(0, Math.round(Number(entry.quantity) || 0));
+      const operator = entry.operator || "—";
+      const current = rows.get(key);
+      if (!current) {
+        rows.set(key, {
+          key,
+          date: entry.date,
+          invoiceId: entry.invoiceId,
+          invoiceNumber: entry.invoiceNumber,
+          supplierName: entry.supplierName || "—",
+          operator,
+          quantity,
+          items: [{ code, name, quantity }],
+        });
+        continue;
+      }
+      current.quantity += quantity;
+      if (operator !== "—" && !current.operator.split(", ").includes(operator)) {
+        current.operator = current.operator === "—" ? operator : `${current.operator}, ${operator}`;
+      }
+      if (when.getTime() < new Date(current.date).getTime()) current.date = entry.date;
+      const same = current.items.find((item) => item.name === name && item.code === code);
+      if (same) same.quantity += quantity;
+      else current.items.push({ code, name, quantity });
+    }
+    return Array.from(rows.values()).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }, [receiptEntries, printInvoiceIds]);
+
   const getStatusText = (invoice: InvoiceData) => {
     console.log(invoice);
+    if (invoice.labelsPrintedAt && invoice.completed && invoice.paid) return "Finalizada";
     if (invoice.completed && invoice.paid) return "Concluída";
     if (!invoice.completed && invoice.paid) return "Pago";
     return "Pendente";
   };
 
   const getStatusClass = (invoice: InvoiceData) => {
+    if (invoice.labelsPrintedAt && invoice.completed && invoice.paid) return "bg-indigo-100 text-indigo-800";
     if (invoice.completed && invoice.paid) return "bg-blue-100 text-blue-800";
     if (!invoice.completed && invoice.paid) return "bg-green-100 text-green-800";
     return "bg-yellow-100 text-yellow-800";
@@ -256,6 +465,31 @@ export function InvoiceHistoryReport({
     setIsEditMode(canEdit);
     setIsModalOpen(true);
   };
+
+  async function printInvoicePdf(row: LabelRow) {
+    const { jsPDF } = await import("jspdf");
+    const doc = new jsPDF({ unit: "mm", format: "a4" });
+    const grouped = new Map<string, { code: string; name: string }>();
+    row.items.forEach((item) => {
+      const code = item.code || "—";
+      const name = item.name || "Produto";
+      grouped.set(`${code}::${name}`, { code, name });
+    });
+    const labels = grouped.size ? Array.from(grouped.values()) : [{ code: "—", name: "Produto" }];
+    const { cols, perPage } = labelsPerSheet();
+    labels.forEach((item, index) => {
+      if (index > 0 && index % perPage === 0) doc.addPage("a4", "portrait");
+      const slot = index % perPage;
+      const x = SHEET_MARGIN + (slot % cols) * (LABEL_W + LABEL_GAP);
+      const y = SHEET_MARGIN + Math.floor(slot / cols) * (LABEL_H + LABEL_GAP);
+      drawEntryLabel(doc as unknown as LabelPdf, item, x, y);
+    });
+    doc.autoPrint();
+    const url = doc.output("bloburl");
+    const opened = window.open(url, "_blank");
+    if (!opened) doc.save(`etiquetas-${row.invoiceNumber}.pdf`);
+    onLabelsPrinted?.({ invoiceId: row.invoiceId, invoiceNumber: row.invoiceNumber });
+  }
 
   const UndoInvoicePaid = (idInvoice: string) => {
     if (!idInvoice) return;
@@ -315,6 +549,16 @@ export function InvoiceHistoryReport({
     setIsEditMode(false);
     setIsSavingId("");
     setSelectedProductToAnalyze(null);
+    setEtiquetaList(null);
+  };
+
+  const lineName = (line: InvoiceData["products"][number]) =>
+    line.product?.name || products.find((item) => item.id === line.productId)?.name || "";
+
+  const listQuantity = (line: InvoiceData["products"][number]) => {
+    if (!etiquetaList) return null;
+    const found = etiquetaList.items.find((item) => item.name === lineName(line));
+    return found ? found.quantity : null;
   };
 
   const getShippingTypeText = (type: string) => {
@@ -382,20 +626,94 @@ export function InvoiceHistoryReport({
   };
 
   return (
-    <div className="mt-8 bg-white p-6 pt-4 rounded-lg shadow">
-      <h2 className="text-xl  w-full justify-between items-center flex  flex-row font-semibold mb-4 text-blue-700 border-b pb-2">
+    <div className="mt-8 min-w-0 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+      <h2 className="text-xl w-full justify-between items-center flex flex-row font-semibold mb-4 border-b px-6 pt-4 pb-2 text-blue-700">
         <div className="flex justify-center items-center">
           <History className="mr-2 inline" size={18} />
-          Histórico de Invoices
+          {printTable ? "Gerar etiquetas" : "Histórico de Invoices"}
         </div>
-        <button onClick={() => fetchInvoicesAndSuppliers()} className="flex justify-center items-center">
+        <button
+          onClick={() => {
+            fetchInvoicesAndSuppliers();
+            if (printTable) setReceiptReload((value) => value + 1);
+          }}
+          className="flex justify-center items-center"
+        >
           <RotateCcw className="mr-2 inline" size={24} />
         </button>
       </h2>
 
       <div className="overflow-x-auto">
-        {loading ? (
+        {loading || (printTable && receiptLoading) ? (
           <p className="text-center text-gray-500 py-6">Carregando invoices...</p>
+        ) : printTable ? (
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Data</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Invoice Número</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fornecedor</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Usuário</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Quantidade</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {printRows.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="px-6 py-4 text-center text-gray-500">Nenhuma lista para etiqueta</td>
+                </tr>
+              ) : (
+                printRows.slice(currentPage * itemsPerPage, (currentPage + 1) * itemsPerPage).map((row) => {
+                  return (
+                    <tr key={row.key} className="odd:bg-blue-50 even:bg-green-50">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <i className="fas fa-clock text-green-500 mr-2"></i>
+                        {new Date(row.date).toLocaleDateString("pt-BR")}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{row.invoiceNumber}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{row.supplierName || "—"}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{row.operator || "—"}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">{row.quantity}</td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-900 text-white">
+                          Imprimir
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <div className="flex justify-end gap-2">
+                          <button
+                            type="button"
+                            className="text-gray-800 hover:text-black"
+                            title="Gerar etiqueta"
+                            onClick={() => printInvoicePdf(row)}
+                          >
+                            <Printer size={16} />
+                          </button>
+                          <button
+                            type="button"
+                            className="text-blue-600 hover:text-blue-900"
+                            title="Visualizar"
+                            onClick={() => {
+                              const invoice =
+                                invoices.find((item) => item.id === row.invoiceId) ||
+                                invoices.find((item) => String(item.number) === String(row.invoiceNumber));
+                              if (!invoice) return;
+                              setEtiquetaList(row);
+                              openModal(invoice, false);
+                            }}
+                          >
+                            <Eye size={16} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
         ) : (
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
@@ -489,7 +807,7 @@ export function InvoiceHistoryReport({
                         )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <div className="flex justify-end items-center">
+                        <div className="flex justify-end items-center gap-2">
                           {invoice.completed ? (
                             <button
                               onClick={() => openModal(invoice, false)}
@@ -542,8 +860,8 @@ export function InvoiceHistoryReport({
           </table>
         )}
         {/* Paginação */}
-        {invoices.length > itemsPerPage && (
-          <div className="flex justify-between items-center mt-4">
+        {(printTable ? printRows.length : invoices.length) > itemsPerPage && (
+          <div className="flex justify-between items-center px-6 pb-4 mt-4">
             <button
               onClick={() => setCurrentPage((prev) => Math.max(0, prev - 1))}
               disabled={currentPage === 0}
@@ -552,13 +870,15 @@ export function InvoiceHistoryReport({
               Anterior
             </button>
             <span className="text-sm text-gray-600">
-              Página {currentPage + 1} de {Math.ceil(invoices.length / itemsPerPage)}
+              Página {currentPage + 1} de {Math.ceil((printTable ? printRows.length : invoices.length) / itemsPerPage)}
             </span>
             <button
               onClick={() =>
-                setCurrentPage((prev) => Math.min(prev + 1, Math.ceil(invoices.length / itemsPerPage) - 1))
+                setCurrentPage((prev) =>
+                  Math.min(prev + 1, Math.ceil((printTable ? printRows.length : invoices.length) / itemsPerPage) - 1),
+                )
               }
-              disabled={(currentPage + 1) * itemsPerPage >= invoices.length}
+              disabled={(currentPage + 1) * itemsPerPage >= (printTable ? printRows.length : invoices.length)}
               className="px-3 py-1 bg-gray-200 text-sm rounded disabled:opacity-50"
             >
               Próxima
@@ -568,15 +888,17 @@ export function InvoiceHistoryReport({
       </div>
 
       {isModalOpen && selectedInvoice && (
-        // <!-- Modal Visualizar Invoice -->
         <div
           id="modalViewInvoice"
-          className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50 "
+          className="fixed inset-0 z-[80] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
+          role="dialog"
+          aria-modal="true"
           onClick={closeModal}
         >
+          <div className="max-h-[90vh] w-full max-w-5xl overflow-hidden rounded-2xl bg-white shadow-xl">
           <div
             onClick={(e) => e.stopPropagation()}
-            className="bg-white p-6 rounded-lg w-full max-w-4xl max-h-[90vh] overflow-y-auto mx-4"
+            className="max-h-[90vh] overflow-y-auto overscroll-contain p-6 [scrollbar-gutter:stable]"
           >
             <div className="flex justify-between items-start mb-4">
               <div>
@@ -592,34 +914,40 @@ export function InvoiceHistoryReport({
                 <p className="text-sm text-gray-600">
                   Data:{" "}
                   <span id="modalInvoiceDate">
-                    {new Date(new Date(selectedInvoice.date).getTime() + 3 * 60 * 60 * 1000).toLocaleDateString(
-                      "pt-BR"
-                    )}
+                    {etiquetaList
+                      ? new Date(etiquetaList.date).toLocaleDateString("pt-BR")
+                      : new Date(new Date(selectedInvoice.date).getTime() + 3 * 60 * 60 * 1000).toLocaleDateString(
+                          "pt-BR"
+                        )}
                   </span>
                 </p>
-                <p className="text-sm text-gray-600">
-                  Freteiro:{" "}
-                  <span id="modalInvoiceCarrier">
-                    {selectedInvoice.carrier
-                      ? `${selectedInvoice.carrier.name} - ${selectedInvoice.carrier.value} ${getShippingTypeText(
-                          selectedInvoice.carrier.type
-                        )}`
-                      : "não existe"}
-                  </span>
-                </p>
-                <p className="text-sm text-gray-600">
-                  Freteiro 2:{" "}
-                  <span id="modalInvoiceCarrier">
-                    {selectedInvoice.carrier2
-                      ? `${selectedInvoice.carrier2.name} - ${selectedInvoice.carrier2.value} ${getShippingTypeText(
-                          selectedInvoice.carrier2.type
-                        )}`
-                      : "não existe"}
-                  </span>
-                </p>
-                <p className="text-sm text-gray-600">
-                  Frete Sp x ES: R$ <span id="modalInvoiceCarrier">{selectedInvoice.taxaSpEs}</span>
-                </p>
+                {!etiquetaList && (
+                  <>
+                    <p className="text-sm text-gray-600">
+                      Freteiro:{" "}
+                      <span id="modalInvoiceCarrier">
+                        {selectedInvoice.carrier
+                          ? `${selectedInvoice.carrier.name} - ${selectedInvoice.carrier.value} ${getShippingTypeText(
+                              selectedInvoice.carrier.type
+                            )}`
+                          : "não existe"}
+                      </span>
+                    </p>
+                    <p className="text-sm text-gray-600">
+                      Freteiro 2:{" "}
+                      <span id="modalInvoiceCarrier">
+                        {selectedInvoice.carrier2
+                          ? `${selectedInvoice.carrier2.name} - ${selectedInvoice.carrier2.value} ${getShippingTypeText(
+                              selectedInvoice.carrier2.type
+                            )}`
+                          : "não existe"}
+                      </span>
+                    </p>
+                    <p className="text-sm text-gray-600">
+                      Frete Sp x ES: R$ <span id="modalInvoiceCarrier">{selectedInvoice.taxaSpEs}</span>
+                    </p>
+                  </>
+                )}
               </div>
               <div>
                 <span id="modalInvoiceStatus" className="px-3 py-1 rounded-full text-xs font-medium"></span>
@@ -629,7 +957,7 @@ export function InvoiceHistoryReport({
               </div>
             </div>
 
-            <div className="mt-2">
+            {!etiquetaList && <div className="mt-2">
               <h4 className="font-medium mb-2 text-blue-700 border-b pb-2">
                 Produtos Pendentes
                 <span className="ml-2 text-sm font-normal text-gray-600">
@@ -948,9 +1276,9 @@ export function InvoiceHistoryReport({
                   </tbody>
                 </table>
               </div>
-            </div>
+            </div>}
 
-            <div className="mt-2">
+            {!etiquetaList && <div className="mt-2">
               <h4 className="font-medium mb-2 text-blue-700 border-b pb-2">Produtos Pendentes de Análise</h4>
               <div className="overflow-x-auto bg-white p-4 rounded-2xl shadow-md border border-gray-200">
                 <table className="min-w-full divide-y divide-gray-200">
@@ -1225,13 +1553,14 @@ export function InvoiceHistoryReport({
                   </tbody>
                 </table>
               </div>
-            </div>
+            </div>}
 
-            <div className="mt-2">
+            <div className="mt-2" id="etiqueta-recebidos">
               <div className="flex justify-between items-center mb-2">
                 <h4 className="font-medium text-blue-700 border-b pb-2 flex-1">Produtos Recebidos</h4>
-                <button
+                {!etiquetaList && <button
                   onClick={async () => {
+                    setIsModalOpen(false);
                     setReceiptHistoryModal({
                       open: true,
                       invoiceProductId: null,
@@ -1312,9 +1641,34 @@ export function InvoiceHistoryReport({
                   className="text-blue-600 hover:text-blue-800 text-sm font-medium ml-4 border-b border-blue-600 pb-1"
                 >
                   Meus Históricos
-                </button>
+                </button>}
               </div>
               <div className="overflow-x-auto bg-white p-4 rounded-2xl shadow-md border border-gray-200">
+                {etiquetaList ? (
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Código</th>
+                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Produto</th>
+                        <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Quantidade</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {etiquetaList.items.map((item) => (
+                        <tr key={`${item.code}-${item.name}`}>
+                          <td className="px-4 py-2 text-sm text-gray-700">{item.code}</td>
+                          <td className="px-4 py-2 text-sm text-gray-700">{item.name}</td>
+                          <td className="px-4 py-2 text-sm text-right">{item.quantity}</td>
+                        </tr>
+                      ))}
+                      <tr className="bg-blue-100 font-semibold">
+                        <td className="px-4 py-2 text-sm text-gray-800"></td>
+                        <td className="px-4 py-2 text-sm text-gray-800">Subtotal</td>
+                        <td className="px-4 py-2 text-sm text-right text-gray-800">{etiquetaList.quantity}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                ) : (
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
@@ -1337,7 +1691,7 @@ export function InvoiceHistoryReport({
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
                     {selectedInvoice.products
-                      .filter((item) => item.receivedQuantity > 0)
+                      .filter((item) => (etiquetaList ? listQuantity(item) != null : item.receivedQuantity > 0))
                       .sort((a, b) => {
                         const productA = products.find((p) => p.id === a.productId);
                         const productB = products.find((p) => p.id === b.productId);
@@ -1348,10 +1702,10 @@ export function InvoiceHistoryReport({
                       .map((product, index) => (
                         <tr key={index}>
                           <td className="px-4 py-2 text-sm text-gray-700">
-                            {products.find((item) => item.id === product.productId)?.name}
+                            {lineName(product)}
                           </td>
                           <td className="px-4 py-2 text-sm text-right">
-                            {product.receivedQuantity} / {product.quantity}
+                            {etiquetaList ? listQuantity(product) : `${product.receivedQuantity} / ${product.quantity}`}
                           </td>
                           <td className="px-4 py-2 text-sm text-right">
                             {(() => {
@@ -1400,7 +1754,7 @@ export function InvoiceHistoryReport({
                                 taxInvoice?.rate
                               );
 
-                              return (valorBaseReal * product.receivedQuantity).toLocaleString("pt-BR", {
+                              return (valorBaseReal * (etiquetaList ? listQuantity(product) || 0 : product.receivedQuantity)).toLocaleString("pt-BR", {
                                 minimumFractionDigits: 2,
                                 maximumFractionDigits: 2,
                               });
@@ -1414,20 +1768,20 @@ export function InvoiceHistoryReport({
                       </td>
                       <td className="px-4 py-2 text-sm text-right text-gray-800">
                         {selectedInvoice.products
-                          .filter((item) => item.receivedQuantity > 0)
-                          .reduce((sum, item) => sum + item.receivedQuantity, 0)}
+                          .filter((item) => (etiquetaList ? listQuantity(item) != null : item.receivedQuantity > 0))
+                          .reduce((sum, item) => sum + (etiquetaList ? listQuantity(item) || 0 : item.receivedQuantity), 0)}
                       </td>
                       <td className="px-4 py-2 text-sm text-right text-gray-800">—</td>
                       <td className="px-4 py-2 text-sm text-right text-gray-800">
                         {selectedInvoice.products
-                          .filter((item) => item.receivedQuantity > 0)
-                          .reduce((sum, item) => sum + item.weight * item.receivedQuantity, 0)
+                          .filter((item) => (etiquetaList ? listQuantity(item) != null : item.receivedQuantity > 0))
+                          .reduce((sum, item) => sum + item.weight * (etiquetaList ? listQuantity(item) || 0 : item.receivedQuantity), 0)
                           .toFixed(2)}
                       </td>
                       <td className="px-4 py-2 text-sm text-right text-gray-800">
                         {(() => {
                           const total = selectedInvoice.products
-                            .filter((item) => item.receivedQuantity > 0)
+                            .filter((item) => (etiquetaList ? listQuantity(item) != null : item.receivedQuantity > 0))
                             .reduce((sum, item) => {
                               const taxCarrie = selectedInvoice.carrier
                                 ? shippingStrategies[selectedInvoice.carrier?.type](selectedInvoice.carrier, item)
@@ -1445,7 +1799,7 @@ export function InvoiceHistoryReport({
                                 supplierCurrency,
                                 taxInvoice?.rate
                               );
-                              return sum + valorBaseReal * item.receivedQuantity;
+                              return sum + valorBaseReal * (etiquetaList ? listQuantity(item) || 0 : item.receivedQuantity);
                             }, 0);
 
                           return total.toLocaleString("pt-BR", {
@@ -1457,10 +1811,11 @@ export function InvoiceHistoryReport({
                     </tr>
                   </tbody>
                 </table>
+                )}
               </div>
             </div>
 
-            <div className="mt-2 grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+            {!etiquetaList && <div className="mt-2 grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
               <div className="bg-white p-4 rounded-2xl shadow-md border border-gray-200 transition hover:shadow-lg">
                 <p className="text-sm text-gray-600">Frete 1:</p>
                 <p id="modalInvoiceSubtotal" className="text-lg font-semibold">
@@ -1556,9 +1911,9 @@ export function InvoiceHistoryReport({
                   )}
                 </p>
               </div>
-            </div>
+            </div>}
 
-            <div className="bg-blue-50 p-4 rounded-2xl border border-blue-200 shadow mt-0">
+            {!etiquetaList && <div className="bg-blue-50 p-4 rounded-2xl border border-blue-200 shadow mt-0">
               <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-2">
                 <div>
                   <p className="text-sm font-medium text-blue-800">Total da Invoice:</p>
@@ -1611,7 +1966,7 @@ export function InvoiceHistoryReport({
                   )}
                 </div>
               </div>
-            </div>
+            </div>}
 
             {selectedProductToAnalyze && (
               <ModalAnaliseProduct
@@ -1663,13 +2018,14 @@ export function InvoiceHistoryReport({
                         </button> */}
             </div>
           </div>
+          </div>
         </div>
       )}
 
       {/* Modal de Histórico de Recebimentos */}
       {receiptHistoryModal.open && (
         <div
-          className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50"
+          className="fixed inset-0 z-[90] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
           onClick={() => setReceiptHistoryModal({ open: false, invoiceProductId: null, productName: "" })}
         >
           <div
@@ -1822,7 +2178,7 @@ export function InvoiceHistoryReport({
       {/* Modal de Detalhes do Recebimento */}
       {viewingEntry && (
         <div
-          className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50"
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
           onClick={() => setViewingEntry(null)}
         >
           <div

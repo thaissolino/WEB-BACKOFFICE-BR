@@ -21,6 +21,8 @@ import MenuOutlinedIcon from "@mui/icons-material/MenuOutlined";
 import AdminPanelSettingsOutlinedIcon from "@mui/icons-material/AdminPanelSettingsOutlined";
 import { useAuthBackoffice } from "../../hooks/authBackoffice";
 import DescriptionOutlinedIcon from "@mui/icons-material/DescriptionOutlined";
+import AssignmentTurnedInOutlinedIcon from "@mui/icons-material/AssignmentTurnedInOutlined";
+import LocalOfferOutlinedIcon from "@mui/icons-material/LocalOfferOutlined";
 import StorefrontOutlinedIcon from "@mui/icons-material/StorefrontOutlined";
 import Inventory2OutlinedIcon from "@mui/icons-material/Inventory2Outlined";
 import GroupsOutlinedIcon from "@mui/icons-material/GroupsOutlined";
@@ -227,6 +229,32 @@ const HeaderMenu: React.FC<HeaderMenuProps> = () => {
             >
               <DescriptionOutlinedIcon sx={{ mr: 1, color: colors.greenAccent[500] }} />
               Gerenciar Invoices
+            </MenuItem>
+          )}
+
+          {(user?.role === "MASTER" || user?.role === "ADMIN" || canShowTab("GERENCIAR_INVOICES")) && (
+            <MenuItem
+              onClick={() => {
+                navigate("/vendas-concluidas");
+                handleMenuClose();
+              }}
+              sx={{ color: colors.grey[100] }}
+            >
+              <AssignmentTurnedInOutlinedIcon sx={{ mr: 1, color: colors.greenAccent[500] }} />
+              Vendas concluídas
+            </MenuItem>
+          )}
+
+          {(user?.role === "MASTER" || user?.role === "ADMIN" || canShowTab("GERENCIAR_INVOICES")) && (
+            <MenuItem
+              onClick={() => {
+                navigate("/etiquetas-entrada");
+                handleMenuClose();
+              }}
+              sx={{ color: colors.grey[100] }}
+            >
+              <LocalOfferOutlinedIcon sx={{ mr: 1, color: colors.greenAccent[500] }} />
+              Etiquetas da entrada
             </MenuItem>
           )}
 
