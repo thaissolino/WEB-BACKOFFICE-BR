@@ -33,6 +33,7 @@ export type InvoiceData = {
   paidDollarRate: number | null;
   completed: boolean;
   completedDate: string | null;
+  labelsPrintedAt?: string | null;
   /** Snapshot imutável da % do freteiro 1 no momento desta nota. */
   carrierRateSnapshot?: number | null;
   /** Snapshot imutável da % do freteiro 2 no momento desta nota. */
@@ -658,15 +659,17 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
       </div>
 
       {isModalOpen && selectedInvoice && (
-        // <!-- Modal Visualizar Invoice -->
         <div
           id="modalViewInvoice"
-          className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50 "
+          className="fixed inset-0 z-[80] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
+          role="dialog"
+          aria-modal="true"
           onClick={closeModal}
         >
+          <div className="max-h-[90vh] w-full max-w-5xl overflow-hidden rounded-2xl bg-white shadow-xl">
           <div
             onClick={(e) => e.stopPropagation()}
-            className="bg-white p-6 rounded-lg w-full max-w-4xl max-h-[90vh] overflow-y-auto mx-4"
+            className="max-h-[90vh] overflow-y-auto overscroll-contain p-6 [scrollbar-gutter:stable]"
           >
             {/* Seção para adicionar novo produto */}
             <div className="mb-6">
@@ -1204,6 +1207,7 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
                             <i className="fas fa-check mr-2"></i>Marcar como Concluída
                         </button> */}
             </div>
+          </div>
           </div>
         </div>
       )}

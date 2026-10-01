@@ -1,9 +1,10 @@
 import { CSSProperties, FormEvent, ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { ClipboardList, ScanLine, ShoppingBag, Truck, Wallet } from "lucide-react";
-import { api } from "../../../services/api";
+import { api, parseError } from "../../../services/api";
 import { ProductPhoto } from "../cadastros/produtos/GradePhotoThumb";
 import PdvShell from "../dashboard/PdvShell";
+import { useClientAuth } from "../../../hooks/clientAuth";
 import "../dashboard/dashboard.css";
 import "./pedidos.css";
 
@@ -30,7 +31,7 @@ function categorySortKey(id: string) {
   return index === -1 ? CATEGORY_ORDER.length : index;
 }
 
-type CartLine = CatalogProduct & { qty: number };
+type CartLine = CatalogProduct & { qty: number; imeis?: string[] };
 
 type Address = {
   titulo?: string;
@@ -51,6 +52,7 @@ type SavedOrder = {
   observacao?: string;
   createdAt: string;
   closedAt: string | null;
+  dispatchStatus?: string;
 };
 
 type PurchaseView = {
@@ -71,8 +73,28 @@ const NAV = [
   { to: "/client/pedidos/observacao", label: "Busca IMEI/serial" },
 ];
 
+function orderDone(value?: string) {
+  return value === "ENVIADO" || value === "CONFERIDO";
+}
+
+function orderStatus(value?: string) {
+  return orderDone(value) ? "Concluído" : "Em separação";
+}
+
+function StatusLabel({ value }: { value?: string }) {
+  const done = orderDone(value);
+  return <span className={done ? "loja-status loja-status-done" : "loja-status loja-status-wait"}>{orderStatus(value)}</span>;
+}
+
 function money(value: number) {
   return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+}
+
+function signedMoney(value: number) {
+  const text = money(Math.abs(value));
+  if (value < 0) return `-${text}`;
+  if (value > 0) return text;
+  return text;
 }
 
 function stockLevel(quantity: number) {
@@ -121,6 +143,11 @@ function LojaFrame({ children }: { children: ReactNode }) {
               </Link>
             );
           })}
+          {pathname.includes("/imprimir") ? (
+            <button type="button" className="loja-print-btn" onClick={() => window.print()}>
+              Imprimir
+            </button>
+          ) : null}
         </nav>
         {children}
       </div>
@@ -195,6 +222,7 @@ function Venda() {
   const [ready, setReady] = useState(false);
   const [error, setError] = useState("");
   const hadOpen = useRef(false);
+  const closing = useRef(false);
 
   useEffect(() => {
     loadOpen()
@@ -211,7 +239,7 @@ function Venda() {
   }, []);
 
   useEffect(() => {
-    if (!ready) return;
+    if (!ready || closing.current) return;
     if (!lines.length && !hadOpen.current) return;
     const timer = window.setTimeout(() => {
       hadOpen.current = true;
@@ -314,13 +342,28 @@ function Venda() {
   }
 
   async function finish() {
-    if (!lines.length) return;
+    if (!lines.length || closing.current) return;
+    closing.current = true;
+    const payload = {
+      lines: lines.map((line) => ({
+        id: line.id,
+        name: line.name,
+        code: String(line.code || ""),
+        price: Number(line.price) || 0,
+        qty: Math.max(1, Math.round(Number(line.qty) || 0)),
+        category: line.category || undefined,
+      })),
+      address,
+      observacao,
+    };
     try {
-      await api.post("/clients/pre-vendas/fechar", { lines, address, observacao });
+      await api.post("/clients/pre-vendas/fechar", payload);
       setLines([]);
       navigate("/client/pedidos/historico");
-    } catch {
-      setError("Não foi possível gravar o pedido fechado.");
+    } catch (err) {
+      closing.current = false;
+      const parsed = parseError(err);
+      setError(parsed.friend || parsed.message || "Não foi possível gravar o pedido fechado.");
     }
   }
 
@@ -452,7 +495,26 @@ function Venda() {
   );
 }
 
+function shown(value?: string | null) {
+  const text = (value || "").trim();
+  return text || "—";
+}
+
+function when(value?: string | null) {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+  return date.toLocaleString("pt-BR");
+}
+
+function addressLine(address: Address) {
+  const street = [address.rua, address.numero, address.bairro].filter(Boolean).join(", ");
+  const city = [address.cidade, address.cep].filter(Boolean).join(" · ");
+  return [street, city].filter(Boolean).join(" — ") || "—";
+}
+
 function Historico() {
+  const navigate = useNavigate();
   const [orders, setOrders] = useState<SavedOrder[]>([]);
   useEffect(() => {
     api
@@ -471,17 +533,25 @@ function Historico() {
             <th>Código</th>
             <th>Data</th>
             <th>Valor</th>
+            <th>Status</th>
             <th></th>
           </tr>
         </thead>
         <tbody>
           {orders.map((order) => (
-            <tr key={order.id}>
+            <tr
+              key={order.id}
+              className="loja-row-link"
+              onClick={() => navigate(`/client/pedidos/historico/${order.id}`)}
+            >
               <td>{order.id.slice(0, 8)}</td>
-              <td>{new Date(order.closedAt || order.createdAt).toLocaleString("pt-BR")}</td>
+              <td>{when(order.closedAt || order.createdAt)}</td>
               <td className="loja-money">{money(order.total)}</td>
+              <td><StatusLabel value={order.dispatchStatus} /></td>
               <td>
-                <Link to={`/client/pedidos/imprimir/${order.id}`}>Imprimir</Link>
+                <Link to={`/client/pedidos/imprimir/${order.id}`} onClick={(event) => event.stopPropagation()}>
+                  Imprimir
+                </Link>
               </td>
             </tr>
           ))}
@@ -491,16 +561,205 @@ function Historico() {
   );
 }
 
-function Financeiro() {
+function PedidoDetalhe() {
+  const { pathname } = useLocation();
+  const { client } = useClientAuth();
+  const orderId = pathname.split("/historico/")[1]?.split("/")[0] || "";
+  const [order, setOrder] = useState<SavedOrder | null>(null);
+  const [missing, setMissing] = useState(false);
+  const [openLines, setOpenLines] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    if (!orderId) {
+      setMissing(true);
+      return;
+    }
+    api
+      .get("/clients/pre-vendas/fechadas")
+      .then(({ data }) => {
+        const found = ((data?.orders || []) as SavedOrder[]).find((item) => item.id === orderId) || null;
+        setOrder(found);
+        setMissing(!found);
+      })
+      .catch(() => setMissing(true));
+  }, [orderId]);
+
+  if (missing) {
+    return (
+      <section className="loja-panel">
+        <h1 className="loja-title">Pedido</h1>
+        <p className="loja-lede">Esse pedido não está no histórico desta loja.</p>
+        <Link className="loja-btn" to="/client/pedidos/historico">
+          Voltar ao histórico
+        </Link>
+      </section>
+    );
+  }
+
+  if (!order) return <p className="loja-lede">Carregando pedido…</p>;
+
+  const lines = order.lines || [];
+  const gross = lines.reduce((sum, line) => sum + line.price * line.qty, 0);
+  const total = order.total || gross;
+  const qty = lines.reduce((sum, line) => sum + line.qty, 0);
+  const code = order.id.slice(0, 8).toUpperCase();
+
   return (
-    <section className="loja-panel">
+    <section className="loja-panel loja-detail">
+      <div className="loja-detail-head">
+        <div>
+          <p className="loja-kicker">Pedido</p>
+          <h1 className="loja-title">Pedido nº {code}</h1>
+        </div>
+        <div className="loja-detail-actions">
+          <Link className="loja-btn" to="/client/pedidos/historico">
+            Voltar
+          </Link>
+          <Link className="loja-btn primary" to={`/client/pedidos/imprimir/${order.id}`}>
+            Imprimir
+          </Link>
+        </div>
+      </div>
+      <p className="loja-detail-meta">
+        Abertura: {when(order.createdAt)}
+        <span>Fechamento: {when(order.closedAt)}</span>
+      </p>
+
+      <div className="loja-detail-sheet">
+        <p>Nome: {shown(order.address?.nome || client?.name)}</p>
+        <p>CPF/CNPJ: {shown(client?.document)}</p>
+        <p>E-mail: {shown(client?.email)}</p>
+        <p>Endereço: {addressLine(order.address || {})}</p>
+      </div>
+
+      <table className="loja-table">
+        <thead>
+          <tr>
+            <th>Código</th>
+            <th>Produto</th>
+            <th>Valor unit.</th>
+            <th>Qtd</th>
+            <th>Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          {lines.map((line) => {
+            const imeis = orderDone(order.dispatchStatus) ? line.imeis || [] : [];
+            const open = !!openLines[line.id];
+            return (
+              <tr key={line.id}>
+                <td>{shown(line.code)}</td>
+                <td>
+                  <div className="loja-prod">
+                    {imeis.length ? (
+                      <button
+                        type="button"
+                        className="loja-plus"
+                        aria-expanded={open}
+                        aria-label={open ? "Fechar IMEIs" : "Abrir IMEIs"}
+                        onClick={() => setOpenLines((current) => ({ ...current, [line.id]: !current[line.id] }))}
+                      >
+                        {open ? "–" : "+"}
+                      </button>
+                    ) : null}
+                    <span>{line.name}</span>
+                  </div>
+                  {open && imeis.length ? (
+                    <ul className="loja-imeis">
+                      {imeis.map((serial) => (
+                        <li key={serial}>{serial}</li>
+                      ))}
+                    </ul>
+                  ) : null}
+                </td>
+                <td>{money(line.price)}</td>
+                <td>{line.qty}</td>
+                <td className="loja-money">{money(line.price * line.qty)}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+
+      <div className="loja-totals">
+        <p><span>Total sem desconto</span><strong>{money(gross)}</strong></p>
+        <p><span>Total descontos</span><strong>{money(0)}</strong></p>
+        <p><span>Total frete</span><strong>{money(0)}</strong></p>
+        <p><span>Total outras despesas</span><strong>{money(0)}</strong></p>
+        <p><span>Total seguro</span><strong>{money(0)}</strong></p>
+        <p><span>Total itens</span><strong>{qty}</strong></p>
+        <p className="loja-totals-main"><span>Total do pedido</span><strong>{money(total)}</strong></p>
+      </div>
+
+      <div className="loja-detail-sheet">
+        <p>Status: <StatusLabel value={order.dispatchStatus} /></p>
+        <p>Obs: {shown(order.observacao || order.address?.obs)}</p>
+      </div>
+    </section>
+  );
+}
+
+function Financeiro() {
+  const [orders, setOrders] = useState<SavedOrder[]>([]);
+  useEffect(() => {
+    api
+      .get("/clients/pre-vendas/fechadas")
+      .then(({ data }) => setOrders((data?.orders || []) as SavedOrder[]))
+      .catch(() => setOrders([]));
+  }, []);
+
+  const groups = useMemo(() => {
+    const sorted = [...orders].sort(
+      (a, b) => new Date(a.closedAt || a.createdAt).getTime() - new Date(b.closedAt || b.createdAt).getTime(),
+    );
+    let balance = 0;
+    const byDate = new Map<string, { label: string; amount: number; balance: number; href: string }[]>();
+    sorted.forEach((order) => {
+      const whenAt = order.closedAt || order.createdAt;
+      const date = new Date(whenAt).toLocaleDateString("pt-BR");
+      const amount = -Math.abs(order.total || 0);
+      balance += amount;
+      const rows = byDate.get(date) || [];
+      rows.push({
+        label: `Pedido: ${order.id.slice(0, 8).toUpperCase()}`,
+        amount,
+        balance,
+        href: `/client/pedidos/historico/${order.id}`,
+      });
+      byDate.set(date, rows);
+    });
+    return { balance, dates: [...byDate.entries()] };
+  }, [orders]);
+
+  return (
+    <section className="loja-panel loja-ledger">
       <h1 className="loja-title">Financeiro</h1>
-      <p className="loja-lede">
-        Extrato do que esta loja compra de você, para receber na loja e vender no varejo.
-      </p>
-      <p className="loja-note">
-        Angelita, Roni e os outros caixas são fornecedores seus. Eles ficam no backoffice e não aparecem nesta conta.
-      </p>
+      <p className="loja-lede">Conta desta loja com o atacado. Pedido fechado entra como débito.</p>
+      {groups.dates.length === 0 ? <p>Nenhum movimento nesta conta.</p> : null}
+      {groups.dates.map(([date, rows], index) => (
+        <div key={date} className="loja-ledger-day">
+          <h2>{date}</h2>
+          {index === 0 ? (
+            <>
+              <p className="loja-ledger-open">
+                <span>Saldo anterior</span>
+                <strong>{signedMoney(0)}</strong>
+              </p>
+              <h2>{date}</h2>
+            </>
+          ) : null}
+          {rows.map((row) => (
+            <p key={row.href} className="loja-ledger-row">
+              <Link to={row.href}>{row.label}</Link>
+              <span className={row.amount < 0 ? "neg" : "pos"}>{signedMoney(row.amount)}</span>
+              <strong className={row.balance < 0 ? "neg" : "pos"}>{signedMoney(row.balance)}</strong>
+            </p>
+          ))}
+        </div>
+      ))}
+      {groups.dates.length > 0 ? (
+        <p className={`loja-ledger-final ${groups.balance < 0 ? "neg" : "pos"}`}>{signedMoney(groups.balance)}</p>
+      ) : null}
     </section>
   );
 }
@@ -672,6 +931,7 @@ function Endereco() {
 
 function Imprimir() {
   const { pathname } = useLocation();
+  const { client } = useClientAuth();
   const orderId = pathname.split("/imprimir/")[1] || "";
   const [order, setOrder] = useState<SavedOrder | null>(null);
   const [missing, setMissing] = useState(false);
@@ -705,36 +965,83 @@ function Imprimir() {
 
   if (!order) return <p className="loja-lede">Carregando pedido…</p>;
 
+  const lines = order.lines || [];
+  const gross = lines.reduce((sum, line) => sum + line.price * line.qty, 0);
+  const total = order.total || gross;
+  const qty = lines.reduce((sum, line) => sum + line.qty, 0);
+  const code = order.id.slice(0, 8).toUpperCase();
+  const city = shown(order.address?.cidade);
+
   return (
     <section className="loja-print">
-      <div className="loja-no-print">
-        <button type="button" className="loja-btn primary" onClick={() => window.print()}>
-          Imprimir
-        </button>
-      </div>
-      <h1>Pedido</h1>
-      <p>Emissão: {new Date(order.closedAt || order.createdAt).toLocaleString("pt-BR")}</p>
-      <table className="loja-table">
-        <thead>
-          <tr>
-            <th>Código</th>
-            <th>Produto</th>
-            <th>Qtd</th>
-            <th>Total</th>
-          </tr>
-        </thead>
-        <tbody>
-          {order.lines.map((line) => (
-            <tr key={line.id}>
-              <td>{line.code}</td>
-              <td>{line.name}</td>
-              <td>{line.qty}</td>
-              <td>{money(line.price * line.qty)}</td>
+      <article className="loja-slip">
+        <header className="loja-slip-top">
+          <span>{when(order.closedAt || order.createdAt)}</span>
+          <strong>{shown(client?.name)}</strong>
+          <span>1/1</span>
+        </header>
+        <h1>PEDIDO</h1>
+
+        <h2>Dados do pedido</h2>
+        <p>Cód. pedido: {code}</p>
+        <p>Emissão: {when(order.createdAt)}</p>
+        <p>Fechamento: {when(order.closedAt)}</p>
+        <p>Identificação: {shown(order.address?.nome || client?.name)}</p>
+
+        <h2>Dados do cliente</h2>
+        <p>Cliente: {shown(order.address?.nome || client?.name)}</p>
+        <p>CPF/CNPJ: {shown(client?.document)}</p>
+        <p>E-mail: {shown(client?.email)}</p>
+        <p>Cidade: {city}</p>
+        <p>Endereço: {addressLine(order.address || {})}</p>
+
+        <h2>Dados dos produtos</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Cód.</th>
+              <th>Prod.</th>
+              <th>V. unit.</th>
+              <th>Qtd</th>
+              <th>Valor</th>
+              <th>Desc.</th>
+              <th>Total</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
-      <p className="loja-money">Total {money(order.total || cartTotal(order.lines))}</p>
+          </thead>
+          <tbody>
+            {lines.map((line) => (
+              <tr key={line.id}>
+                <td>{shown(line.code)}</td>
+                <td>{line.name}</td>
+                <td>{money(line.price)}</td>
+                <td>{line.qty}</td>
+                <td>{money(line.price * line.qty)}</td>
+                <td>{money(0)}</td>
+                <td>{money(line.price * line.qty)}</td>
+              </tr>
+            ))}
+            <tr className="loja-slip-sum">
+              <td colSpan={3}>Totais:</td>
+              <td>{qty}</td>
+              <td>{money(gross)}</td>
+              <td>{money(0)}</td>
+              <td>{money(total)}</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h2>Totais do pedido</h2>
+        <div className="loja-slip-totals">
+          <p><span>Total sem desconto</span><strong>{money(gross)}</strong></p>
+          <p><span>Total descontos</span><strong>{money(0)}</strong></p>
+          <p><span>Total outras despesas</span><strong>{money(0)}</strong></p>
+          <p><span>Total frete</span><strong>{money(0)}</strong></p>
+          <p><span>Total seguro</span><strong>{money(0)}</strong></p>
+          <p><span>Total itens</span><strong>{qty}</strong></p>
+          <p><span>Total geral</span><strong>{money(total)}</strong></p>
+        </div>
+        <p className="loja-slip-obs">Obs: {shown(order.observacao || order.address?.obs)}</p>
+      </article>
     </section>
   );
 }
@@ -744,6 +1051,8 @@ export default function LojistaPedidos() {
   const view =
     pathname.endsWith("/venda") ? (
       <Venda />
+    ) :     pathname.includes("/historico/") ? (
+      <PedidoDetalhe />
     ) : pathname.endsWith("/historico") ? (
       <Historico />
     ) : pathname.endsWith("/financeiro") ? (

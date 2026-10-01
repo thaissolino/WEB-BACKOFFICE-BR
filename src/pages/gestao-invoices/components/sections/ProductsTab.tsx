@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { Plus, Edit, Ban, RotateCcw, Boxes, Loader2, Search } from "lucide-react";
 import Swal from "sweetalert2";
 import { api } from "../../../../services/api";
+import { sameProductCode } from "../utils/productBarcode";
 import { useNotification } from "../../../../hooks/notification";
 import { useActionLoading } from "../../context/ActionLoadingContext";
 
@@ -41,7 +42,7 @@ function productMatchesQuery(
   const codeNorm = norm(product.code || "");
 
   return terms.every((term) => {
-    if (codeNorm && codeNorm === term) return true;
+    if (codeNorm && (codeNorm === term || sameProductCode(product.code || "", term))) return true;
     return nameWords.some(
       (word) => word === term || word.startsWith(term),
     );
@@ -350,7 +351,7 @@ export function ProductsTab() {
       const existingProduct = products.find(
         (p) =>
           p.id !== currentProduct.id && // Não verificar o próprio produto se estiver editando
-          (p.name.toLowerCase() === trimmedName.toLowerCase() || p.code === trimmedCode)
+          (p.name.toLowerCase() === trimmedName.toLowerCase() || sameProductCode(p.code, trimmedCode))
       );
 
       if (existingProduct) {

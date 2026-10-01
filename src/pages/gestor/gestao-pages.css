@@ -5,8 +5,14 @@
  * mas com a paleta de cores do PDV (paper/sheet/ink/accent do dashboard do lojista).
  */
 
+.app .content:has(.gestao-page),
+.pdv-chrome-main:has(.gestao-page) {
+  background: #f9fafb !important;
+}
+
 .gestao-page {
-  min-height: 100%;
+  flex: 1 0 auto;
+  min-height: calc(100dvh - 88px);
   background: #f9fafb; /* gray-50, igual ao Gerenciar Invoices */
   color: #111827;
 }
@@ -20,7 +26,7 @@
 
 .gestao-page__inner {
   width: 100%;
-  padding: 16px 12px 32px;
+  padding: 16px 12px 96px;
 }
 
 .gestao-page__header {

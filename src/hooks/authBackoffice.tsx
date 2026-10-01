@@ -98,7 +98,7 @@ const AuthBackofficeProvider = ({ children }: AuthBackofficeProviderProps) => {
       }
 
       // Definir token no client HTTP antes de navegar ou de qualquer request (evita 401 na primeira carga do backoffice)
-      api.defaults.headers.common["Authorization"] = `Bearer ${token}`;
+      delete api.defaults.headers.common["Authorization"];
 
       setIsAuthenticate(true);
       return response.data;
@@ -168,8 +168,9 @@ const AuthBackofficeProvider = ({ children }: AuthBackofficeProviderProps) => {
       }
     } catch (error) {
       console.error("Erro durante logout:", error);
-      localStorage.clear();
-      sessionStorage.clear();
+      localStorage.removeItem("@backoffice:token");
+      localStorage.removeItem("@backoffice:account");
+      localStorage.removeItem("@backoffice:user");
       delete api.defaults.headers.common["Authorization"];
       setIsAuthenticate(false);
       if (redirectToSessionExpired) {
@@ -200,7 +201,7 @@ const AuthBackofficeProvider = ({ children }: AuthBackofficeProviderProps) => {
       });
       if (data?.user?.access_token) {
         localStorage.setItem("@backoffice:token", data.user.access_token);
-        api.defaults.headers.common["Authorization"] = `Bearer ${data.user.access_token}`;
+        delete api.defaults.headers.common["Authorization"];
         if (data.user) {
           setUser(data.user);
           localStorage.setItem("@backoffice:user", JSON.stringify(data.user));
@@ -225,11 +226,13 @@ const AuthBackofficeProvider = ({ children }: AuthBackofficeProviderProps) => {
   useEffect(() => {
     const interceptor = api.interceptors.request.use(
       async function (config: any) {
-        const token = localStorage.getItem("@backoffice:token");
-        if (token && !config.headers.Authorization) {
-          config.headers.Authorization = `Bearer ${token}`;
+        const url = String(config.url || "");
+        const path = window.location.pathname || "";
+        if (url.includes("/clients/") || path.startsWith("/client") || path.startsWith("/lojista")) {
+          return config;
         }
-        if (!token && !isFetchingAccount && !config.url?.includes("/auth/")) {
+        const token = localStorage.getItem("@backoffice:token");
+        if (!token && !isFetchingAccount && !url.includes("/auth/")) {
           isFetchingAccount = true;
           await initialize();
           isFetchingAccount = false;

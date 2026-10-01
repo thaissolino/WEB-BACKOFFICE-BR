@@ -15,6 +15,7 @@ import {
   productCurrencySymbol,
   SupplierCurrency,
 } from "../utils/invoiceCurrency";
+import { sameProductCode } from "../utils/productBarcode";
 
 export type InvoiceProduct = {
   id: string;
@@ -994,9 +995,7 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
                     return;
                   }
 
-                  const productByCode = products.find(
-                    (p) => p.code === code.trim() || p.code?.toLowerCase() === code.trim().toLowerCase()
-                  );
+                  const productByCode = products.find((p) => sameProductCode(p.code, code));
                   if (productByCode) {
                     applyProductSelection(productByCode);
                   } else {
@@ -1009,9 +1008,7 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
                     const code = codeInput.trim();
                     if (!code) return;
 
-                    const productByCode = products.find(
-                      (p) => p.code === code || p.code?.toLowerCase() === code.toLowerCase()
-                    );
+                    const productByCode = products.find((p) => sameProductCode(p.code, code));
                     if (productByCode) {
                       setProductPickMode("code");
                       applyProductSelection(productByCode);
