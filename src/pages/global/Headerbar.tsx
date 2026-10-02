@@ -222,13 +222,13 @@ const HeaderMenu: React.FC<HeaderMenuProps> = () => {
           {canShowTab("GERENCIAR_INVOICES") && (
             <MenuItem
               onClick={() => {
-                navigate("/invoices-management");
+                navigate("/gestao/compras");
                 handleMenuClose();
               }}
               sx={{ color: colors.grey[100] }}
             >
               <DescriptionOutlinedIcon sx={{ mr: 1, color: colors.greenAccent[500] }} />
-              Gerenciar Invoices
+              Compras
             </MenuItem>
           )}
 

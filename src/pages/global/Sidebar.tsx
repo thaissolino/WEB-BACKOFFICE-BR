@@ -573,27 +573,6 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebar }) => {
                   setSelected={setSelected}
                 />
                 <Item
-                  title="Cadastro fornecedores"
-                  to="/cadastro-fornecedores"
-                  icon={<PeopleOutlinedIcon />}
-                  selected={selected}
-                  setSelected={setSelected}
-                />
-                <Item
-                  title="Cadastro produtos"
-                  to="/cadastro-produtos"
-                  icon={<Inventory2OutlinedIcon />}
-                  selected={selected}
-                  setSelected={setSelected}
-                />
-                <Item
-                  title="Cadastro freteiros"
-                  to="/cadastro-freteiros"
-                  icon={<LocalShippingOutlinedIcon />}
-                  selected={selected}
-                  setSelected={setSelected}
-                />
-                <Item
                   title="Estoque atacado"
                   to="/estoque-atacado"
                   icon={<WarehouseOutlinedIcon />}
@@ -602,15 +581,28 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebar }) => {
                 />
               </>
             )}
-            {canShowTab("GERENCIAR_INVOICES") && (
-              <Item
-                title="Gerenciar Invoices"
-                to="/invoices-management"
-                icon={<DescriptionOutlinedIcon />}
-                selected={selected}
-                setSelected={setSelected}
-               // requiresValidation={true}
-              />
+            {(user?.role === "MASTER" || user?.role === "ADMIN" || canShowTab("GERENCIAR_INVOICES")) && (
+              <LegacySubMenu title="Cadastro" icon={<Inventory2OutlinedIcon />} style={{ color: colors.grey[100] }}>
+                <Item title="Produtos" to="/gestao/cadastro?aba=products" icon={<Inventory2OutlinedIcon />} selected={selected} setSelected={setSelected} />
+                <Item title="Fornecedores" to="/gestao/cadastro?aba=suppliers" icon={<PeopleOutlinedIcon />} selected={selected} setSelected={setSelected} />
+                <Item title="Freteiros" to="/gestao/cadastro?aba=carriers" icon={<LocalShippingOutlinedIcon />} selected={selected} setSelected={setSelected} />
+                <Item title="Outros" to="/gestao/cadastro?aba=others" icon={<GroupsOutlinedIcon />} selected={selected} setSelected={setSelected} />
+              </LegacySubMenu>
+            )}
+            {(user?.role === "MASTER" || user?.role === "ADMIN" || canShowTab("GERENCIAR_INVOICES")) && (
+              <LegacySubMenu title="Compras" icon={<DescriptionOutlinedIcon />} style={{ color: colors.grey[100] }}>
+                <Item title="Invoices" to="/gestao/compras?aba=invoices" icon={<DescriptionOutlinedIcon />} selected={selected} setSelected={setSelected} />
+                <Item title="Média dólar" to="/gestao/compras?aba=media-dolar" icon={<DescriptionOutlinedIcon />} selected={selected} setSelected={setSelected} />
+                <Item title="Relatórios" to="/gestao/compras?aba=relatorios" icon={<DescriptionOutlinedIcon />} selected={selected} setSelected={setSelected} />
+                <Item title="Lista de compras" to="/gestao/compras?aba=shopping-lists" icon={<ListIcon />} selected={selected} setSelected={setSelected} />
+                <Item title="Buscar IMEI" to="/gestao/compras?aba=imei-search" icon={<DescriptionOutlinedIcon />} selected={selected} setSelected={setSelected} />
+              </LegacySubMenu>
+            )}
+            {(user?.role === "MASTER" || user?.role === "ADMIN" || canShowTab("GERENCIAR_INVOICES")) && (
+              <LegacySubMenu title="Gestão de caixas" icon={<WarehouseOutlinedIcon />} style={{ color: colors.grey[100] }}>
+                <Item title="Caixas" to="/gestao/caixas?aba=caixas" icon={<WarehouseOutlinedIcon />} selected={selected} setSelected={setSelected} />
+                <Item title="Caixas BR" to="/gestao/caixas?aba=caixas-brl" icon={<WarehouseOutlinedIcon />} selected={selected} setSelected={setSelected} />
+              </LegacySubMenu>
             )}
             {(user?.role === "MASTER" || user?.role === "ADMIN" || canShowTab("GERENCIAR_INVOICES")) && (
               <Item

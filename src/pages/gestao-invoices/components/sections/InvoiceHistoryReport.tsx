@@ -278,6 +278,7 @@ type InvoiceHistoryReportProps = {
   setInvoiceHistory: React.Dispatch<React.SetStateAction<InvoiceData[]>>;
   printTable?: boolean;
   printInvoiceIds?: string[];
+  reprint?: boolean;
   onLabelsPrinted?: (row: { invoiceId: string; invoiceNumber: string }) => void;
 };
 
@@ -286,6 +287,7 @@ export function InvoiceHistoryReport({
   setInvoiceHistory: setInvoices,
   printTable = false,
   printInvoiceIds,
+  reprint = false,
   onLabelsPrinted,
 }: InvoiceHistoryReportProps) {
   const [receiptHistoryModal, setReceiptHistoryModal] = useState<{
@@ -686,7 +688,7 @@ export function InvoiceHistoryReport({
                           <button
                             type="button"
                             className="text-gray-800 hover:text-black"
-                            title="Gerar etiqueta"
+                            title={reprint ? "Reimprimir etiqueta" : "Gerar etiqueta"}
                             onClick={() => printInvoicePdf(row)}
                           >
                             <Printer size={16} />

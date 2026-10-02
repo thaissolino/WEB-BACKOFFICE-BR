@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Notinha · Pedido 549961</title>
+  <style>
+    :root {
+      --ink: #141414;
+      --muted: #4a4a4a;
+      --rule: #141414;
+      --paper: #fff;
+      --counter: #c5cad1;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--counter);
+      color: var(--ink);
+      font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    }
+
+    .stage {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 28px 16px 48px;
+    }
+
+    .hint {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 18px;
+      color: #1c1c1c;
+    }
+
+    .hint h1 {
+      margin: 0;
+      font-size: 15px;
+      font-weight: 650;
+      letter-spacing: 0.01em;
+    }
+
+    .hint p {
+      margin: 4px 0 0;
+      max-width: 42ch;
+      font-size: 13px;
+      line-height: 1.4;
+      color: #2a2a2a;
+    }
+
+    .hint-actions {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 8px;
+    }
+
+    .hint-actions p {
+      margin: 0;
+      max-width: 28ch;
+      text-align: right;
+      font-size: 12px;
+    }
+
+    .hint button {
+      border: 1px solid #141414;
+      background: #141414;
+      color: #fff;
+      font: inherit;
+      font-size: 13px;
+      font-weight: 650;
+      padding: 8px 12px;
+      cursor: pointer;
+    }
+
+    .hint button.ghost {
+      background: transparent;
+      color: #141414;
+    }
+
+    .hint button:focus-visible {
+      outline: 2px solid #fff;
+      outline-offset: 2px;
+    }
+
+    .slip {
+      width: 80mm;
+      margin: 0 auto;
+      background: var(--paper);
+      color: var(--ink);
+      padding: 6mm 4.5mm 7mm;
+      box-shadow: 0 10px 28px rgba(20, 20, 20, 0.18);
+    }
+
+    .brand {
+      text-align: center;
+    }
+
+    .brand strong {
+      display: block;
+      font-size: 15px;
+      letter-spacing: 0.16em;
+      font-weight: 750;
+    }
+
+    .brand span {
+      display: block;
+      margin-top: 1px;
+      font-size: 10px;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+    }
+
+    .ticket {
+      text-align: center;
+    }
+
+    .ticket small {
+      display: block;
+      font-size: 10px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+    }
+
+    .ticket b {
+      display: block;
+      margin-top: 1px;
+      font-size: 28px;
+      line-height: 1;
+      font-weight: 750;
+      letter-spacing: 0.04em;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .barcode {
+      display: flex;
+      justify-content: center;
+      margin-top: 2.5mm;
+    }
+
+    .barcode svg {
+      width: 62mm;
+      height: 16mm;
+    }
+
+    .when {
+      margin: 3mm 0 0;
+      text-align: center;
+      font-size: 11px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .who {
+      margin: 1mm 0 0;
+      text-align: center;
+      font-size: 11px;
+    }
+
+    hr {
+      border: 0;
+      border-top: 1px solid var(--rule);
+      margin: 3mm 0;
+    }
+
+    .block h2 {
+      margin: 0;
+      font-size: 10px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      font-weight: 750;
+    }
+
+    .client-name {
+      margin: 1.5mm 0 0;
+      font-size: 13px;
+      font-weight: 700;
+      line-height: 1.25;
+    }
+
+    .client-meta {
+      margin: 0.5mm 0 0;
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    .item {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 1mm 3mm;
+      font-size: 12px;
+    }
+
+    .sku {
+      font-variant-numeric: tabular-nums;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+    }
+
+    .item-name {
+      grid-column: 1 / -1;
+      margin: 0;
+      font-size: 13px;
+      font-weight: 650;
+      line-height: 1.25;
+    }
+
+    .item-color {
+      grid-column: 1 / -1;
+      margin: 0;
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    .qty {
+      font-variant-numeric: tabular-nums;
+    }
+
+    .money {
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+      font-weight: 700;
+    }
+
+    .pay {
+      display: flex;
+      justify-content: space-between;
+      gap: 3mm;
+      font-size: 12px;
+    }
+
+    .pay span {
+      color: var(--muted);
+    }
+
+    .total {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      font-weight: 750;
+    }
+
+    .total b {
+      font-size: 18px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .foot {
+      margin: 3mm 0 0;
+      text-align: center;
+      font-size: 10px;
+      letter-spacing: 0.04em;
+      color: var(--muted);
+    }
+
+    @media print {
+      body { background: #fff; }
+      .stage { padding: 0; max-width: none; }
+      .hint { display: none; }
+      .slip {
+        width: 80mm;
+        box-shadow: none;
+        margin: 0;
+      }
+    }
+
+    @page {
+      size: 80mm auto;
+      margin: 4mm;
+    }
+  </style>
+</head>
+<body>
+  <main class="stage">
+    <div class="hint">
+      <div>
+        <h1>Simulação da notinha</h1>
+        <p>Cupom da Epson, bobina de 80 mm. A impressão sai na impressora padrão deste computador, que deve ser a Epson. A Zebra fica só para etiqueta.</p>
+      </div>
+      <div class="hint-actions">
+        <button type="button" onclick="window.print()">Imprimir na Epson</button>
+      </div>
+    </div>
+
+    <article class="slip" aria-label="Notinha do pedido 549961">
+      <div class="ticket">
+        <small>Pedido</small>
+        <b>549961</b>
+      </div>
+      <div class="barcode" id="barcode" aria-hidden="true"></div>
+
+      <p class="when">01/10/2026 · 22:38</p>
+
+      <hr />
+
+      <section class="block">
+        <h2>Cliente</h2>
+        <p class="client-name">AT Eletrônicos</p>
+        <p class="client-meta">176824 · Rio de Janeiro</p>
+      </section>
+
+      <hr />
+
+      <section class="item">
+        <span class="sku">34129</span>
+        <p class="item-name">iPhone 18 Pro Max 256GB</p>
+        <p class="item-color">Bordo / vinho</p>
+        <span class="qty">1 un</span>
+      </section>
+    </article>
+  </main>
+
+  <script>
+    const CODE128 = [
+      "212222","222122","222221","121223","121322","131222","122213","122312","132212","221213",
+      "221312","231212","112232","122132","122231","113222","123122","123221","223211","221132",
+      "221231","213212","223112","312131","311222","321122","321221","312212","322112","322211",
+      "212123","212321","232121","111323","131123","131321","112313","132113","132311","211313",
+      "231113","231311","112133","112331","132131","113123","113321","133121","313121","211331",
+      "231131","213113","213311","213131","311123","311321","331121","312113","312311","332111",
+      "314111","221411","431111","111224","111422","121124","121421","141122","141221","112214",
+      "112412","122114","122411","142112","142211","241211","221114","413111","241112","134111",
+      "111242","121142","121241","114212","124112","124211","411212","421112","421211","212141",
+      "214121","412121","111143","111341","131141","114113","114311","411113","411311","113141",
+      "114131","311141","411131","211412","211214","211232","2331112"
+    ];
+
+    function bars(value) {
+      const start = 104;
+      const data = [...value].map((ch) => ch.charCodeAt(0) - 32);
+      let sum = start;
+      data.forEach((code, index) => { sum += code * (index + 1); });
+      const symbols = [start, ...data, sum % 103, 106];
+      const pattern = symbols.map((code) => CODE128[code]).join("");
+      const quiet = 10;
+      const units = quiet * 2 + [...pattern].reduce((total, width) => total + Number(width), 0);
+      let x = quiet;
+      let black = true;
+      const rects = [];
+      for (const width of pattern) {
+        const w = Number(width);
+        if (black) rects.push(`<rect x="${x}" y="0" width="${w}" height="70"/>`);
+        x += w;
+        black = !black;
+      }
+      return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${units} 70" role="img" aria-label="Código de barras do pedido ${value}"><g fill="#141414">${rects.join("")}</g></svg>`;
+    }
+
+    document.getElementById("barcode").innerHTML = bars("549961");
+  </script>
+</body>
+</html>

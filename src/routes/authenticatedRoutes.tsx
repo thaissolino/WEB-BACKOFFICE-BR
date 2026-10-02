@@ -265,7 +265,10 @@ export function Router() {
           <Route path="create-form-room" element={<FormRoom />} />
           <Route path="create-form-user" element={<FormUser />} />
           <Route path="cambioPage" element={<CambioPage />} />
-          <Route path="invoices-management" element={<InvocesManagement />} />
+          <Route path="gestao/cadastro" element={<InvocesManagement area="cadastro" />} />
+          <Route path="gestao/compras" element={<InvocesManagement area="compras" />} />
+          <Route path="gestao/caixas" element={<InvocesManagement area="caixas" />} />
+          <Route path="invoices-management" element={<InvocesManagement area="compras" />} />
           <Route path="vendas-concluidas" element={<GestorVendasConcluidas />} />
           <Route path="etiquetas-entrada" element={<GestorEtiquetasEntrada />} />
           <Route path="tokens-management" element={<TokensManagement />} />

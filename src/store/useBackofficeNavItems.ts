@@ -47,15 +47,17 @@ export function useBackofficeNavItems() {
   if (isGestor) {
     items.push(
       { id: "cadastro-lojistas", label: "Cadastro lojistas", to: "/cadastro-lojistas", group: "Gestão" },
-      { id: "cadastro-produtos", label: "Cadastro produtos", to: "/cadastro-produtos", group: "Gestão" },
-      { id: "cadastro-fornecedores", label: "Cadastro fornecedores", to: "/cadastro-fornecedores", group: "Gestão" },
-      { id: "cadastro-freteiros", label: "Cadastro freteiros", to: "/cadastro-freteiros", group: "Gestão" },
+      { id: "gestao-cadastro", label: "Cadastro", to: "/gestao/cadastro", group: "Gestão" },
+      { id: "gestao-compras", label: "Compras", to: "/gestao/compras", group: "Gestão" },
+      { id: "gestao-caixas", label: "Gestão de caixas", to: "/gestao/caixas", group: "Gestão" },
       { id: "gerenciar-lojistas", label: "Gerenciar lojistas", to: "/gerenciar-lojistas", group: "Gestão" },
     );
   }
 
-  if (canShowTab("GERENCIAR_INVOICES")) {
-    items.push({ id: "invoices", label: "Gerenciar Invoices", to: "/invoices-management" });
+  if (!isGestor && canShowTab("GERENCIAR_INVOICES")) {
+    items.push({ id: "gestao-cadastro", label: "Cadastro", to: "/gestao/cadastro" });
+    items.push({ id: "gestao-compras", label: "Compras", to: "/gestao/compras" });
+    items.push({ id: "gestao-caixas", label: "Gestão de caixas", to: "/gestao/caixas" });
   }
 
   if (isGestor || canShowTab("GERENCIAR_INVOICES")) {

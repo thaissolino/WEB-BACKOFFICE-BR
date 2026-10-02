@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { Loader2, Search, Truck, X } from "lucide-react";
 import { api, parseError } from "../../services/api";
+import { printNotinha } from "../../lib/notinhaZebra";
 import GestaoShell from "./GestaoShell";
 
 type Line = {
@@ -60,6 +61,7 @@ type ClosedSale = {
   };
   blockers: string[];
   devices?: { imei: string; code: string; name: string }[];
+  estornada?: boolean;
 };
 
 function money(value: number) {
@@ -126,7 +128,8 @@ function writtenNote(value: string) {
     .trim();
 }
 
-function statusLabel(status?: string) {
+function statusLabel(status?: string, estornada?: boolean) {
+  if (estornada) return "Estornada";
   if (status === "ENVIADO" || status === "CONFERIDO") return "Concluído";
   return "Em separação";
 }
@@ -135,9 +138,9 @@ function isSent(status?: string) {
   return status === "ENVIADO" || status === "CONFERIDO";
 }
 
-function StatusBadge({ status }: { status: string }) {
-  const tone = isSent(status) ? "bg-green-700 text-white" : "bg-yellow-400 text-yellow-950";
-  return <span className={`inline-flex items-center rounded-full px-3.5 py-1.5 text-xs font-semibold leading-none ${tone}`}>{statusLabel(status)}</span>;
+function StatusBadge({ status, estornada }: { status: string; estornada?: boolean }) {
+  const tone = estornada ? "bg-red-700 text-white" : isSent(status) ? "bg-green-700 text-white" : "bg-yellow-400 text-yellow-950";
+  return <span className={`inline-flex items-center rounded-full px-3.5 py-1.5 text-xs font-semibold leading-none ${tone}`}>{statusLabel(status, estornada)}</span>;
 }
 
 function addressLine(address?: Address) {
@@ -164,6 +167,7 @@ export default function GestorVendasConcluidas() {
   const [openSerials, setOpenSerials] = useState<Record<string, boolean>>({});
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  const [zebraNotice, setZebraNotice] = useState("");
   const scanRef = useRef<HTMLInputElement>(null);
   const imeiRef = useRef<HTMLInputElement>(null);
 
@@ -220,6 +224,15 @@ export default function GestorVendasConcluidas() {
   }, [conference]);
 
   useEffect(() => {
+    if (!conferenceId) return;
+    const q = imeiCode.replace(/[^a-z0-9]/gi, "");
+    const handle = window.setTimeout(() => {
+      void loadImeiSuggestions(conferenceId, q.length >= 3 ? q : undefined);
+    }, 200);
+    return () => window.clearTimeout(handle);
+  }, [conferenceId, imeiCode]);
+
+  useEffect(() => {
     const close = (event: MouseEvent) => {
       if (imeiBoxRef.current && !imeiBoxRef.current.contains(event.target as Node)) {
         setImeiMenuOpen(false);
@@ -236,12 +249,13 @@ export default function GestorVendasConcluidas() {
     setScanCode("");
     setImeiCode("");
     setImeiMenuOpen(false);
-    void loadImeiSuggestions(id);
   }
 
-  async function loadImeiSuggestions(id: string) {
+  async function loadImeiSuggestions(id: string, q?: string) {
     try {
-      const { data } = await api.get(`/backoffice/vendas-concluidas/${id}/imeis`);
+      const { data } = await api.get(`/backoffice/vendas-concluidas/${id}/imeis`, {
+        params: q ? { q } : undefined,
+      });
       setImeiSuggestions((data?.imeis || []) as ImeiSuggestion[]);
     } catch {
       setImeiSuggestions([]);
@@ -292,6 +306,22 @@ export default function GestorVendasConcluidas() {
       setActing(false);
       if (action === "scan" || action === "reset") scanRef.current?.focus();
       if (action === "imei") imeiRef.current?.focus();
+    }
+  }
+
+  async function estornar(id: string) {
+    if (!window.confirm("Estornar esta venda e devolver o crédito ao cliente?")) return;
+    setActing(true);
+    setError("");
+    try {
+      const { data } = await api.post(`/backoffice/vendas-concluidas/${id}/estornar`);
+      const order = data.order as ClosedSale;
+      if (order?.id) setOrders((prev) => prev.map((item) => (item.id === order.id ? order : item)));
+    } catch (err) {
+      const parsed = parseError(err);
+      setError(parsed.friend || parsed.message || "Não foi possível estornar a venda.");
+    } finally {
+      setActing(false);
     }
   }
 
@@ -413,22 +443,39 @@ export default function GestorVendasConcluidas() {
                       <td className="px-4 py-3 text-right text-gray-700">{units}</td>
                       <td className="px-4 py-3 text-right font-semibold text-gray-900">{money(order.total)}</td>
                       <td className="px-4 py-3">
-                        <StatusBadge status={order.dispatchStatus || "A ENVIAR"} />
+                        <StatusBadge status={order.dispatchStatus || "A ENVIAR"} estornada={order.estornada} />
                       </td>
                       <td className="px-4 py-3">
-                        {isSent(order.dispatchStatus) ? null : (
-                          <button
-                            type="button"
-                            className="rounded bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700"
-                            style={{ color: "#ffffff", backgroundColor: "#2563eb" }}
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              openConference(order.id);
-                            }}
-                          >
-                            Conferência
-                          </button>
-                        )}
+                        <div className="flex flex-wrap gap-2">
+                          {isSent(order.dispatchStatus) || order.estornada ? null : (
+                            <button
+                              type="button"
+                              className="rounded bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700"
+                              style={{ color: "#ffffff", backgroundColor: "#2563eb" }}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                openConference(order.id);
+                              }}
+                            >
+                              Conferência
+                            </button>
+                          )}
+                          {order.estornada ? (
+                            <span className="px-1 py-1.5 text-xs font-semibold text-red-700">Estornada</span>
+                          ) : (
+                            <button
+                              type="button"
+                              className="rounded border border-red-300 px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-50 disabled:opacity-50"
+                              disabled={acting}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                void estornar(order.id);
+                              }}
+                            >
+                              Estornar venda
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   );
@@ -452,7 +499,7 @@ export default function GestorVendasConcluidas() {
               <p className="text-sm text-gray-600">Fechado {when(conference.closedAt || conference.createdAt)}</p>
             </div>
             <div className="flex items-center gap-3">
-              <StatusBadge status={conference.dispatchStatus || "A ENVIAR"} />
+              <StatusBadge status={conference.dispatchStatus || "A ENVIAR"} estornada={conference.estornada} />
               <button type="button" className="text-gray-500 hover:text-gray-800" aria-label="Fechar" onClick={() => setConferenceId("")}>
                 <X size={22} />
               </button>
@@ -524,6 +571,10 @@ export default function GestorVendasConcluidas() {
               </div>
               <p className="mt-3 text-sm font-semibold text-gray-800">
                 Itens: {conference.lines.reduce((sum, line) => sum + Math.max(readsOf(conference, line), serialsOf(conference, line).length), 0)}/
+                {conference.lines.reduce((sum, line) => sum + Number(line.qty || 0), 0)}
+              </p>
+              <p className="mt-1 text-sm font-semibold text-gray-800">
+                imeis/serial: {conference.lines.reduce((sum, line) => sum + serialsOf(conference, line).length, 0)}/
                 {conference.lines.reduce((sum, line) => sum + Number(line.qty || 0), 0)}
               </p>
             </div>
@@ -611,6 +662,13 @@ export default function GestorVendasConcluidas() {
                   Concluir conferência
                 </button>
               </div>
+              {conference.blockers.length ? (
+                <ul className="mt-3 space-y-1 text-sm text-amber-800">
+                  {conference.blockers.map((item) => (
+                    <li key={item}>{item}</li>
+                  ))}
+                </ul>
+              ) : null}
             </div>
           </div>
           <label className="mt-4 block text-sm font-semibold text-gray-800" htmlFor="order-obs">
@@ -646,7 +704,35 @@ export default function GestorVendasConcluidas() {
                 Aberto {when(order.createdAt)} · Fechado {when(order.closedAt)}
               </p>
             </div>
-            <p className="text-2xl font-bold text-gray-900">{money(order.total)}</p>
+            <div className="text-right">
+              <p className="text-2xl font-bold text-gray-900">{money(order.total)}</p>
+              <button
+                type="button"
+                className="mt-2 rounded px-3 py-1.5 text-xs font-semibold text-white"
+                style={{ color: "#ffffff", backgroundColor: "#111111" }}
+                onClick={() => {
+                  setZebraNotice("");
+                  printNotinha({
+                    code: orderCode(order.id),
+                    issuedAt: when(order.closedAt || order.createdAt),
+                    seller: "Black Rabbit",
+                    clientName: order.client?.name || "Cliente",
+                    clientMeta: [order.client?.username, order.address?.cidade].filter(Boolean).join(" · "),
+                    lines: order.lines.map((line) => ({
+                      code: line.code || "",
+                      name: line.name || "",
+                      qty: `${line.qty} un`,
+                      amount: money(Number(line.price || 0) * Number(line.qty || 0)),
+                    })),
+                    total: "",
+                    printedAt: "",
+                  }).catch((err: Error) => setZebraNotice(err.message || "Não foi para a impressora."));
+                }}
+              >
+                Imprimir notinha
+              </button>
+              {zebraNotice ? <p className="mt-1 text-xs text-gray-600">{zebraNotice}</p> : null}
+            </div>
           </div>
 
           <div className="mb-4 grid gap-3 md:grid-cols-2">

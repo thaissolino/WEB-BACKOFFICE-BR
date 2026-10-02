@@ -5,6 +5,7 @@ import { usePermissionStore } from "../../../store/permissionsStore";
 interface TabsProps {
   activeTab: TabType;
   setActiveTab: (tab: TabType) => void;
+  allowed?: string[];
 }
 
 const allTabs = [
@@ -58,7 +59,7 @@ const allTabs = [
   { id: "relatorios", icon: <ChartBar className="mr-2" size={16} />, label: "Relatórios", permissionKey: "RELATORIOS" },
 ];
 
-export function Tabs({ activeTab, setActiveTab }: TabsProps) {
+export function Tabs({ activeTab, setActiveTab, allowed }: TabsProps) {
   const { permissions, user } = usePermissionStore();
 
   const canShowTab = (key: string | null): boolean => {
@@ -83,7 +84,7 @@ export function Tabs({ activeTab, setActiveTab }: TabsProps) {
   return (
     <div className="mb-6 flex flex-wrap gap-2">
       {allTabs
-        .filter((tab) => canShowTab(tab.permissionKey))
+        .filter((tab) => (!allowed || allowed.includes(tab.id)) && canShowTab(tab.permissionKey))
         .map((tab) => (
           <button
             key={tab.id}
