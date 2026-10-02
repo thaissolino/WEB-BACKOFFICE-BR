@@ -214,12 +214,12 @@ function Venda() {
   const [products, setProducts] = useState<CatalogProduct[]>([]);
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("Todas");
-  const [stockFilter, setStockFilter] = useState<"todos" | "com">("todos");
   const [storeCategories, setStoreCategories] = useState<StoreCategory[]>([]);
   const [lines, setLines] = useState<CartLine[]>([]);
   const [address, setAddress] = useState<Address>(EMPTY_ADDRESS);
   const [observacao, setObservacao] = useState("");
   const [ready, setReady] = useState(false);
+  const [confirmClose, setConfirmClose] = useState(false);
   const [error, setError] = useState("");
   const hadOpen = useRef(false);
   const closing = useRef(false);
@@ -308,15 +308,20 @@ function Venda() {
       .filter((item) => item.id !== "Todas" && item.id !== "papelaria" && item.name.toLowerCase() !== "papelaria")
       .map((item) => {
         const inCategory = products.filter(
-          (product) => product.price > 0 && (product.categoryId === item.id || product.category === item.name),
+          (product) =>
+            product.price > 0 &&
+            product.stockQuantity > 0 &&
+            (product.categoryId === item.id || product.category === item.name),
         );
         const sample = inCategory.find((product) => product.photoFileId) || inCategory[0];
         return {
           ...item,
           productId: sample?.id || "",
           photoFileId: sample?.photoFileId || null,
+          inStock: inCategory.length,
         };
-      });
+      })
+      .filter((item) => item.inStock > 0);
   }, [categories, products]);
 
   const showCategories = category === "Todas" && !query.trim();
@@ -327,7 +332,7 @@ function Venda() {
     const matchesQuery = text.includes(query.trim().toLowerCase());
     const matchesCategory =
       category === "Todas" || item.categoryId === category || item.category === category;
-    const matchesStock = stockFilter === "todos" || item.stockQuantity > 0;
+    const matchesStock = item.stockQuantity > 0;
     return matchesQuery && matchesCategory && matchesStock;
   });
 
@@ -359,9 +364,11 @@ function Venda() {
     try {
       await api.post("/clients/pre-vendas/fechar", payload);
       setLines([]);
+      setConfirmClose(false);
       navigate("/client/pedidos/historico");
     } catch (err) {
       closing.current = false;
+      setConfirmClose(false);
       const parsed = parseError(err);
       setError(parsed.friend || parsed.message || "Não foi possível gravar o pedido fechado.");
     }
@@ -402,10 +409,7 @@ function Venda() {
               <button type="button" onClick={() => { setCategory("Todas"); setQuery(""); }}>
                 Categorias
               </button>
-              <button type="button" aria-pressed={stockFilter === "todos"} onClick={() => setStockFilter("todos")}>
-                Todos
-              </button>
-              <button type="button" aria-pressed={stockFilter === "com"} onClick={() => setStockFilter("com")}>
+              <button type="button" aria-pressed="true">
                 Com estoque
               </button>
             </div>
@@ -487,10 +491,44 @@ function Venda() {
           </div>
         ))}
         {cartTotal(lines) > 0 ? <p className="loja-money">Total {money(cartTotal(lines))}</p> : null}
-        <button type="button" className="loja-btn primary" onClick={finish} disabled={!lines.length}>
+        <button type="button" className="loja-btn primary" onClick={() => setConfirmClose(true)} disabled={!lines.length}>
           Fechar pedido
         </button>
       </aside>
+      {confirmClose ? (
+        <div className="loja-confirm" role="presentation" onClick={() => setConfirmClose(false)}>
+          <div
+            className="loja-confirm-card"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="loja-confirm-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <h2 id="loja-confirm-title">Fechar pedido?</h2>
+            <p>
+              {lines.reduce((sum, line) => sum + line.qty, 0)}{" "}
+              {lines.reduce((sum, line) => sum + line.qty, 0) === 1 ? "item" : "itens"}
+              {cartTotal(lines) > 0 ? ` · Total ${money(cartTotal(lines))}` : ""}
+            </p>
+            <ul>
+              {lines.map((line) => (
+                <li key={line.id}>
+                  <span>{line.name}</span>
+                  <strong>{line.qty}</strong>
+                </li>
+              ))}
+            </ul>
+            <div className="loja-confirm-actions">
+              <button type="button" className="loja-btn" onClick={() => setConfirmClose(false)}>
+                Voltar
+              </button>
+              <button type="button" className="loja-btn primary" onClick={finish}>
+                Confirmar
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
