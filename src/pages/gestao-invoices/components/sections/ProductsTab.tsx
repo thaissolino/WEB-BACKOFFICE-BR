@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { Plus, Edit, Ban, RotateCcw, Boxes, Loader2, Search } from "lucide-react";
+import { Plus, Ban, RotateCcw, Boxes, Loader2, Search, Settings } from "lucide-react";
 import Swal from "sweetalert2";
 import { api } from "../../../../services/api";
 import { sameProductCode } from "../utils/productBarcode";
@@ -12,6 +12,9 @@ export interface Product {
   code: string;
   priceweightAverage: number;
   weightAverage: number;
+  salePrice?: number;
+  costPrice?: number;
+  stockQuantity?: number;
   description: string;
   active?: boolean;
   photoFileId?: string | null;
@@ -135,7 +138,10 @@ export function ProductsTab() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
   const [showInactive, setShowInactive] = useState(false);
-  const [editingCell, setEditingCell] = useState<{ id: string; field: "price" | "weight" } | null>(null);
+  const [editingCell, setEditingCell] = useState<{
+    id: string;
+    field: "price" | "weight" | "sale" | "cost" | "stock";
+  } | null>(null);
   const [editingValue, setEditingValue] = useState("");
   const { setOpenNotification } = useNotification();
   const { isLoading: isActionLoading, executeAction } = useActionLoading();
@@ -436,9 +442,18 @@ export function ProductsTab() {
     });
   };
 
-  const startCellEdit = (product: Product, field: "price" | "weight") => {
+  const startCellEdit = (product: Product, field: "price" | "weight" | "sale" | "cost" | "stock") => {
     if (isActionLoading) return;
-    const current = field === "price" ? product.priceweightAverage : product.weightAverage;
+    const current =
+      field === "price"
+        ? product.priceweightAverage
+        : field === "weight"
+          ? product.weightAverage
+          : field === "sale"
+            ? product.salePrice || 0
+            : field === "cost"
+              ? product.costPrice || 0
+              : product.stockQuantity || 0;
     setEditingCell({ id: product.id, field });
     setEditingValue(current === 0 ? "" : String(current));
   };
@@ -456,8 +471,17 @@ export function ProductsTab() {
       return;
     }
 
-    const payload =
-      editingCell.field === "price"
+    const saleField =
+      editingCell.field === "sale"
+        ? "salePrice"
+        : editingCell.field === "cost"
+          ? "costPrice"
+          : editingCell.field === "stock"
+            ? "stockQuantity"
+            : null;
+    const payload = saleField
+      ? { [saleField]: parsed }
+      : editingCell.field === "price"
         ? { priceweightAverage: parsed }
         : { weightAverage: parsed };
     const previous = { ...product };
@@ -468,7 +492,8 @@ export function ProductsTab() {
     cancelCellEdit();
 
     try {
-      await api.patch(`/invoice/product/${product.id}`, payload);
+      if (saleField) await api.put(`/clients/products/${product.id}`, payload);
+      else await api.patch(`/invoice/product/${product.id}`, payload);
       window.dispatchEvent(new Event("productsUpdated"));
     } catch (error) {
       console.error("Erro ao atualizar produto:", error);
@@ -639,6 +664,15 @@ export function ProductsTab() {
                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                   Código
                 </th>
+                <th className="px-6 py-3 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider" title="Clique duas vezes no valor para editar">
+                  Preço de venda
+                </th>
+                <th className="px-6 py-3 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider" title="Clique duas vezes no valor para editar">
+                  Preço de custo
+                </th>
+                <th className="px-6 py-3 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider" title="Clique duas vezes no valor para editar">
+                  Estoque
+                </th>
                 <th
                   className="px-6 py-3 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider"
                   title="Clique duas vezes no valor para editar"
@@ -659,7 +693,7 @@ export function ProductsTab() {
             <tbody className="bg-white divide-y divide-gray-100">
               {products.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-4 text-center text-gray-500">
+                  <td colSpan={10} className="px-6 py-4 text-center text-gray-500">
                     {isLoading
                       ? "Carregando..."
                       : searchInput.trim()
@@ -691,6 +725,47 @@ export function ProductsTab() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{product.name}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{product.code}</td>
+                      {(
+                        [
+                          ["sale", (product.salePrice || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" }), "preço de venda"],
+                          ["cost", (product.costPrice || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" }), "preço de custo"],
+                          ["stock", String(product.stockQuantity || 0), "estoque"],
+                        ] as const
+                      ).map(([field, text, label]) => (
+                        <td
+                          key={field}
+                          className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right"
+                          onDoubleClick={() => startCellEdit(product, field)}
+                          title={`Clique duas vezes para editar o ${label}`}
+                        >
+                          {editingCell?.id === product.id && editingCell.field === field ? (
+                            <input
+                              autoFocus
+                              type="text"
+                              inputMode="decimal"
+                              value={editingValue}
+                              onChange={(e) => {
+                                const value = e.target.value.replace(",", ".");
+                                if (/^\d*\.?\d{0,2}$/.test(value) || value === "") setEditingValue(value);
+                              }}
+                              onBlur={() => commitCellEdit(product)}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") {
+                                  e.preventDefault();
+                                  commitCellEdit(product);
+                                }
+                                if (e.key === "Escape") {
+                                  e.preventDefault();
+                                  cancelCellEdit();
+                                }
+                              }}
+                              className="w-24 ml-auto text-right border border-blue-400 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                            />
+                          ) : (
+                            <span className="cursor-text">{text}</span>
+                          )}
+                        </td>
+                      ))}
                       <td
                         className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right"
                         onDoubleClick={() => startCellEdit(product, "price")}
@@ -762,12 +837,13 @@ export function ProductsTab() {
                       <td className="px-6 py-4 text-right text-sm font-medium">
                         <div className="flex flex-wrap justify-end gap-2">
                           <button
+                            type="button"
                             onClick={() => handleEdit(product)}
-                            className="rounded-lg border border-blue-200 px-2 py-1 text-xs font-semibold text-blue-700 hover:bg-blue-50"
+                            className="rounded-lg border border-gray-300 p-1.5 text-gray-700 hover:bg-gray-100"
+                            title="Abrir produto"
                             disabled={isActionLoading}
                           >
-                            <Edit size={14} className="mr-1 inline" />
-                            Alterar
+                            <Settings size={16} />
                           </button>
                           <button
                             onClick={() => setProductsActive([product.id], showInactive)}

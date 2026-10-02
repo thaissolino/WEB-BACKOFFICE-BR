@@ -2,6 +2,7 @@ import FilterPage from "../pdv/FilterPage"
 import CadastroShell from "../cadastros/CadastroShell"
 import { useNavigate } from "react-router-dom"
 import { FormEvent, useState } from "react"
+import { api } from "../../../services/api"
 import { FormRow } from "../cadastros/catalog/FormBits"
 import { createCatalog, listCatalog } from "../cadastros/catalog/catalogApi"
 import { parseError } from "../../../services/api"
@@ -76,6 +77,40 @@ export function RelatorioCaixa() {
   )
 }
 export function RelatorioContaCorrente() {
+  const [rows, setRows] = useState<string[][]>([])
+  const [hint, setHint] = useState("Carregando o caixa…")
+
+  useEffect(() => {
+    api
+      .get("/clients/conta")
+      .then(({ data }) => {
+        const balance = Number(data?.balance) || 0
+        const lines = Array.isArray(data?.lines) ? data.lines : []
+        setRows(
+          lines.map((line: { date: string; description: string; value: number; balance: number }) => {
+            const amount = Number(line.value) || 0
+            const money = (value: number) => value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
+            return [
+              new Date(line.date).toLocaleString("pt-BR"),
+              line.description || "—",
+              amount < 0 ? money(Math.abs(amount)) : "",
+              amount > 0 ? money(amount) : "",
+              money(Number(line.balance) || 0),
+            ]
+          }),
+        )
+        setHint(
+          lines.length
+            ? `Saldo ${balance.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}. Valor negativo é o que você deve.`
+            : "Nenhum lançamento no caixa.",
+        )
+      })
+      .catch(() => {
+        setRows([])
+        setHint("Não foi possível abrir o caixa.")
+      })
+  }, [])
+
   return (
     <FilterPage
       title="RELATÓRIO DE CONTA CORRENTE"
@@ -84,6 +119,8 @@ export function RelatorioContaCorrente() {
         { key: "fim", label: "Data fim", kind: "date" },
       ]}
       columns={["Data", "Histórico", "Débito", "Crédito", "Saldo"]}
+      rows={rows}
+      hint={hint}
     />
   )
 }
@@ -280,6 +317,30 @@ export function TransferenciaLojas() {
   )
 }
 export function TransferenciasList({ title }: { title: string }) {
+  const recebidas = title.includes("RECEBID") && title.includes("CONCLU")
+  const estornadas = title.includes("ESTORNAD")
+  const kind = estornadas ? "estornadas" : recebidas ? "recebidas" : ""
+  const [rows, setRows] = useState<string[][]>([])
+
+  useEffect(() => {
+    if (!kind) return
+    api
+      .get("/clients/transferencias", { params: { kind } })
+      .then(({ data }) => {
+        const orders = Array.isArray(data?.orders) ? data.orders : []
+        setRows(
+          orders.map((order: { code: string; date: string; state: string; total: number }) => [
+            order.code,
+            "Esta loja",
+            new Date(order.date).toLocaleString("pt-BR"),
+            order.state,
+            Number(order.total || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" }),
+          ]),
+        )
+      })
+      .catch(() => setRows([]))
+  }, [kind])
+
   return (
     <FilterPage
       title={title}
@@ -288,6 +349,8 @@ export function TransferenciasList({ title }: { title: string }) {
         { key: "loja", label: "Loja" },
       ]}
       columns={["Código", "Loja Destino", "Data", "Estado", "Total"]}
+      rows={kind ? rows : undefined}
+      hint={kind ? "Nenhum pedido neste painel." : undefined}
     />
   )
 }

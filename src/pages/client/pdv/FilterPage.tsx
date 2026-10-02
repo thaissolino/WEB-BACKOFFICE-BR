@@ -18,6 +18,7 @@ export type FilterPageProps = {
   submitLabel?: string
   hint?: string
   extra?: ReactNode
+  rows?: string[][]
 }
 
 export default function FilterPage({
@@ -28,6 +29,7 @@ export default function FilterPage({
   submitLabel = "Buscar",
   hint,
   extra,
+  rows,
 }: FilterPageProps) {
   const navigate = useNavigate()
 
@@ -87,10 +89,22 @@ export default function FilterPage({
                   ))}
                 </tr>
               </thead>
-              <tbody />
+              <tbody>
+                {(rows || []).map((row, index) => (
+                  <tr key={`${row[0]}-${index}`}>
+                    {row.map((cell, cellIndex) => (
+                      <td key={cellIndex}>{cell}</td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
             </table>
           </div>
-          <p className="pdv-cad-kicker">{hint || "Nenhum registro para o filtro atual."}</p>
+          {rows && rows.length ? (
+            hint ? <p className="pdv-cad-kicker">{hint}</p> : null
+          ) : (
+            <p className="pdv-cad-kicker">{hint || "Nenhum registro para o filtro atual."}</p>
+          )}
         </div>
       </section>
     </CadastroShell>

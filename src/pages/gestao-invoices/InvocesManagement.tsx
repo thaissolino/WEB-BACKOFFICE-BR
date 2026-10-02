@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import "../gestor/gestao-pages.css";
 import { Tabs } from "./layout/Tabs";
 import { InvoicesTab } from "./components/sections/InvoicesTab";
@@ -46,7 +47,33 @@ export const permissionTabMap: Record<string, TabType> = {
   CAIXAS_BR_PERMITIDOS: "caixas-brl",
 };
 
-export default function InvocesManagement() {
+export type GestaoArea = "cadastro" | "compras" | "caixas";
+
+const AREA_TABS: Record<GestaoArea, TabType[]> = {
+  cadastro: ["products", "suppliers", "carriers", "others"],
+  compras: ["invoices", "media-dolar", "relatorios", "shopping-lists", "imei-search", "lost-products"],
+  caixas: ["caixas", "caixas-brl"],
+};
+
+const AREA_COPY: Record<GestaoArea, { title: string; subtitle: string }> = {
+  cadastro: {
+    title: "Cadastro",
+    subtitle: "Produtos, fornecedores, freteiros e outros",
+  },
+  compras: {
+    title: "Compras",
+    subtitle: "Invoices, média dólar, relatórios, lista de compras e busca de IMEI",
+  },
+  caixas: {
+    title: "Gestão de caixas",
+    subtitle: "Caixas e caixas BR",
+  },
+};
+
+export default function InvocesManagement({ area = "compras" }: { area?: GestaoArea }) {
+  const allowed = AREA_TABS[area];
+  const [searchParams] = useSearchParams();
+  const aba = searchParams.get("aba") as TabType | null;
   const [activeTab, setActiveTab] = useState<TabType>("");
   const { getPermissions, permissions, user } = usePermissionStore();
   const defaultEmptyInvoice = (): Invoice => ({
@@ -146,21 +173,22 @@ export default function InvocesManagement() {
 
   useEffect(() => {
     setActiveTab((current) => {
-      if (current) return current;
-      if (user?.role === "MASTER") return "invoices";
+      if (aba && allowed.includes(aba)) return aba;
+      if (current && allowed.includes(current)) return current;
+      if (user?.role === "MASTER") return allowed[0];
 
       const perms = permissions?.GERENCIAR_INVOICES;
-      if (!perms) return current;
+      if (!perms) return allowed[0];
 
-      for (const [permKey, tab] of Object.entries(permissionTabMap)) {
+      for (const tab of allowed) {
+        const permKey = Object.entries(permissionTabMap).find(([, value]) => value === tab)?.[0];
+        if (!permKey) return tab;
         const value = perms[permKey as keyof typeof perms];
-        if (Array.isArray(value) ? value.length > 0 : value === true) {
-          return tab;
-        }
+        if (Array.isArray(value) ? value.length > 0 : value === true) return tab;
       }
-      return current;
+      return allowed[0];
     });
-  }, [permissions, user]);
+  }, [permissions, user, area, aba]);
 
   const canShowTab = (key: string): boolean => {
     if (user?.role === "MASTER") return true;
@@ -181,11 +209,11 @@ export default function InvocesManagement() {
         <div className="gestao-page">
           <div className="w-full px-2 py-4">
             <header className="mb-4">
-              <h1 className="text-3xl font-bold text-blue-800">Sistema de Gestão de Invoices</h1>
-              <p className="text-gray-600">Controle completo de produtos, invoices e fornecedores</p>
+              <h1 className="text-3xl font-bold text-blue-800">{AREA_COPY[area].title}</h1>
+              <p className="text-gray-600">{AREA_COPY[area].subtitle}</p>
             </header>
 
-            <Tabs activeTab={activeTab} setActiveTab={setActiveTab} />
+            <Tabs activeTab={activeTab} setActiveTab={setActiveTab} allowed={allowed} />
 
             <div className="mt-4">
               {activeTab === "invoices" && canShowTab("INVOICES") && (

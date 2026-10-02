@@ -235,11 +235,20 @@ export function ReportsTab() {
       {/* Tabela de Relatórios */}
       {/* <InvoiceHistoryReport invoiceHistory={filteredInvoices} setInvoiceHistory={setInvoices} /> */}
       <InvoiceHistoryReport
-        printTable={showReceipts}
-        printInvoiceIds={showReceipts ? awaitingPrint.map((invoice) => invoice.id) : undefined}
+        printTable={showReceipts || filters.status === "finalized"}
+        reprint={filters.status === "finalized" && !showReceipts}
+        printInvoiceIds={
+          showReceipts
+            ? awaitingPrint.map((invoice) => invoice.id)
+            : filters.status === "finalized"
+              ? filteredInvoices.map((invoice) => invoice.id)
+              : undefined
+        }
         onLabelsPrinted={async ({ invoiceId, invoiceNumber }) => {
           const id = invoiceId || invoices.find((invoice) => String(invoice.number) === String(invoiceNumber))?.id;
           if (!id) return;
+          const previous = invoices.find((invoice) => invoice.id === id)?.labelsPrintedAt || null;
+          const reprint = filters.status === "finalized";
           const stamped = new Date().toISOString();
           setInvoices((current) =>
             current.map((invoice) => (invoice.id === id ? { ...invoice, labelsPrintedAt: stamped } : invoice)),
@@ -249,7 +258,9 @@ export function ReportsTab() {
           } catch (error) {
             console.error("Erro ao marcar impressão:", error);
             setInvoices((current) =>
-              current.map((invoice) => (invoice.id === id ? { ...invoice, labelsPrintedAt: null } : invoice)),
+              current.map((invoice) =>
+                invoice.id === id ? { ...invoice, labelsPrintedAt: reprint ? previous : null } : invoice,
+              ),
             );
           }
         }}

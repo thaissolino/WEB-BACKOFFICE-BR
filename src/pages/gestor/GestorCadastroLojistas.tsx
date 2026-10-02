@@ -245,8 +245,8 @@ export default function GestorCadastroLojistas() {
 
           <div className="mt-4 rounded border border-blue-100 bg-blue-50 px-3 py-2 text-sm text-blue-800">
             <Mail size={14} className="mr-1 inline" aria-hidden />
-            A senha é gerada automaticamente e enviada para o e-mail informado. No primeiro
-            acesso ao PDV o lojista precisa trocar a senha.
+            A senha é gerada automaticamente e enviada para o e-mail informado, junto com o
+            link do painel. No primeiro acesso o lojista precisa trocar a senha.
           </div>
 
           <button
