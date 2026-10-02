@@ -5,9 +5,136 @@
  * mas com a paleta de cores do PDV (paper/sheet/ink/accent do dashboard do lojista).
  */
 
-.app .content:has(.gestao-page),
-.pdv-chrome-main:has(.gestao-page) {
+.app .content:has(.gestao-page) {
   background: #f9fafb !important;
+}
+
+.pdv-chrome .gestao-page .bg-blue-50,
+.pdv-chrome .gestao-page .bg-blue-100,
+.pdv-chrome .gestao-page .bg-amber-50,
+.pdv-chrome .gestao-page .hover\:bg-gray-50:hover,
+.pdv-chrome .gestao-page .hover\:bg-blue-50:hover {
+  background-color: color-mix(in srgb, var(--chrome-filament) 18%, var(--chrome-elevated)) !important;
+  color: var(--chrome-ink) !important;
+}
+
+.pdv-chrome .gestao-page .bg-green-50,
+.pdv-chrome .gestao-page .bg-green-100 {
+  background-color: color-mix(in srgb, #3ddc97 16%, var(--chrome-elevated)) !important;
+  color: var(--chrome-ink) !important;
+}
+
+.pdv-chrome .gestao-page .bg-red-50 {
+  background-color: color-mix(in srgb, #e85d4c 16%, var(--chrome-elevated)) !important;
+  color: var(--chrome-ink) !important;
+}
+
+.pdv-chrome .gestao-page .border-blue-100,
+.pdv-chrome .gestao-page .border-green-100,
+.pdv-chrome .gestao-page .border-green-300,
+.pdv-chrome .gestao-page .border-red-300,
+.pdv-chrome .gestao-page .border-amber-100 {
+  border-color: color-mix(in srgb, var(--chrome-ink) 18%, transparent) !important;
+}
+
+.pdv-chrome .gestao-page .text-blue-900,
+.pdv-chrome .gestao-page .text-green-700,
+.pdv-chrome .gestao-page .text-green-800,
+.pdv-chrome .gestao-page .text-green-900,
+.pdv-chrome .gestao-page .text-red-700,
+.pdv-chrome .gestao-page .text-amber-800,
+.pdv-chrome .gestao-page .text-gray-400 {
+  color: var(--chrome-ink) !important;
+}
+
+.pdv-chrome .gestao-page .gestao-page__badge {
+  border-color: color-mix(in srgb, var(--chrome-filament) 45%, transparent);
+  background: color-mix(in srgb, var(--chrome-filament) 16%, var(--chrome-elevated));
+  color: var(--chrome-filament);
+}
+
+.pdv-chrome .gestao-page table thead.bg-gray-50,
+.pdv-chrome .gestao-page table thead.bg-gray-100 {
+  background-color: var(--chrome-panel) !important;
+  color: var(--chrome-muted) !important;
+}
+
+.pdv-chrome .gestao-page table tbody tr {
+  background-color: var(--chrome-elevated) !important;
+  color: var(--chrome-ink) !important;
+}
+
+.pdv-chrome .gestao-page table tbody tr:nth-child(even) {
+  background-color: color-mix(in srgb, var(--chrome-void) 42%, var(--chrome-elevated)) !important;
+}
+
+.pdv-chrome .gestao-page table tbody tr:hover,
+.pdv-chrome .gestao-page table tbody tr.bg-blue-50 {
+  background-color: color-mix(in srgb, var(--chrome-filament) 22%, var(--chrome-elevated)) !important;
+  color: var(--chrome-ink) !important;
+}
+
+.pdv-chrome .gestao-page {
+  background: transparent;
+  color: var(--chrome-ink);
+}
+
+.pdv-chrome .gestao-page__inner {
+  padding-top: 36px;
+}
+
+.pdv-chrome .gestao-page__header h1 {
+  line-height: 1.25;
+}
+
+.pdv-chrome .gestao-page h1,
+.pdv-chrome .gestao-page .text-blue-800,
+.pdv-chrome .gestao-page .text-blue-700,
+.pdv-chrome .gestao-page .text-blue-600,
+.pdv-chrome .gestao-page .text-blue-500 {
+  color: var(--chrome-filament) !important;
+}
+
+.pdv-chrome .gestao-page .bg-white,
+.pdv-chrome .gestao-page .bg-gray-50,
+.pdv-chrome .gestao-page .bg-gray-100 {
+  background-color: var(--chrome-elevated) !important;
+  color: var(--chrome-ink);
+}
+
+.pdv-chrome .gestao-page .border,
+.pdv-chrome .gestao-page .border-gray-100,
+.pdv-chrome .gestao-page .border-gray-200,
+.pdv-chrome .gestao-page .border-gray-300,
+.pdv-chrome .gestao-page .divide-gray-100 > :not([hidden]) ~ :not([hidden]),
+.pdv-chrome .gestao-page .divide-gray-200 > :not([hidden]) ~ :not([hidden]) {
+  border-color: var(--chrome-rule) !important;
+}
+
+.pdv-chrome .gestao-page .text-gray-500,
+.pdv-chrome .gestao-page .text-gray-600,
+.pdv-chrome .gestao-page .text-gray-700 {
+  color: var(--chrome-muted) !important;
+}
+
+.pdv-chrome .gestao-page .text-gray-800,
+.pdv-chrome .gestao-page .text-gray-900 {
+  color: var(--chrome-ink) !important;
+}
+
+.pdv-chrome .gestao-page .bg-blue-500,
+.pdv-chrome .gestao-page .bg-blue-600,
+.pdv-chrome .gestao-page .bg-blue-700 {
+  background-color: var(--chrome-filament) !important;
+  color: #1c1814 !important;
+}
+
+.pdv-chrome .gestao-page input,
+.pdv-chrome .gestao-page select,
+.pdv-chrome .gestao-page textarea {
+  background-color: var(--chrome-panel);
+  color: var(--chrome-ink);
+  border-color: var(--chrome-rule);
 }
 
 .gestao-page {

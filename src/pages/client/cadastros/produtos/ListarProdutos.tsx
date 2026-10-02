@@ -7,8 +7,10 @@ import {
   Filter,
   LayoutGrid,
   List,
+  Ban,
   Plus,
   Search,
+  Settings,
   X,
 } from "lucide-react";
 import { api, parseError } from "../../../../services/api";
@@ -306,6 +308,18 @@ function ProdutosBoard() {
     setApplied(last);
   }
 
+  async function inactivateProduct(item: PdvProduct) {
+    if (!window.confirm(`Inativar ${item.name}? Ele sai da lista principal.`)) return;
+    try {
+      await api.put(`/clients/products/${item.id}`, { name: item.name, active: false });
+      setRows((current) => current.filter((row) => row.id !== item.id));
+      setError("");
+    } catch (err) {
+      const parsed = parseError(err);
+      setError(parsed.friend || parsed.message || "Não foi possível inativar o produto.");
+    }
+  }
+
   function selectProduct(item: PdvProduct, openEstoque = false) {
     setSelectedId(item.id);
     const nextParams = new URLSearchParams(params);
@@ -581,6 +595,7 @@ function ProdutosBoard() {
                         <th>Estoque</th>
                         <th>Venda</th>
                         <th>Custo</th>
+                        <th>Ações</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -609,6 +624,33 @@ function ProdutosBoard() {
                           <td>{String(item.stockQuantity).replace(".", ",")}</td>
                           <td>{formatMoneyBr(item.salePrice || item.priceweightAverage)}</td>
                           <td>{formatMoneyBr(item.costPrice || item.priceweightAverage)}</td>
+                          <td>
+                            <div className="pdv-prod-row-actions">
+                              <button
+                                type="button"
+                                className="pdv-prod-gear"
+                                title="Abrir produto"
+                                aria-label={`Abrir ${item.name}`}
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  navigate(`/client/produtos/cadastrar?id=${item.id}`);
+                                }}
+                              >
+                                <Settings size={16} aria-hidden="true" />
+                              </button>
+                              <button
+                                type="button"
+                                className="pdv-prod-off"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  void inactivateProduct(item);
+                                }}
+                              >
+                                <Ban size={14} aria-hidden="true" />
+                                Inativar
+                              </button>
+                            </div>
+                          </td>
                         </tr>
                       ))}
                     </tbody>

@@ -73,7 +73,10 @@ function onLojistaScreen() {
 
 /** Na tela do lojista o token é sempre o dele, mesmo com o operador logado no mesmo navegador. */
 function tokenForRequest(url: string) {
-  if (onLojistaScreen() || isClientRequest(url)) return localStorage.getItem("@client:token");
+  // Na tela do lojista o token é o dele. No painel do operador, inclusive
+  // em /clients/products (preço de venda), vale o token do backoffice.
+  if (onLojistaScreen()) return localStorage.getItem("@client:token");
+  if (isClientRequest(url)) return localStorage.getItem("@backoffice:token") || localStorage.getItem("@client:token");
   return localStorage.getItem("@backoffice:token");
 }
 
