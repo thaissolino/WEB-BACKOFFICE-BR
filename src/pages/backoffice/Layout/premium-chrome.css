@@ -21,10 +21,10 @@
 
 .pdv-chrome {
   overflow: hidden;
-  --chrome-void: #3f352c;
-  --chrome-panel: #1a1714;
-  --chrome-elevated: #221e1a;
-  --chrome-filament: #e8a54b;
+  --chrome-void: #3a2a1c;
+  --chrome-panel: #4A351F;
+  --chrome-elevated: #211C17;
+  --chrome-filament: #C7862E;
   --chrome-aluminum: #d4cdc3;
   --chrome-ink: #f6f1ea;
   --chrome-muted: #b7aea2;
@@ -84,11 +84,24 @@
 }
 
 .pdv-chrome:not([data-theme="light"]) .pdv-chrome-main {
-  background: #463623 !important;
+  background: #4A351F !important;
 }
 
-.pdv-chrome:not([data-theme="light"]) .pdv-chrome-header {
-  background: var(--chrome-panel) !important;
+.pdv-chrome:not([data-theme="light"]) .pdv-chrome-header,
+.pdv-chrome[data-theme="light"] .pdv-chrome-header {
+  background: transparent !important;
+  border-bottom-color: transparent !important;
+  box-shadow: none;
+}
+
+.pdv-chrome:not([data-theme="light"]) .pdv-chrome-aside {
+  background: #30261D;
+}
+
+.pdv-chrome:not([data-theme="light"]) .pdv-chrome-nav a[aria-current="page"] {
+  background: #8a6844;
+  color: #F5F1EA;
+  box-shadow: none;
 }
 
 .pdv-chrome-header-left,
@@ -169,7 +182,7 @@
 }
 
 .pdv-chrome:not([data-theme="light"]) .pdv-chrome-aside {
-  background: #3f352c;
+  background: #30261D;
 }
 
 .pdv-chrome-brand {
@@ -213,6 +226,12 @@
   background: transparent;
 }
 
+.pdv-chrome-module {
+  height: 1px;
+  margin: 16px 12px 8px;
+  background: var(--chrome-rule);
+}
+
 .pdv-chrome-group {
   margin: 18px 8px 6px;
   font-family: var(--font-body);
@@ -252,6 +271,7 @@
 .pdv-chrome-sub summary {
   display: flex;
   align-items: center;
+  gap: 10px;
   width: 100%;
   box-sizing: border-box;
   min-height: 44px;

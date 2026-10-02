@@ -3846,7 +3846,7 @@ export function ShoppingListsTab() {
                         ? "rgba(34, 197, 94, 0.1)"
                         : list.status === "comprando"
                         ? "rgba(234, 179, 8, 0.1)"
-                        : "rgba(255, 255, 255, 0.5)",
+                        : "transparent",
                   }}
                 >
                   <div className="flex-1 flex items-start gap-3">
