@@ -37,6 +37,13 @@ type ConferenceRead = {
   at: string;
 };
 
+type ImeiSuggestion = {
+  imei: string;
+  productName: string;
+  invoiceNumber: string;
+  code: string;
+};
+
 type ClosedSale = {
   id: string;
   lines: Line[];
@@ -70,6 +77,21 @@ function orderCode(id: string) {
   return id.slice(0, 8).toUpperCase();
 }
 
+function readsOf(order: ClosedSale, line: Line) {
+  const code = (line.code || "").trim().toUpperCase();
+  return (order.conference?.reads || []).filter((read) => (read.code || "").trim().toUpperCase() === code).length;
+}
+
+function serialsOf(order: ClosedSale, line: Line) {
+  const code = (line.code || "").trim().toUpperCase();
+  const linked = (order.devices || [])
+    .filter((device) => (device.code || "").trim().toUpperCase() === code)
+    .map((device) => device.imei)
+    .filter(Boolean);
+  if (linked.length) return linked;
+  return (line.imeis || []).filter(Boolean);
+}
+
 function shown(value?: string | null) {
   const text = (value || "").trim();
   return text || "—";
@@ -92,9 +114,12 @@ function beep(ok: boolean) {
   }
 }
 
-function readCount(order: ClosedSale, code: string) {
-  const key = code.trim().toUpperCase();
-  return order.conference.reads.filter((read) => read.code.trim().toUpperCase() === key).length;
+function writtenNote(value: string) {
+  return (value || "")
+    .replace(/\d{8,}/g, " ")
+    .replace(/[ \t]{2,}/g, " ")
+    .replace(/[ \t]*\n[ \t]*/g, "\n")
+    .trim();
 }
 
 function statusLabel(status?: string) {
@@ -126,13 +151,17 @@ export default function GestorVendasConcluidas() {
   const [scanCode, setScanCode] = useState("");
   const [imeiCode, setImeiCode] = useState("");
   const [obsDraft, setObsDraft] = useState("");
-  const [openLines, setOpenLines] = useState<Record<string, boolean>>({});
+  const [imeiSuggestions, setImeiSuggestions] = useState<ImeiSuggestion[]>([]);
+  const [imeiMenuOpen, setImeiMenuOpen] = useState(false);
+  const imeiBoxRef = useRef<HTMLDivElement>(null);
   const obsFocused = useRef(false);
   const [notice, setNotice] = useState("");
   const [acting, setActing] = useState(false);
+  const [openSerials, setOpenSerials] = useState<Record<string, boolean>>({});
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const scanRef = useRef<HTMLInputElement>(null);
+  const imeiRef = useRef<HTMLInputElement>(null);
 
   async function load(term = search) {
     setIsLoading(true);
@@ -183,24 +212,49 @@ export default function GestorVendasConcluidas() {
 
   useEffect(() => {
     if (!conference || obsFocused.current) return;
-    setObsDraft(conference.observacao || "");
+    setObsDraft(writtenNote(conference.observacao || ""));
   }, [conference]);
+
+  useEffect(() => {
+    const close = (event: MouseEvent) => {
+      if (imeiBoxRef.current && !imeiBoxRef.current.contains(event.target as Node)) {
+        setImeiMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, []);
 
   function openConference(id: string) {
     setSelectedId(id);
     setConferenceId(id);
     setNotice("");
     setScanCode("");
-    const order = orders.find((item) => item.id === id);
-    if (order && !isSent(order.dispatchStatus)) {
-      window.setTimeout(() => act("autofill", undefined, id), 0);
+    setImeiCode("");
+    setImeiMenuOpen(false);
+    void loadImeiSuggestions(id);
+  }
+
+  async function loadImeiSuggestions(id: string) {
+    try {
+      const { data } = await api.get(`/backoffice/vendas-concluidas/${id}/imeis`);
+      setImeiSuggestions((data?.imeis || []) as ImeiSuggestion[]);
+    } catch {
+      setImeiSuggestions([]);
     }
+  }
+
+  function pickImei(imei: string) {
+    setImeiCode(imei);
+    setImeiMenuOpen(false);
+    act("imei", imei);
   }
 
   function saveObs() {
     if (!conference) return;
-    if ((conference.observacao || "") === obsDraft) return;
-    act("obs", obsDraft);
+    const note = writtenNote(obsDraft);
+    if (writtenNote(conference.observacao || "") === note) return;
+    act("obs", note);
   }
 
   async function act(
@@ -221,8 +275,10 @@ export default function GestorVendasConcluidas() {
       setOrders((prev) => prev.map((item) => (item.id === order.id ? order : item)));
       if (action === "scan") setScanCode("");
       if (action === "imei") setImeiCode("");
-      if (action === "conclude") setNotice("Conferência concluída. O pedido foi para Concluído.");
-      else if (typeof data.notice === "string" && data.notice) setNotice(data.notice);
+      if (action === "conclude") {
+        setNotice("Conferência concluída. O pedido foi para Concluído.");
+      } else if (typeof data.notice === "string" && data.notice) setNotice(data.notice);
+      if (action === "imei" || action === "reset" || action === "autofill") void loadImeiSuggestions(id);
       if (action !== "reset" && action !== "obs" && action !== "autofill") beep(true);
     } catch (err) {
       const parsed = parseError(err);
@@ -230,9 +286,23 @@ export default function GestorVendasConcluidas() {
       beep(false);
     } finally {
       setActing(false);
-      if (action === "scan") scanRef.current?.focus();
+      if (action === "scan" || action === "reset") scanRef.current?.focus();
+      if (action === "imei") imeiRef.current?.focus();
     }
   }
+
+  const imeiQuery = imeiCode.replace(/[^a-z0-9]/gi, "").toUpperCase();
+  const takenImeis = new Set((conference?.conference.imeis || []).map((item) => item.trim().toUpperCase()));
+  const imeiMatches = imeiQuery
+    ? imeiSuggestions
+        .filter((item) => {
+          if (takenImeis.has(item.imei.trim().toUpperCase())) return false;
+          const serial = item.imei.replace(/[^a-z0-9]/gi, "").toUpperCase();
+          if (serial.includes(imeiQuery)) return true;
+          return `${item.productName} ${item.invoiceNumber}`.toUpperCase().includes(imeiQuery);
+        })
+        .slice(0, 12)
+    : [];
 
   const total = orders.reduce((sum, order) => sum + Number(order.total || 0), 0);
 
@@ -342,17 +412,19 @@ export default function GestorVendasConcluidas() {
                         <StatusBadge status={order.dispatchStatus || "A ENVIAR"} />
                       </td>
                       <td className="px-4 py-3">
-                        <button
-                          type="button"
-                          className="rounded bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700"
-                          style={{ color: "#ffffff", backgroundColor: "#2563eb" }}
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            openConference(order.id);
-                          }}
-                        >
-                          Conferência
-                        </button>
+                        {isSent(order.dispatchStatus) ? null : (
+                          <button
+                            type="button"
+                            className="rounded bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700"
+                            style={{ color: "#ffffff", backgroundColor: "#2563eb" }}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              openConference(order.id);
+                            }}
+                          >
+                            Conferência
+                          </button>
+                        )}
                       </td>
                     </tr>
                   );
@@ -402,7 +474,7 @@ export default function GestorVendasConcluidas() {
                   id="scan-code"
                   ref={scanRef}
                   className="mt-1 w-full rounded border border-gray-300 px-3 py-2 font-mono text-lg"
-                  placeholder="Bipe o código ou o IMEI do aparelho"
+                  placeholder="Bipe o código do produto"
                   value={scanCode}
                   disabled={acting || isSent(conference.dispatchStatus)}
                   onChange={(event) => setScanCode(event.target.value)}
@@ -415,17 +487,20 @@ export default function GestorVendasConcluidas() {
                     <tr>
                       <th className="px-3 py-2 font-semibold">Cód.</th>
                       <th className="px-3 py-2 font-semibold">Referência</th>
-                      <th className="px-3 py-2 font-semibold text-right">A separar</th>
-                      <th className="px-3 py-2 font-semibold text-right">Lidos</th>
+                      <th className="whitespace-nowrap px-3 py-2 font-semibold text-right">A separar</th>
+                      <th className="px-3 py-2 font-semibold text-right">Itens</th>
                       <th className="px-3 py-2 font-semibold text-right">Restante</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
                     {conference.lines.map((line) => {
-                      const lidos = readCount(conference, line.code);
+                      const lidos = Math.max(readsOf(conference, line), serialsOf(conference, line).length);
                       const restante = Math.max(0, Number(line.qty || 0) - lidos);
                       return (
-                        <tr key={line.id || `${line.code}-${line.name}`} className={restante === 0 ? "bg-green-50" : ""}>
+                        <tr
+                          key={line.id || `${line.code}-${line.name}`}
+                          style={restante === 0 && lidos > 0 ? { backgroundColor: "#bbf7d0" } : undefined}
+                        >
                           <td className="px-3 py-2 font-mono font-semibold">{shown(line.code)}</td>
                           <td className="px-3 py-2">{shown(line.name)}</td>
                           <td className="px-3 py-2 text-right">{line.qty}</td>
@@ -438,74 +513,75 @@ export default function GestorVendasConcluidas() {
                 </table>
               </div>
               <p className="mt-3 text-sm font-semibold text-gray-800">
-                Lidos: {conference.conference.reads.length}/
+                Itens: {(conference.conference.imeis || []).length}/
                 {conference.lines.reduce((sum, line) => sum + Number(line.qty || 0), 0)}
-              </p>
-              <p className="mt-2 text-sm text-gray-700">
-                <span className="font-semibold">Completos: </span>
-                {conference.lines
-                  .filter((line) => readCount(conference, line.code) >= Number(line.qty || 0))
-                  .map((line) => line.name)
-                  .join(", ") || "—"}
               </p>
             </div>
             <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-md">
               <form
                 onSubmit={(event) => {
                   event.preventDefault();
+                  setImeiMenuOpen(false);
                   act("imei", imeiCode);
                 }}
               >
-                <p className="text-sm font-semibold text-gray-800">IMEIs deste pedido</p>
-                {(conference.devices || []).length ? (
-                  <ul className="mt-2 space-y-2">
-                    {(conference.devices || []).map((device) => (
-                      <li key={device.imei} className="text-sm text-gray-900">
-                        <span className="font-mono">{device.imei}</span>
-                        {device.name ? (
-                          <span className="mt-0.5 block text-gray-700">
-                            {device.name} · código {device.code}
-                          </span>
-                        ) : (
-                          <span className="mt-0.5 block text-gray-500">Aparelho ainda não identificado no estoque</span>
-                        )}
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="mt-1 text-sm text-gray-600">
-                    Nenhum IMEI reservado. Pesquise o serial para identificar o aparelho.
-                  </p>
-                )}
-                <label className="mt-3 block text-sm font-semibold text-gray-800" htmlFor="imei-code">
+                <label className="block text-sm font-semibold text-gray-800" htmlFor="imei-code">
                   Pesquisar IMEI ou serial
                 </label>
-                <div className="mt-1 flex gap-2">
-                  <input
-                    id="imei-code"
-                    className="min-w-0 flex-1 rounded border border-gray-300 px-3 py-2 font-mono"
-                    placeholder="Digite para identificar o aparelho"
-                    value={imeiCode}
-                    disabled={acting || isSent(conference.dispatchStatus)}
-                    onChange={(event) => setImeiCode(event.target.value)}
-                    autoComplete="off"
-                  />
-                  <button
-                    type="submit"
-                    className="rounded border border-gray-300 px-3 py-2 text-sm font-semibold text-gray-800 hover:bg-gray-50 disabled:opacity-50"
-                    disabled={acting || isSent(conference.dispatchStatus)}
-                  >
-                    Identificar
-                  </button>
+                <div className="relative mt-1" ref={imeiBoxRef}>
+                  <div className="flex gap-2">
+                    <input
+                      id="imei-code"
+                      ref={imeiRef}
+                      className="min-w-0 flex-1 rounded border border-gray-300 px-3 py-2 font-mono"
+                      placeholder="Digite para identificar o aparelho"
+                      value={imeiCode}
+                      disabled={acting || isSent(conference.dispatchStatus)}
+                      onChange={(event) => {
+                        setImeiCode(event.target.value);
+                        setImeiMenuOpen(true);
+                      }}
+                      onFocus={() => {
+                        if (imeiCode.trim()) setImeiMenuOpen(true);
+                      }}
+                      autoComplete="off"
+                    />
+                    <button
+                      type="submit"
+                      className="rounded border border-gray-300 px-3 py-2 text-sm font-semibold text-gray-800 hover:bg-gray-50 disabled:opacity-50"
+                      disabled={acting || isSent(conference.dispatchStatus)}
+                    >
+                      Identificar
+                    </button>
+                  </div>
+                  {imeiMenuOpen && imeiQuery ? (
+                    <div className="mt-1 max-h-80 w-full overflow-y-auto rounded-xl border border-gray-200 bg-white shadow-lg">
+                      {imeiMatches.length === 0 ? (
+                        <p className="p-4 text-center text-sm text-gray-500">Nenhum IMEI encontrado</p>
+                      ) : (
+                        <ul>
+                          {imeiMatches.map((item) => (
+                            <li key={item.imei}>
+                              <button
+                                type="button"
+                                className="w-full border-b border-gray-100 px-4 py-3 text-left last:border-b-0 hover:bg-blue-50"
+                                onMouseDown={(event) => event.preventDefault()}
+                                onClick={() => pickImei(item.imei)}
+                              >
+                                <div className="font-mono text-sm font-semibold text-black">{item.imei}</div>
+                                <div className="mt-1 text-xs text-gray-700">
+                                  {item.productName}
+                                  {item.invoiceNumber ? ` • Invoice #${item.invoiceNumber}` : ""}
+                                </div>
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  ) : null}
                 </div>
               </form>
-              {!isSent(conference.dispatchStatus) && conference.blockers.length ? (
-                <div className="mt-3 rounded border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800" role="alert">
-                  {conference.blockers.map((item) => (
-                    <p key={item}>{item}</p>
-                  ))}
-                </div>
-              ) : null}
               {notice ? <p className="mt-3 text-sm font-semibold text-gray-800">{notice}</p> : null}
               <div className="mt-4 flex flex-wrap gap-2">
                 <button
@@ -519,24 +595,12 @@ export default function GestorVendasConcluidas() {
                 <button
                   type="button"
                   className="rounded bg-green-700 px-3 py-2 text-sm font-semibold text-white hover:bg-green-800 disabled:cursor-not-allowed disabled:bg-gray-300"
-                  disabled={acting || isSent(conference.dispatchStatus) || conference.blockers.length > 0}
+                  disabled={acting || isSent(conference.dispatchStatus) || conference.blockers.length > 0 || !(conference.conference.imeis || []).length}
                   onClick={() => act("conclude")}
                 >
                   Concluir conferência
                 </button>
               </div>
-              {conference.conference.reads.length ? (
-                <div className="mt-4">
-                  <p className="text-sm font-semibold text-gray-800">Logs de leituras</p>
-                  <ul className="mt-1 max-h-40 overflow-auto text-sm text-gray-700">
-                    {conference.conference.reads.map((read, index) => (
-                      <li key={`${read.at}-${index}`}>
-                        {when(read.at)} · {read.code} · {read.name}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ) : null}
             </div>
           </div>
           <label className="mt-4 block text-sm font-semibold text-gray-800" htmlFor="order-obs">
@@ -547,7 +611,7 @@ export default function GestorVendasConcluidas() {
             rows={3}
             className="mt-1 w-full resize-y rounded border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900"
             placeholder="Anote aqui. A mensagem fica salva neste pedido."
-            value={obsDraft}
+            value={writtenNote(obsDraft)}
             onChange={(event) => setObsDraft(event.target.value)}
             onFocus={() => {
               obsFocused.current = true;
@@ -605,33 +669,23 @@ export default function GestorVendasConcluidas() {
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {order.lines.map((line) => {
-                  const imeis = isSent(order.dispatchStatus) ? line.imeis || [] : [];
-                  const lineKey = line.id || `${line.code}-${line.name}`;
-                  const open = !!openLines[lineKey];
+                  const lineKey = `${order.id}:${line.id || `${line.code}-${line.name}`}`;
+                  const serials = serialsOf(order, line);
+                  const open = !!openSerials[lineKey];
                   return (
-                  <tr key={lineKey}>
+                  <tr
+                    key={lineKey}
+                    className={serials.length ? "cursor-pointer" : ""}
+                    onClick={() => {
+                      if (!serials.length) return;
+                      setOpenSerials((current) => ({ ...current, [lineKey]: !current[lineKey] }));
+                    }}
+                  >
                     <td className="px-3 py-2 font-mono text-gray-700">{shown(line.code)}</td>
                     <td className="px-3 py-2 font-medium text-gray-900">
-                      <div className="flex items-center gap-2">
-                        {imeis.length ? (
-                          <button
-                            type="button"
-                            className="inline-flex h-6 w-6 items-center justify-center rounded bg-gray-900 text-sm font-bold text-white"
-                            aria-expanded={open}
-                            aria-label={open ? "Fechar IMEIs" : "Abrir IMEIs"}
-                            onClick={() => setOpenLines((current) => ({ ...current, [lineKey]: !current[lineKey] }))}
-                          >
-                            {open ? "–" : "+"}
-                          </button>
-                        ) : null}
-                        <span>{shown(line.name)}</span>
-                      </div>
-                      {open && imeis.length ? (
-                        <ul className="mt-2 space-y-1 pl-8 font-mono text-sm text-gray-800">
-                          {imeis.map((serial) => (
-                            <li key={serial}>{serial}</li>
-                          ))}
-                        </ul>
+                      <div>{shown(line.name)}</div>
+                      {open && serials.length ? (
+                        <p className="mt-1 font-mono text-xs font-normal text-gray-600">{serials.join(", ")}</p>
                       ) : null}
                     </td>
                     <td className="px-3 py-2 text-right">{line.qty}</td>
@@ -646,10 +700,12 @@ export default function GestorVendasConcluidas() {
             </table>
           </div>
 
-          <p className="mt-4 text-sm text-gray-700">
-            <span className="font-semibold text-gray-900">Obs: </span>
-            {shown(order.observacao || order.address?.obs)}
-          </p>
+          {writtenNote(order.observacao || "") ? (
+            <p className="mt-4 text-sm text-gray-700">
+              <span className="font-semibold text-gray-900">Obs: </span>
+              {writtenNote(order.observacao || "")}
+            </p>
+          ) : null}
         </section>
       ))}
 

@@ -9,9 +9,7 @@ export function ModesPopover({ variant = "classic" }: { variant?: "classic" | "p
   const titleId = useId();
   const buttonRef = useRef<HTMLButtonElement | null>(null);
   const [open, setOpen] = useState(false);
-  const globalMode = useUiModeStore((state) => state.globalMode);
   const pages = useUiModeStore((state) => state.pages);
-  const setGlobalMode = useUiModeStore((state) => state.setGlobalMode);
   const setPageEnabled = useUiModeStore((state) => state.setPageEnabled);
   const isPremiumChrome = variant === "premium";
 
@@ -77,49 +75,11 @@ export function ModesPopover({ variant = "classic" }: { variant?: "classic" | "p
         <div className="modes-popover__head">
           <p className="modes-popover__kicker">GestorVix</p>
           <h2 className="modes-popover__title" id={titleId}>
-            Alterar modos
+            Layout oficial
           </h2>
           <p className="modes-popover__hint">
-            Clássico mantém o layout atual. Premium só entra onde a página estiver ligada.
-            Alternativo usa o visual claro estilo invoice com as cores do PDV nas telas de Gestão.
+            O visual oficial é o Premium. Abaixo você escolhe em quais páginas ele fica ligado.
           </p>
-
-          <div className="modes-popover__seg" role="group" aria-label="Modo global">
-            <button
-              type="button"
-              aria-pressed={globalMode === "classic"}
-              onClick={() => setGlobalMode("classic")}
-            >
-              Clássico
-            </button>
-            <button
-              type="button"
-              aria-pressed={globalMode === "premium"}
-              onClick={() => setGlobalMode("premium")}
-            >
-              Premium
-            </button>
-            <button
-              type="button"
-              aria-pressed={globalMode === "alternative"}
-              onClick={() => setGlobalMode("alternative")}
-            >
-              Alternativo
-            </button>
-          </div>
-
-          {globalMode === "classic" ? (
-            <p className="modes-popover__note">
-              Modo clássico ativo: todas as páginas usam o layout original, mesmo com o toggle da
-              página ligado.
-            </p>
-          ) : null}
-          {globalMode === "alternative" ? (
-            <p className="modes-popover__note">
-              Modo alternativo ativo: as telas de Gestão (produtos, fornecedores, freteiros e
-              lojistas) usam o layout claro com a paleta do PDV.
-            </p>
-          ) : null}
         </div>
 
         <p className="modes-popover__list-label">Páginas</p>

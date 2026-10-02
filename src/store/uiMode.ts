@@ -59,10 +59,10 @@ export const DEFAULT_PAGE_FLAGS: PageModeFlags = {
   stock: true,
 };
 
-export const UI_MODE_SCHEMA_VERSION = 4;
+export const UI_MODE_SCHEMA_VERSION = 5;
 
 export const DEFAULT_UI_MODE: UiModeSnapshot = {
-  globalMode: "classic",
+  globalMode: "premium",
   pages: { ...DEFAULT_PAGE_FLAGS },
 };
 
