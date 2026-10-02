@@ -92,6 +92,10 @@ function serialsOf(order: ClosedSale, line: Line) {
   return (line.imeis || []).filter(Boolean);
 }
 
+function serialList(serials: string[]) {
+  return serials.join(" | ");
+}
+
 function shown(value?: string | null) {
   const text = (value || "").trim();
   return text || "—";
@@ -494,7 +498,8 @@ export default function GestorVendasConcluidas() {
                   </thead>
                   <tbody className="divide-y divide-gray-100">
                     {conference.lines.map((line) => {
-                      const lidos = Math.max(readsOf(conference, line), serialsOf(conference, line).length);
+                      const serials = serialsOf(conference, line);
+                      const lidos = Math.max(readsOf(conference, line), serials.length);
                       const restante = Math.max(0, Number(line.qty || 0) - lidos);
                       return (
                         <tr
@@ -502,7 +507,12 @@ export default function GestorVendasConcluidas() {
                           style={restante === 0 && lidos > 0 ? { backgroundColor: "#bbf7d0" } : undefined}
                         >
                           <td className="px-3 py-2 font-mono font-semibold">{shown(line.code)}</td>
-                          <td className="px-3 py-2">{shown(line.name)}</td>
+                          <td className="px-3 py-2">
+                            <div>{shown(line.name)}</div>
+                            {serials.length ? (
+                              <p className="mt-1 font-mono text-xs font-normal text-gray-700">{serialList(serials)}</p>
+                            ) : null}
+                          </td>
                           <td className="px-3 py-2 text-right">{line.qty}</td>
                           <td className="px-3 py-2 text-right font-semibold">{lidos}</td>
                           <td className="px-3 py-2 text-right">{restante}</td>
@@ -513,7 +523,7 @@ export default function GestorVendasConcluidas() {
                 </table>
               </div>
               <p className="mt-3 text-sm font-semibold text-gray-800">
-                Itens: {(conference.conference.imeis || []).length}/
+                Itens: {conference.lines.reduce((sum, line) => sum + Math.max(readsOf(conference, line), serialsOf(conference, line).length), 0)}/
                 {conference.lines.reduce((sum, line) => sum + Number(line.qty || 0), 0)}
               </p>
             </div>
@@ -685,7 +695,7 @@ export default function GestorVendasConcluidas() {
                     <td className="px-3 py-2 font-medium text-gray-900">
                       <div>{shown(line.name)}</div>
                       {open && serials.length ? (
-                        <p className="mt-1 font-mono text-xs font-normal text-gray-600">{serials.join(", ")}</p>
+                        <p className="mt-1 font-mono text-xs font-normal text-gray-600">{serialList(serials)}</p>
                       ) : null}
                     </td>
                     <td className="px-3 py-2 text-right">{line.qty}</td>
