@@ -735,6 +735,442 @@
   background: #b3e5fc;
 }
 
+.pdv-cad-row-link {
+  cursor: pointer;
+}
+
+.pdv-cad-row-action {
+  width: 1%;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.pdv-cad-code {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.pdv-cad-chevron {
+  width: 7px;
+  height: 7px;
+  border-right: 2px solid var(--accent, #8b3d12);
+  border-bottom: 2px solid var(--accent, #8b3d12);
+  transform: rotate(-45deg);
+  flex: 0 0 auto;
+}
+
+.pdv-cad-chevron.is-open {
+  transform: rotate(45deg);
+  margin-top: -3px;
+}
+
+.pdv-cad-receive {
+  position: relative;
+  margin: 0 0 16px;
+  padding: 16px 44px 16px 16px;
+  border: 1px solid #e7e5e4;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.pdv-cad-receive-x {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #44403c;
+  font-size: 1.4rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.pdv-cad-premium {
+  background: var(--sheet);
+  border-color: var(--line);
+}
+
+.pdv-cad-premium h1 {
+  color: var(--ink);
+}
+
+.pdv-cad-premium .pdv-cad-filters {
+  border-color: var(--line);
+  background: var(--paper);
+}
+
+.pdv-cad-premium .pdv-cad-filters label {
+  color: var(--ink-soft);
+}
+
+.pdv-cad-premium .pdv-cad-filters input {
+  border-color: var(--line);
+  background: var(--sheet);
+  color: var(--ink);
+}
+
+.pdv-cad-premium .pdv-cad-table-wrap {
+  border-color: var(--line);
+  background: var(--sheet);
+}
+
+.pdv-cad-premium .pdv-cad-table th {
+  background: var(--paper);
+  color: var(--accent);
+  border-bottom-color: var(--line);
+}
+
+.pdv-cad-premium .pdv-cad-table td {
+  color: var(--ink);
+  border-bottom-color: var(--line);
+}
+
+.pdv-cad-premium .pdv-cad-table tbody tr:nth-child(even) {
+  background: #f7f4ee;
+}
+
+.pdv-cad-premium .pdv-cad-table tbody tr:hover,
+.pdv-cad-premium .pdv-cad-row-link:hover {
+  background: #f7ead6;
+}
+
+.pdv-cad-premium .pdv-cad-row-link td {
+  font-weight: 700;
+}
+
+.pdv-cad-premium .pdv-cad-row-open td {
+  background: #f7f4ee;
+  border-bottom: 0;
+}
+
+.pdv-cad-premium .pdv-cad-table tbody tr.pdv-cad-accordion:hover,
+.pdv-cad-premium .pdv-cad-table tbody tr.pdv-cad-accordion:hover > td {
+  background: #faf8f5;
+}
+
+.pdv-cad-premium .pdv-cad-table .pdv-cad-accordion .loja-table th,
+.pdv-cad-premium .pdv-cad-table .pdv-cad-accordion .loja-table td {
+  background: transparent;
+  color: var(--ink);
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  vertical-align: top;
+}
+
+.pdv-cad-premium .pdv-cad-price {
+  width: 8.5rem;
+  min-height: 32px;
+  padding: 0 8px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-weight: 700;
+  text-align: left;
+}
+
+.pdv-cad-premium .pdv-cad-price:hover,
+.pdv-cad-premium .pdv-cad-price:focus {
+  border-color: var(--line);
+  background: #fff;
+  outline: none;
+}
+
+.pdv-cad-premium .pdv-cad-table .pdv-cad-accordion .loja-table th {
+  color: var(--accent);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.pdv-cad-premium .pdv-cad-table .pdv-cad-accordion .loja-table tbody tr,
+.pdv-cad-premium .pdv-cad-table .pdv-cad-accordion .loja-table tbody tr:nth-child(even),
+.pdv-cad-premium .pdv-cad-table .pdv-cad-accordion .loja-table tbody tr:hover {
+  background: transparent;
+}
+
+.pdv-cad-premium .pdv-cad-accordion,
+.pdv-cad-premium .pdv-cad-accordion > td {
+  height: 0;
+}
+
+.pdv-cad-premium .pdv-cad-accordion > td {
+  padding: 0 12px 4px;
+  background: #faf8f5;
+  border-bottom: 1px solid #e6dfd4;
+  vertical-align: top;
+}
+
+.pdv-cad-premium .pdv-cad-accordion .loja-table,
+.pdv-cad-premium .pdv-cad-accordion .loja-table tbody,
+.pdv-cad-premium .pdv-cad-accordion .loja-table tr {
+  height: auto;
+}
+
+.pdv-cad-premium .pdv-cad-accordion .pdv-cad-receive {
+  margin: 2px 8px 8px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--sheet);
+  overflow: hidden;
+}
+
+.pdv-cad-premium .pdv-cad-receive {
+  margin: 4px 0 0;
+  padding: 4px 2px 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.pdv-cad-premium .pdv-cad-receive-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  margin: 0 0 18px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #e6dfd4;
+}
+
+.pdv-cad-premium .pdv-cad-receive-head p {
+  display: block;
+  margin: 0 0 2px;
+  font-size: 0.82rem;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+  color: #6f675f;
+}
+
+.pdv-cad-premium .pdv-cad-receive h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 2rem;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  color: #1a1511;
+}
+
+.pdv-cad-premium .pdv-cad-receive-x {
+  position: static;
+  width: auto;
+  height: auto;
+  margin-bottom: 2px;
+  padding: 8px 14px;
+  border: 1px solid #ddd4c6;
+  border-radius: 6px;
+  background: #fff;
+  box-shadow: none;
+  color: #1a1511 !important;
+  -webkit-text-fill-color: #1a1511 !important;
+  font-size: 0.92rem;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.pdv-cad-premium .pdv-cad-receive-x:hover {
+  background: #f7f4ee;
+}
+
+.pdv-cad-premium .pdv-cad-receive-near {
+  display: grid;
+  grid-template-columns: 7rem max-content 4.5rem 8.5rem max-content;
+  column-gap: 20px;
+  justify-content: start;
+  align-items: center;
+  width: max-content;
+  max-width: 100%;
+}
+
+.pdv-cad-premium .pdv-cad-receive-line {
+  display: contents;
+}
+
+.pdv-cad-premium .pdv-cad-receive-line > span {
+  display: flex;
+  align-items: center;
+  min-height: 40px;
+  color: var(--ink);
+  white-space: nowrap;
+}
+
+.pdv-cad-premium .pdv-cad-receive-line.is-head > span {
+  min-height: 32px;
+  color: var(--accent);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.pdv-cad-premium .pdv-cad-receive-line .is-qty {
+  justify-content: center;
+}
+
+.pdv-cad-premium .pdv-cad-receive-line .is-money {
+  justify-content: flex-end;
+}
+
+.pdv-cad-premium .pdv-cad-receive-line strong {
+  font-weight: 650;
+}
+
+.pdv-cad-premium .pdv-cad-receive-sum {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 28px;
+  min-height: 0;
+  margin-top: 8px;
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.pdv-cad-premium .pdv-cad-receive-id {
+  display: grid;
+  grid-template-columns: 7rem minmax(12rem, 1fr);
+  column-gap: 28px;
+  align-items: center;
+}
+
+.pdv-cad-premium .pdv-cad-receive-id > span {
+  display: flex;
+  align-items: center;
+  height: 36px;
+  color: var(--accent);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.pdv-cad-premium .pdv-cad-receive-names {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: 7rem minmax(12rem, 1fr);
+  column-gap: 28px;
+  align-content: center;
+  align-items: center;
+}
+
+.pdv-cad-premium .pdv-cad-receive-names > span,
+.pdv-cad-premium .pdv-cad-receive-names > strong {
+  display: flex;
+  align-items: center;
+  min-height: 42px;
+  color: var(--ink);
+}
+
+.pdv-cad-premium .pdv-cad-receive-names > strong {
+  font-weight: 650;
+}
+
+.pdv-cad-premium .pdv-cad-table .pdv-cad-receive-box {
+  width: auto;
+  border-collapse: collapse;
+  background: #fff;
+  font-variant-numeric: tabular-nums;
+}
+
+.pdv-cad-premium .pdv-cad-table .pdv-cad-receive-box th,
+.pdv-cad-premium .pdv-cad-table .pdv-cad-receive-box td {
+  padding: 0 18px 0 0;
+  height: 42px;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font-size: 0.95rem;
+  font-weight: 500;
+  text-align: center;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.pdv-cad-premium .pdv-cad-table .pdv-cad-receive-box th {
+  height: 36px;
+  background: transparent;
+  color: var(--accent);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.pdv-cad-premium .pdv-cad-table .pdv-cad-receive-box th:nth-child(1),
+.pdv-cad-premium .pdv-cad-table .pdv-cad-receive-box td:nth-child(1) {
+  width: 5.5rem;
+}
+
+.pdv-cad-premium .pdv-cad-table .pdv-cad-receive-box th:nth-child(2),
+.pdv-cad-premium .pdv-cad-table .pdv-cad-receive-box td:nth-child(2) {
+  width: 8.5rem;
+  text-align: right;
+  padding-right: 16px;
+}
+
+.pdv-cad-premium .pdv-cad-table .pdv-cad-receive-box th:nth-child(3),
+.pdv-cad-premium .pdv-cad-table .pdv-cad-receive-box td:nth-child(3) {
+  width: auto;
+  padding: 0 0 0 28px;
+  text-align: left;
+}
+
+.pdv-cad-premium .pdv-cad-table .pdv-cad-receive-box tr.is-total td {
+  font-weight: 700;
+  background: #fff;
+}
+
+.pdv-cad-premium .pdv-cad-table .pdv-cad-receive-box tr:hover,
+.pdv-cad-premium .pdv-cad-table .pdv-cad-receive-box tr:hover td {
+  background: #fff;
+}
+
+.pdv-cad-premium .pdv-cad-receive-foot {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 18px;
+}
+
+.pdv-cad-premium .pdv-cad-receive-foot p {
+  margin: 0;
+  color: #6f675f;
+  font-size: 0.92rem;
+}
+
+.pdv-cad-premium .pdv-cad-table .pdv-cad-receive-box .pdv-cad-receive-go {
+  width: auto;
+  min-height: 36px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 6px;
+  background: #1a1511;
+  color: #fffdf8 !important;
+  -webkit-text-fill-color: #fffdf8 !important;
+  font-size: 0.92rem;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.pdv-cad-premium .pdv-cad-receive-go:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.pdv-cad-receive h2 {
+  margin: 0 0 6px;
+  font-size: 1.15rem;
+}
+
+.pdv-cad-receive p {
+  margin: 0 0 12px;
+}
+
 @media (max-width: 900px) {
   .pdv-cad-filters,
   .pdv-cad-filters-forn,
@@ -1908,6 +2344,58 @@
   border-color: #1e88e5;
   color: #fff !important;
   -webkit-text-fill-color: #fff !important;
+}
+
+.pdv-root[data-surface="cream"] .pdv-main .pdv-cad-premium .pdv-cad-filters button.pdv-cad-btn {
+  width: auto;
+  min-height: 38px;
+  padding: 0 14px;
+  border: 1px solid #ddd4c6;
+  border-radius: 6px;
+  box-shadow: none;
+  background: #fff !important;
+  background-color: #fff !important;
+  color: #1a1511 !important;
+  -webkit-text-fill-color: #1a1511 !important;
+  font-size: 0.92rem;
+  font-weight: 650;
+}
+
+.pdv-root[data-surface="cream"] .pdv-main .pdv-cad-premium .pdv-cad-filters button.pdv-cad-btn-blue {
+  border-color: #1a1511;
+  background: #1a1511 !important;
+  background-color: #1a1511 !important;
+  color: #fffdf8 !important;
+  -webkit-text-fill-color: #fffdf8 !important;
+}
+
+.pdv-root[data-surface="cream"] .pdv-main .pdv-cad-premium button.pdv-cad-receive-go {
+  width: auto;
+  min-height: 36px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 6px;
+  box-shadow: none;
+  background: #1a1511 !important;
+  background-color: #1a1511 !important;
+  color: #fffdf8 !important;
+  -webkit-text-fill-color: #fffdf8 !important;
+  font-size: 0.95rem;
+  font-weight: 650;
+}
+
+.pdv-root[data-surface="cream"] .pdv-main .pdv-cad-premium button.pdv-cad-receive-x {
+  width: auto;
+  min-height: 0;
+  padding: 8px 14px;
+  border: 1px solid #ddd4c6;
+  border-radius: 6px;
+  background: #fff !important;
+  background-color: #fff !important;
+  color: #1a1511 !important;
+  -webkit-text-fill-color: #1a1511 !important;
+  font-size: 0.92rem;
+  font-weight: 600;
 }
 
 .pdv-root[data-surface="cream"] .pdv-main button.pdv-cad-btn-back,

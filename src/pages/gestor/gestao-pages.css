@@ -1,3 +1,5 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
+
 /*
  * Páginas de Gestão (Cadastro produtos / fornecedores / freteiros / lojistas).
  * Base: visual claro no padrão do módulo Gerenciar Invoices.
@@ -314,4 +316,241 @@
 .gestao-page--alt textarea:focus {
   outline-color: var(--accent-soft);
   border-color: var(--accent-soft);
+}
+
+/* Mesmo padrão visual da home (Premium Dark Admin), só no chrome escuro. */
+.pdv-chrome:not([data-theme="light"]) .gestao-page {
+  background: transparent;
+  color: #f5f1ea;
+  font-family: Inter, "Segoe UI", sans-serif;
+}
+
+.pdv-chrome:not([data-theme="light"]) .gestao-page h1,
+.pdv-chrome:not([data-theme="light"]) .gestao-page h2,
+.pdv-chrome:not([data-theme="light"]) .gestao-page h3,
+.pdv-chrome:not([data-theme="light"]) .gestao-page .gestao-page__header h1 {
+  color: #f5f1ea !important;
+  font-family: Inter, "Segoe UI", sans-serif;
+  letter-spacing: -0.02em;
+}
+
+.pdv-chrome:not([data-theme="light"]) .gestao-page .gestao-page__header p,
+.pdv-chrome:not([data-theme="light"]) .gestao-page header p {
+  color: #b8aa9b !important;
+}
+
+.pdv-chrome:not([data-theme="light"]) .gestao-page .gestao-page__badge {
+  min-height: 28px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(199, 134, 46, 0.18);
+  color: #f5f1ea;
+}
+
+.pdv-chrome:not([data-theme="light"]) .gestao-page .bg-white,
+.pdv-chrome:not([data-theme="light"]) .gestao-page .bg-gray-50,
+.pdv-chrome:not([data-theme="light"]) .gestao-page .bg-slate-50 {
+  background-color: #211c17 !important;
+  border-color: rgba(255, 255, 255, 0.07) !important;
+  border-radius: 22px !important;
+  box-shadow: 0 10px 24px rgba(28, 16, 8, 0.28);
+  color: #f5f1ea;
+}
+
+.pdv-chrome:not([data-theme="light"]) .gestao-page input:not([type="checkbox"]):not([type="radio"]),
+.pdv-chrome:not([data-theme="light"]) .gestao-page select,
+.pdv-chrome:not([data-theme="light"]) .gestao-page textarea {
+  background: #2a2119 !important;
+  color: #f5f1ea !important;
+  border-color: rgba(255, 255, 255, 0.07) !important;
+  border-radius: 16px !important;
+}
+
+.pdv-chrome:not([data-theme="light"]) .gestao-page button.rounded,
+.pdv-chrome:not([data-theme="light"]) .gestao-page button.rounded-md,
+.pdv-chrome:not([data-theme="light"]) .gestao-page button.rounded-lg,
+.pdv-chrome:not([data-theme="light"]) .gestao-page button.rounded-xl,
+.pdv-chrome:not([data-theme="light"]) .gestao-page button.rounded-2xl,
+.pdv-chrome:not([data-theme="light"]) .gestao-page a.rounded,
+.pdv-chrome:not([data-theme="light"]) .gestao-page a.rounded-md,
+.pdv-chrome:not([data-theme="light"]) .gestao-page a.rounded-lg {
+  border-radius: 16px !important;
+}
+
+.pdv-chrome:not([data-theme="light"]) .gestao-page .bg-blue-500,
+.pdv-chrome:not([data-theme="light"]) .gestao-page .bg-blue-600,
+.pdv-chrome:not([data-theme="light"]) .gestao-page .bg-blue-700,
+.pdv-chrome:not([data-theme="light"]) .gestao-page .bg-blue-800,
+.pdv-chrome:not([data-theme="light"]) .gestao-page .hover\:bg-blue-600:hover,
+.pdv-chrome:not([data-theme="light"]) .gestao-page .hover\:bg-blue-700:hover,
+.pdv-chrome:not([data-theme="light"]) .gestao-page .hover\:bg-blue-800:hover {
+  background: #c7862e !important;
+  color: #f5f1ea !important;
+}
+
+.pdv-chrome:not([data-theme="light"]) .gestao-page .bg-gray-100\/80,
+.pdv-chrome:not([data-theme="light"]) .gestao-page .hover\:bg-gray-200\/80:hover {
+  background: #2a2119 !important;
+  color: #b8aa9b !important;
+  border-color: rgba(255, 255, 255, 0.07) !important;
+}
+
+.pdv-chrome:not([data-theme="light"]) .gestao-page table thead,
+.pdv-chrome:not([data-theme="light"]) .gestao-page table thead.bg-gray-50,
+.pdv-chrome:not([data-theme="light"]) .gestao-page table thead.bg-gray-100 {
+  background: transparent !important;
+}
+
+.pdv-chrome:not([data-theme="light"]) .gestao-page table thead th {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07) !important;
+  color: #b8aa9b !important;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.pdv-chrome:not([data-theme="light"]) .gestao-page table tbody td {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  color: #f5f1ea;
+}
+
+.pdv-chrome:not([data-theme="light"]) .gestao-page table tbody tr,
+.pdv-chrome:not([data-theme="light"]) .gestao-page table tbody tr:nth-child(even) {
+  background: transparent !important;
+  color: #f5f1ea !important;
+}
+
+.pdv-chrome:not([data-theme="light"]) .gestao-page table tbody tr:nth-child(even) {
+  background: rgba(246, 241, 234, 0.03) !important;
+}
+
+.pdv-chrome:not([data-theme="light"]) .gestao-page table tbody tr:hover {
+  background: rgba(199, 134, 46, 0.12) !important;
+  color: #f5f1ea !important;
+}
+
+/* Totais de caixas: cor cheia, sem o mix apagado. */
+.pdv-chrome:not([data-theme="light"]) .gestao-page .bg-yellow-50:not(td) {
+  background-color: #f6e3a3 !important;
+  color: #6b4a08 !important;
+  border-color: #e2c36a !important;
+}
+
+.pdv-chrome:not([data-theme="light"]) .gestao-page .bg-yellow-50:not(td) .text-yellow-600 {
+  color: #8a5600 !important;
+}
+
+.pdv-chrome:not([data-theme="light"]) .gestao-page .bg-blue-50:not(td) {
+  background-color: #d4e6ff !important;
+  color: #1e3a8a !important;
+  border-color: #93c5fd !important;
+}
+
+.pdv-chrome:not([data-theme="light"]) .gestao-page .bg-blue-50:not(td) .text-blue-600,
+.pdv-chrome:not([data-theme="light"]) .gestao-page .bg-blue-50:not(td) .text-blue-700 {
+  color: #1d4ed8 !important;
+}
+
+.pdv-chrome:not([data-theme="light"]) .gestao-page .bg-teal-50:not(td) {
+  background-color: #b7f3e4 !important;
+  color: #115e59 !important;
+  border-color: #5eead4 !important;
+}
+
+.pdv-chrome:not([data-theme="light"]) .gestao-page .bg-teal-50:not(td) .text-teal-600 {
+  color: #0f766e !important;
+}
+
+.pdv-chrome:not([data-theme="light"]) .gestao-page .bg-purple-50:not(td) {
+  background-color: #e6d4ff !important;
+  color: #5b21b6 !important;
+  border-color: #c4b5fd !important;
+}
+
+.pdv-chrome:not([data-theme="light"]) .gestao-page .bg-purple-50:not(td) .text-purple-600 {
+  color: #6d28d9 !important;
+}
+
+/* Calendário nativo branco. Preto no escuro não abre leitura. */
+.pdv-chrome:not([data-theme="light"]) .gestao-page input[type="date"],
+.pdv-chrome:not([data-theme="light"]) .gestao-page input[type="datetime-local"],
+.pdv-chrome:not([data-theme="light"]) .gestao-page input[type="month"],
+.pdv-chrome:not([data-theme="light"]) .gestao-page input[type="time"] {
+  background: #ffffff !important;
+  color: #1c1814 !important;
+  color-scheme: light;
+  border-color: rgba(28, 24, 20, 0.18) !important;
+}
+
+/* Linha colorida da tabela cobre a célula inteira. */
+.pdv-chrome:not([data-theme="light"]) .gestao-page table td,
+.pdv-chrome:not([data-theme="light"]) .gestao-page table th,
+.pdv-chrome:not([data-theme="light"]) .gestao-page table .bg-white,
+.pdv-chrome:not([data-theme="light"]) .gestao-page table .bg-gray-50 {
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+.pdv-chrome:not([data-theme="light"]) .gestao-page table td.bg-green-50 {
+  background-color: #166534 !important;
+  color: #ecfdf5 !important;
+  border-color: #166534 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+.pdv-chrome:not([data-theme="light"]) .gestao-page table td.bg-blue-50 {
+  background-color: #9a6830 !important;
+  color: #fff7ed !important;
+  border-color: #9a6830 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+.pdv-chrome:not([data-theme="light"]) .gestao-page table td.bg-yellow-50 {
+  background-color: #a16207 !important;
+  color: #fffbeb !important;
+  border-color: #a16207 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+.pdv-chrome:not([data-theme="light"]) .gestao-page table td.bg-green-50 .text-green-500,
+.pdv-chrome:not([data-theme="light"]) .gestao-page table td.bg-blue-50 .text-green-500,
+.pdv-chrome:not([data-theme="light"]) .gestao-page table td.bg-yellow-50 .text-green-500 {
+  color: #bbf7d0 !important;
+}
+
+.pdv-chrome:not([data-theme="light"]) .gestao-page .bg-gray-200,
+.pdv-chrome:not([data-theme="light"]) .gestao-page .bg-gray-300,
+.pdv-chrome:not([data-theme="light"]) .gestao-page .bg-gray-400,
+.pdv-chrome:not([data-theme="light"]) .gestao-page tr.bg-gray-200 {
+  background-color: #2a2119 !important;
+  color: #f5f1ea !important;
+}
+
+/* Tema claro usa a mesma caixa do escuro. Só a cor muda. */
+.pdv-chrome[data-theme="light"] .pdv-chrome-header {
+  background: transparent !important;
+  border-bottom-color: transparent !important;
+  box-shadow: none;
+}
+
+.pdv-chrome[data-theme="light"] .gestao-page .gestao-page__badge {
+  min-height: 28px;
+  padding: 0 12px;
+  border-radius: 999px;
+}
+
+.pdv-chrome[data-theme="light"] .gestao-page input:not([type="checkbox"]):not([type="radio"]),
+.pdv-chrome[data-theme="light"] .gestao-page select,
+.pdv-chrome[data-theme="light"] .gestao-page textarea,
+.pdv-chrome[data-theme="light"] .gestao-page button.rounded,
+.pdv-chrome[data-theme="light"] .gestao-page button.rounded-md,
+.pdv-chrome[data-theme="light"] .gestao-page button.rounded-lg,
+.pdv-chrome[data-theme="light"] .gestao-page button.rounded-xl,
+.pdv-chrome[data-theme="light"] .gestao-page button.rounded-2xl {
+  border-radius: 16px;
 }

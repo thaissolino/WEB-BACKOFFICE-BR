@@ -1,4 +1,4 @@
-import { FormEvent, ReactNode } from "react"
+import { FormEvent, Fragment, ReactNode } from "react"
 import { useNavigate } from "react-router-dom"
 import CadastroShell from "../cadastros/CadastroShell"
 import { DatePreset } from "../cadastros/catalog/FormBits"
@@ -19,6 +19,12 @@ export type FilterPageProps = {
   hint?: string
   extra?: ReactNode
   rows?: string[][]
+  onRowClick?: (index: number) => void
+  hideList?: boolean
+  expandedIndex?: number | null
+  expanded?: ReactNode
+  premium?: boolean
+  closedAction?: (index: number) => ReactNode
 }
 
 export default function FilterPage({
@@ -30,6 +36,12 @@ export default function FilterPage({
   hint,
   extra,
   rows,
+  onRowClick,
+  hideList = false,
+  expandedIndex = null,
+  expanded,
+  premium = false,
+  closedAction,
 }: FilterPageProps) {
   const navigate = useNavigate()
 
@@ -40,8 +52,8 @@ export default function FilterPage({
   return (
     <CadastroShell>
       <section className="pdv-cad-page" aria-labelledby="pdv-filter-title">
-        <div className="pdv-cad-sheet pdv-cad-sheet-wide">
-          <h1 id="pdv-filter-title">{title}</h1>
+        <div className={`pdv-cad-sheet pdv-cad-sheet-wide${premium ? " pdv-cad-premium" : ""}`}>
+          {hideList ? null : <h1 id="pdv-filter-title">{title}</h1>}
           {actions.length ? (
             <div className="pdv-cad-actions">
               {actions.map((action) => (
@@ -56,7 +68,7 @@ export default function FilterPage({
               ))}
             </div>
           ) : null}
-          <form className="pdv-cad-filters" onSubmit={onSubmit}>
+          {hideList ? null : <form className="pdv-cad-filters" onSubmit={onSubmit}>
             {fields.map((field) => (
               <label key={field.key}>
                 {field.label}
@@ -75,34 +87,59 @@ export default function FilterPage({
               <button className="pdv-cad-btn" type="button">Limpar</button>
               <button className="pdv-cad-btn pdv-cad-btn-blue" type="submit">{submitLabel}</button>
             </div>
-          </form>
+          </form>}
           {fields.some((field) => field.kind === "date") ? (
             <DatePreset onPick={() => undefined} />
           ) : null}
           {extra}
-          <div className="pdv-cad-table-wrap">
+          {hideList ? null : <div className="pdv-cad-table-wrap">
             <table className="pdv-cad-table">
               <thead>
                 <tr>
                   {columns.map((column) => (
                     <th key={column}>{column}</th>
                   ))}
+                  {closedAction ? <th /> : null}
                 </tr>
               </thead>
               <tbody>
                 {(rows || []).map((row, index) => (
-                  <tr key={`${row[0]}-${index}`}>
-                    {row.map((cell, cellIndex) => (
-                      <td key={cellIndex}>{cell}</td>
-                    ))}
-                  </tr>
+                  <Fragment key={`${row[0]}-${index}`}>
+                    <tr
+                      className={[
+                        onRowClick ? "pdv-cad-row-link" : "",
+                        expandedIndex === index ? "pdv-cad-row-open" : "",
+                      ].filter(Boolean).join(" ") || undefined}
+                      aria-expanded={onRowClick ? expandedIndex === index : undefined}
+                      onClick={onRowClick ? () => onRowClick(index) : undefined}
+                    >
+                      {row.map((cell, cellIndex) => (
+                        <td key={cellIndex}>
+                          {cellIndex === 0 && onRowClick ? (
+                            <span className="pdv-cad-code">
+                              <span className={`pdv-cad-chevron${expandedIndex === index ? " is-open" : ""}`} aria-hidden="true" />
+                              {cell}
+                            </span>
+                          ) : cell}
+                        </td>
+                      ))}
+                      {closedAction ? (
+                        <td className="pdv-cad-row-action">{closedAction(index)}</td>
+                      ) : null}
+                    </tr>
+                    {expandedIndex === index && expanded ? (
+                      <tr className="pdv-cad-accordion">
+                        <td colSpan={columns.length + (closedAction ? 1 : 0)}>{expanded}</td>
+                      </tr>
+                    ) : null}
+                  </Fragment>
                 ))}
               </tbody>
             </table>
-          </div>
-          {rows && rows.length ? (
+          </div>}
+          {hideList ? null : rows && rows.length ? (
             hint ? <p className="pdv-cad-kicker">{hint}</p> : null
-          ) : (
+          ) : hideList ? null : (
             <p className="pdv-cad-kicker">{hint || "Nenhum registro para o filtro atual."}</p>
           )}
         </div>

@@ -697,7 +697,7 @@ export function ProductsTab() {
                 >
                   Peso Médio (kg)
                 </th>
-                <th className="px-6 py-3 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                <th className="px-6 py-3 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider">
                   Ações
                 </th>
               </tr>
@@ -846,8 +846,8 @@ export function ProductsTab() {
                           <span className="cursor-text">{product.weightAverage.toFixed(2)} kg</span>
                         )}
                       </td>
-                      <td className="px-6 py-4 text-right text-sm font-medium">
-                        <div className="flex flex-wrap justify-end gap-2">
+                      <td className="px-6 py-4 text-center text-sm font-medium">
+                        <div className="flex flex-wrap justify-center gap-2">
                           <button
                             type="button"
                             onClick={() => handleEdit(product)}

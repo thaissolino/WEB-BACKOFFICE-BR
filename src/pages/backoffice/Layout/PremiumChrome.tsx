@@ -1,14 +1,21 @@
 import { useContext, useEffect, useState } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import {
+  BadgeCheck,
   Bell,
   DatabaseBackup,
+  FilePenLine,
   List,
   LogOut,
   Menu,
   Moon,
+  ShoppingCart,
   Sun,
+  Tag,
+  UserRound,
+  Wallet,
   X,
+  type LucideIcon,
 } from "lucide-react";
 import { useTheme } from "@mui/material/styles";
 import { ColorModeContext } from "../../../theme";
@@ -16,6 +23,21 @@ import { ModesPopover } from "../../../components/ui-mode/ModesPopover";
 import { LEGACY_GROUP_LABEL, useBackofficeNavItems, type BackofficeNavItem } from "../../../store/useBackofficeNavItems";
 import { api } from "../../../services/api";
 import "./premium-chrome.css";
+
+const NAV_ICONS: Record<string, LucideIcon> = {
+  "gestao-cadastro": FilePenLine,
+  "gestao-compras": ShoppingCart,
+  "gestao-caixas": Wallet,
+  "gerenciar-lojistas": UserRound,
+  "vendas-concluidas": BadgeCheck,
+  "etiquetas-entrada": Tag,
+};
+
+function NavGlyph({ id }: { id: string }) {
+  const Icon = NAV_ICONS[id];
+  if (!Icon) return null;
+  return <Icon size={18} strokeWidth={1.8} aria-hidden />;
+}
 
 function NavBranch({
   item,
@@ -37,7 +59,10 @@ function NavBranch({
       open={open}
       onToggle={(event) => setOpen((event.currentTarget as HTMLDetailsElement).open)}
     >
-      <summary className={childActive ? "is-current" : undefined}>{item.label}</summary>
+      <summary className={childActive ? "is-current" : undefined}>
+        <NavGlyph id={item.id} />
+        {item.label}
+      </summary>
       <div className="pdv-chrome-sub-list">
         {item.children?.map((child) => (
           <Link key={child.id} to={child.to} aria-current={active(child.to) ? "page" : undefined}>
@@ -118,11 +143,13 @@ export function PremiumChrome() {
           const showGroup = item.group && item.group !== mainItems[index - 1]?.group;
           return (
             <div key={item.id}>
+              {item.moduleStart ? <div className="pdv-chrome-module" role="separator" /> : null}
               {showGroup ? <p className="pdv-chrome-group">{item.group}</p> : null}
               {item.children?.length ? (
                 <NavBranch item={item} active={isActive} />
               ) : (
                 <Link to={item.to} aria-current={isActive(item.to) ? "page" : undefined}>
+                  <NavGlyph id={item.id} />
                   {item.label}
                 </Link>
               )}

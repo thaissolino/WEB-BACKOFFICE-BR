@@ -14,6 +14,8 @@ export type BackofficeNavItem = {
   label: string;
   to: string;
   group?: string;
+  /** Abre um bloco novo no menu, separado do módulo anterior. */
+  moduleStart?: boolean;
   /** Itens do produto antigo (Black/Mensageria): agrupados num bloco colapsado, sem apagar nada. */
   legacy?: boolean;
   children?: BackofficeNavChild[];
@@ -85,7 +87,6 @@ export function useBackofficeNavItems() {
       { id: "gestao-cadastro", label: "Cadastro", to: "/gestao/cadastro", group: "Gestão", children: [LOJISTAS_CHILD, ...CADASTRO_CHILDREN, ...(operadoresChild ? [operadoresChild] : [])] },
       { id: "gestao-compras", label: "Compras", to: "/gestao/compras", group: "Gestão", children: COMPRAS_CHILDREN },
       { id: "gestao-caixas", label: "Gestão de caixas", to: "/gestao/caixas", group: "Gestão", children: CAIXAS_CHILDREN },
-      { id: "gerenciar-lojistas", label: "Gerenciar lojistas", to: "/gerenciar-lojistas", group: "Gestão" },
     );
   }
 
@@ -95,10 +96,16 @@ export function useBackofficeNavItems() {
     items.push({ id: "gestao-caixas", label: "Gestão de caixas", to: "/gestao/caixas", children: CAIXAS_CHILDREN });
   }
 
-  if (isGestor || canShowTab("GERENCIAR_INVOICES")) {
-    items.push({ id: "vendas-concluidas", label: "Vendas concluídas", to: "/vendas-concluidas" });
-    items.push({ id: "etiquetas-entrada", label: "Etiquetas da entrada", to: "/etiquetas-entrada" });
+  const loja: BackofficeNavItem[] = [];
+  if (isGestor) {
+    loja.push({ id: "gerenciar-lojistas", label: "Gerenciar lojistas", to: "/gerenciar-lojistas" });
   }
+  if (isGestor || canShowTab("GERENCIAR_INVOICES")) {
+    loja.push({ id: "vendas-concluidas", label: "Vendas concluídas", to: "/vendas-concluidas" });
+    loja.push({ id: "etiquetas-entrada", label: "Etiquetas da entrada", to: "/etiquetas-entrada" });
+  }
+  if (loja[0]) loja[0].moduleStart = true;
+  items.push(...loja);
 
   if (operadoresChild && !items.some((item) => item.id === "gestao-cadastro")) {
     items.push({ id: "gestao-cadastro", label: "Cadastro", to: "/gestao/cadastro", children: [operadoresChild] });

@@ -1,13 +1,14 @@
 import FilterPage from "../pdv/FilterPage"
 import CadastroShell from "../cadastros/CadastroShell"
 import { useNavigate } from "react-router-dom"
-import { FormEvent, useState } from "react"
+import { FormEvent, MouseEvent, useRef, useState } from "react"
 import { api } from "../../../services/api"
 import { FormRow } from "../cadastros/catalog/FormBits"
 import { createCatalog, listCatalog } from "../cadastros/catalog/catalogApi"
 import { parseError } from "../../../services/api"
 import { Plus } from "lucide-react"
 import { useEffect } from "react"
+import "../vendas/pedidos.css"
 
 const VENDA_COLS = [
   "Visualizar",
@@ -316,30 +317,209 @@ export function TransferenciaLojas() {
     />
   )
 }
-export function TransferenciasList({ title }: { title: string }) {
-  const recebidas = title.includes("RECEBID") && title.includes("CONCLU")
-  const estornadas = title.includes("ESTORNAD")
-  const kind = estornadas ? "estornadas" : recebidas ? "recebidas" : ""
-  const [rows, setRows] = useState<string[][]>([])
+type TransferOrder = { id: string; code: string; date: string; state: string; total: number }
+type TransferLine = { code: string; name: string; qty: number; price: number; imeis: string[] }
 
-  useEffect(() => {
+function money(value: number) {
+  return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
+}
+
+function parseMoney(value: string) {
+  const clean = value.trim().replace(/[R$\s]/g, "")
+  if (!clean) return null
+  const normalized = clean.includes(",") ? clean.replace(/\./g, "").replace(",", ".") : clean
+  const number = Number(normalized)
+  if (!Number.isFinite(number) || number < 0) return null
+  return Math.round(number * 100) / 100
+}
+
+type TransferDetail = TransferOrder & { received: boolean; lines: TransferLine[] }
+
+export function TransferenciasList({ title }: { title: string }) {
+  const recebidasAbertas = title.includes("RECEBID") && title.includes("ABERT")
+  const recebidasConcluidas = title.includes("RECEBID") && title.includes("CONCLU")
+  const estornadas = title.includes("ESTORNAD")
+  const kind = estornadas ? "estornadas" : recebidasAbertas ? "abertas" : recebidasConcluidas ? "recebidas" : ""
+  const [orders, setOrders] = useState<TransferOrder[]>([])
+  const [detail, setDetail] = useState<TransferDetail | null>(null)
+  const [openIndex, setOpenIndex] = useState<number | null>(null)
+  const openRef = useRef<number | null>(null)
+  const [notice, setNotice] = useState("")
+  const [error, setError] = useState("")
+  const [busy, setBusy] = useState(false)
+  const [openLines, setOpenLines] = useState<Record<string, boolean>>({})
+  const [priceDraft, setPriceDraft] = useState<Record<string, string>>({})
+
+  function load() {
     if (!kind) return
     api
       .get("/clients/transferencias", { params: { kind } })
       .then(({ data }) => {
-        const orders = Array.isArray(data?.orders) ? data.orders : []
-        setRows(
-          orders.map((order: { code: string; date: string; state: string; total: number }) => [
-            order.code,
-            "Esta loja",
-            new Date(order.date).toLocaleString("pt-BR"),
-            order.state,
-            Number(order.total || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" }),
-          ]),
-        )
+        setOrders(Array.isArray(data?.orders) ? data.orders : [])
       })
-      .catch(() => setRows([]))
+      .catch(() => setOrders([]))
+  }
+
+  useEffect(() => {
+    load()
   }, [kind])
+
+  function openOrder(index: number) {
+    const order = orders[index]
+    if (!order || !recebidasAbertas) return
+    if (openIndex === index) {
+      openRef.current = null
+      setOpenIndex(null)
+      setDetail(null)
+      setOpenLines({})
+      return
+    }
+    openRef.current = index
+    setOpenIndex(index)
+    setDetail(null)
+    setOpenLines({})
+    setNotice("")
+    setError("")
+    api
+      .get(`/clients/transferencias/${order.id}`)
+      .then(({ data }) => {
+        if (openRef.current !== index) return
+        setDetail(data.order)
+      })
+      .catch((err) => {
+        if (openRef.current !== index) return
+        setError(parseError(err).message || "Não foi possível abrir o pedido.")
+      })
+  }
+
+  async function savePrice(index: number, line: TransferLine, raw: string) {
+    if (!detail) return
+    const key = `${line.code}-${index}`
+    setPriceDraft((current) => {
+      const next = { ...current }
+      delete next[key]
+      return next
+    })
+    const price = parseMoney(raw)
+    if (price == null) {
+      setError("Informe um valor unitário válido.")
+      return
+    }
+    if (Math.abs(price - (Number(line.price) || 0)) < 0.001) return
+    setError("")
+    try {
+      const { data } = await api.patch(`/clients/transferencias/${detail.id}/preco`, { index, price })
+      const total = Number(data?.total) || 0
+      const orderId = detail.id
+      setDetail((current) => current && current.id === orderId ? {
+        ...current,
+        total,
+        lines: current.lines.map((item, itemIndex) => itemIndex === index ? { ...item, price } : item),
+      } : current)
+      setOrders((current) => current.map((order) => order.id === orderId ? { ...order, total } : order))
+    } catch (err) {
+      setError(parseError(err).message || "Não foi possível salvar o valor.")
+    }
+  }
+
+  async function confirmReceipt(order: TransferOrder, event: MouseEvent<HTMLButtonElement>) {
+    event.stopPropagation()
+    if (busy) return
+    setBusy(true)
+    setError("")
+    try {
+      await api.post(`/clients/transferencias/${order.id}/receber`)
+      openRef.current = null
+      setOpenIndex(null)
+      setDetail(null)
+      setNotice("Recebimento confirmado. As quantidades entraram no estoque.")
+      load()
+    } catch (err) {
+      setError(parseError(err).message || "Não foi possível confirmar o recebimento.")
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const rows = orders.map((order) => [
+    order.code,
+    "Esta loja",
+    new Date(order.date).toLocaleString("pt-BR"),
+    Number(order.total || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" }),
+  ])
+
+  const expanded = openIndex == null ? null : detail ? (
+    <section className="pdv-cad-receive" aria-label={`Pedido ${detail.code}`}>
+      <table className="loja-table">
+        <thead>
+          <tr>
+            <th>Código</th>
+            <th>Produto</th>
+            <th>Valor unit.</th>
+            <th>Qtd</th>
+          </tr>
+        </thead>
+        <tbody>
+          {detail.lines.map((line, index) => {
+            const imeis = line.imeis.filter(Boolean)
+            const key = `${line.code}-${index}`
+            const open = !!openLines[key]
+            return (
+              <tr key={key}>
+                <td>{line.code || "—"}</td>
+                <td>
+                  <div className="loja-prod">
+                    {imeis.length ? (
+                      <button
+                        type="button"
+                        className="loja-plus"
+                        aria-expanded={open}
+                        aria-label={open ? "Fechar IMEIs" : "Abrir IMEIs"}
+                        onClick={() => setOpenLines((current) => ({ ...current, [key]: !current[key] }))}
+                      >
+                        {open ? "–" : "+"}
+                      </button>
+                    ) : null}
+                    <span>{line.name || "Produto"}</span>
+                  </div>
+                  {open && imeis.length ? (
+                    <ul className="loja-imeis">
+                      {imeis.map((serial) => (
+                        <li key={serial}>{serial}</li>
+                      ))}
+                    </ul>
+                  ) : null}
+                </td>
+                <td>
+                  <input
+                    className="pdv-cad-price"
+                    aria-label={`Valor unitário de ${line.name || "produto"}`}
+                    inputMode="decimal"
+                    value={priceDraft[key] ?? money(Number(line.price) || 0)}
+                    onClick={(event) => event.stopPropagation()}
+                    onFocus={() => setPriceDraft((current) => ({
+                      ...current,
+                      [key]: (Number(line.price) || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+                    }))}
+                    onChange={(event) => setPriceDraft((current) => ({ ...current, [key]: event.target.value }))}
+                    onBlur={(event) => savePrice(index, line, event.currentTarget.value)}
+                    onKeyDown={(event) => {
+                      if (event.key !== "Enter") return
+                      event.preventDefault()
+                      event.currentTarget.blur()
+                    }}
+                  />
+                </td>
+                <td>{line.qty}</td>
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
+    </section>
+  ) : (
+    <p className="pdv-cad-kicker">{error || "Abrindo pedido..."}</p>
+  )
 
   return (
     <FilterPage
@@ -348,9 +528,27 @@ export function TransferenciasList({ title }: { title: string }) {
         { key: "cod", label: "Código" },
         { key: "loja", label: "Loja" },
       ]}
-      columns={["Código", "Loja Destino", "Data", "Estado", "Total"]}
+      columns={["Código", "Loja Destino", "Data", "Total"]}
       rows={kind ? rows : undefined}
-      hint={kind ? "Nenhum pedido neste painel." : undefined}
+      hint={error || notice || (kind && !orders.length ? "Nenhum pedido neste painel." : undefined)}
+      premium
+      onRowClick={recebidasAbertas ? openOrder : undefined}
+      expandedIndex={openIndex}
+      expanded={expanded}
+      closedAction={recebidasAbertas ? (index) => {
+        const order = orders[index]
+        if (!order) return null
+        return (
+          <button
+            className="pdv-cad-receive-go"
+            type="button"
+            disabled={busy}
+            onClick={(event) => confirmReceipt(order, event)}
+          >
+            {busy ? "Confirmando..." : "Confirmar recebimento"}
+          </button>
+        )
+      } : undefined}
     />
   )
 }

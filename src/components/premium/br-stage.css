@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap");
 
 .br-stage {
   --st-ink: #f6f1ea;
@@ -46,6 +46,43 @@
   --st-live: #2f7a56;
   --st-off: #b45c4e;
   color-scheme: light;
+}
+
+.pdv-chrome:not([data-theme="light"]) .br-stage {
+  --st-ink: #f5f1ea;
+  --st-muted: #b8aa9b;
+  --st-faint: #b8aa9b;
+  --st-filament: #c7862e;
+  --st-panel: #211c17;
+  --st-raised: #2a2119;
+  --st-well: #2a2119;
+  --st-rule: rgba(255, 255, 255, 0.07);
+  --st-live: #35c98b;
+  --st-off: #e05c5c;
+}
+
+.pdv-chrome:not([data-theme="light"]) .br-stage .br-panel {
+  border-radius: 22px;
+  box-shadow: 0 10px 24px rgba(28, 16, 8, 0.28);
+}
+
+.pdv-chrome:not([data-theme="light"]) .br-stage .br-field input,
+.pdv-chrome:not([data-theme="light"]) .br-stage .br-field select,
+.pdv-chrome:not([data-theme="light"]) .br-stage .br-field textarea {
+  border-radius: 16px;
+}
+
+.pdv-chrome:not([data-theme="light"]) .br-stage .br-btn-brass {
+  background: var(--st-well);
+  color: var(--st-ink);
+  border: 1px solid var(--st-rule);
+}
+
+.pdv-chrome:not([data-theme="light"]) .br-stage .br-btn-brass:hover:not(:disabled) {
+  background: #c7862e;
+  color: #f5f1ea;
+  border-color: transparent;
+  filter: none;
 }
 
 .pdv-chrome[data-theme="light"] .br-stage .br-btn-brass,
