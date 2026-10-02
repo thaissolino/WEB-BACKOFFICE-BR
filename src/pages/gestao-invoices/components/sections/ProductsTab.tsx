@@ -143,6 +143,7 @@ export function ProductsTab() {
     field: "price" | "weight" | "sale" | "cost" | "stock";
   } | null>(null);
   const [editingValue, setEditingValue] = useState("");
+  const [cellNotice, setCellNotice] = useState("");
   const { setOpenNotification } = useNotification();
   const { isLoading: isActionLoading, executeAction } = useActionLoading();
 
@@ -479,8 +480,22 @@ export function ProductsTab() {
           : editingCell.field === "stock"
             ? "stockQuantity"
             : null;
+    const fieldLabel =
+      editingCell.field === "sale"
+        ? "preço de venda"
+        : editingCell.field === "cost"
+          ? "preço de custo"
+          : editingCell.field === "stock"
+            ? "estoque"
+            : editingCell.field === "price"
+              ? "preço médio"
+              : "peso médio";
     const payload = saleField
-      ? { [saleField]: parsed }
+      ? {
+          name: product.name,
+          ...(product.code ? { code: String(product.code) } : {}),
+          [saleField]: parsed,
+        }
       : editingCell.field === "price"
         ? { priceweightAverage: parsed }
         : { weightAverage: parsed };
@@ -495,18 +510,15 @@ export function ProductsTab() {
       if (saleField) await api.put(`/clients/products/${product.id}`, payload);
       else await api.patch(`/invoice/product/${product.id}`, payload);
       window.dispatchEvent(new Event("productsUpdated"));
-    } catch (error) {
+    } catch (error: any) {
       console.error("Erro ao atualizar produto:", error);
       setAllProducts((prev) => prev.map((p) => (p.id === product.id ? previous : p)));
-      Swal.fire({
-        icon: "error",
-        title: "Erro!",
-        text: "Não foi possível atualizar o produto.",
-        buttonsStyling: false,
-        customClass: {
-          confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
-        },
-      });
+      const serverMessage = String(error?.response?.data?.message || "");
+      const useful =
+        serverMessage &&
+        serverMessage !== "Internal server error." &&
+        serverMessage !== "Validation error.";
+      setCellNotice(useful ? serverMessage : `Não foi possível atualizar o ${fieldLabel}.`);
     }
   };
 
@@ -1020,6 +1032,20 @@ export function ProductsTab() {
           </div>
         </div>
       )}
+      {cellNotice ? (
+        <div className="pdv-chrome-dialog" role="alertdialog" aria-labelledby="cell-notice-title">
+          <div className="pdv-chrome-dialog-card">
+            <p className="pdv-chrome-kicker">Produto</p>
+            <h2 id="cell-notice-title">Não atualizou</h2>
+            <p style={{ margin: "0 0 4px", color: "var(--chrome-muted)" }}>{cellNotice}</p>
+            <div className="pdv-chrome-dialog-actions">
+              <button className="primary" type="button" onClick={() => setCellNotice("")}>
+                Ok
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

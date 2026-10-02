@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import "../gestor/gestao-pages.css";
-import { Tabs } from "./layout/Tabs";
 import { InvoicesTab } from "./components/sections/InvoicesTab";
 import { ProductsTab } from "./components/sections/ProductsTab";
 import { SuppliersTab } from "./components/sections/SuppliersTab";
@@ -53,6 +52,21 @@ const AREA_TABS: Record<GestaoArea, TabType[]> = {
   cadastro: ["products", "suppliers", "carriers", "others"],
   compras: ["invoices", "media-dolar", "relatorios", "shopping-lists", "imei-search", "lost-products"],
   caixas: ["caixas", "caixas-brl"],
+};
+
+const SCREEN_TITLE: Partial<Record<TabType, string>> = {
+  products: "Produtos",
+  suppliers: "Fornecedores",
+  carriers: "Freteiros",
+  others: "Outros",
+  invoices: "Invoices",
+  "media-dolar": "Média dólar",
+  relatorios: "Relatórios",
+  "shopping-lists": "Lista de compras",
+  "imei-search": "Buscar IMEI",
+  "lost-products": "Produtos perdidos",
+  caixas: "Caixas",
+  "caixas-brl": "Caixas BR",
 };
 
 const AREA_COPY: Record<GestaoArea, { title: string; subtitle: string }> = {
@@ -209,11 +223,9 @@ export default function InvocesManagement({ area = "compras" }: { area?: GestaoA
         <div className="gestao-page">
           <div className="w-full px-2 py-4">
             <header className="mb-4">
-              <h1 className="text-3xl font-bold text-blue-800">{AREA_COPY[area].title}</h1>
+              <h1 className="text-3xl font-bold text-blue-800">{SCREEN_TITLE[activeTab] || AREA_COPY[area].title}</h1>
               <p className="text-gray-600">{AREA_COPY[area].subtitle}</p>
             </header>
-
-            <Tabs activeTab={activeTab} setActiveTab={setActiveTab} allowed={allowed} />
 
             <div className="mt-4">
               {activeTab === "invoices" && canShowTab("INVOICES") && (

@@ -552,13 +552,6 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebar }) => {
                   </Typography>
                 )}
                 <Item
-                  title="Cadastrar lojista"
-                  to="/cadastro-lojistas"
-                  icon={<GroupsOutlinedIcon />}
-                  selected={selected}
-                  setSelected={setSelected}
-                />
-                <Item
                   title="Cadastrar loja"
                   to="/lojas"
                   icon={<StorefrontOutlinedIcon />}
@@ -583,10 +576,16 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebar }) => {
             )}
             {(user?.role === "MASTER" || user?.role === "ADMIN" || canShowTab("GERENCIAR_INVOICES")) && (
               <LegacySubMenu title="Cadastro" icon={<Inventory2OutlinedIcon />} style={{ color: colors.grey[100] }}>
+                {(user?.role === "MASTER" || user?.role === "ADMIN") && (
+                  <Item title="Lojistas" to="/cadastro-lojistas" icon={<GroupsOutlinedIcon />} selected={selected} setSelected={setSelected} />
+                )}
                 <Item title="Produtos" to="/gestao/cadastro?aba=products" icon={<Inventory2OutlinedIcon />} selected={selected} setSelected={setSelected} />
                 <Item title="Fornecedores" to="/gestao/cadastro?aba=suppliers" icon={<PeopleOutlinedIcon />} selected={selected} setSelected={setSelected} />
                 <Item title="Freteiros" to="/gestao/cadastro?aba=carriers" icon={<LocalShippingOutlinedIcon />} selected={selected} setSelected={setSelected} />
                 <Item title="Outros" to="/gestao/cadastro?aba=others" icon={<GroupsOutlinedIcon />} selected={selected} setSelected={setSelected} />
+                {canShowTab("GERENCIAR_OPERADORES") && (
+                  <Item title="Operadores" to="/operators-management" icon={<AdminPanelSettingsOutlinedIcon />} selected={selected} setSelected={setSelected} />
+                )}
               </LegacySubMenu>
             )}
             {(user?.role === "MASTER" || user?.role === "ADMIN" || canShowTab("GERENCIAR_INVOICES")) && (
@@ -627,7 +626,6 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebar }) => {
             {(canShowTab("CRIAR_USUARIO") ||
               canShowTab("GERENCIAR_GRUPOS") ||
               canShowTab("GERENCIAR_USUARIOS") ||
-              canShowTab("GERENCIAR_OPERADORES") ||
               canShowTab("GERENCIAR_TOKENS")) && (
               <Box sx={{ opacity: 0.75, mt: "15px" }}>
                 <LegacySubMenu
@@ -658,15 +656,6 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebar }) => {
                       title="Gerenciar Usuários"
                       to="/users"
                       icon={<PersonOutlinedIcon />}
-                      selected={selected}
-                      setSelected={setSelected}
-                    />
-                  )}
-                  {canShowTab("GERENCIAR_OPERADORES") && (
-                    <Item
-                      title="Gerenciar Operadores"
-                      to="/operators-management"
-                      icon={<AdminPanelSettingsOutlinedIcon />}
                       selected={selected}
                       setSelected={setSelected}
                     />

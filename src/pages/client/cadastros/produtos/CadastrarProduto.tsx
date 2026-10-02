@@ -1,5 +1,5 @@
 import { FormEvent, ReactNode, useEffect, useId, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   AlertTriangle,
   AlignJustify,
@@ -28,7 +28,7 @@ import {
 import { createCatalog, listCatalog } from "../catalog/catalogApi";
 import { loadProductCategories, toFlatOptions, type FlatOption } from "./categoryModel";
 import { PRODUCT_GENDERS, PRODUCT_ORIGINS, PRODUCT_UNITS } from "./productOptions";
-import { parseMoneyBr } from "./types";
+import { formatMoneyBr, parseMoneyBr, type PdvProduct } from "./types";
 import type { PdvSupplier } from "../fornecedores/types";
 
 type CadTab = "gerais" | "grade";
@@ -221,8 +221,40 @@ const EMPTY_FORM = {
   profundidade: "0,00",
 };
 
+function formFromProduct(product: PdvProduct) {
+  return {
+    ...EMPTY_FORM,
+    categorias: product.categoryId ? [product.categoryId] : [],
+    nome: product.name || "",
+    ncm: product.ncm || "",
+    marca: product.brand || EMPTY_FORM.marca,
+    colecao: product.collection || EMPTY_FORM.colecao,
+    genero: product.gender || EMPTY_FORM.genero,
+    unidade: product.unit || EMPTY_FORM.unidade,
+    referencia: product.reference || "",
+    estoque: formatMoneyBr(product.stockQuantity || 0),
+    precoVenda: formatMoneyBr(product.salePrice || product.priceweightAverage || 0),
+    precoCusto: formatMoneyBr(product.costPrice || product.priceweightAverage || 0),
+    descricao: product.description || "",
+    fornecedor: product.supplierName || "",
+    codBarra: product.barcode || "",
+    codProdForn: product.supplierCode || "",
+    modelo: product.model || "",
+    origem: product.origin || EMPTY_FORM.origem,
+    composicao: product.composition || "",
+    garantia: product.warranty || "",
+    validade: product.validity || EMPTY_FORM.validade,
+    peso: formatMoneyBr(product.weightAverage || 0),
+    altura: formatMoneyBr(product.height || 0),
+    largura: formatMoneyBr(product.width || 0),
+    profundidade: formatMoneyBr(product.depth || 0),
+  };
+}
+
 export default function CadastrarProduto() {
   const navigate = useNavigate();
+  const [params] = useSearchParams();
+  const editingId = params.get("id") || "";
   const { storeId, stores } = usePdvSession();
   const [tab, setTab] = useState<CadTab>("gerais");
   const [stockId, setStockId] = useState(storeId);
@@ -257,6 +289,20 @@ export default function CadastrarProduto() {
   useEffect(() => {
     setStockId(storeId);
   }, [storeId]);
+
+  useEffect(() => {
+    if (!editingId) return;
+    api
+      .get(`/clients/products/${editingId}`)
+      .then(({ data }) => {
+        const product = data.product as PdvProduct | undefined;
+        if (product) setForm(formFromProduct(product));
+      })
+      .catch((err) => {
+        const parsed = parseError(err);
+        setStatus(parsed.friend || parsed.message || "Não foi possível abrir o produto.");
+      });
+  }, [editingId]);
 
   useEffect(() => {
     listCatalog("brand", true)
@@ -298,8 +344,7 @@ export default function CadastrarProduto() {
 
     setBusy(true);
     setStatus("");
-    try {
-      const { data } = await api.post("/clients/products", {
+    const body = {
         name: form.nome.trim(),
         description: form.descricao.trim() || form.nome.trim(),
         weightAverage: parseMoneyBr(form.peso),
@@ -326,19 +371,25 @@ export default function CadastrarProduto() {
         height: parseMoneyBr(form.altura),
         width: parseMoneyBr(form.largura),
         depth: parseMoneyBr(form.profundidade),
-      });
-      const productId = data?.product?.id as string | undefined;
+    };
+    try {
+      const { data } = editingId
+        ? await api.put(`/clients/products/${editingId}`, body)
+        : await api.post("/clients/products", body);
+      const productId = (editingId || data?.product?.id) as string | undefined;
       if (productId && photo1) {
         const body = new FormData();
         body.append("file", photo1);
         await api.post(`/clients/products/${productId}/photo`, body);
       }
       setStatus(
-        mode === "novo"
-          ? "Produto cadastrado. Formulário liberado para novo cadastro."
-          : mode === "etiqueta"
-            ? "Produto cadastrado. Impressão de etiqueta não foi disparada."
-            : "Produto cadastrado.",
+        editingId
+          ? "Produto atualizado."
+          : mode === "novo"
+            ? "Produto cadastrado. Formulário liberado para novo cadastro."
+            : mode === "etiqueta"
+              ? "Produto cadastrado. Impressão de etiqueta não foi disparada."
+              : "Produto cadastrado.",
       );
       if (mode === "novo") {
         setForm(EMPTY_FORM);
@@ -359,7 +410,7 @@ export default function CadastrarProduto() {
       <section className="pdv-cad-page pdv-prod-page" aria-labelledby="pdv-prod-cad-title">
         <div className="pdv-cad-sheet pdv-prod-sheet">
           <div className="pdv-prod-cad-head">
-            <h1 id="pdv-prod-cad-title">CADASTRO DE PRODUTO</h1>
+            <h1 id="pdv-prod-cad-title">{editingId ? "ALTERAR PRODUTO" : "CADASTRO DE PRODUTO"}</h1>
             <label className="pdv-prod-stock">
               <span className="pdv-sr">Estoque</span>
               <select value={stock?.id ?? ""} onChange={(event) => setStockId(event.target.value)}>

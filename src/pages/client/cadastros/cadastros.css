@@ -203,6 +203,41 @@
 .pdv-cad-table-wrap {
   overflow: auto;
   border: 1px solid #d7d0c4;
+  border-radius: 16px;
+}
+
+.pdv-prod-row-actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 6px;
+}
+
+.pdv-prod-gear,
+.pdv-prod-off {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 32px;
+  border-radius: 999px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.pdv-prod-gear {
+  padding: 0 10px;
+  border: 1px solid #d7d0c4;
+  background: #fff;
+  color: #3d3832;
+}
+
+.pdv-prod-off {
+  padding: 0 12px;
+  border: 1px solid #e7c98a;
+  background: #fff8ec;
+  color: #8a5a12;
 }
 
 .pdv-apoio-swatch {

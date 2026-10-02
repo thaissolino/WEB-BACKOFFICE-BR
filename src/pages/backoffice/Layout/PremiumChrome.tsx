@@ -13,9 +13,41 @@ import {
 import { useTheme } from "@mui/material/styles";
 import { ColorModeContext } from "../../../theme";
 import { ModesPopover } from "../../../components/ui-mode/ModesPopover";
-import { LEGACY_GROUP_LABEL, useBackofficeNavItems } from "../../../store/useBackofficeNavItems";
+import { LEGACY_GROUP_LABEL, useBackofficeNavItems, type BackofficeNavItem } from "../../../store/useBackofficeNavItems";
 import { api } from "../../../services/api";
 import "./premium-chrome.css";
+
+function NavBranch({
+  item,
+  active,
+}: {
+  item: BackofficeNavItem;
+  active: (to: string) => boolean;
+}) {
+  const childActive = item.children?.some((child) => active(child.to)) ?? false;
+  const [open, setOpen] = useState(childActive);
+
+  useEffect(() => {
+    if (childActive) setOpen(true);
+  }, [childActive]);
+
+  return (
+    <details
+      className="pdv-chrome-sub"
+      open={open}
+      onToggle={(event) => setOpen((event.currentTarget as HTMLDetailsElement).open)}
+    >
+      <summary className={childActive ? "is-current" : undefined}>{item.label}</summary>
+      <div className="pdv-chrome-sub-list">
+        {item.children?.map((child) => (
+          <Link key={child.id} to={child.to} aria-current={active(child.to) ? "page" : undefined}>
+            {child.label}
+          </Link>
+        ))}
+      </div>
+    </details>
+  );
+}
 
 export function PremiumChrome() {
   const { items, roleLabel, onLogout, canBackup, isActive } = useBackofficeNavItems();
@@ -87,9 +119,13 @@ export function PremiumChrome() {
           return (
             <div key={item.id}>
               {showGroup ? <p className="pdv-chrome-group">{item.group}</p> : null}
-              <Link to={item.to} aria-current={isActive(item.to) ? "page" : undefined}>
-                {item.label}
-              </Link>
+              {item.children?.length ? (
+                <NavBranch item={item} active={isActive} />
+              ) : (
+                <Link to={item.to} aria-current={isActive(item.to) ? "page" : undefined}>
+                  {item.label}
+                </Link>
+              )}
             </div>
           );
         })}
@@ -151,7 +187,7 @@ export function PremiumChrome() {
         </div>
       ) : null}
       <div className="pdv-chrome-body" style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
-        {(
+        <div className="pdv-chrome-main">
           <header className="pdv-chrome-header">
             <div className="pdv-chrome-header-left">
               <button
@@ -163,10 +199,6 @@ export function PremiumChrome() {
               >
                 {drawerOpen ? <X size={20} /> : <Menu size={20} />}
               </button>
-              <div>
-                <p className="pdv-chrome-kicker">Backoffice</p>
-                <strong>Painel gestor</strong>
-              </div>
             </div>
             <div className="pdv-chrome-header-actions">
               <button
@@ -183,8 +215,6 @@ export function PremiumChrome() {
               <ModesPopover variant="premium" />
             </div>
           </header>
-        )}
-        <div className="pdv-chrome-main">
           <Outlet />
         </div>
       </div>
