@@ -5,13 +5,37 @@ import Swal from "sweetalert2";
 import { GenericSearchSelect } from "./SearchSelect";
 import { Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
-import { formatCurrency } from "../modals/format";
 import { Truck, HandCoins, Handshake, CircleDollarSign } from "lucide-react";
 import { useBalanceStore } from "../../../../store/useBalanceStore";
 import { BalanceSharp } from "@mui/icons-material";
 import { useNotification } from "../../../../hooks/notification";
 import { formatDateIn } from "../../../tokens-management/components/format";
 import { usePermissionStore } from "../../../../store/permissionsStore";
+
+function formatBrl(value: number, decimals = 2) {
+  return new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+    minimumFractionDigits: decimals,
+  }).format(Number.isFinite(value) ? value : 0);
+}
+
+function parseMoneyDisplay(raw: string) {
+  const cleaned = raw.replace(/[^\d,.-]/g, "");
+  const negative = cleaned.trim().startsWith("-");
+  const digits = cleaned.replace(/-/g, "");
+  let normalized = digits;
+  if (digits.includes(",") && digits.includes(".")) {
+    normalized = digits.replace(/\./g, "").replace(",", ".");
+  } else if (digits.includes(",")) {
+    normalized = digits.replace(",", ".");
+  } else if ((digits.match(/\./g) || []).length > 1) {
+    normalized = digits.replace(/\./g, "");
+  }
+  const value = parseFloat(normalized);
+  if (Number.isNaN(value)) return Number.NaN;
+  return negative ? -value : value;
+}
 
 interface Transaction {
   id: string;
@@ -611,37 +635,19 @@ export const CaixasTabBrl = () => {
         {selectedEntity ? (
           // Quando tem item selecionado, mostrar apenas o card relevante
           <>
-            {selectedEntity.typeInvoice === "parceiro" && (
-              <motion.div whileHover={{ scale: 1.02 }} className="bg-teal-50 p-4 rounded-2xl shadow-sm border border-teal-100 relative group">
-                <div className="flex items-center gap-2 mb-2">
-                  <Handshake className="text-teal-600 w-5 h-5" />
-                  <h3 className="font-medium truncate max-w-[180px]">
-                    {selectedEntity.name.toUpperCase()} - PARCEIRO
-                  </h3>
-                </div>
-                <p className="text-2xl font-bold text-teal-600 truncate" title={formatCurrency(filteredBalances.partners || 0)}>
-                  {formatCurrency(filteredBalances.partners || 0)}
-                </p>
-                <div className="absolute hidden group-hover:block bg-gray-800 text-white text-xs p-2 rounded z-10 bottom-full mb-2 whitespace-nowrap">
-                  {formatCurrency(filteredBalances.partners || 0)}
-                </div>
-              </motion.div>
-            )}
-            <motion.div whileHover={{ scale: 1.02 }} className="bg-purple-50 p-4 rounded-2xl shadow-sm border border-purple-100 relative group">
+            <motion.div whileHover={{ scale: 1.02 }} className="bg-teal-50 p-4 rounded-2xl shadow-sm border border-teal-100 relative group">
               <div className="flex items-center gap-2 mb-2">
-                <CircleDollarSign className="text-purple-600 w-5 h-5" />
+                <Handshake className="text-teal-600 w-5 h-5" />
                 <h3 className="font-medium truncate max-w-[180px]">
-                  TOTAL GERAL: {selectedEntity.name.toUpperCase()}
+                  {selectedEntity.name.toUpperCase()}
                 </h3>
               </div>
-              <p className="text-2xl font-bold text-purple-600 truncate" title={formatCurrency(filteredBalances.general || 0)}>
-                {formatCurrency(filteredBalances.general || 0)}
+              <p className="text-2xl font-bold text-teal-600 truncate" title={formatBrl(filteredBalances.partners || 0)}>
+                {formatBrl(filteredBalances.partners || 0)}
               </p>
-              {formatCurrency(filteredBalances.general || 0).length > 12 && (
-                <div className="absolute hidden group-hover:block bg-gray-800 text-white text-xs p-2 rounded z-10 bottom-full mb-2 whitespace-nowrap">
-                  {formatCurrency(filteredBalances.general || 0)}
-                </div>
-              )}
+              <div className="absolute hidden group-hover:block bg-gray-800 text-white text-xs p-2 rounded z-10 bottom-full mb-2 whitespace-nowrap">
+                {formatBrl(filteredBalances.partners || 0)}
+              </div>
             </motion.div>
           </>
         ) : selectedFilter ? (
@@ -653,11 +659,11 @@ export const CaixasTabBrl = () => {
                   <Handshake className="text-teal-600 w-5 h-5" />
                   <h3 className="font-medium truncate max-w-[180px]">TOTAL PARCEIROS</h3>
                 </div>
-                <p className="text-2xl font-bold text-teal-600 truncate" title={formatCurrency(filteredBalances.partners || 0)}>
-                  {formatCurrency(filteredBalances.partners || 0)}
+                <p className="text-2xl font-bold text-teal-600 truncate" title={formatBrl(filteredBalances.partners || 0)}>
+                  {formatBrl(filteredBalances.partners || 0)}
                 </p>
                 <div className="absolute hidden group-hover:block bg-gray-800 text-white text-xs p-2 rounded z-10 bottom-full mb-2 whitespace-nowrap">
-                  {formatCurrency(filteredBalances.partners || 0)}
+                  {formatBrl(filteredBalances.partners || 0)}
                 </div>
               </motion.div>
             )}
@@ -668,11 +674,11 @@ export const CaixasTabBrl = () => {
                     <Handshake className="text-teal-600 w-5 h-5" />
                     <h3 className="font-medium truncate max-w-[180px]">TOTAL PARCEIROS</h3>
                   </div>
-                  <p className="text-2xl font-bold text-teal-600 truncate" title={formatCurrency(filteredBalances.partners || 0)}>
-                    {formatCurrency(filteredBalances.partners || 0)}
+                  <p className="text-2xl font-bold text-teal-600 truncate" title={formatBrl(filteredBalances.partners || 0)}>
+                    {formatBrl(filteredBalances.partners || 0)}
                   </p>
                   <div className="absolute hidden group-hover:block bg-gray-800 text-white text-xs p-2 rounded z-10 bottom-full mb-2 whitespace-nowrap">
-                    {formatCurrency(filteredBalances.partners || 0)}
+                    {formatBrl(filteredBalances.partners || 0)}
                   </div>
                 </motion.div>
 
@@ -681,12 +687,12 @@ export const CaixasTabBrl = () => {
                     <CircleDollarSign className="text-purple-600 w-5 h-5" />
                     <h3 className="font-medium truncate max-w-[180px]">BALANÇO GERAL</h3>
                   </div>
-                  <p className="text-2xl font-bold text-purple-600 truncate" title={formatCurrency(filteredBalances.general || 0)}>
-                    {formatCurrency(filteredBalances.general || 0)}
+                  <p className="text-2xl font-bold text-purple-600 truncate" title={formatBrl(filteredBalances.general || 0)}>
+                    {formatBrl(filteredBalances.general || 0)}
                   </p>
-                  {formatCurrency(filteredBalances.general || 0).length > 1 && (
+                  {formatBrl(filteredBalances.general || 0).length > 1 && (
                     <div className="absolute hidden group-hover:block bg-gray-800 text-white text-xs p-2 rounded z-10 bottom-full mb-2 whitespace-nowrap">
-                      {formatCurrency(filteredBalances.general || 0)}
+                      {formatBrl(filteredBalances.general || 0)}
                     </div>
                   )}
                 </motion.div>
@@ -701,11 +707,11 @@ export const CaixasTabBrl = () => {
                 <Handshake className="text-teal-600 w-5 h-5" />
                 <h3 className="font-medium truncate max-w-[180px]">TOTAL PARCEIROS</h3>
               </div>
-              <p className="text-2xl font-bold text-teal-600 truncate" title={formatCurrency(filteredBalances.partners || 0)}>
-                {formatCurrency(filteredBalances.partners || 0)}
+              <p className="text-2xl font-bold text-teal-600 truncate" title={formatBrl(filteredBalances.partners || 0)}>
+                {formatBrl(filteredBalances.partners || 0)}
               </p>
               <div className="absolute hidden group-hover:block bg-gray-800 text-white text-xs p-2 rounded z-10 bottom-full mb-2 whitespace-nowrap">
-                {formatCurrency(filteredBalances.partners || 0)}
+                {formatBrl(filteredBalances.partners || 0)}
               </div>
             </motion.div>
 
@@ -714,12 +720,12 @@ export const CaixasTabBrl = () => {
                 <CircleDollarSign className="text-purple-600 w-5 h-5" />
                 <h3 className="font-medium truncate max-w-[180px]">BALANÇO GERAL</h3>
               </div>
-              <p className="text-2xl font-bold text-purple-600 truncate" title={formatCurrency(filteredBalances.general || 0)}>
-                {formatCurrency(filteredBalances.general || 0)}
+              <p className="text-2xl font-bold text-purple-600 truncate" title={formatBrl(filteredBalances.general || 0)}>
+                {formatBrl(filteredBalances.general || 0)}
               </p>
-              {formatCurrency(filteredBalances.general || 0).length > 1 && (
+              {formatBrl(filteredBalances.general || 0).length > 1 && (
                 <div className="absolute hidden group-hover:block bg-gray-800 text-white text-xs p-2 rounded z-10 bottom-full mb-2 whitespace-nowrap">
-                  {formatCurrency(filteredBalances.general || 0)}
+                  {formatBrl(filteredBalances.general || 0)}
                 </div>
               )}
             </motion.div>
@@ -741,10 +747,8 @@ export const CaixasTabBrl = () => {
           <div className="flex items-center space-x-4">
             <GenericSearchSelect
               items={[
-                // Opções especiais de filtro
-                { id: "filter_all", name: "TODOS", typeInvoice: "all" as any, isFilter: true },
-                { id: "filter_partners", name: "PARCEIROS", typeInvoice: "parceiro" as any, isFilter: true },
-                // Entidades reais
+                // { id: "filter_all", name: "TODOS", typeInvoice: "all" as any, isFilter: true },
+                // { id: "filter_partners", name: "PARCEIROS", typeInvoice: "parceiro" as any, isFilter: true },
                 ...getFilteredItems()
               ]}
               value={selectedFilter ? `filter_${selectedFilter}` : selectedEntity?.id || ""}
@@ -857,10 +861,7 @@ export const CaixasTabBrl = () => {
                 {loadingFetch2 ? (
                   <Loader2 className="inline w-4 h-4 animate-spin" />
                 ) : (
-                  `$ ${getTotalBalance().toLocaleString("pt-BR", {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2,
-                  })}`
+                  formatBrl(getTotalBalance())
                 )}
               </span>
             </div>
@@ -911,30 +912,18 @@ export const CaixasTabBrl = () => {
 
                       setFormData({ ...formData, value: newValue });
                     }}
-                    onBlur={(e) => {
+                    onBlur={() => {
                       if (valorRaw) {
-                        // Converte vírgula para ponto antes de fazer parse
-                        const cleanedValue = valorRaw.replace(/,/g, ".");
-                        const numericValue = parseFloat(cleanedValue);
+                        const numericValue = parseMoneyDisplay(valorRaw);
                         if (!isNaN(numericValue)) {
-                          // Formata mantendo o sinal negativo se existir
-                          const formattedValue = numericValue.toLocaleString("en-US", {
-                            style: "currency",
-                            currency: "USD",
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 2,
-                          });
-                          setValorRaw(formattedValue);
+                          setValorRaw(formatBrl(numericValue));
                           setFormData({ ...formData, value: numericValue.toString() });
                         }
                       }
                     }}
-                    onFocus={(e) => {
-                      // Remove formatação quando o input recebe foco
+                    onFocus={() => {
                       if (valorRaw) {
-                        // Aceita vírgula e ponto, remove outros caracteres
-                        const cleanedValue = valorRaw.replace(/[^0-9.,-]/g, "").replace(/,/g, ".");
-                        const numericValue = parseFloat(cleanedValue);
+                        const numericValue = parseMoneyDisplay(valorRaw);
                         if (!isNaN(numericValue)) {
                           setValorRaw(numericValue.toString());
                         }
@@ -1042,7 +1031,7 @@ export const CaixasTabBrl = () => {
                     <ul>
                       {pedidoAberto.lines.map((line, index) => (
                         <li key={`${line.code}-${index}`}>
-                          {line.name} · cód. {line.code} · qtd {line.qty} · {Number(line.price || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                          {line.name} · cód. {line.code} · qtd {line.qty} · {formatBrl(Number(line.price || 0))}
                         </li>
                       ))}
                     </ul>
@@ -1113,11 +1102,7 @@ export const CaixasTabBrl = () => {
                             }`}
                           >
                             {t.direction === "OUT" ? "-" : "+"}
-                            {new Intl.NumberFormat("en-US", {
-                              style: "currency",
-                              currency: "USD",
-                              minimumFractionDigits: 2,
-                            }).format(t.value)}{" "}
+                            {formatBrl(Math.abs(Number(t.value) || 0))}{" "}
                           </td>
                           <td className="py-2 px-4 border text-center">
                             <motion.button

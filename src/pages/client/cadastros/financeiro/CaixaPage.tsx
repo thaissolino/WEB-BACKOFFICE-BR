@@ -3,7 +3,8 @@ import { useNavigate, useSearchParams } from "react-router-dom"
 import { Pencil, Plus } from "lucide-react"
 import CadastroShell from "../CadastroShell"
 import { FormRow } from "../catalog/FormBits"
-import { createCatalog, deleteCatalog, getCatalog, listCatalog, updateCatalog, type CatalogItem } from "../catalog/catalogApi"
+import { getCatalog, createCatalog, updateCatalog } from "../catalog/catalogApi"
+import { createLojaCaixa, deleteLojaCaixas, listLojaCaixas, updateLojaCaixa, type LojaCaixa } from "./caixaApi"
 import { parseError } from "../../../../services/api"
 import { AtivoToggle } from "../produtos/QuickCadWindows"
 
@@ -11,17 +12,30 @@ const TRANSF = ["Manual", "Automática", "Abertura de Caixa"]
 const PRINTERS = ["Nenhuma", "Bematech", "Daruma"]
 
 export default function CaixaPage() {
-  const [rows, setRows] = useState<CatalogItem[]>([])
+  const [rows, setRows] = useState<LojaCaixa[]>([])
   const [picked, setPicked] = useState<number[]>([])
+  const [nome, setNome] = useState("")
+  const [creating, setCreating] = useState(false)
+  const [askDelete, setAskDelete] = useState(false)
+  const [deleting, setDeleting] = useState(false)
   const [error, setError] = useState("")
 
   function load() {
-    listCatalog("cash_register")
+    listLojaCaixas()
       .then(setRows)
       .catch((err) => setError(parseError(err).friend || "Não foi possível carregar."))
   }
 
   useEffect(() => { load() }, [])
+
+  useEffect(() => {
+    if (!askDelete) return
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "Escape" && !deleting) setAskDelete(false)
+    }
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+  }, [askDelete, deleting])
 
   function toggle(code: number) {
     setPicked((current) => (current.includes(code) ? current.filter((item) => item !== code) : [...current, code]))
@@ -31,7 +45,7 @@ export default function CaixaPage() {
     const chosen = rows.filter((item) => picked.includes(item.code))
     if (!chosen.length) return
     try {
-      await Promise.all(chosen.map((item) => updateCatalog("cash_register", item.code, { name: item.name, payload: item.payload, active: false })))
+      await Promise.all(chosen.map((item) => updateLojaCaixa(item.code, { name: item.name, payload: item.payload, active: false })))
       setPicked([])
       load()
     } catch (err) {
@@ -39,21 +53,43 @@ export default function CaixaPage() {
     }
   }
 
-  async function deleteSelected() {
-    if (!picked.length) return
-    if (!window.confirm(`Excluir ${picked.length} caixa(s)?`)) return
+  async function confirmDelete() {
+    if (!picked.length || deleting) return
+    setDeleting(true)
+    setError("")
     try {
-      await deleteCatalog("cash_register", picked)
+      await deleteLojaCaixas(picked)
       setPicked([])
+      setAskDelete(false)
       load()
     } catch (err) {
       setError(parseError(err).friend || "Não foi possível excluir.")
+      setAskDelete(false)
+    } finally {
+      setDeleting(false)
     }
   }
 
-  async function patch(item: CatalogItem, payload: Record<string, unknown>, active = item.active) {
-    await updateCatalog("cash_register", item.code, { name: item.name, payload: { ...item.payload, ...payload }, active })
+  async function patch(item: LojaCaixa, payload: Record<string, unknown>, active = item.active) {
+    await updateLojaCaixa(item.code, { name: item.name, payload: { ...item.payload, ...payload }, active })
     load()
+  }
+
+  async function onCreate(event: FormEvent) {
+    event.preventDefault()
+    const name = nome.trim()
+    if (!name || creating) return
+    setCreating(true)
+    setError("")
+    try {
+      await createLojaCaixa(name)
+      setNome("")
+      load()
+    } catch (err) {
+      setError(parseError(err).friend || "Não foi possível criar o caixa.")
+    } finally {
+      setCreating(false)
+    }
   }
 
   return (
@@ -62,14 +98,25 @@ export default function CaixaPage() {
         <div className="pdv-cad-sheet pdv-cad-sheet-wide">
           <h1 id="pdv-caixa-cad">CAIXAS DA LOJA</h1>
           {error ? <p className="pdv-prod-status" role="alert">{error}</p> : null}
-          <div className="pdv-cad-form-go">
+          <form className="pdv-cad-caixa-new" onSubmit={onCreate}>
+            <input
+              value={nome}
+              onChange={(event) => setNome(event.target.value)}
+              placeholder="Nome do caixa"
+              aria-label="Nome do caixa"
+              autoComplete="off"
+            />
+            <button className="pdv-cad-btn pdv-cad-btn-green" type="submit" disabled={creating || !nome.trim()}>
+              <Plus size={16} strokeWidth={2.6} aria-hidden="true" />
+              {creating ? "Criando..." : "Novo caixa"}
+            </button>
             <button className="pdv-cad-btn" type="button" disabled={!picked.length} onClick={inactivateSelected}>
               Inativar selecionados
             </button>
-            <button className="pdv-cad-btn" type="button" disabled={!picked.length} onClick={deleteSelected}>
+            <button className="pdv-cad-btn" type="button" disabled={!picked.length} onClick={() => setAskDelete(true)}>
               Excluir selecionados
             </button>
-          </div>
+          </form>
           <div className="pdv-cad-table-wrap">
             <table className="pdv-cad-table">
               <thead>
@@ -97,6 +144,11 @@ export default function CaixaPage() {
                 </tr>
               </thead>
               <tbody>
+                {rows.length === 0 ? (
+                  <tr>
+                    <td colSpan={13}>Nenhum caixa nesta loja. Crie o primeiro acima.</td>
+                  </tr>
+                ) : null}
                 {rows.map((item) => (
                   <tr key={item.code}>
                     <td>
@@ -144,6 +196,38 @@ export default function CaixaPage() {
           </div>
         </div>
       </section>
+      {askDelete ? (
+        <div className="pdv-caixa-confirm" onClick={() => { if (!deleting) setAskDelete(false) }}>
+          <div
+            className="pdv-caixa-confirm-card"
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="pdv-caixa-confirm-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <h2 id="pdv-caixa-confirm-title">
+              {picked.length === 1 ? "Excluir este caixa?" : `Excluir ${picked.length} caixas?`}
+            </h2>
+            <p>Essa exclusão vale só para esta loja.</p>
+            <ul>
+              {rows.filter((item) => picked.includes(item.code)).map((item) => (
+                <li key={item.code}>
+                  <span>{item.name}</span>
+                  <b>{item.code}</b>
+                </li>
+              ))}
+            </ul>
+            <div className="pdv-caixa-confirm-actions">
+              <button className="pdv-cad-btn" type="button" disabled={deleting} onClick={() => setAskDelete(false)}>
+                Cancelar
+              </button>
+              <button className="pdv-cad-btn pdv-cad-btn-red" type="button" disabled={deleting} onClick={confirmDelete}>
+                {deleting ? "Excluindo..." : "Excluir"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </CadastroShell>
   )
 }

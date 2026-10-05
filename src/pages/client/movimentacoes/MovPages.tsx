@@ -5,8 +5,9 @@ import { FormEvent, MouseEvent, useRef, useState } from "react"
 import { api } from "../../../services/api"
 import { FormRow } from "../cadastros/catalog/FormBits"
 import { createCatalog, listCatalog } from "../cadastros/catalog/catalogApi"
+import { listLojaCaixas } from "../cadastros/financeiro/caixaApi"
 import { parseError } from "../../../services/api"
-import { Plus } from "lucide-react"
+import { Pencil, Plus } from "lucide-react"
 import { useEffect } from "react"
 import "../vendas/pedidos.css"
 
@@ -224,7 +225,7 @@ export function CadastrarDespesa({ receita = false }: { receita?: boolean }) {
 
   useEffect(() => {
     listCatalog("account_plan", true).then((rows) => setPlanos(rows.map((item) => item.name))).catch(() => setPlanos([]))
-    listCatalog("cash_register", true).then((rows) => setCaixas(rows.map((item) => item.name))).catch(() => setCaixas([]))
+    listLojaCaixas(true).then((rows) => setCaixas(rows.map((item) => item.name))).catch(() => setCaixas([]))
     listCatalog("payment", true).then((rows) => setFormas(rows.map((item) => item.name))).catch(() => setFormas([]))
   }, [])
 
@@ -333,6 +334,17 @@ function parseMoney(value: string) {
   return Math.round(number * 100) / 100
 }
 
+function maskUnitPrice(raw: string) {
+  const cleaned = raw.replace(/[^\d,]/g, "")
+  if (!cleaned) return ""
+  const comma = cleaned.indexOf(",")
+  const intDigits = (comma === -1 ? cleaned : cleaned.slice(0, comma)).replace(/^0+(?=\d)/, "")
+  const intPart = intDigits.replace(/\B(?=(\d{3})+(?!\d))/g, ".")
+  if (comma === -1) return intPart
+  const dec = cleaned.slice(comma + 1).replace(/\D/g, "").slice(0, 2)
+  return `${intPart || "0"},${dec}`
+}
+
 type TransferDetail = TransferOrder & { received: boolean; lines: TransferLine[] }
 
 export function TransferenciasList({ title }: { title: string }) {
@@ -346,7 +358,8 @@ export function TransferenciasList({ title }: { title: string }) {
   const openRef = useRef<number | null>(null)
   const [notice, setNotice] = useState("")
   const [error, setError] = useState("")
-  const [busy, setBusy] = useState(false)
+  const [confirmingId, setConfirmingId] = useState<string | null>(null)
+  const confirmingRef = useRef<string | null>(null)
   const [openLines, setOpenLines] = useState<Record<string, boolean>>({})
   const [priceDraft, setPriceDraft] = useState<Record<string, string>>({})
 
@@ -366,7 +379,7 @@ export function TransferenciasList({ title }: { title: string }) {
 
   function openOrder(index: number) {
     const order = orders[index]
-    if (!order || !recebidasAbertas) return
+    if (!order || (!recebidasAbertas && !recebidasConcluidas)) return
     if (openIndex === index) {
       openRef.current = null
       setOpenIndex(null)
@@ -424,20 +437,22 @@ export function TransferenciasList({ title }: { title: string }) {
 
   async function confirmReceipt(order: TransferOrder, event: MouseEvent<HTMLButtonElement>) {
     event.stopPropagation()
-    if (busy) return
-    setBusy(true)
+    if (confirmingRef.current) return
+    confirmingRef.current = order.id
+    setConfirmingId(order.id)
     setError("")
     try {
       await api.post(`/clients/transferencias/${order.id}/receber`)
       openRef.current = null
       setOpenIndex(null)
       setDetail(null)
-      setNotice("Recebimento confirmado. As quantidades entraram no estoque.")
+      setNotice("Recebimento confirmado. As quantidades entraram no estoque da loja.")
       load()
     } catch (err) {
       setError(parseError(err).message || "Não foi possível confirmar o recebimento.")
     } finally {
-      setBusy(false)
+      confirmingRef.current = null
+      setConfirmingId(null)
     }
   }
 
@@ -455,7 +470,7 @@ export function TransferenciasList({ title }: { title: string }) {
           <tr>
             <th>Código</th>
             <th>Produto</th>
-            <th>Valor unit.</th>
+            <th className="pdv-cad-price-head">Valor unit.</th>
             <th>Qtd</th>
           </tr>
         </thead>
@@ -490,25 +505,44 @@ export function TransferenciasList({ title }: { title: string }) {
                     </ul>
                   ) : null}
                 </td>
-                <td>
-                  <input
-                    className="pdv-cad-price"
-                    aria-label={`Valor unitário de ${line.name || "produto"}`}
-                    inputMode="decimal"
-                    value={priceDraft[key] ?? money(Number(line.price) || 0)}
-                    onClick={(event) => event.stopPropagation()}
-                    onFocus={() => setPriceDraft((current) => ({
-                      ...current,
-                      [key]: (Number(line.price) || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
-                    }))}
-                    onChange={(event) => setPriceDraft((current) => ({ ...current, [key]: event.target.value }))}
-                    onBlur={(event) => savePrice(index, line, event.currentTarget.value)}
-                    onKeyDown={(event) => {
-                      if (event.key !== "Enter") return
-                      event.preventDefault()
-                      event.currentTarget.blur()
-                    }}
-                  />
+                <td className="pdv-cad-price-cell">
+                  {detail.received ? (
+                    money(Number(line.price) || 0)
+                  ) : (
+                  <label className="pdv-cad-price-wrap">
+                    <input
+                      className="pdv-cad-price"
+                      aria-label={`Valor unitário de ${line.name || "produto"}`}
+                      inputMode="decimal"
+                      autoComplete="off"
+                      value={priceDraft[key] ?? money(Number(line.price) || 0)}
+                      onClick={(event) => event.stopPropagation()}
+                      onFocus={() => setPriceDraft((current) => ({
+                        ...current,
+                        [key]: maskUnitPrice((Number(line.price) || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })),
+                      }))}
+                      onBeforeInput={(event) => {
+                        const data = (event.nativeEvent as InputEvent).data || ""
+                        if (data.length === 1 && /[^\d,]/.test(data)) event.preventDefault()
+                      }}
+                      onChange={(event) => setPriceDraft((current) => ({ ...current, [key]: maskUnitPrice(event.target.value) }))}
+                      onBlur={(event) => savePrice(index, line, event.currentTarget.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") {
+                          event.preventDefault()
+                          event.currentTarget.blur()
+                          return
+                        }
+                        if (event.ctrlKey || event.metaKey || event.altKey) return
+                        if (["Backspace", "Delete", "ArrowLeft", "ArrowRight", "Tab", "Home", "End"].includes(event.key)) return
+                        if (/^\d$/.test(event.key)) return
+                        if (event.key === "," && !event.currentTarget.value.includes(",")) return
+                        event.preventDefault()
+                      }}
+                    />
+                    <Pencil className="pdv-cad-price-mark" size={14} strokeWidth={2.2} aria-hidden />
+                  </label>
+                  )}
                 </td>
                 <td>{line.qty}</td>
               </tr>
@@ -535,17 +569,33 @@ export function TransferenciasList({ title }: { title: string }) {
       onRowClick={recebidasAbertas ? openOrder : undefined}
       expandedIndex={openIndex}
       expanded={expanded}
-      closedAction={recebidasAbertas ? (index) => {
+      closedAction={recebidasAbertas || recebidasConcluidas ? (index) => {
         const order = orders[index]
         if (!order) return null
+        if (recebidasConcluidas) {
+          const open = openIndex === index
+          return (
+            <button
+              className="pdv-cad-receive-go"
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation()
+                openOrder(index)
+              }}
+            >
+              {open ? "Ocultar" : "Visualizar"}
+            </button>
+          )
+        }
+        const confirming = confirmingId === order.id
         return (
           <button
             className="pdv-cad-receive-go"
             type="button"
-            disabled={busy}
+            disabled={confirming}
             onClick={(event) => confirmReceipt(order, event)}
           >
-            {busy ? "Confirmando..." : "Confirmar recebimento"}
+            {confirming ? "Confirmando..." : "Confirmar recebimento"}
           </button>
         )
       } : undefined}

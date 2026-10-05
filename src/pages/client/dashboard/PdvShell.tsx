@@ -1,14 +1,12 @@
 import { createContext, FormEvent, ReactNode, useContext, useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
-  Calendar,
   ChevronDown,
   Headphones,
   Home,
   ImagePlus,
   LogOut,
   Menu,
-  Package,
   Search,
   Settings,
   ShoppingCart,
@@ -26,7 +24,6 @@ import SupportModal from "./SupportModal";
 import LogoModal from "./LogoModal";
 import {
   EMPTY_PDV_UI_CONFIG,
-  isDashboardVisible,
   normalizePdvUiConfig,
   type PdvUiConfig,
 } from "./pdvUiConfig";
@@ -208,8 +205,6 @@ export default function PdvShell({
   const [storeId, setStoreId] = useState(readStoredStoreId);
   const [stores, setStores] = useState<StoreOption[]>([]);
   const [pendingStoreId, setPendingStoreId] = useState<string | null>(null);
-  const [periodFrom, setPeriodFrom] = useState("");
-  const [periodTo, setPeriodTo] = useState("");
   const [chromeModal, setChromeModal] = useState<"config" | "support" | "logo" | null>(null);
   const [uiConfig, setUiConfig] = useState<PdvUiConfig>(EMPTY_PDV_UI_CONFIG);
   const [logoSrc, setLogoSrc] = useState<string | null>(null);
@@ -376,66 +371,38 @@ export default function PdvShell({
     else navigate("/client/caixa");
   }
 
-  const showCloseDemo = isDashboardVisible(uiConfig, "close-demo");
-  const showPeriod = isDashboardVisible(uiConfig, "period");
   const onDashboard = location.pathname === "/client/dashboard";
 
-  // Controles compartilhados entre a toolbar premium e a faixa mínima do clássico.
-  const closeDemoButton = showCloseDemo ? (
-    <PdvTip label="Clique aqui para fechar todas as caixas.">
-      <button
-        className="pdv-close-demo"
-        onClick={closePanels}
-        type="button"
-        title="Clique aqui para fechar todas as caixas."
-        aria-label="Clique aqui para fechar todas as caixas."
-      >
-        <Package size={16} strokeWidth={2.2} aria-hidden="true" />
-        Fechar demonstrativo
-      </button>
-    </PdvTip>
-  ) : null;
-
-  const periodControl = showPeriod ? (
-    <div className="pdv-period" role="group" aria-label="Período">
-      <label className="pdv-period-kicker" htmlFor="pdv-de">
-        Período:
-      </label>
-      <span className="pdv-date-slot">
-        <Calendar className="pdv-date-icon" size={14} strokeWidth={2} aria-hidden="true" />
-        <input
-          id="pdv-de"
-          className="pdv-date"
-          type="date"
-          value={periodFrom}
-          onChange={(event) => setPeriodFrom(event.target.value)}
-        />
-      </span>
-      <label className="pdv-period-sep" htmlFor="pdv-ate">
-        até
-      </label>
-      <span className="pdv-date-slot">
-        <Calendar className="pdv-date-icon" size={14} strokeWidth={2} aria-hidden="true" />
-        <input
-          id="pdv-ate"
-          className="pdv-date"
-          type="date"
-          value={periodTo}
-          onChange={(event) => setPeriodTo(event.target.value)}
-        />
-      </span>
-    </div>
-  ) : null;
+  // Fechar demonstrativo e o filtro de período ficam fora da tela por enquanto.
+  // const showCloseDemo = isDashboardVisible(uiConfig, "close-demo");
+  // const showPeriod = isDashboardVisible(uiConfig, "period");
+  // const closeDemoButton = showCloseDemo ? (
+  //   <PdvTip label="Clique aqui para fechar todas as caixas.">
+  //     <button className="pdv-close-demo" onClick={closePanels} type="button">
+  //       Fechar demonstrativo
+  //     </button>
+  //   </PdvTip>
+  // ) : null;
+  // const periodControl = showPeriod ? <div className="pdv-period">Período</div> : null;
+  const closeDemoButton = null;
+  const periodControl = null;
 
   return (
     <PdvUiConfigContext.Provider value={uiConfig}>
     <PdvSessionContext.Provider value={{ query, storeId, storeName, stores, openStoreLogo: () => setChromeModal("logo") }}>
-      <div className={className ? `pdv-root ${className}` : "pdv-root"} data-surface="cream" data-layout={layoutMode} lang="pt-BR">
+      <div
+        className={className ? `pdv-root ${className}` : "pdv-root"}
+        data-surface="cream"
+        data-layout={layoutMode}
+        data-pdv={location.pathname === "/client/pdv" ? "sale" : undefined}
+        lang="pt-BR"
+      >
         <a className="pdv-skip" href="#pdv-main">
           Ir para o conteúdo
         </a>
 
-        <header className="pdv-header">
+        {/* Header escondido no PDV só para este teste de layout. */}
+        {location.pathname === "/client/pdv" ? null : <header className="pdv-header">
           <div className="pdv-brand">
             {isClassic ? (
               <PdvTip label="Menu">
@@ -580,9 +547,10 @@ export default function PdvShell({
               </button>
             </PdvTip>
           </nav>
-        </header>
+        </header>}
 
-        {showStrip && !isClassic ? (
+        {/* No PDV (/client/pdv) o menu Cadastros, Movimentações, Relatórios e a lista de lojas ficam fora. */}
+        {showStrip && !isClassic && location.pathname !== "/client/pdv" ? (
           <div className="pdv-strip">
             <MenuBar uiConfig={uiConfig} />
 

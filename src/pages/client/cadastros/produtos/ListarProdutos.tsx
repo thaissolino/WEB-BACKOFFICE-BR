@@ -1,129 +1,29 @@
-import { FormEvent, Fragment, useEffect, useId, useMemo, useRef, useState } from "react";
-import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
-import {
-  Check,
-  ChevronDown,
-  Eraser,
-  Filter,
-  LayoutGrid,
-  List,
-  Ban,
-  Plus,
-  Search,
-  Settings,
-  X,
-} from "lucide-react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { Ban, Pencil, Plus, Settings } from "lucide-react";
 import { api, parseError } from "../../../../services/api";
-import { usePdvSession } from "../../dashboard/PdvShell";
 import CadastroShell from "../CadastroShell";
-import CategorySelect from "./CategorySelect";
-import EstoqueGradeModal from "./EstoqueGradeModal";
+// import EstoqueGradeModal from "./EstoqueGradeModal";
 import GradePhotoThumb from "./GradePhotoThumb";
-import { useDismissable } from "./SelectOverlay";
-import SearchableSelect from "./SearchableSelect";
 import { loadProductCategories, toFlatOptions, type FlatOption } from "./categoryModel";
 import {
-  formatMoneyBr,
-  formatMoneyRs,
-  GRADE_COMPARE_OPS,
-  GRADE_SIZES,
-  parseMoneyBr,
-  type GradeCompareOp,
-  type PdvProduct,
-} from "./types";
-
-const LAST_FILTER_KEY = "pdv-prod-last-filter";
+  CLIENT_PRODUCT_FILTER_KEY,
+  EMPTY_PRODUCT_FILTERS,
+  ProductFilterForm,
+  productMatchesFilters,
+  readProductFilters,
+  type ProductFilters,
+} from "./productFilters";
+import { formatMoneyBr, parseMoneyBr, type PdvProduct } from "./types";
 
 type ProdutoTab = "produto" | "grade" | "kits" | "grade-beta";
 
-type CompareFilter = { op: GradeCompareOp; value: string };
-
-type Filters = {
-  codProduto: string;
-  codBarra: string;
-  codGrade: string;
-  codFornecedor: string;
-  nome: string;
-  modelo: string;
-  referencia: string;
-  categorias: string[];
-  marca: string;
-  colecao: string;
-  genero: string;
-  fornecedor: string;
-  preco: CompareFilter;
-  precoLv: CompareFilter;
-  estoque: CompareFilter;
-};
-
-const EMPTY_COMPARE: CompareFilter = { op: "Todos", value: "" };
-
-const EMPTY_FILTERS: Filters = {
-  codProduto: "",
-  codBarra: "",
-  codGrade: "",
-  codFornecedor: "",
-  nome: "",
-  modelo: "",
-  referencia: "",
-  categorias: [],
-  marca: "",
-  colecao: "",
-  genero: "",
-  fornecedor: "",
-  preco: EMPTY_COMPARE,
-  precoLv: EMPTY_COMPARE,
-  estoque: EMPTY_COMPARE,
-};
-
-const CATALOG_ITEMS = [
-  { id: "com-preco", label: "Com Preço de Venda", kind: "ok" as const },
-  { id: "com-preco-estoque", label: "Com Preço de Venda e Estoque", kind: "ok" as const },
-  { id: "por-grade", label: "Por Grade Com Preço de Venda", kind: "grid" as const },
-  { id: "sem-preco", label: "Sem Preço de Venda", kind: "off" as const },
-  { id: "sem-preco-estoque", label: "Sem Preço de Venda com Estoque", kind: "off" as const },
-  { id: "simplificado", label: "Catálogo Simplificado", kind: "list" as const },
-];
-
-function tabFromSearch(raw: string | null): ProdutoTab {
-  if (raw === "grade") return "grade";
-  if (raw === "kits") return "kits";
-  if (raw === "grade-beta") return "grade-beta";
+function tabFromSearch(_raw: string | null): ProdutoTab {
   return "produto";
-}
-
-function readLastFilter(): Filters {
-  try {
-    const raw = sessionStorage.getItem(LAST_FILTER_KEY);
-    if (!raw) return EMPTY_FILTERS;
-    const parsed = JSON.parse(raw) as Partial<Filters>;
-    return {
-      ...EMPTY_FILTERS,
-      ...parsed,
-      categorias: Array.isArray(parsed.categorias) ? parsed.categorias : [],
-      preco: { ...EMPTY_COMPARE, ...parsed.preco },
-      precoLv: { ...EMPTY_COMPARE, ...parsed.precoLv },
-      estoque: { ...EMPTY_COMPARE, ...parsed.estoque },
-    };
-  } catch {
-    return EMPTY_FILTERS;
-  }
 }
 
 function categoryLabel(id: string, options: FlatOption[]) {
   return options.find((item) => item.id === id)?.label ?? id;
-}
-
-function matchCompare(op: GradeCompareOp, actual: number, raw: string) {
-  if (op === "Todos") return true;
-  const expected = parseMoneyBr(raw);
-  if (op === "=") return actual === expected;
-  if (op === ">") return actual > expected;
-  if (op === ">=") return actual >= expected;
-  if (op === "<") return actual < expected;
-  if (op === "<=") return actual <= expected;
-  if (op === "<>") return actual !== expected;
-  return true;
 }
 
 function uniqField(rows: PdvProduct[], key: keyof PdvProduct) {
@@ -135,46 +35,6 @@ function uniqField(rows: PdvProduct[], key: keyof PdvProduct) {
   return Array.from(set).sort((a, b) => a.localeCompare(b, "pt-BR", { sensitivity: "base" }));
 }
 
-function CompareField({
-  label,
-  prefix,
-  value,
-  onChange,
-}: {
-  label: string;
-  prefix?: string;
-  value: CompareFilter;
-  onChange: (next: CompareFilter) => void;
-}) {
-  const name = useId();
-  return (
-    <fieldset className="pdv-prod-more-cmp">
-      <legend>{label}</legend>
-      <div className="pdv-prod-more-ops">
-        {GRADE_COMPARE_OPS.map((op) => (
-          <label key={op}>
-            <input
-              type="radio"
-              name={name}
-              checked={value.op === op}
-              onChange={() => onChange({ ...value, op })}
-            />
-            {op}
-          </label>
-        ))}
-      </div>
-      <div className="pdv-prod-more-amt">
-        {prefix ? <span>{prefix}</span> : null}
-        <input
-          value={value.value}
-          onChange={(event) => onChange({ ...value, value: event.target.value })}
-          autoComplete="off"
-        />
-      </div>
-    </fieldset>
-  );
-}
-
 export default function ListarProdutos() {
   return (
     <CadastroShell>
@@ -183,30 +43,68 @@ export default function ListarProdutos() {
   );
 }
 
+function EditableAmount({
+  value,
+  money,
+  label,
+  onSave,
+}: {
+  value: number;
+  money?: boolean;
+  label: string;
+  onSave: (next: number) => Promise<void>;
+}) {
+  const [draft, setDraft] = useState<string | null>(null);
+  const text = money ? formatMoneyBr(value) : String(value).replace(".", ",");
+  return (
+    <label className="pdv-prod-edit" onClick={(event) => event.stopPropagation()}>
+      <input
+        className="pdv-prod-edit-input"
+        aria-label={label}
+        inputMode="decimal"
+        value={draft ?? text}
+        onFocus={() => setDraft(text)}
+        onChange={(event) => setDraft(event.target.value)}
+        onBlur={(event) => {
+          const next = parseMoneyBr(event.currentTarget.value);
+          setDraft(null);
+          if (next === value) return;
+          void onSave(next);
+        }}
+        onKeyDown={(event) => {
+          if (event.key !== "Enter") return;
+          event.preventDefault();
+          event.currentTarget.blur();
+        }}
+      />
+      <Pencil className="pdv-prod-edit-mark" size={14} strokeWidth={2.2} aria-hidden />
+    </label>
+  );
+}
+
 function ProdutosBoard() {
   const navigate = useNavigate();
-  const location = useLocation();
-  const { storeName } = usePdvSession();
   const [params, setParams] = useSearchParams();
-  const [tab, setTab] = useState<ProdutoTab>(() =>
-    location.pathname.includes("pesquisa-preco") ? "grade" : tabFromSearch(params.get("tipo")),
-  );
-  const [draft, setDraft] = useState<Filters>(EMPTY_FILTERS);
-  const [applied, setApplied] = useState<Filters>(EMPTY_FILTERS);
-  const [moreOpen, setMoreOpen] = useState(false);
-  const [catalogOpen, setCatalogOpen] = useState(false);
+  const [tab, setTab] = useState<ProdutoTab>(() => tabFromSearch(params.get("tipo")));
+  const [draft, setDraft] = useState<ProductFilters>(EMPTY_PRODUCT_FILTERS);
+  const [applied, setApplied] = useState<ProductFilters>(EMPTY_PRODUCT_FILTERS);
   const [rows, setRows] = useState<PdvProduct[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [searched, setSearched] = useState(false);
   const [error, setError] = useState("");
   const [selectedId, setSelectedId] = useState(params.get("cod") || "");
-  const [estoqueProduct, setEstoqueProduct] = useState<PdvProduct | null>(null);
+  // const [estoqueProduct, setEstoqueProduct] = useState<PdvProduct | null>(null);
   const [photoProduct, setPhotoProduct] = useState<PdvProduct | null>(null);
   const [categoryOptions, setCategoryOptions] = useState<FlatOption[]>([]);
-  const catalogRef = useRef<HTMLDivElement>(null);
   const selectedRef = useRef<HTMLTableRowElement>(null);
-  const catLabelId = useId();
 
-  useDismissable(catalogOpen, () => setCatalogOpen(false), catalogRef);
+  useEffect(() => {
+    const tipo = params.get("tipo");
+    if (tipo !== "grade" && tipo !== "kits" && tipo !== "grade-beta") return;
+    const next = new URLSearchParams(params);
+    next.delete("tipo");
+    setParams(next, { replace: true });
+  }, [params, setParams]);
 
   function setTabAndUrl(next: ProdutoTab, code?: string) {
     setTab(next);
@@ -236,7 +134,6 @@ function ProdutosBoard() {
   }
 
   useEffect(() => {
-    load();
     loadProductCategories(true)
       .then((rows) => setCategoryOptions(toFlatOptions(rows)))
       .catch(() => setCategoryOptions([]));
@@ -252,60 +149,51 @@ function ProdutosBoard() {
   const genders = useMemo(() => uniqField(rows, "gender"), [rows]);
   const suppliers = useMemo(() => uniqField(rows, "supplierName"), [rows]);
 
-  const visible = useMemo(() => {
-    const qNome = applied.nome.trim().toLowerCase();
-    const qCode = applied.codProduto.trim();
-    const qGrade = applied.codGrade.trim();
-    const qBar = applied.codBarra.trim();
-    const qForn = applied.codFornecedor.trim().toLowerCase();
-    const qModel = applied.modelo.trim().toLowerCase();
-    const qRef = applied.referencia.trim().toLowerCase();
-    return rows.filter((item) => {
-      if (qCode && !item.code.includes(qCode)) return false;
-      if (qGrade && !item.code.includes(qGrade)) return false;
-      if (qBar && !item.barcode.includes(qBar)) return false;
-      if (qForn && !`${item.supplierCode} ${item.supplierName}`.toLowerCase().includes(qForn)) {
-        return false;
-      }
-      if (qNome && !item.name.toLowerCase().includes(qNome)) return false;
-      if (qModel && !item.model.toLowerCase().includes(qModel)) return false;
-      if (qRef && !item.reference.toLowerCase().includes(qRef)) return false;
-      if (applied.categorias.length > 0) {
-        const hit = applied.categorias.some(
-          (cat) =>
-            item.categoryId === cat ||
-            item.category === cat ||
-            item.category === categoryLabel(cat, categoryOptions),
-        );
-        if (!hit) return false;
-      }
-      if (applied.marca && item.brand !== applied.marca) return false;
-      if (applied.colecao && item.collection !== applied.colecao) return false;
-      if (applied.genero && item.gender !== applied.genero) return false;
-      if (applied.fornecedor && item.supplierName !== applied.fornecedor) return false;
-      if (!matchCompare(applied.preco.op, item.salePrice || item.priceweightAverage, applied.preco.value)) {
-        return false;
-      }
-      if (!matchCompare(applied.estoque.op, item.stockQuantity, applied.estoque.value)) return false;
-      return true;
-    });
-  }, [applied, rows, categoryOptions]);
+  const visible = useMemo(
+    () =>
+      rows.filter((item) =>
+        productMatchesFilters(item, applied, categoryOptions, Number(item.lojaStock) || 0),
+      ),
+    [applied, rows, categoryOptions],
+  );
 
   function onSearch(event: FormEvent) {
     event.preventDefault();
-    sessionStorage.setItem(LAST_FILTER_KEY, JSON.stringify(draft));
+    sessionStorage.setItem(CLIENT_PRODUCT_FILTER_KEY, JSON.stringify(draft));
     setApplied(draft);
+    setSearched(true);
+    load();
   }
 
   function onClear() {
-    setDraft(EMPTY_FILTERS);
-    setApplied(EMPTY_FILTERS);
+    setDraft(EMPTY_PRODUCT_FILTERS);
+    setApplied(EMPTY_PRODUCT_FILTERS);
+    setSearched(false);
+    setRows([]);
+    setError("");
   }
 
   function onLastFilter() {
-    const last = readLastFilter();
+    const last = readProductFilters(CLIENT_PRODUCT_FILTER_KEY);
     setDraft(last);
     setApplied(last);
+    setSearched(true);
+    load();
+  }
+
+  async function saveAmount(item: PdvProduct, field: "sale" | "cost" | "stock", next: number) {
+    try {
+      const { data } =
+        field === "stock"
+          ? await api.patch(`/clients/products/${item.id}/stock`, { stockQuantity: next })
+          : await api.put(`/clients/products/${item.id}`, field === "sale" ? { salePrice: next } : { lojaCostAverage: next });
+      const product = data.product as PdvProduct;
+      setRows((current) => current.map((row) => (row.id === item.id ? { ...row, ...product } : row)));
+      setError("");
+    } catch (err) {
+      const parsed = parseError(err);
+      setError(parsed.friend || parsed.message || "Não foi possível salvar.");
+    }
   }
 
   async function inactivateProduct(item: PdvProduct) {
@@ -320,14 +208,13 @@ function ProdutosBoard() {
     }
   }
 
-  function selectProduct(item: PdvProduct, openEstoque = false) {
+  function selectProduct(item: PdvProduct) {
     setSelectedId(item.id);
     const nextParams = new URLSearchParams(params);
-    nextParams.set("tipo", "grade");
+    nextParams.delete("tipo");
     nextParams.set("cod", item.code);
     setParams(nextParams, { replace: true });
-    setTab("grade");
-    if (openEstoque) setEstoqueProduct(item);
+    setTab("produto");
   }
 
   const showForm = tab === "produto" || tab === "grade";
@@ -358,6 +245,7 @@ function ProdutosBoard() {
             >
               Produto
             </button>
+            {/*
             <button
               className="pdv-prod-tab"
               type="button"
@@ -385,206 +273,32 @@ function ProdutosBoard() {
             >
               Grade(Beta)
             </button>
+            */}
           </div>
 
           {showForm ? (
-            <form className="pdv-prod-list-form" onSubmit={onSearch}>
-              <div className="pdv-prod-list-grid">
-                <label>
-                  Cód. Produto
-                  <input
-                    value={draft.codProduto}
-                    onChange={(event) => setDraft({ ...draft, codProduto: event.target.value })}
-                    autoComplete="off"
-                  />
-                </label>
-                <label>
-                  Cód. Barra
-                  <input
-                    value={draft.codBarra}
-                    onChange={(event) => setDraft({ ...draft, codBarra: event.target.value })}
-                    autoComplete="off"
-                  />
-                </label>
-                <label>
-                  Cód. Grade:
-                  <input
-                    value={draft.codGrade}
-                    onChange={(event) => setDraft({ ...draft, codGrade: event.target.value })}
-                    autoComplete="off"
-                  />
-                </label>
-                <label>
-                  Cód. Produto Fornecedor
-                  <input
-                    value={draft.codFornecedor}
-                    onChange={(event) => setDraft({ ...draft, codFornecedor: event.target.value })}
-                    autoComplete="off"
-                  />
-                </label>
-                <label>
-                  Nome do produto
-                  <input
-                    value={draft.nome}
-                    onChange={(event) => setDraft({ ...draft, nome: event.target.value })}
-                    autoComplete="off"
-                  />
-                </label>
-                <label>
-                  Modelo
-                  <input
-                    value={draft.modelo}
-                    onChange={(event) => setDraft({ ...draft, modelo: event.target.value })}
-                    autoComplete="off"
-                  />
-                </label>
-                <label>
-                  Referência
-                  <input
-                    value={draft.referencia}
-                    onChange={(event) => setDraft({ ...draft, referencia: event.target.value })}
-                    autoComplete="off"
-                  />
-                </label>
-                <label>
-                  <span id={catLabelId}>Categoria</span>
-                  <CategorySelect
-                    multiple
-                    selected={draft.categorias}
-                    onChange={(categorias) => setDraft({ ...draft, categorias })}
-                    labelledBy={catLabelId}
-                    placeholder="Nenhum selecionado"
-                    options={categoryOptions}
-                  />
-                </label>
-              </div>
-
-              {moreOpen ? (
-                <div className="pdv-prod-more" aria-label="Mais filtros">
-                  <label>
-                    Marca
-                    <SearchableSelect
-                      value={draft.marca}
-                      onChange={(marca) => setDraft({ ...draft, marca })}
-                      options={brands}
-                      emptyLabel="Todas"
-                    />
-                  </label>
-                  <label>
-                    Coleção
-                    <SearchableSelect
-                      value={draft.colecao}
-                      onChange={(colecao) => setDraft({ ...draft, colecao })}
-                      options={collections}
-                      emptyLabel="Todas"
-                    />
-                  </label>
-                  <label>
-                    Gênero
-                    <SearchableSelect
-                      value={draft.genero}
-                      onChange={(genero) => setDraft({ ...draft, genero })}
-                      options={genders}
-                      emptyLabel="Todos"
-                    />
-                  </label>
-                  <label>
-                    Fornecedor
-                    <SearchableSelect
-                      value={draft.fornecedor}
-                      onChange={(fornecedor) => setDraft({ ...draft, fornecedor })}
-                      options={suppliers}
-                      emptyLabel="Todos"
-                    />
-                  </label>
-                  <CompareField
-                    label="Preço"
-                    prefix="R$"
-                    value={draft.preco}
-                    onChange={(preco) => setDraft({ ...draft, preco })}
-                  />
-                  <CompareField
-                    label="Preço LV"
-                    prefix="R$"
-                    value={draft.precoLv}
-                    onChange={(precoLv) => setDraft({ ...draft, precoLv })}
-                  />
-                  <CompareField
-                    label="Estoque"
-                    value={draft.estoque}
-                    onChange={(estoque) => setDraft({ ...draft, estoque })}
-                  />
-                </div>
-              ) : null}
-
-              <div className="pdv-prod-toolbar">
-                <button className="pdv-prod-btn" type="button" onClick={onLastFilter}>
-                  <Filter size={15} strokeWidth={2.2} aria-hidden="true" />
-                  Ultimo Filtro
-                </button>
-                <button className="pdv-prod-btn" type="button" onClick={onClear}>
-                  <Eraser size={15} strokeWidth={2.2} aria-hidden="true" />
-                  Limpar
-                </button>
-                <button
-                  className="pdv-prod-btn"
-                  type="button"
-                  aria-expanded={moreOpen}
-                  onClick={() => setMoreOpen((current) => !current)}
-                >
-                  <ChevronDown size={15} strokeWidth={2.2} aria-hidden="true" />
-                  Mais filtros
-                </button>
-                <div className="pdv-prod-catalog-wrap" ref={catalogRef}>
-                  <button
-                    className="pdv-prod-btn pdv-prod-btn-blue"
-                    type="button"
-                    aria-haspopup="menu"
-                    aria-expanded={catalogOpen}
-                    onClick={() => setCatalogOpen((current) => !current)}
-                  >
-                    <List size={15} strokeWidth={2.2} aria-hidden="true" />
-                    Catálogo Virtual
-                  </button>
-                  {catalogOpen ? (
-                    <ul className="pdv-prod-catalog-menu" role="menu">
-                      {CATALOG_ITEMS.map((item) => (
-                        <li key={item.id} role="none">
-                          <button type="button" role="menuitem" onClick={() => setCatalogOpen(false)}>
-                            {item.kind === "ok" ? (
-                              <Check size={16} className="pdv-prod-ico-ok" aria-hidden="true" />
-                            ) : null}
-                            {item.kind === "off" ? (
-                              <X size={16} className="pdv-prod-ico-off" aria-hidden="true" />
-                            ) : null}
-                            {item.kind === "grid" ? <LayoutGrid size={16} aria-hidden="true" /> : null}
-                            {item.kind === "list" ? <List size={16} aria-hidden="true" /> : null}
-                            {item.label}
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : null}
-                </div>
-                <button className="pdv-prod-btn pdv-prod-btn-blue" type="submit">
-                  <Search size={15} strokeWidth={2.2} aria-hidden="true" />
-                  Buscar
-                </button>
-              </div>
-            </form>
+            <ProductFilterForm
+              draft={draft}
+              onChange={setDraft}
+              onSubmit={onSearch}
+              onClear={onClear}
+              onLastFilter={onLastFilter}
+              categoryOptions={categoryOptions}
+              brands={brands}
+              collections={collections}
+              genders={genders}
+              suppliers={suppliers}
+            />
           ) : null}
-
           {error ? <p className="pdv-cad-error">{error}</p> : null}
           {loading ? <p className="pdv-cad-kicker">Carregando produtos…</p> : null}
 
           {tab === "produto" ? (
             <>
-              {!loading && !error && visible.length === 0 ? (
-                <p className="pdv-cad-kicker">
-                  Nenhum produto cadastrado. Cadastre em PDV ou no módulo Gerenciar Invoices.
-                </p>
+              {searched && !loading && !error && visible.length === 0 ? (
+                <p className="pdv-cad-kicker">Nenhum produto para esse filtro.</p>
               ) : null}
-              {!loading && visible.length > 0 ? (
+              {searched && !loading && visible.length > 0 ? (
                 <div className="pdv-cad-table-wrap">
                   <table className="pdv-cad-table">
                     <thead>
@@ -592,10 +306,10 @@ function ProdutosBoard() {
                         <th>Cód.</th>
                         <th>Nome</th>
                         <th>Categoria</th>
-                        <th>Estoque</th>
-                        <th>Venda</th>
-                        <th>Custo</th>
-                        <th>Ações</th>
+                        <th className="pdv-prod-edit-head">Estoque</th>
+                        <th className="pdv-prod-edit-head">Venda</th>
+                        <th className="pdv-prod-edit-head">Custo médio</th>
+                        <th className="pdv-prod-actions-head">Ações</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -604,7 +318,7 @@ function ProdutosBoard() {
                           key={item.id}
                           data-pick="true"
                           data-selected={selectedId === item.id ? "true" : undefined}
-                          onClick={() => selectProduct(item, true)}
+                          onClick={() => selectProduct(item)}
                         >
                           <td>{item.code}</td>
                           <td>
@@ -621,10 +335,30 @@ function ProdutosBoard() {
                             </span>
                           </td>
                           <td>{item.category || categoryLabel(item.categoryId, categoryOptions) || "—"}</td>
-                          <td>{String(item.stockQuantity).replace(".", ",")}</td>
-                          <td>{formatMoneyBr(item.salePrice || item.priceweightAverage)}</td>
-                          <td>{formatMoneyBr(item.costPrice || item.priceweightAverage)}</td>
-                          <td>
+                          <td className="pdv-prod-edit-cell">
+                            <EditableAmount
+                              value={Number(item.lojaStock) || 0}
+                              label={`Estoque de ${item.name}`}
+                              onSave={(next) => saveAmount(item, "stock", next)}
+                            />
+                          </td>
+                          <td className="pdv-prod-edit-cell">
+                            <EditableAmount
+                              money
+                              value={Number(item.salePrice || item.priceweightAverage) || 0}
+                              label={`Preço de venda de ${item.name}`}
+                              onSave={(next) => saveAmount(item, "sale", next)}
+                            />
+                          </td>
+                          <td className="pdv-prod-edit-cell">
+                            <EditableAmount
+                              money
+                              value={Number(item.lojaCostAverage) || 0}
+                              label={`Custo médio de ${item.name}`}
+                              onSave={(next) => saveAmount(item, "cost", next)}
+                            />
+                          </td>
+                          <td className="pdv-prod-actions-cell">
                             <div className="pdv-prod-row-actions">
                               <button
                                 type="button"
@@ -660,7 +394,7 @@ function ProdutosBoard() {
             </>
           ) : null}
 
-          {tab === "grade" ? (
+          {/* {tab === "grade" ? (
             <>
               <h2 className="pdv-prod-grade-title">Listagem por Grade</h2>
               {!loading && visible.length === 0 ? (
@@ -724,7 +458,7 @@ function ProdutosBoard() {
                                 <Fragment key={`${item.id}-${size}`}>
                                   <td className="pdv-prod-grade-pv">{formatMoneyRs(isDefault ? sale : 0)}</td>
                                   <td className="pdv-prod-grade-ea">
-                                    {isDefault ? String(item.stockQuantity).replace(".", ",") : "0"}
+                                    {isDefault ? String(Number(item.lojaStock) || 0).replace(".", ",") : "0"}
                                   </td>
                                 </Fragment>
                               );
@@ -750,11 +484,11 @@ function ProdutosBoard() {
                 </div>
               ) : null}
             </>
-          ) : null}
+          ) : null} */}
 
           {tab === "kits" || tab === "grade-beta" ? <div className="pdv-prod-stub" /> : null}
 
-          {showForm ? (
+          {showForm && searched ? (
             <p className="pdv-cad-record">
               Registro 1 de {visible.length} total de {rows.length}
             </p>
@@ -762,9 +496,9 @@ function ProdutosBoard() {
         </div>
       </section>
 
-      {estoqueProduct ? (
+      {/* {estoqueProduct ? (
         <EstoqueGradeModal product={estoqueProduct} onClose={() => setEstoqueProduct(null)} />
-      ) : null}
+      ) : null} */}
 
       {photoProduct ? (
         <PhotoPreview product={photoProduct} onClose={() => setPhotoProduct(null)} />

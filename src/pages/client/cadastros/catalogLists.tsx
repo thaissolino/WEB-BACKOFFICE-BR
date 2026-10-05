@@ -108,6 +108,7 @@ export const PAY_LIST: CatalogListConfig = {
   ativosLabel: "Forma de Pagamento Ativo",
   inativosPath: "/client/financeiro/formas-pagamento/inativos",
   listPath: "/client/financeiro/formas-pagamento",
+  bulkDelete: true,
   columns: [
     { key: "code", label: "Cod.", from: "code" },
     { key: "nome", label: "Nome", from: "name" },

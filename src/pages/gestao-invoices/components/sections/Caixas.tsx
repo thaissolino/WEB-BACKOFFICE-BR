@@ -800,22 +800,6 @@ export const CaixasTab = () => {
                 </div>
               </motion.div>
             )}
-            <motion.div whileHover={{ scale: 1.02 }} className="bg-purple-50 p-4 rounded-2xl shadow-sm border border-purple-100 relative group">
-              <div className="flex items-center gap-2 mb-2">
-                <CircleDollarSign className="text-purple-600 w-5 h-5" />
-                <h3 className="font-medium truncate max-w-[180px]">
-                  TOTAL GERAL: {selectedEntity.name.toUpperCase()}
-                </h3>
-              </div>
-              <p className="text-2xl font-bold text-purple-600 truncate" title={formatCurrency(filteredBalances.general || 0)}>
-                {formatCurrency(filteredBalances.general || 0)}
-              </p>
-              {formatCurrency(filteredBalances.general || 0).length > 12 && (
-                <div className="absolute hidden group-hover:block bg-gray-800 text-white text-xs p-2 rounded z-10 bottom-full mb-2 whitespace-nowrap">
-                  {formatCurrency(filteredBalances.general || 0)}
-                </div>
-              )}
-            </motion.div>
           </>
         ) : selectedFilter ? (
           // Quando tem filtro de grupo selecionado, mostrar apenas o card do grupo

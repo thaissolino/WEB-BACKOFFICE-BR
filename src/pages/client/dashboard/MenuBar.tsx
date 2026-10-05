@@ -4,6 +4,7 @@ import { ChevronDown, ChevronRight, Star } from "lucide-react";
 import {
   PDV_MENUS,
   hasKnownChildren,
+  openMenuHref,
   showsSubmenuArrow,
   type PdvMenuItem,
   type PdvMenuRoot,
@@ -97,7 +98,7 @@ function MenuRow({
 
   function onClick() {
     if (!canOpen) {
-      if (item.href) navigate(item.href);
+      if (item.href) openMenuHref(item.href, navigate);
       if (!showArrow) setOpenPath([]);
       return;
     }

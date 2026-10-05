@@ -1,7 +1,7 @@
 import { useEffect, useState, type MouseEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { ChevronRight, Headphones, Settings, ShoppingCart, Star, X } from "lucide-react";
-import { PDV_MENUS, hasKnownChildren, type PdvMenuItem, type PdvMenuRoot } from "./menuData";
+import { PDV_MENUS, hasKnownChildren, openMenuHref, type PdvMenuItem, type PdvMenuRoot } from "./menuData";
 import { filterMenuItems, isNavVisible, type PdvNavId, type PdvUiConfig } from "./pdvUiConfig";
 
 /**
@@ -115,7 +115,7 @@ export default function ClassicDrawer({
 
   function go(href: string) {
     onClose();
-    navigate(href);
+    openMenuHref(href, navigate);
   }
 
   function run(action: () => void) {

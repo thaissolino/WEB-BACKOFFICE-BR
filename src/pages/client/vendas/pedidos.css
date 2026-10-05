@@ -17,6 +17,36 @@
   padding-top: 8px;
 }
 
+.loja-head {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.loja-top-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.loja-top .loja-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 12px 0 0;
+  border: 0;
+  border-right: 1px solid var(--line);
+  background: none;
+  text-decoration: none;
+  font-size: 0.84rem;
+  font-weight: 650;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--accent) !important;
+  -webkit-text-fill-color: var(--accent) !important;
+}
+
 .loja-top {
   display: flex;
   justify-content: space-between;
@@ -40,9 +70,9 @@
 .loja-pedidos {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 22px;
   min-height: 0;
-  padding: 8px 0 24px;
+  padding: 4px 0 24px;
 }
 
 .loja-nav {
@@ -52,8 +82,8 @@
 }
 
 .loja-nav a {
-  min-height: var(--tap);
-  padding: 8px 14px;
+  min-height: 34px;
+  padding: 6px 13px;
   border-radius: 999px;
   border: 1px solid var(--line);
   background: var(--sheet);
@@ -228,6 +258,14 @@
   align-items: start;
 }
 
+.loja-split-cats {
+  grid-template-columns: 1fr;
+}
+
+.loja-pedidos[data-categorias] .loja-top > a {
+  display: none;
+}
+
 .loja-tools {
   display: flex;
   flex-wrap: wrap;
@@ -259,6 +297,43 @@
 .loja-tools input {
   flex: 1;
   min-width: 180px;
+}
+
+.loja-search-line {
+  flex-wrap: nowrap;
+  align-items: center;
+}
+
+.loja-search {
+  position: relative;
+  flex: 1 1 360px;
+  max-width: 520px;
+  min-width: 240px;
+}
+
+.loja-search svg {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--accent);
+  pointer-events: none;
+}
+
+.loja-search-line .loja-search input {
+  width: 100%;
+  flex: none;
+  min-width: 0;
+  margin-left: 0;
+  padding-left: 38px;
+}
+
+.loja-search-line .loja-stock-switch,
+.loja-search-line .loja-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
 }
 
 .loja-cat-cards {
@@ -314,6 +389,62 @@
   cursor: pointer;
 }
 
+.loja-stock-switch,
+.loja-stock-switch[aria-pressed="true"] {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 4px 6px 4px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--sheet);
+  color: var(--ink) !important;
+  -webkit-text-fill-color: var(--ink) !important;
+  font: inherit;
+  font-weight: 650;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.loja-stock-switch svg {
+  flex: none;
+  color: #8a8074;
+}
+
+.loja-stock-switch[aria-pressed="true"] svg {
+  color: var(--accent);
+}
+
+.loja-switch {
+  position: relative;
+  flex: none;
+  width: 42px;
+  height: 24px;
+  border-radius: 999px;
+  background: #ddd4c8;
+}
+
+.loja-stock-switch[aria-pressed="true"] .loja-switch {
+  background: var(--accent);
+}
+
+.loja-switch-knob {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(28, 24, 20, 0.28);
+  transition: transform 160ms ease;
+}
+
+.loja-stock-switch[aria-pressed="true"] .loja-switch-knob {
+  transform: translateX(18px);
+}
+
 .loja-cats button[aria-pressed="true"],
 .loja-btn.primary {
   background: var(--accent);
@@ -329,48 +460,180 @@
   display: grid;
   place-items: center;
   padding: 16px;
-  background: rgba(20, 16, 12, 0.45);
+  background: rgba(28, 20, 12, 0.46);
+  backdrop-filter: blur(5px);
 }
 
 .loja-confirm-card {
-  width: min(420px, 100%);
+  width: min(440px, 100%);
   max-height: min(80vh, 560px);
   overflow: auto;
-  padding: 20px;
-  border-radius: 18px;
+  padding: 22px 22px 18px;
+  border: 1px solid rgba(255, 253, 248, 0.7);
+  border-radius: 22px;
   background: var(--sheet, #fffdf8);
   color: var(--ink, #1c140c);
-  box-shadow: 0 18px 50px rgba(20, 16, 12, 0.18);
+  box-shadow: 0 24px 60px rgba(28, 20, 12, 0.22);
+}
+
+.loja-confirm-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 16px;
+}
+
+.loja-confirm-icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 46px;
+  height: 46px;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--accent) 14%, #fff);
+  color: var(--accent);
 }
 
 .loja-confirm-card h2 {
-  margin: 0 0 6px;
-  font-size: 1.15rem;
+  margin: 0;
+  font-size: 1.2rem;
+  letter-spacing: -0.02em;
 }
 
-.loja-confirm-card p {
-  margin: 0 0 12px;
+.loja-confirm-head p {
+  margin: 2px 0 0;
+  font-size: 0.88rem;
   color: var(--ink-soft, #6b5e52);
+}
+
+.loja-confirm-sum {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 4px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: #f6f1ea;
+}
+
+.loja-confirm-sum span {
+  color: var(--ink-soft, #6b5e52);
+  font-size: 0.9rem;
+}
+
+.loja-confirm-sum strong {
+  font-size: 1.08rem;
+  color: var(--accent);
 }
 
 .loja-confirm-card ul {
   margin: 0 0 16px;
   padding: 0;
   list-style: none;
-  display: grid;
-  gap: 8px;
 }
 
 .loja-confirm-card li {
   display: flex;
+  align-items: center;
   justify-content: space-between;
   gap: 12px;
+  padding: 11px 2px;
+  border-bottom: 1px solid var(--line, #efe6dc);
+}
+
+.loja-confirm-card li span {
+  min-width: 0;
+  font-weight: 650;
+}
+
+.loja-confirm-card li b {
+  display: grid;
+  place-items: center;
+  flex: none;
+  min-width: 28px;
+  height: 28px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: #f3ebe3;
+  font-size: 0.85rem;
 }
 
 .loja-confirm-actions {
   display: flex;
   justify-content: flex-end;
   gap: 8px;
+}
+
+.loja-confirm-status {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  padding: 18px 8px 8px;
+  text-align: center;
+}
+
+.loja-confirm-status h2 {
+  margin: 4px 0 0;
+}
+
+.loja-confirm-status p {
+  margin: 0;
+  color: var(--ink-soft, #6b5e52);
+}
+
+.loja-confirm-status .loja-confirm-icon {
+  width: 64px;
+  height: 64px;
+  border-radius: 20px;
+}
+
+.loja-confirm-status .loja-confirm-sum {
+  width: 100%;
+  margin-top: 8px;
+}
+
+.loja-confirm-spin svg {
+  animation: loja-spin 0.8s linear infinite;
+}
+
+@keyframes loja-spin {
+  to { transform: rotate(360deg); }
+}
+
+.loja-success {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 0 0 18px;
+  padding: 16px 18px;
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 0 0 0 1px var(--line);
+}
+
+.loja-success h2 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.loja-success p {
+  margin: 4px 0 0;
+  color: var(--ink-soft, #6b5e52);
+}
+
+.loja-confirm-actions .loja-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  padding: 0 16px;
+  border-radius: 999px;
+}
+
+.pdv-root[data-surface="cream"] .pdv-main .loja-confirm-actions button.loja-btn.primary {
+  border-radius: 999px !important;
+  padding: 0 18px;
 }
 
 .loja-products {
@@ -704,6 +967,11 @@
 .loja-ledger-row span {
   text-align: right;
   font-variant-numeric: tabular-nums;
+}
+
+.loja-ledger-row > :first-child {
+  text-align: left;
+  font-weight: 650;
 }
 
 .loja-ledger-row a {

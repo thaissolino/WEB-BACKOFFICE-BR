@@ -4,6 +4,7 @@ import { Pencil, Plus } from "lucide-react"
 import CadastroShell from "../CadastroShell"
 import { AtivoToggle } from "../produtos/QuickCadWindows"
 import {
+  deleteCatalog,
   formatCadDate,
   listCatalog,
   payloadStr,
@@ -40,6 +41,7 @@ export type CatalogListConfig = {
   columns: CatalogColumn[]
   extraActions?: ReactNode
   emptyHint?: string
+  bulkDelete?: boolean
   renderCell?: (item: CatalogItem, column: CatalogColumn) => ReactNode
 }
 
@@ -52,6 +54,9 @@ export default function CatalogList({ config, inactive = false }: { config: Cata
   const [applied, setApplied] = useState<Record<string, string>>({})
   const [error, setError] = useState("")
   const [toast, setToast] = useState("")
+  const [picking, setPicking] = useState(false)
+  const [picked, setPicked] = useState<number[]>([])
+  const [deleting, setDeleting] = useState(false)
 
   function load() {
     listCatalog(config.kind, isInactive ? false : true)
@@ -66,9 +71,35 @@ export default function CatalogList({ config, inactive = false }: { config: Cata
   }
 
   useEffect(() => {
+    setPicking(false)
+    setPicked([])
     load()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [config.kind, isInactive])
+
+  function togglePicked(code: number) {
+    setPicked((current) => (current.includes(code) ? current.filter((item) => item !== code) : [...current, code]))
+  }
+
+  async function deleteSelected() {
+    if (!picked.length || deleting) return
+    const count = picked.length
+    if (!window.confirm(count === 1 ? "Excluir esta forma de pagamento?" : `Excluir ${count} formas de pagamento?`)) return
+    setDeleting(true)
+    setError("")
+    try {
+      await deleteCatalog(config.kind, picked)
+      setPicked([])
+      setPicking(false)
+      setToast(count === 1 ? "Forma de pagamento excluída." : `${count} formas de pagamento excluídas.`)
+      load()
+    } catch (err) {
+      const parsed = parseError(err)
+      setError(parsed.friend || parsed.message || "Não foi possível excluir.")
+    } finally {
+      setDeleting(false)
+    }
+  }
 
   const visible = useMemo(() => {
     return rows.filter((item) => {
@@ -152,6 +183,22 @@ export default function CatalogList({ config, inactive = false }: { config: Cata
               )
             ) : null}
             {config.extraActions}
+            {config.bulkDelete ? (
+              picking ? (
+                <>
+                  <button className="pdv-cad-btn pdv-cad-btn-red" type="button" disabled={!picked.length || deleting} onClick={deleteSelected}>
+                    {deleting ? "Excluindo..." : picked.length ? `Excluir selecionados (${picked.length})` : "Excluir selecionados"}
+                  </button>
+                  <button className="pdv-cad-btn" type="button" disabled={deleting} onClick={() => { setPicking(false); setPicked([]) }}>
+                    Cancelar
+                  </button>
+                </>
+              ) : (
+                <button className="pdv-cad-btn pdv-cad-btn-red" type="button" onClick={() => setPicking(true)}>
+                  Excluir
+                </button>
+              )
+            ) : null}
           </div>
 
           {config.filters?.length ? (
@@ -183,6 +230,16 @@ export default function CatalogList({ config, inactive = false }: { config: Cata
             <table className="pdv-cad-table">
               <thead>
                 <tr>
+                  {picking ? (
+                    <th>
+                      <input
+                        type="checkbox"
+                        aria-label="Selecionar todos"
+                        checked={visible.length > 0 && picked.length === visible.length}
+                        onChange={(event) => setPicked(event.target.checked ? visible.map((item) => item.code) : [])}
+                      />
+                    </th>
+                  ) : null}
                   {config.columns.map((column) => (
                     <th key={column.key}>{column.label}</th>
                   ))}
@@ -191,6 +248,16 @@ export default function CatalogList({ config, inactive = false }: { config: Cata
               <tbody>
                 {visible.map((item) => (
                   <tr key={item.code}>
+                    {picking ? (
+                      <td>
+                        <input
+                          type="checkbox"
+                          aria-label={`Selecionar ${item.name}`}
+                          checked={picked.includes(item.code)}
+                          onChange={() => togglePicked(item.code)}
+                        />
+                      </td>
+                    ) : null}
                     {config.columns.map((column) => (
                       <td key={column.key}>{cell(item, column)}</td>
                     ))}
