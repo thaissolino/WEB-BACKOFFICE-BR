@@ -266,13 +266,17 @@ export const CaixasTabBrl = () => {
     }, 0);
   };
 
+  const caixaLiberada = (item?: { name?: string; clientId?: string | null }) => {
+    const allowed = permissions?.GERENCIAR_INVOICES?.CAIXAS_BR_PERMITIDOS || [];
+    if (!allowed.length) return false;
+    return Boolean(item?.clientId) || allowed.includes(item?.name || "");
+  };
+
   const getFilteredItems = () => {
     if (!permissions?.GERENCIAR_INVOICES?.CAIXAS_BR_PERMITIDOS || permissions.GERENCIAR_INVOICES.CAIXAS_BR_PERMITIDOS.length === 0) {
       return [];
     }
-    return combinedItems.filter((item) => 
-      permissions.GERENCIAR_INVOICES.CAIXAS_BR_PERMITIDOS.includes(item.name)
-    );
+    return combinedItems.filter((item) => caixaLiberada(item));
   };
 
   const calculateFilteredBalances = async () => {
@@ -805,7 +809,7 @@ export const CaixasTabBrl = () => {
         )}
       </div>
       {/* Dados do caixa selecionado */}
-      {selectedEntity && permissions?.GERENCIAR_INVOICES?.CAIXAS_BR_PERMITIDOS?.includes(selectedEntity.name) && (
+      {selectedEntity && caixaLiberada(selectedEntity) && (
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 mb-6">
           <div className="flex justify-between items-start mb-4">
             <h2 className="text-blue-600 font-semibold text-lg flex items-center space-x-2">

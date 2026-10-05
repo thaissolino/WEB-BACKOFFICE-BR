@@ -11,7 +11,7 @@ import { VitrineAuthLayout } from "./vitrine/VitrineAuthLayout";
  */
 export default function TrocarSenhaCliente() {
   const navigate = useNavigate();
-  const { client } = useClientAuth();
+  const { client, markPasswordChanged } = useClientAuth();
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -27,13 +27,14 @@ export default function TrocarSenhaCliente() {
       setErrorMessage("A nova senha precisa ter pelo menos 6 caracteres.");
       return;
     }
-    if (newPassword !== confirmPassword) {
+    if (!firstAccess && newPassword !== confirmPassword) {
       setErrorMessage("A confirmação não confere com a nova senha.");
       return;
     }
     setIsSubmitting(true);
     try {
-      await api.post("/clients/change-password", { currentPassword, newPassword });
+      await api.post("/clients/change-password", firstAccess ? { newPassword } : { currentPassword, newPassword });
+      markPasswordChanged();
       navigate("/client/dashboard");
     } catch (err) {
       const parsed = parseError(err);
@@ -48,7 +49,7 @@ export default function TrocarSenhaCliente() {
       title={firstAccess ? "Primeiro acesso: troque sua senha." : "Trocar senha."}
       lede={
         firstAccess
-          ? "Por segurança, defina uma senha nova antes de usar o PDV. Use a senha provisória recebida por e-mail como senha atual."
+          ? "Defina a senha que você vai usar daqui pra frente."
           : "Defina uma nova senha para a sua conta de lojista."
       }
     >
@@ -59,6 +60,7 @@ export default function TrocarSenhaCliente() {
           </p>
         ) : null}
 
+        {firstAccess ? null : (
         <div className="vitrine-field">
           <label className="vitrine-label" htmlFor="current-password">
             Senha atual<span className="vitrine-required" aria-hidden="true">*</span>
@@ -73,6 +75,7 @@ export default function TrocarSenhaCliente() {
             required
           />
         </div>
+        )}
 
         <div className="vitrine-field">
           <label className="vitrine-label" htmlFor="new-password">
@@ -89,6 +92,7 @@ export default function TrocarSenhaCliente() {
           />
         </div>
 
+        {firstAccess ? null : (
         <div className="vitrine-field">
           <label className="vitrine-label" htmlFor="confirm-password">
             Confirmar nova senha<span className="vitrine-required" aria-hidden="true">*</span>
@@ -103,6 +107,7 @@ export default function TrocarSenhaCliente() {
             required
           />
         </div>
+        )}
 
         <button className="vitrine-btn" disabled={isSubmitting} type="submit">
           {isSubmitting ? "Salvando..." : "Salvar nova senha"}

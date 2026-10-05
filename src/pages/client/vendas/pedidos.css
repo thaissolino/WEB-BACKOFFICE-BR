@@ -629,6 +629,12 @@
   -webkit-text-fill-color: #fffdf8 !important;
 }
 
+.loja-status-void {
+  background: #b91c1c;
+  color: #fffdf8 !important;
+  -webkit-text-fill-color: #fffdf8 !important;
+}
+
 .loja-prod {
   display: flex;
   align-items: center;

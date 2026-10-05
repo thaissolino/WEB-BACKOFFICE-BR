@@ -84,7 +84,7 @@ function orderStatus(value?: string) {
 }
 
 function StatusLabel({ value, estornada }: { value?: string; estornada?: boolean }) {
-  if (estornada) return <span className="loja-status loja-status-wait">Estornada</span>;
+  if (estornada) return <span className="loja-status loja-status-void">Estornada</span>;
   const done = orderDone(value);
   return <span className={done ? "loja-status loja-status-done" : "loja-status loja-status-wait"}>{orderStatus(value)}</span>;
 }
