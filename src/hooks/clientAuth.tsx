@@ -94,8 +94,17 @@ export function ClientAuthProvider({ children }: { children: React.ReactNode }) 
       });
       localStorage.setItem(CLIENT_USER_KEY, JSON.stringify(data.client));
       setClient(data.client);
-    } catch (_error) {
-      clientLogout();
+    } catch (error: any) {
+      const status = error?.response?.status;
+      if (status === 401) {
+        clientLogout();
+      } else {
+        try {
+          setClient(JSON.parse(cachedClient));
+        } catch {
+          clientLogout();
+        }
+      }
     } finally {
       setLoadingClient(false);
     }

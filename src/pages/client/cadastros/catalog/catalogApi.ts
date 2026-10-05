@@ -53,6 +53,10 @@ export async function createCatalog(
   return data.item as CatalogItem
 }
 
+export async function deleteCatalog(kind: CatalogKind, codes: number[]) {
+  await api.post(`/clients/catalog/${kind}/delete`, { codes })
+}
+
 export async function updateCatalog(
   kind: CatalogKind,
   code: number,

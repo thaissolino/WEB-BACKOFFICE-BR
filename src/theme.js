@@ -204,12 +204,19 @@ export const ColorModeContext = createContext({
 export const useMode = () => {
   const location = useLocation();
   const globalMode = useUiModeStore((state) => state.globalMode);
-  const [mode, setMode] = useState("dark");
+  const stored = typeof localStorage === "undefined" ? "" : localStorage.getItem("@backoffice:color-mode");
+  const [mode, setMode] = useState(stored === "light" || stored === "dark" ? stored : "dark");
 
   const colorMode = useMemo(
     () => ({
       toggleColorMode: () =>
-        setMode((prev) => (prev === "light" ? "dark" : "light")),
+        setMode((prev) => {
+          const next = prev === "light" ? "dark" : "light";
+          const label = next === "dark" ? "escuro" : "claro";
+          const keep = window.confirm(`Definir o tema ${label} como padrão sempre que entrar?`);
+          if (keep) localStorage.setItem("@backoffice:color-mode", next);
+          return next;
+        }),
     }),
     []
   );

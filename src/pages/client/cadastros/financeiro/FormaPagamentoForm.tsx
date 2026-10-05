@@ -6,27 +6,10 @@ import { FormRow, RadioSimNao } from "../catalog/FormBits"
 import { createCatalog, getCatalog, updateCatalog } from "../catalog/catalogApi"
 import { parseError } from "../../../../services/api"
 
-const NFCE = [
-  "Selecione >>",
-  "Dinheiro",
-  "Cheque",
-  "Cartão de Crédito",
-  "Cartão de Débito",
-  "Crédito Loja",
-  "Vale Alimentação",
-  "Vale Refeição",
-  "Vale Presente",
-  "Vale Combustível",
-  "Boleto Bancário",
-  "Sem Pagamento",
-  "Outros",
-]
-
-const PIX = ["Celular", "CPF", "CNPJ", "E-mail", "Chave aleatória"]
-
 type PayForm = {
   nome: string
   cartao: boolean
+  parcelas: string
   debitoCredito: string
   crediario: boolean
   tipoChavePix: string
@@ -70,6 +53,7 @@ type PayForm = {
 const EMPTY: PayForm = {
   nome: "",
   cartao: false,
+  parcelas: "",
   debitoCredito: "Crédito",
   crediario: false,
   tipoChavePix: "Celular",
@@ -158,125 +142,20 @@ export default function FormaPagamentoForm() {
             <FormRow label="Nome">
               <input value={form.nome} onChange={(event) => patch("nome", event.target.value)} autoComplete="off" />
             </FormRow>
-            <FormRow label="Tipo: Cartão">
+            <FormRow label="É cartão">
               <RadioSimNao name="cartao" value={form.cartao} onChange={(next) => patch("cartao", next)} />
             </FormRow>
             {form.cartao ? (
-              <FormRow label="Débito / Crédito">
-                <fieldset className="pdv-cad-radios">
-                  <label><input type="radio" checked={form.debitoCredito === "Débito"} onChange={() => patch("debitoCredito", "Débito")} /> Débito</label>
-                  <label><input type="radio" checked={form.debitoCredito === "Crédito"} onChange={() => patch("debitoCredito", "Crédito")} /> Crédito</label>
-                </fieldset>
+              <FormRow label="Parcelas">
+                <input
+                  value={form.parcelas}
+                  onChange={(event) => patch("parcelas", event.target.value.replace(/\D/g, "").slice(0, 2))}
+                  inputMode="numeric"
+                  autoComplete="off"
+                  placeholder="Quantidade máxima"
+                />
               </FormRow>
             ) : null}
-            <FormRow label="Crediário">
-              <RadioSimNao name="crediario" value={form.crediario} onChange={(next) => patch("crediario", next)} />
-            </FormRow>
-            <FormRow label="Chave Pix">
-              <div className="pdv-cad-inline">
-                <select value={form.tipoChavePix} onChange={(event) => patch("tipoChavePix", event.target.value)}>
-                  {PIX.map((item) => <option key={item}>{item}</option>)}
-                </select>
-                <input value={form.chavePix} onChange={(event) => patch("chavePix", event.target.value)} autoComplete="off" />
-              </div>
-            </FormRow>
-            <FormRow label="Boleto">
-              <RadioSimNao name="boleto" value={form.boleto} onChange={(next) => patch("boleto", next)} />
-            </FormRow>
-            <FormRow label="Informação Bancária do cheque">
-              <RadioSimNao name="infoCheque" value={form.infoCheque} onChange={(next) => patch("infoCheque", next)} />
-            </FormRow>
-            <FormRow label="Verifica Limite Cliente">
-              <RadioSimNao name="verificaLimite" value={form.verificaLimite} onChange={(next) => patch("verificaLimite", next)} />
-            </FormRow>
-            <FormRow label="Ordem">
-              <input value={form.ordem} onChange={(event) => patch("ordem", event.target.value)} autoComplete="off" />
-            </FormRow>
-            <FormRow label="Ativo Geral">
-              <RadioSimNao name="ativoGeral" value={form.ativoGeral} onChange={(next) => patch("ativoGeral", next)} />
-            </FormRow>
-            <FormRow label="Tipo troca">
-              <RadioSimNao name="tipoTroca" value={form.tipoTroca} onChange={(next) => patch("tipoTroca", next)} />
-            </FormRow>
-            <FormRow label="Financeiro Negativo">
-              <fieldset className="pdv-cad-radios">
-                <label><input type="radio" checked={form.financeiroNegativo === "Permitir"} onChange={() => patch("financeiroNegativo", "Permitir")} /> Permitir</label>
-                <label><input type="radio" checked={form.financeiroNegativo === "Não Permitir"} onChange={() => patch("financeiroNegativo", "Não Permitir")} /> Não Permitir</label>
-              </fieldset>
-            </FormRow>
-            <FormRow label="Saldo no Fechamento">
-              <fieldset className="pdv-cad-radios">
-                <label><input type="radio" checked={form.saldoFechamento === "Permitir"} onChange={() => patch("saldoFechamento", "Permitir")} /> Permitir</label>
-                <label><input type="radio" checked={form.saldoFechamento === "Não Permitir"} onChange={() => patch("saldoFechamento", "Não Permitir")} /> Não Permitir</label>
-              </fieldset>
-            </FormRow>
-            <FormRow label="Mensagem de instrução">
-              <textarea rows={3} value={form.mensagem} onChange={(event) => patch("mensagem", event.target.value)} />
-            </FormRow>
-
-            <div className="pdv-cad-form-bar">Parâmetros de Compras</div>
-            <FormRow label="Pago"><RadioSimNao name="compraPago" value={form.compraPago} onChange={(next) => patch("compraPago", next)} /></FormRow>
-            <FormRow label="Prazo"><input value={form.compraPrazo} onChange={(event) => patch("compraPrazo", event.target.value)} autoComplete="off" /></FormRow>
-            <FormRow label="Debita no Caixa"><RadioSimNao name="compraDebita" value={form.compraDebita} onChange={(next) => patch("compraDebita", next)} /></FormRow>
-            <FormRow label="Credita no Caixa"><RadioSimNao name="compraCredita" value={form.compraCredita} onChange={(next) => patch("compraCredita", next)} /></FormRow>
-            <FormRow label="Padrão"><RadioSimNao name="compraPadrao" value={form.compraPadrao} onChange={(next) => patch("compraPadrao", next)} /></FormRow>
-            <FormRow label="Ativo"><RadioSimNao name="compraAtivo" value={form.compraAtivo} onChange={(next) => patch("compraAtivo", next)} /></FormRow>
-
-            <div className="pdv-cad-form-bar">Parâmetros de Vendas</div>
-            <FormRow label="Pago"><RadioSimNao name="vendaPago" value={form.vendaPago} onChange={(next) => patch("vendaPago", next)} /></FormRow>
-            <FormRow label="Prazo"><input value={form.vendaPrazo} onChange={(event) => patch("vendaPrazo", event.target.value)} autoComplete="off" /></FormRow>
-            <FormRow label="Desconto">
-              <div className="pdv-cad-inline">
-                <RadioSimNao name="vendaDesconto" value={form.vendaDesconto} onChange={(next) => patch("vendaDesconto", next)} />
-                <input value={form.vendaDescontoPct} onChange={(event) => patch("vendaDescontoPct", event.target.value)} aria-label="%" />
-                <span>%</span>
-              </div>
-            </FormRow>
-            <FormRow label="Debita no Caixa"><RadioSimNao name="vendaDebita" value={form.vendaDebita} onChange={(next) => patch("vendaDebita", next)} /></FormRow>
-            <FormRow label="Credita no Caixa"><RadioSimNao name="vendaCredita" value={form.vendaCredita} onChange={(next) => patch("vendaCredita", next)} /></FormRow>
-            <FormRow label="TEF">
-              <div className="pdv-cad-check-grid">
-                <label><input type="checkbox" checked={form.tefImpressao} onChange={(event) => patch("tefImpressao", event.target.checked)} /> Impressão automática</label>
-                <label><input type="checkbox" checked={form.tefFinalizar} onChange={(event) => patch("tefFinalizar", event.target.checked)} /> Finalizar venda automaticamente</label>
-              </div>
-            </FormRow>
-            <FormRow label="Ativo"><RadioSimNao name="vendaAtivo" value={form.vendaAtivo} onChange={(next) => patch("vendaAtivo", next)} /></FormRow>
-            <FormRow label="Utiliza centavos nas parcelas"><RadioSimNao name="centavos" value={form.centavosParcelas} onChange={(next) => patch("centavosParcelas", next)} /></FormRow>
-            <FormRow label="Forma de Pagamento">
-              <fieldset className="pdv-cad-radios pdv-cad-radios-stack">
-                {["Pagamento à vista", "Pagamento a prazo", "Outros"].map((item) => (
-                  <label key={item}><input type="radio" checked={form.formaPagamento === item} onChange={() => patch("formaPagamento", item)} /> {item}</label>
-                ))}
-              </fieldset>
-            </FormRow>
-            <FormRow label="NFCe/NFe">
-              <select value={form.nfce} onChange={(event) => patch("nfce", event.target.value)}>
-                {NFCE.map((item) => <option key={item}>{item}</option>)}
-              </select>
-            </FormRow>
-            <FormRow label="Quando a Parcela esta vencida Cobrar?">
-              <RadioSimNao name="cobrarVencida" value={form.cobrarVencida} onChange={(next) => patch("cobrarVencida", next)} />
-            </FormRow>
-            <FormRow label="Dias para cobrança de juros ou Taxas após o vencimento">
-              <input value={form.diasCobranca} onChange={(event) => patch("diasCobranca", event.target.value)} autoComplete="off" />
-            </FormRow>
-            <FormRow label="Taxa em Dinheiro">
-              <input value={form.taxaDinheiro} onChange={(event) => patch("taxaDinheiro", event.target.value)} autoComplete="off" />
-            </FormRow>
-            <FormRow label="Taxa em Porcentagem">
-              <input value={form.taxaPct} onChange={(event) => patch("taxaPct", event.target.value)} autoComplete="off" />
-            </FormRow>
-            <FormRow label="Juros">
-              <div className="pdv-cad-inline">
-                <input value={form.jurosPct} onChange={(event) => patch("jurosPct", event.target.value)} autoComplete="off" />
-                <span>% ao Mês</span>
-                <label><input type="radio" checked={form.jurosTipo === "Juros Simples"} onChange={() => patch("jurosTipo", "Juros Simples")} /> Juros Simples</label>
-                <label><input type="radio" checked={form.jurosTipo === "Juros Composto"} onChange={() => patch("jurosTipo", "Juros Composto")} /> Juros Composto</label>
-              </div>
-            </FormRow>
-            <FormRow label="Taxa Administrativa">
-              <input value={form.taxaAdm} onChange={(event) => patch("taxaAdm", event.target.value)} autoComplete="off" />
-            </FormRow>
             {status ? <p className="pdv-prod-status" role="status">{status}</p> : null}
             <div className="pdv-cad-form-go">
               <button className="pdv-cad-btn pdv-cad-btn-green" type="submit">
