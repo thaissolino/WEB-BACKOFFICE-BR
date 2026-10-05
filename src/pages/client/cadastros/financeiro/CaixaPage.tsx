@@ -1,9 +1,9 @@
 import { FormEvent, useEffect, useState } from "react"
 import { useNavigate, useSearchParams } from "react-router-dom"
-import { Pencil, Plus } from "lucide-react"
+import { Pencil, Plus, Settings, X } from "lucide-react"
 import CadastroShell from "../CadastroShell"
 import { FormRow } from "../catalog/FormBits"
-import { getCatalog, createCatalog, updateCatalog } from "../catalog/catalogApi"
+import { getCatalog, createCatalog, listCatalog, updateCatalog } from "../catalog/catalogApi"
 import { createLojaCaixa, deleteLojaCaixas, listLojaCaixas, updateLojaCaixa, type LojaCaixa } from "./caixaApi"
 import { parseError } from "../../../../services/api"
 import { AtivoToggle } from "../produtos/QuickCadWindows"
@@ -19,6 +19,13 @@ export default function CaixaPage() {
   const [askDelete, setAskDelete] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [error, setError] = useState("")
+  const [gear, setGear] = useState<LojaCaixa | null>(null)
+  const [payOptions, setPayOptions] = useState<string[]>([])
+  const [userOptions, setUserOptions] = useState<string[]>([])
+  const [gearPay, setGearPay] = useState<string[]>([])
+  const [gearUsers, setGearUsers] = useState<string[]>([])
+  const [gearModo, setGearModo] = useState<"finaliza" | "espera">("finaliza")
+  const [gearSaving, setGearSaving] = useState(false)
 
   function load() {
     listLojaCaixas()
@@ -29,13 +36,55 @@ export default function CaixaPage() {
   useEffect(() => { load() }, [])
 
   useEffect(() => {
-    if (!askDelete) return
+    if (!askDelete && !gear) return
     function onKey(event: KeyboardEvent) {
-      if (event.key === "Escape" && !deleting) setAskDelete(false)
+      if (event.key === "Escape" && !deleting && !gearSaving) {
+        setAskDelete(false)
+        setGear(null)
+      }
     }
     window.addEventListener("keydown", onKey)
     return () => window.removeEventListener("keydown", onKey)
-  }, [askDelete, deleting])
+  }, [askDelete, deleting, gear, gearSaving])
+
+  function namesOf(value: unknown) {
+    return Array.isArray(value) ? value.map((item) => String(item)).filter(Boolean) : []
+  }
+
+  async function openGear(item: LojaCaixa) {
+    setGear(item)
+    setGearPay(namesOf(item.payload.formasPagamento))
+    setGearUsers(namesOf(item.payload.vendedores))
+    setGearModo(item.payload.modo === "espera" ? "espera" : "finaliza")
+    try {
+      const [pays, users] = await Promise.all([
+        listCatalog("payment", true),
+        listCatalog("user", true),
+      ])
+      setPayOptions(pays.map((row) => row.name))
+      setUserOptions(users.map((row) => row.name))
+    } catch (err) {
+      setError(parseError(err).friend || "Não foi possível carregar formas e vendedores.")
+    }
+  }
+
+  function toggleName(list: string[], name: string, setList: (next: string[]) => void) {
+    setList(list.includes(name) ? list.filter((item) => item !== name) : [...list, name])
+  }
+
+  async function saveGear() {
+    if (!gear || gearSaving) return
+    setGearSaving(true)
+    setError("")
+    try {
+      await patch(gear, { formasPagamento: gearPay, vendedores: gearUsers, modo: gearModo })
+      setGear(null)
+    } catch (err) {
+      setError(parseError(err).friend || "Não foi possível salvar os parâmetros.")
+    } finally {
+      setGearSaving(false)
+    }
+  }
 
   function toggle(code: number) {
     setPicked((current) => (current.includes(code) ? current.filter((item) => item !== code) : [...current, code]))
@@ -159,7 +208,11 @@ export default function CaixaPage() {
                         onChange={() => toggle(item.code)}
                       />
                     </td>
-                    <td>—</td>
+                    <td>
+                      <button className="pdv-cad-icon-btn" type="button" aria-label={`Parâmetros de ${item.name}`} onClick={() => openGear(item)}>
+                        <Settings size={16} aria-hidden="true" />
+                      </button>
+                    </td>
                     <td><AtivoToggle value={Boolean(item.payload.liberarPdv ?? true)} onChange={(next) => patch(item, { liberarPdv: next })} /></td>
                     <td>{item.code}</td>
                     <td>{item.name}</td>
@@ -196,6 +249,75 @@ export default function CaixaPage() {
           </div>
         </div>
       </section>
+      {gear ? (
+        <div className="pdv-caixa-confirm" onClick={() => { if (!gearSaving) setGear(null) }}>
+          <div
+            className="pdv-caixa-confirm-card pdv-gear-card"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="pdv-caixa-gear-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <button className="pdv-cad-icon-btn pdv-gear-close" type="button" aria-label="Fechar" onClick={() => setGear(null)}>
+              <X size={16} />
+            </button>
+            <h2 id="pdv-caixa-gear-title">Parâmetros · {gear.name}</h2>
+            <div className="pdv-gear-grid">
+              <div>
+                <strong>Formas de pagamento</strong>
+                <p>Marque uma ou várias. Sem marca, o PDV libera todas.</p>
+                <div className="pdv-gear-list">
+                  {[...new Set([...payOptions, ...gearPay])].length === 0 ? <span>Nenhuma forma cadastrada.</span> : null}
+                  {[...new Set([...payOptions, ...gearPay])].map((name) => (
+                    <label key={name}>
+                      <input
+                        type="checkbox"
+                        checked={gearPay.includes(name)}
+                        onChange={() => toggleName(gearPay, name, setGearPay)}
+                      />
+                      {name}
+                    </label>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <strong>Vendedores neste caixa</strong>
+                <p>Marque um ou vários. Sem marca, o PDV não exige vendedor.</p>
+                <div className="pdv-gear-list">
+                  {[...new Set([...userOptions, ...gearUsers])].length === 0 ? <span>Nenhum usuário cadastrado.</span> : null}
+                  {[...new Set([...userOptions, ...gearUsers])].map((name) => (
+                    <label key={name}>
+                      <input
+                        type="checkbox"
+                        checked={gearUsers.includes(name)}
+                        onChange={() => toggleName(gearUsers, name, setGearUsers)}
+                      />
+                      {name}
+                    </label>
+                  ))}
+                </div>
+              </div>
+              <fieldset>
+                <legend>Baixa da venda</legend>
+                <label>
+                  <input type="radio" name="modo-caixa" checked={gearModo === "finaliza"} onChange={() => setGearModo("finaliza")} />
+                  Este caixa finaliza a venda
+                </label>
+                <label>
+                  <input type="radio" name="modo-caixa" checked={gearModo === "espera"} onChange={() => setGearModo("espera")} />
+                  Este caixa só envia para vendas em aberto
+                </label>
+              </fieldset>
+            </div>
+            <div className="pdv-caixa-confirm-actions">
+              <button className="pdv-cad-btn" type="button" disabled={gearSaving} onClick={() => setGear(null)}>Cancelar</button>
+              <button className="pdv-cad-btn pdv-cad-btn-green" type="button" disabled={gearSaving} onClick={saveGear}>
+                {gearSaving ? "Salvando..." : "Salvar"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
       {askDelete ? (
         <div className="pdv-caixa-confirm" onClick={() => { if (!deleting) setAskDelete(false) }}>
           <div

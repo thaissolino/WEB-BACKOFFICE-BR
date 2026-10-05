@@ -1,27 +1,26 @@
 ﻿import { FormEvent, useEffect, useState } from "react"
 import { Navigate, useNavigate } from "react-router-dom"
 import {
+  ArrowLeft,
   Banknote,
   Check,
-  CreditCard,
   Minus,
   Plus,
   Printer,
-  QrCode,
   Receipt,
   Search,
   ShoppingCart,
   Trash2,
   UserRound,
-  Wallet,
+  X,
 } from "lucide-react"
 import { useClientAuth } from "../../hooks/clientAuth"
 import PdvShell, { PdvLoading } from "./dashboard/PdvShell"
-import { api } from "../../services/api"
+import { api, parseError } from "../../services/api"
 import { formatMoneyBr, formatMoneyRs, parseMoneyBr, type PdvProduct } from "./cadastros/produtos/types"
+import { listLojaCaixas } from "./cadastros/financeiro/caixaApi"
+import { CAIXA_STORAGE_KEY } from "./dashboard/mockData"
 import "./cadastros/cadastros.css"
-
-type PayTab = "dinheiro" | "cartao" | "pix" | "outros"
 
 type CartLine = {
   id: string
@@ -34,24 +33,116 @@ type CartLine = {
   stock: number
 }
 
-const PAY_TABS: { id: PayTab; label: string; icon: typeof Banknote }[] = [
-  { id: "dinheiro", label: "Dinheiro", icon: Banknote },
-  { id: "cartao", label: "Cartão", icon: CreditCard },
-  { id: "pix", label: "PIX", icon: QrCode },
-  { id: "outros", label: "Outros", icon: Wallet },
-]
+type PayLine = { method: string; amount: number }
+
+type OpenSale = {
+  id: string
+  code: string
+  caixaName: string
+  customerName: string
+  sellerName: string
+  lines: Array<{ productId: string; name: string; qty: number; price: number; discount: number }>
+  payments: PayLine[]
+  total: number
+  received: number
+  changeAmount: number
+  status: string
+}
+
+type PrintedSale = {
+  kind: "" | "nf" | "recibo"
+  code: string
+  customer: string
+  lines: OpenSale["lines"]
+  payments: PayLine[]
+  total: number
+  received: number
+  changeAmount: number
+}
+
+const DEFAULT_METHODS = ["Dinheiro", "Cartão", "PIX", "Outros"]
+
+function moneySum(lines: PayLine[]) {
+  return Math.round(lines.reduce((sum, line) => sum + line.amount, 0) * 100) / 100
+}
 
 function PdvBoard() {
   const navigate = useNavigate()
   const [cliente, setCliente] = useState("CONSUMIDOR FINAL")
+  const [clientQuery, setClientQuery] = useState("")
+  const [customers, setCustomers] = useState<Array<{ code: string; name: string }>>([])
+  const [showClient, setShowClient] = useState(false)
+  const [newName, setNewName] = useState("")
+  const [newPhone, setNewPhone] = useState("")
+  const [newDoc, setNewDoc] = useState("")
+  const [savingClient, setSavingClient] = useState(false)
   const [qtyInput, setQtyInput] = useState(1)
   const [query, setQuery] = useState("")
   const [hits, setHits] = useState<PdvProduct[]>([])
   const [cart, setCart] = useState<CartLine[]>([])
-  const [payTab, setPayTab] = useState<PayTab>("dinheiro")
+  const [methods, setMethods] = useState(DEFAULT_METHODS)
+  const [payMethod, setPayMethod] = useState(DEFAULT_METHODS[0])
   const [received, setReceived] = useState("")
+  const [payments, setPayments] = useState<PayLine[]>([])
+  const [sellers, setSellers] = useState<string[]>([])
+  const [seller, setSeller] = useState("")
+  const [caixaName, setCaixaName] = useState("")
+  const [caixaCode, setCaixaCode] = useState(0)
+  const [modo, setModo] = useState<"finaliza" | "espera">("finaliza")
   const [status, setStatus] = useState("")
   const [askCancel, setAskCancel] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [openSales, setOpenSales] = useState<OpenSale[] | null>(null)
+  const [pickedOpen, setPickedOpen] = useState<OpenSale | null>(null)
+  const [extraMethod, setExtraMethod] = useState(DEFAULT_METHODS[0])
+  const [extraAmount, setExtraAmount] = useState("")
+  const [extraPays, setExtraPays] = useState<PayLine[]>([])
+  const [printSale, setPrintSale] = useState<PrintedSale | null>(null)
+
+  useEffect(() => {
+    const stored = typeof sessionStorage === "undefined" ? "" : sessionStorage.getItem(CAIXA_STORAGE_KEY) || ""
+    listLojaCaixas(true)
+      .then((rows) => {
+        const caixa = rows.find((item) => item.name === stored)
+        if (!caixa) return
+        setCaixaName(caixa.name)
+        setCaixaCode(caixa.code)
+        const nextModo = caixa.payload.modo === "espera" ? "espera" : "finaliza"
+        setModo(nextModo)
+        const formas = Array.isArray(caixa.payload.formasPagamento)
+          ? caixa.payload.formasPagamento.map(String).filter(Boolean)
+          : []
+        const vendedores = Array.isArray(caixa.payload.vendedores)
+          ? caixa.payload.vendedores.map(String).filter(Boolean)
+          : []
+        if (formas.length) {
+          setMethods(formas)
+          setPayMethod(formas[0])
+          setExtraMethod(formas[0])
+        }
+        setSellers(vendedores)
+        if (vendedores[0]) setSeller(vendedores[0])
+      })
+      .catch(() => setStatus("Não foi possível carregar o caixa."))
+  }, [])
+
+  useEffect(() => {
+    const term = clientQuery.trim()
+    if (term.length < 2) return
+    const timer = window.setTimeout(() => {
+      api
+        .get("/clients/customers", { params: { ativo: "1", search: term } })
+        .then(({ data }) => {
+          const list = ((data.customers || []) as Array<{ code: string | number; name: string }>).map((item) => ({
+            code: String(item.code),
+            name: item.name,
+          }))
+          setCustomers(list)
+        })
+        .catch(() => undefined)
+    }, 250)
+    return () => window.clearTimeout(timer)
+  }, [clientQuery])
 
   useEffect(() => {
     const q = query.trim()
@@ -72,7 +163,11 @@ function PdvBoard() {
   const subtotal = cart.reduce((sum, line) => sum + line.qty * line.price, 0)
   const discount = cart.reduce((sum, line) => sum + line.qty * line.discount, 0)
   const total = Math.max(0, subtotal - discount)
-  const paid = parseMoneyBr(received)
+  const paid = moneySum(payments)
+  const typed = parseMoneyBr(received)
+  const covered = Math.round((paid + (typed > 0 ? typed : 0)) * 100) / 100
+  const short = Math.max(0, Math.round((total - covered) * 100) / 100)
+  const change = Math.max(0, Math.round((covered - total) * 100) / 100)
 
   function addProduct(product: PdvProduct) {
     const stock = Math.max(0, Math.floor(Number(product.lojaStock) || 0))
@@ -140,43 +235,186 @@ function PdvBoard() {
   function clearSale() {
     setCart([])
     setReceived("")
+    setPayments([])
     setQuery("")
     setHits([])
     setQtyInput(1)
-    setPayTab("dinheiro")
+    setPayMethod(methods[0] || DEFAULT_METHODS[0])
     setStatus("")
     setAskCancel(false)
   }
 
-  function finish() {
+  function addPayment() {
+    const amount = parseMoneyBr(received)
+    if (!(amount > 0)) {
+      setStatus("Informe o valor desta forma.")
+      return
+    }
+    setPayments((current) => [...current, { method: payMethod, amount }])
+    setReceived("")
+    setStatus("")
+  }
+
+  function saleBody(nextPayments: PayLine[], nextStatus: "espera" | "finalizada") {
+    return {
+      caixaCode,
+      caixaName,
+      status: nextStatus,
+      customerName: cliente,
+      sellerName: seller,
+      lines: cart.map((line) => ({
+        productId: line.id,
+        code: line.code,
+        name: line.name,
+        qty: line.qty,
+        price: line.price,
+        discount: line.discount,
+      })),
+      payments: nextPayments,
+    }
+  }
+
+  async function finish() {
+    if (busy) return
     if (cart.length === 0) {
       setStatus("Inclua um produto.")
       return
     }
-    if (paid + 0.009 < total) {
-      setStatus(`Falta receber ${formatMoneyRs(Math.max(0, total - paid))}.`)
+    if (sellers.length && !seller) {
+      setStatus("Escolha o vendedor deste caixa.")
       return
     }
-    clearSale()
-    setStatus("Venda finalizada.")
+    const pending = parseMoneyBr(received)
+    const nextPayments = pending > 0 ? [...payments, { method: payMethod, amount: pending }] : payments
+    const covered = moneySum(nextPayments)
+    if (modo === "finaliza" && covered + 0.009 < total) {
+      setStatus(`Falta receber ${formatMoneyRs(Math.max(0, total - covered))}.`)
+      return
+    }
+    setBusy(true)
+    try {
+      const { data } = await api.post("/clients/pdv-vendas", saleBody(nextPayments, modo))
+      const sale = data.sale as OpenSale
+      clearSale()
+      if (sale.status === "finalizada") {
+        setPrintSale({
+          kind: "",
+          code: sale.code,
+          customer: sale.customerName,
+          lines: sale.lines,
+          payments: sale.payments,
+          total: sale.total,
+          received: sale.received,
+          changeAmount: sale.changeAmount,
+        })
+        setStatus("Venda finalizada. O estoque da loja foi baixado.")
+      } else {
+        setStatus("Venda enviada para vendas em aberto. O estoque sai quando o caixa der a baixa.")
+      }
+    } catch (err) {
+      setStatus(parseError(err).friend || "Não foi possível gravar a venda.")
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function showOpenSales() {
+    setStatus("")
+    try {
+      const { data } = await api.get("/clients/pdv-vendas", { params: { status: "espera" } })
+      setOpenSales((data.sales || []) as OpenSale[])
+      setPickedOpen(null)
+      setExtraPays([])
+      setExtraAmount("")
+    } catch (err) {
+      setStatus(parseError(err).friend || "Não foi possível carregar as vendas em aberto.")
+    }
+  }
+
+  async function baixarOpen() {
+    if (!pickedOpen || busy) return
+    const pending = parseMoneyBr(extraAmount)
+    const next = pending > 0 ? [...pickedOpen.payments, ...extraPays, { method: extraMethod, amount: pending }] : [...pickedOpen.payments, ...extraPays]
+    if (moneySum(next) + 0.009 < pickedOpen.total) {
+      setStatus(`Falta receber ${formatMoneyRs(Math.max(0, pickedOpen.total - moneySum(next)))}.`)
+      return
+    }
+    setBusy(true)
+    try {
+      const { data } = await api.post(`/clients/pdv-vendas/${pickedOpen.id}/finalizar`, { payments: next })
+      const sale = data.sale as OpenSale
+      setOpenSales(null)
+      setPickedOpen(null)
+      setPrintSale({
+        kind: "",
+        code: sale.code,
+        customer: sale.customerName,
+        lines: sale.lines,
+        payments: sale.payments,
+        total: sale.total,
+        received: sale.received,
+        changeAmount: sale.changeAmount,
+      })
+      setStatus("Baixa concluída. O estoque da loja foi baixado.")
+    } catch (err) {
+      setStatus(parseError(err).friend || "Não foi possível dar baixa nesta venda.")
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function saveClient(event: FormEvent) {
+    event.preventDefault()
+    const name = newName.trim()
+    if (!name || savingClient) return
+    setSavingClient(true)
+    try {
+      const { data } = await api.post("/clients/customers", {
+        name,
+        responsible: name,
+        portfolio: "PDV",
+        phone: newPhone.trim() || "—",
+        classification: "Consumidor",
+        city: "—",
+        state: "GO",
+        cep: "00000-000",
+        document: newDoc.trim() || "—",
+        financialCode: "0",
+      })
+      const created = data.customer as { code: string | number; name: string }
+      setCustomers((current) => [...current, { code: String(created.code), name: created.name }])
+      setCliente(created.name)
+      setShowClient(false)
+      setNewName("")
+      setNewPhone("")
+      setNewDoc("")
+      setStatus("Cliente cadastrado.")
+    } catch (err) {
+      setStatus(parseError(err).friend || "Não foi possível cadastrar o cliente.")
+    } finally {
+      setSavingClient(false)
+    }
   }
 
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
       if (event.key === "F2") {
         event.preventDefault()
-        finish()
+        void finish()
       } else if (event.key === "F3" && !(event.target instanceof HTMLInputElement)) {
         event.preventDefault()
         window.print()
       } else if (event.key === "Escape") {
         setAskCancel(false)
         setHits([])
+        setShowClient(false)
       }
     }
     window.addEventListener("keydown", onKey)
     return () => window.removeEventListener("keydown", onKey)
   })
+
+  const slip = printSale
 
   return (
     <section className="cx-pdv">
@@ -187,13 +425,17 @@ function PdvBoard() {
           </span>
           <div>
             <h1>PDV – Caixa</h1>
-            <p>Registre suas vendas de forma rápida e simples</p>
+            <p>{caixaName ? `${caixaName} · ${modo === "espera" ? "envia para vendas em aberto" : "finaliza a venda"}` : "Selecione um caixa para registrar a venda"}</p>
           </div>
         </div>
         <div className="cx-head-actions">
-          <button type="button" onClick={() => navigate("/client/caixa")}>
+          <button type="button" onClick={() => navigate("/client/dashboard")}>
+            <ArrowLeft size={15} strokeWidth={2.2} aria-hidden="true" />
+            Voltar
+          </button>
+          <button type="button" onClick={() => void showOpenSales()}>
             <Receipt size={15} strokeWidth={2.2} aria-hidden="true" />
-            Trocar Caixa
+            Vendas em aberto
           </button>
           <button type="button" onClick={() => document.getElementById("cx-produto")?.focus()}>
             <Search size={15} strokeWidth={2.2} aria-hidden="true" />
@@ -208,15 +450,43 @@ function PdvBoard() {
 
       <div className="cx-main">
         <form className="cx-card cx-entry" onSubmit={consult}>
-          <label className="cx-cliente">
-            <span>Cliente</span>
-            <span className="cx-input">
-              <UserRound size={16} strokeWidth={2.1} aria-hidden="true" />
-              <select value={cliente} onChange={(event) => setCliente(event.target.value)} aria-label="Cliente">
-                <option>CONSUMIDOR FINAL</option>
-              </select>
-            </span>
-          </label>
+          <div className="cx-cliente-box">
+            <label className="cx-cliente">
+              <span>Cliente</span>
+              <span className="cx-input">
+                <UserRound size={16} strokeWidth={2.1} aria-hidden="true" />
+                <select value={cliente} onChange={(event) => setCliente(event.target.value)} aria-label="Cliente">
+                  <option>CONSUMIDOR FINAL</option>
+                  {cliente !== "CONSUMIDOR FINAL" && !customers.some((item) => item.name === cliente) ? (
+                    <option>{cliente}</option>
+                  ) : null}
+                  {customers.map((item) => (
+                    <option key={item.code} value={item.name}>{item.name}</option>
+                  ))}
+                </select>
+              </span>
+            </label>
+            <input
+              value={clientQuery}
+              onChange={(event) => setClientQuery(event.target.value)}
+              placeholder="Buscar cliente"
+              aria-label="Buscar cliente"
+              autoComplete="off"
+            />
+            <button className="cx-pay-btn" type="button" onClick={() => setShowClient((current) => !current)}>
+              Cadastrar cliente
+            </button>
+            {sellers.length ? (
+              <label className="cx-cliente">
+                <span>Vendedor</span>
+                <span className="cx-input">
+                  <select value={seller} onChange={(event) => setSeller(event.target.value)} aria-label="Vendedor">
+                    {sellers.map((name) => <option key={name}>{name}</option>)}
+                  </select>
+                </span>
+              </label>
+            ) : null}
+          </div>
           <label className="cx-produto">
             <span>Produto</span>
             <span className="cx-input">
@@ -248,6 +518,18 @@ function PdvBoard() {
             Adicionar (ENTER)
           </button>
         </form>
+
+        {showClient ? (
+          <form className="cx-card cx-client-form" onSubmit={saveClient}>
+            <strong>Cadastrar cliente</strong>
+            <input value={newName} onChange={(event) => setNewName(event.target.value)} placeholder="Nome" aria-label="Nome do cliente" autoComplete="off" />
+            <input value={newPhone} onChange={(event) => setNewPhone(event.target.value)} placeholder="Telefone" aria-label="Telefone" autoComplete="off" />
+            <input value={newDoc} onChange={(event) => setNewDoc(event.target.value)} placeholder="CPF ou CNPJ" aria-label="Documento" autoComplete="off" />
+            <button className="cx-pay-btn" type="submit" disabled={savingClient || !newName.trim()}>
+              {savingClient ? "Salvando..." : "Salvar cliente"}
+            </button>
+          </form>
+        ) : null}
 
         {hits.length > 0 ? (
           <ul className="cx-hits">
@@ -344,37 +626,51 @@ function PdvBoard() {
             Forma de Pagamento
           </h2>
           <div className="cx-tabs" role="tablist" aria-label="Forma de pagamento">
-            {PAY_TABS.map((tab) => {
-              const Icon = tab.icon
-              return (
-                <button
-                  key={tab.id}
-                  type="button"
-                  role="tab"
-                  aria-selected={payTab === tab.id}
-                  onClick={() => setPayTab(tab.id)}
-                >
-                  <Icon size={15} strokeWidth={2.1} aria-hidden="true" />
-                  {tab.label}
-                </button>
-              )
-            })}
+            {methods.map((label) => (
+              <button
+                key={label}
+                type="button"
+                role="tab"
+                aria-selected={payMethod === label}
+                onClick={() => setPayMethod(label)}
+              >
+                {label}
+              </button>
+            ))}
           </div>
-          <label className="cx-received">
-            Valor Recebido
-            <span>
-              <b>R$</b>
-              <input
-                value={received}
-                inputMode="decimal"
-                placeholder="0,00"
-                onChange={(event) => setReceived(event.target.value)}
-              />
-            </span>
-          </label>
-          <button className="cx-finish" type="button" onClick={finish}>
+          <div className="cx-pay-row">
+            <label className="cx-received">
+              Valor desta forma
+              <span>
+                <b>R$</b>
+                <input
+                  value={received}
+                  inputMode="decimal"
+                  placeholder="0,00"
+                  onChange={(event) => setReceived(event.target.value)}
+                />
+              </span>
+            </label>
+            <button className="cx-pay-btn" type="button" onClick={addPayment}>Adicionar</button>
+          </div>
+          {payments.length ? (
+            <ul className="cx-splits">
+              {payments.map((pay, index) => (
+                <li key={`${pay.method}-${index}`}>
+                  <span>{pay.method}</span>
+                  <b>{formatMoneyRs(pay.amount)}</b>
+                  <button type="button" aria-label={`Remover ${pay.method}`} onClick={() => setPayments((current) => current.filter((_, item) => item !== index))}>
+                    <X size={14} />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          {total > 0 && short > 0.009 ? <p className="cx-due is-short">Falta {formatMoneyRs(short)}</p> : null}
+          {change > 0.009 ? <p className="cx-due is-change">Troco {formatMoneyRs(change)}</p> : null}
+          <button className="cx-finish" type="button" onClick={() => void finish()} disabled={busy}>
             <Check size={16} strokeWidth={2.6} aria-hidden="true" />
-            Finalizar Venda (F2)
+            {modo === "espera" ? "Enviar para vendas em aberto" : "Finalizar Venda (F2)"}
           </button>
           <button className="cx-print" type="button" onClick={() => window.print()}>
             <Printer size={15} strokeWidth={2.1} aria-hidden="true" />
@@ -384,14 +680,32 @@ function PdvBoard() {
       </aside>
 
       <div className="cx-print" aria-hidden="true">
-        <p>PDV – Caixa</p>
-        <p>{cliente}</p>
-        <p>{PAY_TABS.find((tab) => tab.id === payTab)?.label}</p>
-        {cart.map((line) => (
-          <p key={line.id}>{line.qty} x {line.name} {formatMoneyRs(line.qty * Math.max(0, line.price - line.discount))}</p>
-        ))}
-        <p>Total {formatMoneyRs(total)}</p>
-        <p>Recebido {received ? `R$ ${formatMoneyBr(paid)}` : "R$ 0,00"}</p>
+        {slip ? (
+          <>
+            <p>{slip.kind === "nf" ? "Nota fiscal" : "Recibo"} {slip.code}</p>
+            <p>{slip.customer}</p>
+            {slip.lines.map((line, index) => (
+              <p key={`${line.name}-${index}`}>{line.qty} x {line.name} {formatMoneyRs(line.qty * Math.max(0, line.price - line.discount))}</p>
+            ))}
+            {slip.payments.map((pay, index) => (
+              <p key={`${pay.method}-${index}`}>{pay.method} {formatMoneyRs(pay.amount)}</p>
+            ))}
+            <p>Total {formatMoneyRs(slip.total)}</p>
+            <p>Recebido {formatMoneyRs(slip.received)}</p>
+            <p>Troco {formatMoneyRs(slip.changeAmount)}</p>
+          </>
+        ) : (
+          <>
+            <p>PDV – Caixa</p>
+            <p>{cliente}</p>
+            <p>{payMethod}</p>
+            {cart.map((line) => (
+              <p key={line.id}>{line.qty} x {line.name} {formatMoneyRs(line.qty * Math.max(0, line.price - line.discount))}</p>
+            ))}
+            <p>Total {formatMoneyRs(total)}</p>
+            <p>Recebido {formatMoneyRs(paid)}</p>
+          </>
+        )}
       </div>
 
       {askCancel ? (
@@ -402,6 +716,94 @@ function PdvBoard() {
             <div className="pdv-caixa-confirm-actions">
               <button className="pdv-cad-btn" type="button" onClick={() => setAskCancel(false)}>Voltar</button>
               <button className="pdv-cad-btn pdv-cad-btn-red" type="button" onClick={clearSale}>Cancelar venda</button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {openSales ? (
+        <div className="pdv-caixa-confirm" onClick={() => setOpenSales(null)}>
+          <div className="pdv-caixa-confirm-card pdv-gear-card" role="dialog" aria-modal="true" aria-labelledby="cx-open-title" onClick={(event) => event.stopPropagation()}>
+            <button className="pdv-cad-icon-btn pdv-gear-close" type="button" aria-label="Fechar" onClick={() => setOpenSales(null)}>
+              <X size={16} />
+            </button>
+            <h2 id="cx-open-title">Vendas em aberto</h2>
+            <p>Vendas enviadas pelos vendedores e ainda pendentes de baixa.</p>
+            {pickedOpen ? (
+              <>
+                <h3>Venda {pickedOpen.code}</h3>
+                <p>{pickedOpen.customerName} · {pickedOpen.caixaName || "Sem caixa"} · {pickedOpen.sellerName || "Sem vendedor"}</p>
+                <ul>
+                  {pickedOpen.lines.map((line, index) => (
+                    <li key={`${line.productId}-${index}`}>
+                      <span>{line.qty} × {line.name}</span>
+                      <b>{formatMoneyRs(line.qty * Math.max(0, line.price - line.discount))}</b>
+                    </li>
+                  ))}
+                  {pickedOpen.payments.map((pay, index) => (
+                    <li key={`${pay.method}-${index}`}>
+                      <span>{pay.method}</span>
+                      <b>{formatMoneyRs(pay.amount)}</b>
+                    </li>
+                  ))}
+                  {extraPays.map((pay, index) => (
+                    <li key={`extra-${index}`}>
+                      <span>{pay.method}</span>
+                      <b>{formatMoneyRs(pay.amount)}</b>
+                    </li>
+                  ))}
+                </ul>
+                <p>
+                  Total {formatMoneyRs(pickedOpen.total)} · Falta {formatMoneyRs(Math.max(0, pickedOpen.total - moneySum([...pickedOpen.payments, ...extraPays, ...(parseMoneyBr(extraAmount) > 0 ? [{ method: extraMethod, amount: parseMoneyBr(extraAmount) }] : [])])))}
+                </p>
+                <div className="cx-pay-row">
+                  <select value={extraMethod} aria-label="Forma da baixa" onChange={(event) => setExtraMethod(event.target.value)}>
+                    {methods.map((name) => <option key={name}>{name}</option>)}
+                  </select>
+                  <input value={extraAmount} inputMode="decimal" placeholder="0,00" aria-label="Valor da baixa" onChange={(event) => setExtraAmount(event.target.value)} />
+                  <button className="cx-pay-btn" type="button" onClick={() => {
+                    const amount = parseMoneyBr(extraAmount)
+                    if (!(amount > 0)) return
+                    setExtraPays((current) => [...current, { method: extraMethod, amount }])
+                    setExtraAmount("")
+                  }}>Adicionar</button>
+                </div>
+                <div className="pdv-caixa-confirm-actions">
+                  <button className="pdv-cad-btn" type="button" onClick={() => { setPickedOpen(null); setExtraPays([]) }}>Voltar</button>
+                  <button className="pdv-cad-btn pdv-cad-btn-green" type="button" disabled={busy} onClick={() => void baixarOpen()}>Finalizar baixa</button>
+                </div>
+              </>
+            ) : openSales.length === 0 ? (
+              <p>Nenhuma venda pendente de baixa.</p>
+            ) : (
+              <ul>
+                {openSales.map((sale) => (
+                  <li key={sale.id}>
+                    <button type="button" onClick={() => { setPickedOpen(sale); setExtraPays([]); setExtraAmount("") }}>
+                      <span>{sale.code} · {sale.customerName} · {sale.caixaName || "Sem caixa"}</span>
+                      <b>{formatMoneyRs(sale.total)}</b>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+      ) : null}
+
+      {printSale ? (
+        <div className="pdv-caixa-confirm" onClick={() => setPrintSale(null)}>
+          <div className="pdv-caixa-confirm-card" role="dialog" aria-modal="true" aria-labelledby="cx-print-title" onClick={(event) => event.stopPropagation()}>
+            <h2 id="cx-print-title">Venda {printSale.code} concluída</h2>
+            <p>Total {formatMoneyRs(printSale.total)} · Troco {formatMoneyRs(printSale.changeAmount)}</p>
+            <div className="pdv-caixa-confirm-actions">
+              <button className="pdv-cad-btn" type="button" onClick={() => { setPrintSale((current) => current ? { ...current, kind: "nf" } : current); window.setTimeout(() => window.print(), 150) }}>
+                Imprimir NF
+              </button>
+              <button className="pdv-cad-btn" type="button" onClick={() => { setPrintSale((current) => current ? { ...current, kind: "recibo" } : current); window.setTimeout(() => window.print(), 150) }}>
+                Imprimir recibo
+              </button>
+              <button className="pdv-cad-btn" type="button" onClick={() => setPrintSale(null)}>Fechar</button>
             </div>
           </div>
         </div>

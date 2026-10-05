@@ -10,6 +10,7 @@ import { parseError } from "../../../services/api"
 import { Pencil, Plus } from "lucide-react"
 import { useEffect } from "react"
 import "../vendas/pedidos.css"
+import { VendasMovimento } from "./LojaVendasPainel"
 
 const VENDA_COLS = [
   "Visualizar",
@@ -41,10 +42,10 @@ const VENDA_ACTIONS = [
 ]
 
 export function VendasAbertas() {
-  return <FilterPage title="VENDAS ABERTAS" actions={VENDA_ACTIONS} fields={VENDA_FIELDS} columns={VENDA_COLS} />
+  return <VendasMovimento status="espera" />
 }
 export function VendasConcluidas() {
-  return <FilterPage title="VENDAS CONCLUÍDAS" actions={VENDA_ACTIONS} fields={VENDA_FIELDS} columns={VENDA_COLS} />
+  return <VendasMovimento status="finalizada" />
 }
 export function PreVendas() {
   return <FilterPage title="PRÉ VENDAS" actions={VENDA_ACTIONS} fields={VENDA_FIELDS} columns={VENDA_COLS} />
