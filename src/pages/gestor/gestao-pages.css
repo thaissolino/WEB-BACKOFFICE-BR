@@ -360,9 +360,11 @@
 
 .pdv-chrome:not([data-theme="light"]) .gestao-page input:not([type="checkbox"]):not([type="radio"]),
 .pdv-chrome:not([data-theme="light"]) .gestao-page select,
-.pdv-chrome:not([data-theme="light"]) .gestao-page textarea {
+.pdv-chrome:not([data-theme="light"]) .gestao-page textarea,
+.pdv-chrome:not([data-theme="light"]) .gestao-page .pdv-prod-select-trigger {
   background: #2a2119 !important;
   color: #f5f1ea !important;
+  -webkit-text-fill-color: #f5f1ea !important;
   border-color: rgba(255, 255, 255, 0.07) !important;
   border-radius: 16px !important;
 }
