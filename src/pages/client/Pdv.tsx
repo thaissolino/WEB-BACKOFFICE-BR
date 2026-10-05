@@ -19,6 +19,7 @@ type CartLine = {
   name: string
   qty: number
   price: number
+  stock: number
 }
 
 function PdvBoard() {
@@ -41,6 +42,25 @@ function PdvBoard() {
       .catch(() => setPayments([]))
   }, [])
 
+  useEffect(() => {
+    const q = query.trim()
+    if (q.length < 2) {
+      setHits([])
+      return
+    }
+    const timer = window.setTimeout(() => {
+      api
+        .get("/clients/products", { params: { search: q, ativo: "1" } })
+        .then(({ data }) => {
+          const products = (data.products as PdvProduct[]) ?? []
+          setHits(products.slice(0, 8))
+          setStatus(products.length ? "" : "Nenhum produto encontrado.")
+        })
+        .catch(() => setStatus("Não foi possível pesquisar produtos."))
+    }, 250)
+    return () => window.clearTimeout(timer)
+  }, [query])
+
   const total = cart.reduce((sum, line) => sum + line.qty * line.price, 0)
 
   function onSearch(event: FormEvent) {
@@ -61,10 +81,17 @@ function PdvBoard() {
   }
 
   function addProduct(product: PdvProduct) {
+    const stock = Math.max(0, Math.floor(Number(product.stockQuantity) || 0))
+    if (stock < 1) {
+      setStatus("Sem estoque.")
+      return
+    }
     setCart((current) => {
       const found = current.find((line) => line.id === product.id)
+      const next = (found?.qty || 0) + 1
+      if (next > stock) return current
       if (found) {
-        return current.map((line) => (line.id === product.id ? { ...line, qty: line.qty + 1 } : line))
+        return current.map((line) => (line.id === product.id ? { ...line, qty: next, stock } : line))
       }
       return [
         ...current,
@@ -74,6 +101,7 @@ function PdvBoard() {
           name: product.name,
           qty: 1,
           price: product.salePrice || 0,
+          stock,
         },
       ]
     })

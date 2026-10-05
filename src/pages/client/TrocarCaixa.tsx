@@ -5,7 +5,7 @@ import { useClientAuth } from "../../hooks/clientAuth";
 import PdvShell, { PdvLoading } from "./dashboard/PdvShell";
 import PdvTip from "./dashboard/PdvTip";
 import { CAIXA_STORAGE_KEY, NENHUM_CAIXA } from "./dashboard/mockData";
-import { listCatalog } from "./cadastros/catalog/catalogApi";
+import { createCatalog, listCatalog } from "./cadastros/catalog/catalogApi";
 import { parseError } from "../../services/api";
 
 const ABRIR_PDV_TIP = `Troca a sessão do caixa.
@@ -119,23 +119,46 @@ function TrocarCaixaBoard() {
   const [active, setActive] = useState(NENHUM_CAIXA);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
+  const [novo, setNovo] = useState("");
+  const [creating, setCreating] = useState(false);
 
-  useEffect(() => {
+  function loadCaixas(prefer?: string) {
     listCatalog("cash_register", true)
       .then((rows) => {
         const next = [NENHUM_CAIXA, ...rows.map((item) => item.name)];
         setNames(next);
         const stored =
           typeof sessionStorage === "undefined" ? "" : sessionStorage.getItem(CAIXA_STORAGE_KEY) || "";
-        const current = stored && next.includes(stored) ? stored : NENHUM_CAIXA;
+        const wanted = prefer && next.includes(prefer) ? prefer : stored;
+        const current = wanted && next.includes(wanted) ? wanted : NENHUM_CAIXA;
         setPicked(current);
-        setActive(current);
+        if (!prefer) setActive(current);
         setError("");
       })
       .catch((err) => {
         setError(parseError(err).friend || "Não foi possível carregar os caixas.");
       });
+  }
+
+  useEffect(() => {
+    loadCaixas();
   }, []);
+
+  async function onNovoCaixa() {
+    const name = novo.trim();
+    if (!name || creating) return;
+    setCreating(true);
+    try {
+      await createCatalog("cash_register", { name, active: true });
+      setNovo("");
+      setNotice(`Caixa ${name} criado.`);
+      loadCaixas(name);
+    } catch (err) {
+      setError(parseError(err).friend || "Não foi possível criar o caixa.");
+    } finally {
+      setCreating(false);
+    }
+  }
 
   function applyCaixa() {
     if (picked === NENHUM_CAIXA) {
@@ -171,6 +194,20 @@ function TrocarCaixaBoard() {
         <div className="pdv-caixa-row">
           <label htmlFor="pdv-caixa-trigger">SELECIONAR CAIXA</label>
           <CaixaCombo value={picked} options={names} onChange={setPicked} />
+        </div>
+
+        <div className="pdv-caixa-row">
+          <label htmlFor="pdv-caixa-novo">NOVO CAIXA</label>
+          <input
+            id="pdv-caixa-novo"
+            value={novo}
+            onChange={(event) => setNovo(event.target.value)}
+            autoComplete="off"
+            placeholder="Nome do caixa"
+          />
+          <button className="pdv-wm-btn" type="button" disabled={creating || !novo.trim()} onClick={onNovoCaixa}>
+            Criar caixa
+          </button>
         </div>
 
         <div className="pdv-caixa-actions">

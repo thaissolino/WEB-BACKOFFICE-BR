@@ -52,6 +52,8 @@ type SavedOrder = {
   observacao?: string;
   createdAt: string;
   closedAt: string | null;
+  estornada?: boolean;
+  estornadaAt?: string | null;
   dispatchStatus?: string;
 };
 
@@ -81,7 +83,8 @@ function orderStatus(value?: string) {
   return orderDone(value) ? "Concluído" : "Em separação";
 }
 
-function StatusLabel({ value }: { value?: string }) {
+function StatusLabel({ value, estornada }: { value?: string; estornada?: boolean }) {
+  if (estornada) return <span className="loja-status loja-status-wait">Estornada</span>;
   const done = orderDone(value);
   return <span className={done ? "loja-status loja-status-done" : "loja-status loja-status-wait"}>{orderStatus(value)}</span>;
 }
@@ -328,8 +331,9 @@ function Venda() {
 
   const visible = products.filter((item) => {
     if (!(item.price > 0)) return false;
-    const text = `${item.name} ${item.code}`.toLowerCase();
-    const matchesQuery = text.includes(query.trim().toLowerCase());
+    const text = `${item.name} ${item.code} ${item.category}`.toLowerCase();
+    const terms = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
+    const matchesQuery = !terms.length || terms.every((term) => text.includes(term));
     const matchesCategory =
       category === "Todas" || item.categoryId === category || item.category === category;
     const matchesStock = item.stockQuantity > 0;
@@ -337,12 +341,15 @@ function Venda() {
   });
 
   function add(product: CatalogProduct) {
+    const stock = Math.max(0, Math.floor(Number(product.stockQuantity) || 0));
     setLines((current) => {
       const found = current.find((line) => line.id === product.id);
+      const next = (found?.qty || 0) + 1;
+      if (next > stock) return current;
       if (found) {
-        return current.map((line) => (line.id === product.id ? { ...line, qty: line.qty + 1 } : line));
+        return current.map((line) => (line.id === product.id ? { ...line, qty: next, stockQuantity: stock } : line));
       }
-      return [...current, { ...product, qty: 1 }];
+      return [...current, { ...product, stockQuantity: stock, qty: 1 }];
     });
   }
 
@@ -375,9 +382,15 @@ function Venda() {
   }
 
   function setQty(id: string, qty: number) {
-    setLines((current) =>
-      qty < 1 ? current.filter((line) => line.id !== id) : current.map((line) => (line.id === id ? { ...line, qty } : line)),
-    );
+    setLines((current) => {
+      const line = current.find((item) => item.id === id);
+      if (!line) return current;
+      if (qty < 1) return current.filter((item) => item.id !== id);
+      const stock = Math.max(0, Math.floor(Number(line.stockQuantity) || 0));
+      const next = Math.min(qty, stock || qty);
+      if (stock > 0 && qty > stock) return current.map((item) => (item.id === id ? { ...item, qty: stock } : item));
+      return current.map((item) => (item.id === id ? { ...item, qty: next } : item));
+    });
   }
 
   return (
@@ -455,7 +468,7 @@ function Venda() {
                         type="button"
                         aria-label={`Aumentar ${product.name}`}
                         onClick={() => (qty === 0 ? add(product) : setQty(product.id, qty + 1))}
-                        disabled={product.stockQuantity <= 0}
+                        disabled={product.stockQuantity <= 0 || qty >= product.stockQuantity}
                       >
                         +
                       </button>
@@ -482,7 +495,7 @@ function Venda() {
                   −
                 </button>
                 <span>{line.qty}</span>
-                <button type="button" aria-label={`Aumentar ${line.name}`} onClick={() => setQty(line.id, line.qty + 1)}>
+                <button type="button" aria-label={`Aumentar ${line.name}`} disabled={line.qty >= line.stockQuantity} onClick={() => setQty(line.id, line.qty + 1)}>
                   +
                 </button>
               </div>
@@ -569,7 +582,8 @@ function Historico() {
         <thead>
           <tr>
             <th>Código</th>
-            <th>Data</th>
+            <th>Feito em</th>
+            <th>Estornado em</th>
             <th>Valor</th>
             <th>Status</th>
             <th></th>
@@ -584,8 +598,9 @@ function Historico() {
             >
               <td>{order.id.slice(0, 8)}</td>
               <td>{when(order.closedAt || order.createdAt)}</td>
+              <td>{order.estornada ? when(order.estornadaAt) : "—"}</td>
               <td className="loja-money">{money(order.total)}</td>
-              <td><StatusLabel value={order.dispatchStatus} /></td>
+              <td><StatusLabel value={order.dispatchStatus} estornada={order.estornada} /></td>
               <td>
                 <Link to={`/client/pedidos/imprimir/${order.id}`} onClick={(event) => event.stopPropagation()}>
                   Imprimir
@@ -730,7 +745,9 @@ function PedidoDetalhe() {
       </div>
 
       <div className="loja-detail-sheet">
-        <p>Status: <StatusLabel value={order.dispatchStatus} /></p>
+        <p>Feito em: {when(order.closedAt || order.createdAt)}</p>
+        <p>Estornado em: {order.estornada ? when(order.estornadaAt) : "—"}</p>
+        <p>Status: <StatusLabel value={order.dispatchStatus} estornada={order.estornada} /></p>
         <p>Obs: {shown(order.observacao || order.address?.obs)}</p>
       </div>
     </section>
@@ -752,18 +769,25 @@ function Financeiro() {
     );
     let balance = 0;
     const byDate = new Map<string, { label: string; amount: number; balance: number; href: string }[]>();
-    sorted.forEach((order) => {
-      const whenAt = order.closedAt || order.createdAt;
-      const date = new Date(whenAt).toLocaleDateString("pt-BR");
-      const amount = -Math.abs(order.total || 0);
-      balance += amount;
+    const events = sorted.flatMap((order) => {
+      const code = order.id.slice(0, 8).toUpperCase();
+      const href = `/client/pedidos/historico/${order.id}`;
+      const rows = [{ at: order.closedAt || order.createdAt, label: `Pedido: ${code}`, amount: -Math.abs(order.total || 0), href }];
+      if (order.estornada) {
+        rows.push({
+          at: order.estornadaAt || order.closedAt || order.createdAt,
+          label: `Estorno pedido: ${code}`,
+          amount: Math.abs(order.total || 0),
+          href,
+        });
+      }
+      return rows;
+    }).sort((a, b) => new Date(a.at).getTime() - new Date(b.at).getTime());
+    events.forEach((event) => {
+      const date = new Date(event.at).toLocaleDateString("pt-BR");
+      balance += event.amount;
       const rows = byDate.get(date) || [];
-      rows.push({
-        label: `Pedido: ${order.id.slice(0, 8).toUpperCase()}`,
-        amount,
-        balance,
-        href: `/client/pedidos/historico/${order.id}`,
-      });
+      rows.push({ label: event.label, amount: event.amount, balance, href: event.href });
       byDate.set(date, rows);
     });
     return { balance, dates: [...byDate.entries()] };
@@ -772,7 +796,7 @@ function Financeiro() {
   return (
     <section className="loja-panel loja-ledger">
       <h1 className="loja-title">Financeiro</h1>
-      <p className="loja-lede">Conta desta loja com o atacado. Pedido fechado entra como débito.</p>
+      <p className="loja-lede">Conta desta loja com o atacado. Pedido fechado entra como débito. Estorno devolve o crédito.</p>
       {groups.dates.length === 0 ? <p>Nenhum movimento nesta conta.</p> : null}
       {groups.dates.map(([date, rows], index) => (
         <div key={date} className="loja-ledger-day">
@@ -787,7 +811,7 @@ function Financeiro() {
             </>
           ) : null}
           {rows.map((row) => (
-            <p key={row.href} className="loja-ledger-row">
+            <p key={`${row.href}-${row.label}`} className="loja-ledger-row">
               <Link to={row.href}>{row.label}</Link>
               <span className={row.amount < 0 ? "neg" : "pos"}>{signedMoney(row.amount)}</span>
               <strong className={row.balance < 0 ? "neg" : "pos"}>{signedMoney(row.balance)}</strong>

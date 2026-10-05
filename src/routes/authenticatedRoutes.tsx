@@ -1,4 +1,4 @@
-import { Navigate, Route, Routes, useLocation } from "react-router-dom";
+import { Navigate, Outlet, Route, Routes, useLocation } from "react-router-dom";
 import { Layout as BackofficeLayout } from "../pages/backoffice/Layout/base";
 import { SignIn as BackofficeSignIn } from "../pages/backoffice/SignIn";
 import { SessionExpiredBackoffice } from "../pages/backoffice/SessionExpiredBackoffice";
@@ -90,6 +90,17 @@ function RequireAuthBackoffice({ children }: { children: JSX.Element }) {
   return children;
 }
 
+function ClientArea() {
+  const { isClientAuthenticated, client, loadingClient } = useClientAuth();
+  const location = useLocation();
+  if (loadingClient) return null;
+  if (!isClientAuthenticated) return <Navigate to="/signin/lojista" replace />;
+  if (client?.mustChangePassword && location.pathname !== "/client/trocar-senha") {
+    return <Navigate to="/client/trocar-senha" replace />;
+  }
+  return <Outlet />;
+}
+
 function LojistaAlias() {
   const { pathname } = useLocation();
   const next = pathname.replace(/^\/(?:vitrine\/)?lojista/, "/client/pedidos");
@@ -128,14 +139,7 @@ export function Router() {
         <Route path="forgot-password" element={<ClientForgotPassword />} />
       </Route>
 
-      <Route
-        element={
-          <GuardedRoute
-            isRouteAccessible={isClientAuthenticated}
-            redirectRoute="/signin/lojista"
-          />
-        }
-      >
+      <Route element={<ClientArea />}>
         <Route path="client/dashboard" element={<ClientDashboard />} />
         <Route path="client/pedidos" element={<LojistaPedidos />} />
         <Route path="client/pedidos/*" element={<LojistaPedidos />} />

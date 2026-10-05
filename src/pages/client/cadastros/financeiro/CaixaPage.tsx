@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom"
 import { Pencil, Plus } from "lucide-react"
 import CadastroShell from "../CadastroShell"
 import { FormRow } from "../catalog/FormBits"
-import { createCatalog, getCatalog, listCatalog, updateCatalog, type CatalogItem } from "../catalog/catalogApi"
+import { createCatalog, deleteCatalog, getCatalog, listCatalog, updateCatalog, type CatalogItem } from "../catalog/catalogApi"
 import { parseError } from "../../../../services/api"
 import { AtivoToggle } from "../produtos/QuickCadWindows"
 
@@ -12,6 +12,7 @@ const PRINTERS = ["Nenhuma", "Bematech", "Daruma"]
 
 export default function CaixaPage() {
   const [rows, setRows] = useState<CatalogItem[]>([])
+  const [picked, setPicked] = useState<number[]>([])
   const [error, setError] = useState("")
 
   function load() {
@@ -21,6 +22,34 @@ export default function CaixaPage() {
   }
 
   useEffect(() => { load() }, [])
+
+  function toggle(code: number) {
+    setPicked((current) => (current.includes(code) ? current.filter((item) => item !== code) : [...current, code]))
+  }
+
+  async function inactivateSelected() {
+    const chosen = rows.filter((item) => picked.includes(item.code))
+    if (!chosen.length) return
+    try {
+      await Promise.all(chosen.map((item) => updateCatalog("cash_register", item.code, { name: item.name, payload: item.payload, active: false })))
+      setPicked([])
+      load()
+    } catch (err) {
+      setError(parseError(err).friend || "Não foi possível inativar.")
+    }
+  }
+
+  async function deleteSelected() {
+    if (!picked.length) return
+    if (!window.confirm(`Excluir ${picked.length} caixa(s)?`)) return
+    try {
+      await deleteCatalog("cash_register", picked)
+      setPicked([])
+      load()
+    } catch (err) {
+      setError(parseError(err).friend || "Não foi possível excluir.")
+    }
+  }
 
   async function patch(item: CatalogItem, payload: Record<string, unknown>, active = item.active) {
     await updateCatalog("cash_register", item.code, { name: item.name, payload: { ...item.payload, ...payload }, active })
@@ -33,10 +62,26 @@ export default function CaixaPage() {
         <div className="pdv-cad-sheet pdv-cad-sheet-wide">
           <h1 id="pdv-caixa-cad">CAIXAS DA LOJA</h1>
           {error ? <p className="pdv-prod-status" role="alert">{error}</p> : null}
+          <div className="pdv-cad-form-go">
+            <button className="pdv-cad-btn" type="button" disabled={!picked.length} onClick={inactivateSelected}>
+              Inativar selecionados
+            </button>
+            <button className="pdv-cad-btn" type="button" disabled={!picked.length} onClick={deleteSelected}>
+              Excluir selecionados
+            </button>
+          </div>
           <div className="pdv-cad-table-wrap">
             <table className="pdv-cad-table">
               <thead>
                 <tr>
+                  <th>
+                    <input
+                      type="checkbox"
+                      aria-label="Selecionar todos"
+                      checked={rows.length > 0 && picked.length === rows.length}
+                      onChange={(event) => setPicked(event.target.checked ? rows.map((item) => item.code) : [])}
+                    />
+                  </th>
                   <th>Parâmetros</th>
                   <th>Liberar PDV</th>
                   <th>Cod</th>
@@ -54,6 +99,14 @@ export default function CaixaPage() {
               <tbody>
                 {rows.map((item) => (
                   <tr key={item.code}>
+                    <td>
+                      <input
+                        type="checkbox"
+                        aria-label={`Selecionar ${item.name}`}
+                        checked={picked.includes(item.code)}
+                        onChange={() => toggle(item.code)}
+                      />
+                    </td>
                     <td>—</td>
                     <td><AtivoToggle value={Boolean(item.payload.liberarPdv ?? true)} onChange={(next) => patch(item, { liberarPdv: next })} /></td>
                     <td>{item.code}</td>

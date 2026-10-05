@@ -152,6 +152,7 @@ function addressLine(address?: Address) {
 
 export default function GestorVendasConcluidas() {
   const [orders, setOrders] = useState<ClosedSale[]>([]);
+  const [lane, setLane] = useState<"separacao" | "concluidas" | "estornadas">("separacao");
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState("");
   const [conferenceId, setConferenceId] = useState("");
@@ -354,7 +355,13 @@ export default function GestorVendasConcluidas() {
       })
     : [];
 
-  const total = orders.reduce((sum, order) => sum + Number(order.total || 0), 0);
+  const lanes = {
+    separacao: orders.filter((order) => !order.estornada && !isSent(order.dispatchStatus)),
+    concluidas: orders.filter((order) => !order.estornada && isSent(order.dispatchStatus)),
+    estornadas: orders.filter((order) => order.estornada),
+  };
+  const visible = lanes[lane];
+  const total = visible.reduce((sum, order) => sum + Number(order.total || 0), 0);
 
   return (
     <GestaoShell
@@ -373,14 +380,27 @@ export default function GestorVendasConcluidas() {
         </div>
       ) : null}
 
-      <div className="mb-4 grid gap-3 sm:grid-cols-2">
+      <div className="mb-4 grid gap-3 sm:grid-cols-4">
+        {(
+          [
+            ["separacao", "Em separação", lanes.separacao.length, "border-yellow-200 bg-yellow-50 text-yellow-950"],
+            ["concluidas", "Concluídas", lanes.concluidas.length, "border-green-200 bg-green-50 text-green-900"],
+            ["estornadas", "Estornadas", lanes.estornadas.length, "border-red-200 bg-red-50 text-red-900"],
+          ] as const
+        ).map(([key, label, count, tone]) => (
+          <button
+            key={key}
+            type="button"
+            onClick={() => setLane(key)}
+            className={`rounded-lg border px-4 py-3 text-left ${tone} ${lane === key ? "ring-2 ring-blue-600" : ""}`}
+          >
+            <p className="text-xs font-semibold uppercase tracking-wide">{label}</p>
+            <p className="mt-1 text-2xl font-bold">{count}</p>
+          </button>
+        ))}
         <div className="rounded-lg border border-blue-100 bg-blue-50 px-4 py-3">
-          <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">Pedidos fechados</p>
-          <p className="mt-1 text-2xl font-bold text-blue-900">{orders.length}</p>
-        </div>
-        <div className="rounded-lg border border-green-100 bg-green-50 px-4 py-3">
-          <p className="text-xs font-semibold uppercase tracking-wide text-green-700">Valor desta lista</p>
-          <p className="mt-1 text-2xl font-bold text-green-900">{money(total)}</p>
+          <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">Valor desta lista</p>
+          <p className="mt-1 text-2xl font-bold text-blue-900">{money(total)}</p>
         </div>
       </div>
 
@@ -418,11 +438,11 @@ export default function GestorVendasConcluidas() {
           <p className="flex items-center gap-2 p-6 text-sm text-gray-500">
             <Loader2 size={16} className="animate-spin" /> Carregando vendas...
           </p>
-        ) : orders.length === 0 ? (
+        ) : visible.length === 0 ? (
           <div className="p-8 text-center text-gray-500">
             <Truck size={32} className="mx-auto mb-2 opacity-50" />
-            <p className="font-medium">Nenhuma venda concluída ainda.</p>
-            <p className="mt-1 text-sm">Quando o lojista fechar um pedido, ele aparece aqui para despacho.</p>
+            <p className="font-medium">Nenhum pedido neste status.</p>
+            <p className="mt-1 text-sm">A tela abre em separação. Concluídas e estornadas ficam nos cards.</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -440,7 +460,7 @@ export default function GestorVendasConcluidas() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {orders.map((order) => {
+                {visible.map((order) => {
                   const active = order.id === selectedId;
                   const units = order.lines.reduce((sum, line) => sum + Number(line.qty || 0), 0);
                   return (

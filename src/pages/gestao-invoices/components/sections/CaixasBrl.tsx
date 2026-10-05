@@ -62,6 +62,13 @@ export const CaixasTabBrl = () => {
   const [totalBalance, setTotalBalance] = useState<number>(0);
 
   const [transactionHistoryList, setTransactionHistoryList] = useState<TransactionHistory[]>([]);
+  const [pedidoAberto, setPedidoAberto] = useState<{
+    code: string;
+    total: number;
+    date: string;
+    estornada: boolean;
+    lines: Array<{ name: string; code: string; qty: number; price: number }>;
+  } | null>(null);
 
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [loadingFetch, setLoadingFetch] = useState(false);
@@ -1022,6 +1029,21 @@ export const CaixasTabBrl = () => {
               </div>
 
               <div className="overflow-x-auto max-h-96">
+                {pedidoAberto ? (
+                  <div className="mb-3 rounded border border-amber-200 bg-amber-50 p-3 text-sm text-gray-900">
+                    <div className="mb-2 flex items-center justify-between">
+                      <strong>Pedido {pedidoAberto.code}{pedidoAberto.estornada ? " · estornado" : ""}</strong>
+                      <button type="button" className="underline" onClick={() => setPedidoAberto(null)}>Fechar</button>
+                    </div>
+                    <ul>
+                      {pedidoAberto.lines.map((line, index) => (
+                        <li key={`${line.code}-${index}`}>
+                          {line.name} · cód. {line.code} · qtd {line.qty} · {Number(line.price || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
                 <table className="min-w-full bg-white">
                   <thead>
                     <tr className="bg-gray-200">
@@ -1060,7 +1082,27 @@ export const CaixasTabBrl = () => {
                               minute: "2-digit",
                             })}
                           </td>
-                          <td className="py-2 px-4 border">{t.description}</td>
+                          <td className="py-2 px-4 border">
+                            {/Pedido\s+[A-Za-z0-9]{4,8}/i.test(t.description) ? (
+                              <button
+                                type="button"
+                                className="underline"
+                                onClick={async () => {
+                                  const code = t.description.replace(/^.*Pedido\s+/i, "").slice(0, 8)
+                                  try {
+                                    const { data } = await api.get(`/backoffice/vendas-concluidas/codigo/${code}`)
+                                    setPedidoAberto(data.order)
+                                  } catch {
+                                    setPedidoAberto(null)
+                                  }
+                                }}
+                              >
+                                {t.description}
+                              </button>
+                            ) : (
+                              t.description
+                            )}
+                          </td>
                           <td
                             className={`py-2 px-4 border text-right ${
                               t.direction === "OUT" ? "text-red-600" : "text-green-600"
