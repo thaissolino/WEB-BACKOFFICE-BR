@@ -162,6 +162,7 @@ type ReceiptPrintEntry = {
   productName: string;
   productCode: string;
   operator?: string;
+  labelPrintedAt?: string | null;
 };
 
 type LabelRow = {
@@ -279,7 +280,7 @@ type InvoiceHistoryReportProps = {
   printTable?: boolean;
   printInvoiceIds?: string[];
   reprint?: boolean;
-  onLabelsPrinted?: (row: { invoiceId: string; invoiceNumber: string }) => void;
+  onLabelsPrinted?: (row: { invoiceId: string; invoiceNumber: string; day?: string }) => void | Promise<void>;
 };
 
 export function InvoiceHistoryReport({
@@ -408,6 +409,7 @@ export function InvoiceHistoryReport({
   const printRows = useMemo(() => {
     const rows = new Map<string, LabelRow>();
     for (const entry of receiptEntries) {
+      if (!reprint && entry.labelPrintedAt) continue;
       const when = new Date(entry.date);
       if (Number.isNaN(when.getTime())) continue;
       const day = `${when.getFullYear()}-${String(when.getMonth() + 1).padStart(2, "0")}-${String(when.getDate()).padStart(2, "0")}`;
@@ -442,8 +444,23 @@ export function InvoiceHistoryReport({
       if (same) same.quantity += quantity;
       else current.items.push({ code, name, quantity });
     }
-    return Array.from(rows.values()).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [receiptEntries, printInvoiceIds]);
+    const invoiceNumber = (value: string) => {
+      const parsed = Number(String(value).replace(/\D/g, ""));
+      return Number.isFinite(parsed) ? parsed : 0;
+    };
+    const dayOf = (value: string) => {
+      const when = new Date(value);
+      if (Number.isNaN(when.getTime())) return "";
+      return `${when.getFullYear()}-${String(when.getMonth() + 1).padStart(2, "0")}-${String(when.getDate()).padStart(2, "0")}`;
+    };
+    return Array.from(rows.values()).sort((a, b) => {
+      const byNumber = invoiceNumber(b.invoiceNumber) - invoiceNumber(a.invoiceNumber);
+      if (byNumber) return byNumber;
+      const byDay = dayOf(b.date).localeCompare(dayOf(a.date));
+      if (byDay) return byDay;
+      return a.key.localeCompare(b.key);
+    });
+  }, [receiptEntries, printInvoiceIds, reprint]);
 
   const getStatusText = (invoice: InvoiceData) => {
     console.log(invoice);
@@ -490,7 +507,30 @@ export function InvoiceHistoryReport({
     const url = doc.output("bloburl");
     const opened = window.open(url, "_blank");
     if (!opened) doc.save(`etiquetas-${row.invoiceNumber}.pdf`);
-    onLabelsPrinted?.({ invoiceId: row.invoiceId, invoiceNumber: row.invoiceNumber });
+    const day = row.key.slice(row.key.indexOf("|") + 1);
+    if (reprint || !day) {
+      await onLabelsPrinted?.({ invoiceId: row.invoiceId, invoiceNumber: row.invoiceNumber });
+      return;
+    }
+    const previous = receiptEntries;
+    setReceiptEntries((current) =>
+      current.map((entry) => {
+        const when = new Date(entry.date);
+        if (Number.isNaN(when.getTime())) return entry;
+        const entryDay = `${when.getFullYear()}-${String(when.getMonth() + 1).padStart(2, "0")}-${String(when.getDate()).padStart(2, "0")}`;
+        const sameInvoice =
+          (row.invoiceId && entry.invoiceId === row.invoiceId) ||
+          String(entry.invoiceNumber) === String(row.invoiceNumber);
+        if (!sameInvoice || entryDay !== day) return entry;
+        return { ...entry, labelPrintedAt: new Date().toISOString() };
+      }),
+    );
+    try {
+      await onLabelsPrinted?.({ invoiceId: row.invoiceId, invoiceNumber: row.invoiceNumber, day });
+    } catch (error) {
+      console.error("Erro ao marcar a linha impressa:", error);
+      setReceiptEntries(previous);
+    }
   }
 
   const UndoInvoicePaid = (idInvoice: string) => {

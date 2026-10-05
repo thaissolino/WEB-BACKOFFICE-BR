@@ -5,7 +5,7 @@ import Swal from "sweetalert2";
 import { GenericSearchSelect } from "./SearchSelect";
 import { Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
-import { Truck, HandCoins, Handshake, CircleDollarSign } from "lucide-react";
+import { Truck, HandCoins, Handshake, CircleDollarSign, X } from "lucide-react";
 import { useBalanceStore } from "../../../../store/useBalanceStore";
 import { BalanceSharp } from "@mui/icons-material";
 import { useNotification } from "../../../../hooks/notification";
@@ -157,6 +157,15 @@ export const CaixasTabBrl = () => {
       calculateFilteredBalances();
     }
   }, [combinedItems, permissions, user, selectedEntity, selectedFilter]);
+
+  useEffect(() => {
+    if (!pedidoAberto) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setPedidoAberto(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [pedidoAberto]);
 
   console.log(selectedUserId);
 
@@ -1022,21 +1031,6 @@ export const CaixasTabBrl = () => {
               </div>
 
               <div className="overflow-x-auto max-h-96">
-                {pedidoAberto ? (
-                  <div className="mb-3 rounded border border-amber-200 bg-amber-50 p-3 text-sm text-gray-900">
-                    <div className="mb-2 flex items-center justify-between">
-                      <strong>Pedido {pedidoAberto.code}{pedidoAberto.estornada ? " · estornado" : ""}</strong>
-                      <button type="button" className="underline" onClick={() => setPedidoAberto(null)}>Fechar</button>
-                    </div>
-                    <ul>
-                      {pedidoAberto.lines.map((line, index) => (
-                        <li key={`${line.code}-${index}`}>
-                          {line.name} · cód. {line.code} · qtd {line.qty} · {formatBrl(Number(line.price || 0))}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                ) : null}
                 <table className="min-w-full bg-white">
                   <thead>
                     <tr className="bg-gray-200">
@@ -1160,6 +1154,64 @@ export const CaixasTabBrl = () => {
           </div>
         </div>
       )}
+      {pedidoAberto ? (
+        <div
+          className="fixed inset-0 z-[80] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+          role="dialog"
+          aria-modal="true"
+          aria-label={`Pedido ${pedidoAberto.code}`}
+          onClick={() => setPedidoAberto(null)}
+        >
+          <div
+            className="w-full max-w-5xl rounded-2xl border border-white/10 bg-[#241c16] p-5 text-[#f5f1ea] shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="mb-4 flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs uppercase tracking-[0.14em] text-[#b8aa9b]">Pedido</p>
+                <h3 className="mt-1 text-2xl font-semibold tracking-tight">
+                  {pedidoAberto.code}
+                  {pedidoAberto.estornada ? (
+                    <span className="ml-3 align-middle text-sm font-medium text-[#e8a0a0]">estornado</span>
+                  ) : null}
+                </h3>
+                <p className="mt-1 text-sm text-[#b8aa9b]">
+                  {new Date(pedidoAberto.date).toLocaleString("pt-BR", {
+                    day: "2-digit",
+                    month: "2-digit",
+                    year: "numeric",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                  {" · "}
+                  {formatBrl(pedidoAberto.total)}
+                </p>
+              </div>
+              <button
+                type="button"
+                aria-label="Fechar"
+                onClick={() => setPedidoAberto(null)}
+                className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-white/15 text-[#f5f1ea]"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <div className="flex gap-3 overflow-x-auto pb-1">
+              {pedidoAberto.lines.map((line, index) => (
+                <article
+                  key={`${line.code}-${index}`}
+                  className="min-w-[220px] flex-1 rounded-xl border border-white/10 bg-[#2e261f] p-4"
+                >
+                  <p className="font-medium leading-snug">{line.name}</p>
+                  <p className="mt-3 text-sm text-[#b8aa9b]">cód. {line.code}</p>
+                  <p className="text-sm text-[#b8aa9b]">qtd {line.qty}</p>
+                  <p className="mt-3 text-lg font-semibold">{formatBrl(Number(line.price || 0))}</p>
+                </article>
+              ))}
+            </div>
+          </div>
+        </div>
+      ) : null}
       {/* Modal de adicionar caixa */}
       {/* <ModalCaixa
         isOpen={showModal}

@@ -1,6 +1,6 @@
 import { CSSProperties, FormEvent, ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { ArrowLeft, Boxes, CircleCheck, ClipboardList, LoaderCircle, PackageX, PartyPopper, ScanLine, Search, ShoppingBag, Truck, Wallet } from "lucide-react";
+import { ArrowLeft, Boxes, CircleCheck, ClipboardList, LoaderCircle, PackageX, PartyPopper, ScanLine, Search, ShoppingBag, Truck, Wallet, X } from "lucide-react";
 import { api, parseError } from "../../../services/api";
 import { ProductPhoto } from "../cadastros/produtos/GradePhotoThumb";
 import PdvShell from "../dashboard/PdvShell";
@@ -890,6 +890,7 @@ function PedidoDetalhe() {
 function Financeiro() {
   const [orders, setOrders] = useState<SavedOrder[]>([]);
   const [payments, setPayments] = useState<{ date: string; description: string; value: number }[]>([]);
+  const [openId, setOpenId] = useState<string | null>(null);
   useEffect(() => {
     api
       .get("/clients/pre-vendas/fechadas")
@@ -913,18 +914,17 @@ function Financeiro() {
       (a, b) => new Date(a.closedAt || a.createdAt).getTime() - new Date(b.closedAt || b.createdAt).getTime(),
     );
     let balance = 0;
-    const byDate = new Map<string, { label: string; amount: number; balance: number; href: string }[]>();
+    const byDate = new Map<string, { label: string; amount: number; balance: number; orderId: string }[]>();
     const events = [
       ...sorted.flatMap((order) => {
         const code = order.id.slice(0, 8).toUpperCase();
-        const href = `/client/pedidos/historico/${order.id}`;
-        const rows = [{ at: order.closedAt || order.createdAt, label: `Pedido: ${code}`, amount: -Math.abs(order.total || 0), href }];
+        const rows = [{ at: order.closedAt || order.createdAt, label: `Pedido: ${code}`, amount: -Math.abs(order.total || 0), orderId: order.id }];
         if (order.estornada) {
           rows.push({
             at: order.estornadaAt || order.closedAt || order.createdAt,
             label: `Estorno pedido: ${code}`,
             amount: Math.abs(order.total || 0),
-            href,
+            orderId: order.id,
           });
         }
         return rows;
@@ -933,18 +933,29 @@ function Financeiro() {
         at: line.date,
         label: line.description || "Lançamento",
         amount: Number(line.value) || 0,
-        href: "",
+        orderId: "",
       })),
     ].sort((a, b) => new Date(a.at).getTime() - new Date(b.at).getTime());
     events.forEach((event) => {
       const date = new Date(event.at).toLocaleDateString("pt-BR");
       balance += event.amount;
       const rows = byDate.get(date) || [];
-      rows.push({ label: event.label, amount: event.amount, balance, href: event.href });
+      rows.push({ label: event.label, amount: event.amount, balance, orderId: event.orderId });
       byDate.set(date, rows);
     });
     return { balance, dates: [...byDate.entries()] };
   }, [orders, payments]);
+
+  const openOrder = orders.find((order) => order.id === openId) || null;
+
+  useEffect(() => {
+    if (!openOrder) return;
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "Escape") setOpenId(null);
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [openOrder]);
 
   return (
     <section className="loja-panel loja-ledger">
@@ -964,8 +975,12 @@ function Financeiro() {
             </>
           ) : null}
           {rows.map((row) => (
-            <p key={`${row.href}-${row.label}`} className="loja-ledger-row">
-              {row.href ? <Link to={row.href}>{row.label}</Link> : <span>{row.label}</span>}
+            <p key={`${row.orderId}-${row.label}`} className="loja-ledger-row">
+              {row.orderId ? (
+                <button type="button" onClick={() => setOpenId(row.orderId)}>{row.label}</button>
+              ) : (
+                <span>{row.label}</span>
+              )}
               <span className={row.amount < 0 ? "neg" : "pos"}>{signedMoney(row.amount)}</span>
               <strong className={row.balance < 0 ? "neg" : "pos"}>{signedMoney(row.balance)}</strong>
             </p>
@@ -974,6 +989,34 @@ function Financeiro() {
       ))}
       {groups.dates.length > 0 ? (
         <p className={`loja-ledger-final ${groups.balance < 0 ? "neg" : "pos"}`}>{signedMoney(groups.balance)}</p>
+      ) : null}
+      {openOrder ? (
+        <div className="loja-confirm" onClick={() => setOpenId(null)}>
+          <div
+            className="loja-confirm-card loja-order-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="loja-order-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <button className="loja-order-close" type="button" aria-label="Fechar" onClick={() => setOpenId(null)}>
+              <X size={18} />
+            </button>
+            <h2 id="loja-order-title">Pedido {openOrder.id.slice(0, 8).toUpperCase()}</h2>
+            <p>{when(openOrder.closedAt || openOrder.createdAt)} · {money(openOrder.total || 0)}</p>
+            <ul className="loja-order-lines">
+              {openOrder.lines.map((line) => (
+                <li key={`${line.id}-${line.code}`}>
+                  <b>{line.name}</b>
+                  <span>{line.code}</span>
+                  <span>{line.qty} × {money(line.price || 0)}</span>
+                </li>
+              ))}
+            </ul>
+            <p>Status: <StatusLabel value={openOrder.dispatchStatus} estornada={openOrder.estornada} /></p>
+            <p>Obs: {shown(openOrder.observacao || openOrder.address?.obs)}</p>
+          </div>
+        </div>
       ) : null}
     </section>
   );

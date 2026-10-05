@@ -11,6 +11,13 @@ export const OFFICE_PRODUCT_FILTER_KEY = "gestao-prod-last-filter";
 
 export type CompareFilter = { op: GradeCompareOp; value: string };
 
+export type ProductFacets = {
+  brands: string[];
+  collections: string[];
+  genders: string[];
+  suppliers: string[];
+};
+
 export type ProductFilters = {
   codProduto: string;
   codBarra: string;
@@ -107,6 +114,39 @@ function matchCompare(op: GradeCompareOp, actual: number, raw: string) {
   if (op === "<=") return actual <= expected;
   if (op === "<>") return actual !== expected;
   return true;
+}
+
+export const PRODUCT_PAGE_SIZE = 50;
+
+export function productFilterParams(
+  filters: ProductFilters,
+  page: number,
+  stockField: "loja" | "backoffice",
+  extra?: { ativo?: "0" | "1"; order?: "name" | "code" },
+) {
+  return {
+    ativo: extra?.ativo ?? "1",
+    page,
+    limit: PRODUCT_PAGE_SIZE,
+    stockField,
+    order: extra?.order,
+    codProduto: filters.codProduto || undefined,
+    codBarra: filters.codBarra || undefined,
+    codGrade: filters.codGrade || undefined,
+    codFornecedor: filters.codFornecedor || undefined,
+    nome: filters.nome || undefined,
+    modelo: filters.modelo || undefined,
+    referencia: filters.referencia || undefined,
+    categorias: filters.categorias.length ? filters.categorias.join(",") : undefined,
+    marca: filters.marca || undefined,
+    colecao: filters.colecao || undefined,
+    genero: filters.genero || undefined,
+    fornecedor: filters.fornecedor || undefined,
+    precoOp: filters.preco.op,
+    preco: filters.preco.op === "Todos" ? undefined : filters.preco.value,
+    estoqueOp: filters.estoque.op,
+    estoque: filters.estoque.op === "Todos" ? undefined : filters.estoque.value,
+  };
 }
 
 export function productMatchesFilters(

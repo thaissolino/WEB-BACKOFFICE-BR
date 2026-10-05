@@ -244,11 +244,20 @@ export function ReportsTab() {
               ? filteredInvoices.map((invoice) => invoice.id)
               : undefined
         }
-        onLabelsPrinted={async ({ invoiceId, invoiceNumber }) => {
+        onLabelsPrinted={async ({ invoiceId, invoiceNumber, day }) => {
           const id = invoiceId || invoices.find((invoice) => String(invoice.number) === String(invoiceNumber))?.id;
           if (!id) return;
+          const reprint = filters.status === "finalized" && !showReceipts;
+          if (day && !reprint) {
+            const { data } = await api.post(`/invoice/labels-printed/${id}`, { day });
+            if (!data?.invoicePrinted) return;
+            const stamped = data.labelsPrintedAt || new Date().toISOString();
+            setInvoices((current) =>
+              current.map((invoice) => (invoice.id === id ? { ...invoice, labelsPrintedAt: stamped } : invoice)),
+            );
+            return;
+          }
           const previous = invoices.find((invoice) => invoice.id === id)?.labelsPrintedAt || null;
-          const reprint = filters.status === "finalized";
           const stamped = new Date().toISOString();
           setInvoices((current) =>
             current.map((invoice) => (invoice.id === id ? { ...invoice, labelsPrintedAt: stamped } : invoice)),
@@ -262,6 +271,7 @@ export function ReportsTab() {
                 invoice.id === id ? { ...invoice, labelsPrintedAt: reprint ? previous : null } : invoice,
               ),
             );
+            throw error;
           }
         }}
         invoiceHistory={(showReceipts ? awaitingPrint : filteredInvoices) as unknown as import("./InvoiceHistoryReport").InvoiceData[]}

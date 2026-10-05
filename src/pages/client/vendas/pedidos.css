@@ -974,14 +974,59 @@
   font-weight: 650;
 }
 
-.loja-ledger-row a {
+.loja-ledger-row a,
+.loja-ledger-row button {
   color: var(--ink);
+  font: inherit;
   font-weight: 650;
+  text-align: left;
   text-decoration: none;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
 }
 
-.loja-ledger-row a:hover {
+.loja-ledger-row a:hover,
+.loja-ledger-row button:hover {
   text-decoration: underline;
+}
+
+.loja-confirm-card.loja-order-modal {
+  position: relative;
+  width: min(920px, 100%);
+  max-height: min(86vh, 720px);
+}
+
+.loja-order-close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(28, 20, 12, 0.08);
+  cursor: pointer;
+}
+
+.loja-order-lines {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 14px 0;
+  padding: 0;
+  list-style: none;
+}
+
+.loja-order-lines li {
+  flex: 1 1 220px;
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 12px;
+  border-radius: 14px;
+  background: rgba(28, 20, 12, 0.04);
 }
 
 .loja-ledger .neg {
