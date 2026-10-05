@@ -5,7 +5,7 @@ import { useClientAuth } from "../../hooks/clientAuth";
 import PdvShell, { PdvLoading } from "./dashboard/PdvShell";
 import PdvTip from "./dashboard/PdvTip";
 import { CAIXA_STORAGE_KEY, NENHUM_CAIXA } from "./dashboard/mockData";
-import { createCatalog, listCatalog } from "./cadastros/catalog/catalogApi";
+import { createLojaCaixa, listLojaCaixas } from "./cadastros/financeiro/caixaApi";
 import { parseError } from "../../services/api";
 
 const ABRIR_PDV_TIP = `Troca a sessão do caixa.
@@ -123,7 +123,7 @@ function TrocarCaixaBoard() {
   const [creating, setCreating] = useState(false);
 
   function loadCaixas(prefer?: string) {
-    listCatalog("cash_register", true)
+    listLojaCaixas(true)
       .then((rows) => {
         const next = [NENHUM_CAIXA, ...rows.map((item) => item.name)];
         setNames(next);
@@ -149,7 +149,7 @@ function TrocarCaixaBoard() {
     if (!name || creating) return;
     setCreating(true);
     try {
-      await createCatalog("cash_register", { name, active: true });
+      await createLojaCaixa(name);
       setNovo("");
       setNotice(`Caixa ${name} criado.`);
       loadCaixas(name);

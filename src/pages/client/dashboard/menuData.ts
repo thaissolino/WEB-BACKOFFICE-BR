@@ -24,6 +24,15 @@ export function showsSubmenuArrow(item: PdvMenuItem) {
   return Boolean(item.hasSubmenu || hasKnownChildren(item));
 }
 
+export function openMenuHref(href: string, navigate: (to: string) => void) {
+  const path = href.split("?")[0];
+  if (path === window.location.pathname) {
+    window.location.assign(href);
+    return;
+  }
+  navigate(href);
+}
+
 /**
  * Atalhos MVP na home/dashboard do lojista (não na menubar).
  * Menubar continua com PDV_MENUS completo.

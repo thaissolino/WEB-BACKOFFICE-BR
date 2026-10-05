@@ -63,7 +63,9 @@ export default function GestorCadastroLojistas() {
     lojista: Lojista | null;
     generatedPassword: string;
     emailSent: boolean;
+    resent?: boolean;
   } | null>(null);
+  const [resendingId, setResendingId] = useState("");
   const [linking, setLinking] = useState<{ lojista: Lojista; storeIds: string[] } | null>(null);
   const [deleting, setDeleting] = useState<Lojista | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -118,6 +120,26 @@ export default function GestorCadastroLojistas() {
       setError(parsed.friend || parsed.message || "Não foi possível cadastrar o lojista.");
     } finally {
       setIsSubmitting(false);
+    }
+  }
+
+  async function handleResend(lojista: Lojista) {
+    setError("");
+    setResendingId(lojista.id);
+    try {
+      const { data } = await api.post(`/backoffice/lojistas/${lojista.id}/reenviar-senha`);
+      setCreated({
+        lojista,
+        generatedPassword: data.generatedPassword,
+        emailSent: Boolean(data.emailSent),
+        resent: true,
+      });
+      await load();
+    } catch (err) {
+      const parsed = parseError(err);
+      setError(parsed.friend || parsed.message || "Não foi possível reenviar a senha.");
+    } finally {
+      setResendingId("");
     }
   }
 
@@ -298,6 +320,16 @@ export default function GestorCadastroLojistas() {
                         + Vincular loja
                       </button>
                       <button
+                        className="flex items-center gap-1 rounded border border-gray-300 px-2 py-1 text-xs font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-60"
+                        type="button"
+                        onClick={() => handleResend(lojista)}
+                        disabled={resendingId === lojista.id}
+                        title="Gerar outra senha provisória e enviar por e-mail"
+                      >
+                        {resendingId === lojista.id ? <Loader2 size={12} className="animate-spin" aria-hidden /> : <Mail size={12} aria-hidden />}
+                        Reenviar senha
+                      </button>
+                      <button
                         className="flex items-center gap-1 rounded border border-red-300 px-2 py-1 text-xs font-semibold text-red-600 hover:bg-red-50"
                         type="button"
                         onClick={() => setDeleting(lojista)}
@@ -339,7 +371,7 @@ export default function GestorCadastroLojistas() {
         >
           <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
             <h2 id="lojista-created-title" className="mb-2 text-lg font-bold text-gray-800">
-              Lojista cadastrado
+              {created.resent ? "Senha reenviada" : "Lojista cadastrado"}
             </h2>
             <p className="text-sm text-gray-600">
               {created.emailSent
@@ -350,7 +382,7 @@ export default function GestorCadastroLojistas() {
               {created.generatedPassword}
             </p>
             <p className="text-xs text-gray-500">
-              No primeiro acesso ao PDV será exigida a troca da senha.
+              No próximo acesso ao PDV será exigida a troca da senha.
             </p>
             <div className="mt-4 flex justify-end">
               <button

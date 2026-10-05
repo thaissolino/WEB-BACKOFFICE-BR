@@ -1,10 +1,21 @@
-import { useState, useEffect, useMemo } from "react";
-import { Plus, Ban, RotateCcw, Boxes, Loader2, Search, Settings } from "lucide-react";
+import { FormEvent, useState, useEffect, useMemo, useRef } from "react";
+import { Plus, Ban, RotateCcw, Boxes, Loader2, Settings } from "lucide-react";
 import Swal from "sweetalert2";
 import { api } from "../../../../services/api";
 import { sameProductCode } from "../utils/productBarcode";
 import { useNotification } from "../../../../hooks/notification";
 import { useActionLoading } from "../../context/ActionLoadingContext";
+import "../../../client/cadastros/cadastros.css";
+import { loadProductCategories, toFlatOptions, type FlatOption } from "../../../client/cadastros/produtos/categoryModel";
+import {
+  EMPTY_PRODUCT_FILTERS,
+  OFFICE_PRODUCT_FILTER_KEY,
+  ProductFilterForm,
+  productMatchesFilters,
+  readProductFilters,
+  type ProductFilters,
+} from "../../../client/cadastros/produtos/productFilters";
+import type { PdvProduct } from "../../../client/cadastros/produtos/types";
 
 export interface Product {
   id: string;
@@ -18,38 +29,25 @@ export interface Product {
   description: string;
   active?: boolean;
   photoFileId?: string | null;
+  barcode?: string;
+  model?: string;
+  reference?: string;
+  categoryId?: string;
+  category?: string;
+  brand?: string;
+  collection?: string;
+  gender?: string;
+  supplierCode?: string;
+  supplierName?: string;
 }
 
-// Remove acentos e baixa caso para comparação.
-const norm = (value: string) =>
-  (value || "")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase();
-
-// Match estrito por termos. Cada termo precisa bater em pelo menos um campo:
-// - name/description: como palavra completa OU como início de palavra
-// - code: como código exato (igualdade total), nunca substring
-// Isso evita falsos positivos como "16" achar produtos com código 163, 164…
-function productMatchesQuery(
-  query: string,
-  product: { name?: string; code?: string; description?: string },
-): boolean {
-  const q = norm(query).trim();
-  if (!q) return true;
-
-  const terms = q.split(/\s+/).filter(Boolean);
-  const nameWords = norm(`${product.name || ""} ${product.description || ""}`)
-    .split(/\s+/)
-    .filter(Boolean);
-  const codeNorm = norm(product.code || "");
-
-  return terms.every((term) => {
-    if (codeNorm && (codeNorm === term || sameProductCode(product.code || "", term))) return true;
-    return nameWords.some(
-      (word) => word === term || word.startsWith(term),
-    );
-  });
+function fieldOptions(rows: Product[], key: keyof Product) {
+  const set = new Set<string>();
+  for (const row of rows) {
+    const value = String(row[key] ?? "").trim();
+    if (value) set.add(value);
+  }
+  return Array.from(set).sort((a, b) => a.localeCompare(b, "pt-BR", { sensitivity: "base" }));
 }
 
 function ProductThumb({
@@ -124,18 +122,19 @@ function ProductThumb({
 }
 
 export function ProductsTab() {
-  // allProducts = lista bruta vinda do backend (apenas ativos).
-  // products (computado) = lista filtrada client-side baseada em searchInput.
+  // allProducts = lista bruta vinda do backend, só depois de Buscar.
+  // products = essa lista filtrada pelos campos do formulário.
   const [allProducts, setAllProducts] = useState<Product[]>([]);
   const [showModal, setShowModal] = useState(false);
   const [currentProduct, setCurrentProduct] = useState<Product | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [sortBy, setSortBy] = useState<"name" | "code">("name");
-  const [searchInput, setSearchInput] = useState("");
-  // searchTerm (debounced) é usado SOMENTE para otimizar a request ao backend.
-  // O filtro visual usa searchInput diretamente (instantâneo).
-  const [searchTerm, setSearchTerm] = useState("");
+  const [draft, setDraft] = useState<ProductFilters>(EMPTY_PRODUCT_FILTERS);
+  const [applied, setApplied] = useState<ProductFilters>(EMPTY_PRODUCT_FILTERS);
+  const [searched, setSearched] = useState(false);
+  const searchedRef = useRef(false);
+  const [categoryOptions, setCategoryOptions] = useState<FlatOption[]>([]);
   const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
   const [showInactive, setShowInactive] = useState(false);
   const [editingCell, setEditingCell] = useState<{
@@ -150,10 +149,8 @@ export function ProductsTab() {
   const fetchData = async () => {
     setIsLoading(true);
     try {
-      const trimmedSearch = searchTerm.trim();
       const response = await api.get<any>("/invoice/product", {
         params: {
-          search: trimmedSearch || undefined,
           limit: 5000,
           page: 1,
           active: showInactive ? "false" : "true",
@@ -162,21 +159,34 @@ export function ProductsTab() {
       const productsData: Product[] = Array.isArray(response.data)
         ? response.data
         : response.data.products || [];
-      let photoById = new Map<string, string | null>();
+      let extraById = new Map<string, PdvProduct>();
       try {
         const photos = await api.get("/clients/products", {
           params: { ativo: showInactive ? "0" : "1" },
         });
-        const list = (photos.data?.products || []) as Product[];
-        photoById = new Map(list.map((item) => [item.id, item.photoFileId || null]));
+        const list = (photos.data?.products || []) as PdvProduct[];
+        extraById = new Map(list.map((item) => [item.id, item]));
       } catch {
-        photoById = new Map();
+        extraById = new Map();
       }
       setAllProducts(
-        productsData.map((item) => ({
-          ...item,
-          photoFileId: photoById.get(item.id) ?? null,
-        })),
+        productsData.map((item) => {
+          const extra = extraById.get(item.id);
+          return {
+            ...item,
+            photoFileId: extra?.photoFileId ?? null,
+            barcode: extra?.barcode || "",
+            model: extra?.model || "",
+            reference: extra?.reference || "",
+            categoryId: extra?.categoryId || "",
+            category: extra?.category || "",
+            brand: extra?.brand || "",
+            collection: extra?.collection || "",
+            gender: extra?.gender || "",
+            supplierCode: extra?.supplierCode || "",
+            supplierName: extra?.supplierName || "",
+          };
+        }),
       );
     } catch (error) {
       console.error("Erro ao buscar produtos:", error);
@@ -186,26 +196,20 @@ export function ProductsTab() {
   };
 
   useEffect(() => {
-    fetchData();
-  }, [searchTerm, showInactive]);
+    loadProductCategories(true)
+      .then((rows) => setCategoryOptions(toFlatOptions(rows)))
+      .catch(() => setCategoryOptions([]));
+  }, []);
 
-  // Debounce da busca: 350ms após parar de digitar antes de enviar à API.
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setSearchTerm(searchInput);
-    }, 350);
-    return () => clearTimeout(timer);
-  }, [searchInput]);
+    if (!searchedRef.current) return;
+    void fetchData();
+  }, [showInactive]);
 
-  // FILTRO + ORDENAÇÃO INSTANTÂNEOS (client-side, baseados em searchInput).
-  // Cada palavra do termo precisa aparecer como palavra inteira (ou início de
-  // palavra) no nome/descrição, ou como código exato. Evita "16" casar com 163.
   const products = useMemo(() => {
-    const trimmed = searchInput.trim();
-    let list = allProducts;
-    if (trimmed) {
-      list = allProducts.filter((p) => productMatchesQuery(trimmed, p));
-    }
+    const list = allProducts.filter((item) =>
+      productMatchesFilters(item, applied, categoryOptions, Number(item.stockQuantity) || 0),
+    );
     return [...list].sort((a, b) => {
       if (sortBy === "name") {
         return a.name.localeCompare(b.name, "pt-BR", { sensitivity: "base", numeric: true });
@@ -215,7 +219,40 @@ export function ProductsTab() {
       if (!isNaN(codeA) && !isNaN(codeB)) return codeA - codeB;
       return a.code.localeCompare(b.code, "pt-BR", { sensitivity: "base", numeric: true });
     });
-  }, [allProducts, searchInput, sortBy]);
+  }, [allProducts, applied, categoryOptions, sortBy]);
+
+  const brands = useMemo(() => fieldOptions(allProducts, "brand"), [allProducts]);
+  const collections = useMemo(() => fieldOptions(allProducts, "collection"), [allProducts]);
+  const genders = useMemo(() => fieldOptions(allProducts, "gender"), [allProducts]);
+  const suppliers = useMemo(() => fieldOptions(allProducts, "supplierName"), [allProducts]);
+
+  function runSearch(filters: ProductFilters) {
+    sessionStorage.setItem(OFFICE_PRODUCT_FILTER_KEY, JSON.stringify(filters));
+    setApplied(filters);
+    searchedRef.current = true;
+    setSearched(true);
+    void fetchData();
+  }
+
+  function onSearch(event: FormEvent) {
+    event.preventDefault();
+    runSearch(draft);
+  }
+
+  function onClear() {
+    setDraft(EMPTY_PRODUCT_FILTERS);
+    setApplied(EMPTY_PRODUCT_FILTERS);
+    searchedRef.current = false;
+    setSearched(false);
+    setAllProducts([]);
+    setSelectedProducts([]);
+  }
+
+  function onLastFilter() {
+    const last = readProductFilters(OFFICE_PRODUCT_FILTER_KEY);
+    setDraft(last);
+    runSearch(last);
+  }
 
   const handleEdit = (product: Product) => {
     setCurrentProduct(product);
@@ -545,25 +582,18 @@ export function ProductsTab() {
 
   return (
     <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-      {/* Barra de busca – sempre visível no topo */}
-      <div className="mb-4 p-4 bg-blue-50 rounded-xl border border-blue-200">
-        <label className="block text-sm font-medium text-blue-800 mb-2">Buscar produto por nome ou código</label>
-        <div className="flex items-center gap-3">
-          <Search size={20} className="text-blue-600 flex-shrink-0" />
-          <input
-            type="text"
-            placeholder="Digite nome ou código (ex: AIRPODS, 174)..."
-            value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
-            className="flex-1 min-w-[220px] max-w-lg border border-blue-200 rounded-lg px-4 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-400"
-          />
-          {searchInput.trim() && (
-            <span className="text-sm font-medium text-blue-700 whitespace-nowrap">
-              {products.length} resultado{products.length !== 1 ? "s" : ""}
-            </span>
-          )}
-        </div>
-      </div>
+      <ProductFilterForm
+        draft={draft}
+        onChange={setDraft}
+        onSubmit={onSearch}
+        onClear={onClear}
+        onLastFilter={onLastFilter}
+        categoryOptions={categoryOptions}
+        brands={brands}
+        collections={collections}
+        genders={genders}
+        suppliers={suppliers}
+      />
 
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-xl font-semibold text-blue-700">
@@ -658,12 +688,24 @@ export function ProductsTab() {
         <div className="flex justify-center items-center py-8">
           <Loader2 className="h-8 w-8 text-blue-500 animate-spin" />
         </div>
-      ) : (
+      ) : searched ? (
         <div className="overflow-x-auto rounded-2xl border border-gray-100 shadow-sm">
-          <table className="min-w-full divide-y divide-gray-100">
+          <table className="gestao-prod-table min-w-full divide-y divide-gray-100">
+            <colgroup>
+              <col className="gestao-prod-check" />
+              <col className="gestao-prod-foto" />
+              <col />
+              <col className="gestao-prod-code" />
+              <col className="gestao-prod-money" />
+              <col className="gestao-prod-money" />
+              <col className="gestao-prod-qty" />
+              <col className="gestao-prod-money" />
+              <col className="gestao-prod-qty" />
+              <col className="gestao-prod-actions" />
+            </colgroup>
             <thead className="bg-gray-100">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                <th className="gestao-prod-check">
                   <input
                     type="checkbox"
                     checked={selectedProducts.length === products.length && products.length > 0}
@@ -671,35 +713,25 @@ export function ProductsTab() {
                     className="rounded"
                   />
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Foto</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Nome</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                  Código
-                </th>
-                <th className="px-6 py-3 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider" title="Clique duas vezes no valor para editar">
+                <th>Foto</th>
+                <th className="gestao-prod-name">Nome</th>
+                <th>Código</th>
+                <th className="num" title="Clique duas vezes no valor para editar">
                   Preço de venda
                 </th>
-                <th className="px-6 py-3 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider" title="Clique duas vezes no valor para editar">
+                <th className="num" title="Clique duas vezes no valor para editar">
                   Preço de custo
                 </th>
-                <th className="px-6 py-3 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider" title="Clique duas vezes no valor para editar">
+                <th className="num" title="Clique duas vezes no valor para editar">
                   Estoque
                 </th>
-                <th
-                  className="px-6 py-3 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider"
-                  title="Clique duas vezes no valor para editar"
-                >
-                  Preço Médio ($)
+                <th className="num" title="Clique duas vezes no valor para editar">
+                  Preço médio
                 </th>
-                <th
-                  className="px-6 py-3 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider"
-                  title="Clique duas vezes no valor para editar"
-                >
-                  Peso Médio (kg)
+                <th className="num" title="Clique duas vezes no valor para editar">
+                  Peso médio
                 </th>
-                <th className="px-6 py-3 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                  Ações
-                </th>
+                <th className="act">Ações</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-100">
@@ -708,18 +740,14 @@ export function ProductsTab() {
                   <td colSpan={10} className="px-6 py-4 text-center text-gray-500">
                     {isLoading
                       ? "Carregando..."
-                      : searchInput.trim()
-                        ? "Nenhum produto encontrado para o filtro."
-                        : showInactive
-                          ? "Nenhum produto desativado."
-                          : "Nenhum produto cadastrado"}
+                      : "Nenhum produto para esse filtro."}
                   </td>
                 </tr>
               ) : (
                 products.map((product) => {
                   return (
                     <tr key={product.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className="gestao-prod-check">
                         <input
                           type="checkbox"
                           checked={selectedProducts.includes(product.id)}
@@ -727,7 +755,7 @@ export function ProductsTab() {
                           className="rounded"
                         />
                       </td>
-                      <td className="px-6 py-3">
+                      <td>
                         <ProductThumb
                           productId={product.id}
                           photoFileId={product.photoFileId}
@@ -735,8 +763,8 @@ export function ProductsTab() {
                           onFile={(file) => saveProductPhoto(product, file)}
                         />
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{product.name}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{product.code}</td>
+                      <td className="gestao-prod-name text-sm font-medium text-gray-900">{product.name}</td>
+                      <td className="text-sm text-gray-500">{product.code}</td>
                       {(
                         [
                           ["sale", (product.salePrice || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" }), "preço de venda"],
@@ -746,7 +774,7 @@ export function ProductsTab() {
                       ).map(([field, text, label]) => (
                         <td
                           key={field}
-                          className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right"
+                          className="num text-sm text-gray-500"
                           onDoubleClick={() => startCellEdit(product, field)}
                           title={`Clique duas vezes para editar o ${label}`}
                         >
@@ -779,7 +807,7 @@ export function ProductsTab() {
                         </td>
                       ))}
                       <td
-                        className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right"
+                        className="num text-sm text-gray-500"
                         onDoubleClick={() => startCellEdit(product, "price")}
                         title="Clique duas vezes para editar o preço"
                       >
@@ -809,11 +837,13 @@ export function ProductsTab() {
                             className="w-24 ml-auto text-right border border-blue-400 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-400"
                           />
                         ) : (
-                          <span className="cursor-text">R$ {product.priceweightAverage.toFixed(2)}</span>
+                          <span className="cursor-text">
+                            {product.priceweightAverage.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                          </span>
                         )}
                       </td>
                       <td
-                        className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right"
+                        className="num text-sm text-gray-500"
                         onDoubleClick={() => startCellEdit(product, "weight")}
                         title="Clique duas vezes para editar o peso"
                       >
@@ -843,11 +873,13 @@ export function ProductsTab() {
                             className="w-24 ml-auto text-right border border-blue-400 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-400"
                           />
                         ) : (
-                          <span className="cursor-text">{product.weightAverage.toFixed(2)} kg</span>
+                          <span className="cursor-text">
+                            {product.weightAverage.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kg
+                          </span>
                         )}
                       </td>
-                      <td className="px-6 py-4 text-center text-sm font-medium">
-                        <div className="flex flex-wrap justify-center gap-2">
+                      <td className="act text-sm font-medium">
+                        <div className="flex flex-wrap justify-end gap-2">
                           <button
                             type="button"
                             onClick={() => handleEdit(product)}
@@ -877,7 +909,7 @@ export function ProductsTab() {
             </tbody>
           </table>
         </div>
-      )}
+      ) : null}
 
       {showModal && currentProduct && (
         <div

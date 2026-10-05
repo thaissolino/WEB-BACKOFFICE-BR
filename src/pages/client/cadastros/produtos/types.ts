@@ -18,7 +18,9 @@ export type PdvProduct = {
   category: string
   salePrice: number
   costPrice: number
+  lojaCostAverage?: number
   stockQuantity: number
+  lojaStock?: number
   supplierCode: string
   supplierName: string
   origin: string

@@ -249,6 +249,14 @@ export default function GestorVendasConcluidas() {
     setConcludedNotice("");
     setImeiCode("");
     setImeiMenuOpen(false);
+    api
+      .get(`/backoffice/vendas-concluidas/${id}`)
+      .then(({ data }) => {
+        const order = data?.order as ClosedSale | undefined;
+        if (!order) return;
+        setOrders((prev) => prev.map((item) => (item.id === order.id ? order : item)));
+      })
+      .catch(() => undefined);
   }
 
   async function loadImeiSuggestions(id: string, q?: string) {
@@ -306,22 +314,6 @@ export default function GestorVendasConcluidas() {
     } finally {
       setActing(false);
       if (action === "scan" || action === "imei" || action === "reset") imeiRef.current?.focus();
-    }
-  }
-
-  async function estornar(id: string) {
-    if (!window.confirm("Estornar esta venda e devolver o crédito ao cliente?")) return;
-    setActing(true);
-    setError("");
-    try {
-      const { data } = await api.post(`/backoffice/vendas-concluidas/${id}/estornar`);
-      const order = data.order as ClosedSale;
-      if (order?.id) setOrders((prev) => prev.map((item) => (item.id === order.id ? order : item)));
-    } catch (err) {
-      const parsed = parseError(err);
-      setError(parsed.friend || parsed.message || "Não foi possível estornar a venda.");
-    } finally {
-      setActing(false);
     }
   }
 
@@ -434,7 +426,7 @@ export default function GestorVendasConcluidas() {
       </form>
 
       <div className="overflow-visible rounded-lg border border-gray-200 bg-white shadow-sm">
-        {isLoading ? (
+        {isLoading && orders.length === 0 ? (
           <p className="flex items-center gap-2 p-6 text-sm text-gray-500">
             <Loader2 size={16} className="animate-spin" /> Carregando vendas...
           </p>
@@ -503,19 +495,7 @@ export default function GestorVendasConcluidas() {
                           )}
                           {order.estornada ? (
                             <span className="px-1 py-1.5 text-xs font-semibold text-red-700">Estornada</span>
-                          ) : (
-                            <button
-                              type="button"
-                              className="rounded border border-red-300 px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-50 disabled:opacity-50"
-                              disabled={acting}
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                void estornar(order.id);
-                              }}
-                            >
-                              Estornar venda
-                            </button>
-                          )}
+                          ) : null}
                         </div>
                       </td>
                     </tr>
@@ -648,7 +628,11 @@ export default function GestorVendasConcluidas() {
                   {imeiMenuOpen && imeiQuery ? (
                     <div className="absolute left-0 right-0 top-full z-20 mt-1 h-48 w-full overflow-y-auto rounded-xl border border-gray-200 bg-white shadow-lg">
                       {imeiMatches.length === 0 && codeMatches.length === 0 ? (
-                        <p className="p-4 text-center text-sm text-gray-500">Nenhum IMEI, serial ou código encontrado</p>
+                        <p className="p-4 text-center text-sm text-gray-500">
+                          {imeiQuery.length >= 8
+                            ? "Esse número não está na lista de estoque. Identificar registra mesmo assim."
+                            : "Nenhum IMEI, serial ou código encontrado"}
+                        </p>
                       ) : (
                         <ul>
                           {codeMatches.map((line) => (

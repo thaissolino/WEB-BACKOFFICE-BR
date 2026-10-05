@@ -14,7 +14,6 @@ import {
 } from "lucide-react";
 import { api, parseError } from "../../../../services/api";
 import CadastroShell from "../CadastroShell";
-import { usePdvSession } from "../../dashboard/PdvShell";
 import PdvTip from "../../dashboard/PdvTip";
 import CategorySelect from "./CategorySelect";
 import SearchableSelect from "./SearchableSelect";
@@ -28,7 +27,7 @@ import {
 import { createCatalog, listCatalog } from "../catalog/catalogApi";
 import { loadProductCategories, toFlatOptions, type FlatOption } from "./categoryModel";
 import { PRODUCT_GENDERS, PRODUCT_ORIGINS, PRODUCT_UNITS } from "./productOptions";
-import { formatMoneyBr, parseMoneyBr, type PdvProduct } from "./types";
+import { formatMoneyBr, formatMoneyRs, parseMoneyBr, type PdvProduct } from "./types";
 import type { PdvSupplier } from "../fornecedores/types";
 
 type CadTab = "gerais" | "grade";
@@ -196,7 +195,7 @@ const EMPTY_FORM = {
   colecao: "SEM COLEÇÃO",
   genero: "SEM GÊNERO",
   unidade: "UN - UNIDADE",
-  tipoCusto: "Custo Real",
+  custoMedio: "0,00",
   precoUniversal: "Não",
   valePresente: "Não",
   gerarRef: "Não",
@@ -232,9 +231,10 @@ function formFromProduct(product: PdvProduct) {
     genero: product.gender || EMPTY_FORM.genero,
     unidade: product.unit || EMPTY_FORM.unidade,
     referencia: product.reference || "",
-    estoque: formatMoneyBr(product.stockQuantity || 0),
+    estoque: formatMoneyBr(product.lojaStock || 0),
     precoVenda: formatMoneyBr(product.salePrice || product.priceweightAverage || 0),
-    precoCusto: formatMoneyBr(product.costPrice || product.priceweightAverage || 0),
+    precoCusto: formatMoneyBr(product.costPrice || 0),
+    custoMedio: formatMoneyBr(product.lojaCostAverage || 0),
     descricao: product.description || "",
     fornecedor: product.supplierName || "",
     codBarra: product.barcode || "",
@@ -255,14 +255,12 @@ export default function CadastrarProduto() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const editingId = params.get("id") || "";
-  const { storeId, stores } = usePdvSession();
   const [tab, setTab] = useState<CadTab>("gerais");
-  const [stockId, setStockId] = useState(storeId);
   const [form, setForm] = useState(EMPTY_FORM);
-  const [brands, setBrands] = useState<string[]>([]);
-  const [collections, setCollections] = useState<string[]>([]);
-  const [genders, setGenders] = useState(PRODUCT_GENDERS);
-  const [units, setUnits] = useState(PRODUCT_UNITS);
+  const [, setBrands] = useState<string[]>([]);
+  const [, setCollections] = useState<string[]>([]);
+  const [, setGenders] = useState(PRODUCT_GENDERS);
+  const [, setUnits] = useState(PRODUCT_UNITS);
   const [categories, setCategories] = useState<FlatOption[]>([]);
   const [suppliers, setSuppliers] = useState<string[]>([]);
   const [quick, setQuick] = useState<QuickKind>(null);
@@ -277,18 +275,12 @@ export default function CadastrarProduto() {
   });
 
   const catId = useId();
-  const marcaId = useId();
-  const colId = useId();
-  const genId = useId();
-  const unId = useId();
+  // const marcaId = useId();
+  // const colId = useId();
+  // const genId = useId();
+  // const unId = useId();
   const fornId = useId();
   const origemId = useId();
-
-  const stock = stores.find((item) => item.id === stockId) ?? stores[0];
-
-  useEffect(() => {
-    setStockId(storeId);
-  }, [storeId]);
 
   useEffect(() => {
     if (!editingId) return;
@@ -348,7 +340,7 @@ export default function CadastrarProduto() {
         name: form.nome.trim(),
         description: form.descricao.trim() || form.nome.trim(),
         weightAverage: parseMoneyBr(form.peso),
-        priceweightAverage: parseMoneyBr(form.precoCusto) || parseMoneyBr(form.precoVenda),
+        lojaCostAverage: parseMoneyBr(form.custoMedio),
         barcode: form.codBarra.trim(),
         ncm: form.ncm.trim(),
         brand: form.marca,
@@ -361,7 +353,7 @@ export default function CadastrarProduto() {
         category,
         salePrice: parseMoneyBr(form.precoVenda),
         costPrice: parseMoneyBr(form.precoCusto),
-        stockQuantity: parseMoneyBr(form.estoque),
+        lojaStock: parseMoneyBr(form.estoque),
         supplierCode: form.codProdForn.trim(),
         supplierName: form.fornecedor,
         origin: form.origem,
@@ -411,16 +403,25 @@ export default function CadastrarProduto() {
         <div className="pdv-cad-sheet pdv-prod-sheet">
           <div className="pdv-prod-cad-head">
             <h1 id="pdv-prod-cad-title">{editingId ? "ALTERAR PRODUTO" : "CADASTRO DE PRODUTO"}</h1>
-            <label className="pdv-prod-stock">
-              <span className="pdv-sr">Estoque</span>
-              <select value={stock?.id ?? ""} onChange={(event) => setStockId(event.target.value)}>
-                {stores.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.label}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <div className="pdv-prod-cad-actions">
+              <button
+                className="pdv-cad-btn pdv-cad-btn-back pdv-voltar"
+                type="button"
+                onClick={() => {
+                  const idx = window.history.state?.idx;
+                  if (typeof idx === "number" && idx > 0) {
+                    navigate(-1);
+                    return;
+                  }
+                  navigate("/client/produtos");
+                }}
+              >
+                Voltar
+              </button>
+              <button className="pdv-cad-btn pdv-cad-btn-green" type="submit" form="pdv-prod-cad-form" disabled={busy}>
+                {busy ? "Salvando…" : editingId ? "Salvar" : "Cadastrar"}
+              </button>
+            </div>
           </div>
 
           <div className="pdv-prod-tabs" role="tablist" aria-label="Cadastro de produto">
@@ -448,6 +449,7 @@ export default function CadastrarProduto() {
           </div>
 
           <form
+            id="pdv-prod-cad-form"
             className="pdv-prod-cad-form"
             onSubmit={(event) => onSubmit(event, "ok")}
           >
@@ -508,6 +510,7 @@ export default function CadastrarProduto() {
                   />
                 </div>
 
+                {/*
                 <PlusField labelId={marcaId} label="Marca" addLabel="Cadastrar Marca" onAdd={() => setQuick("marca")}>
                   <SearchableSelect
                     value={form.marca}
@@ -553,15 +556,18 @@ export default function CadastrarProduto() {
                     labelledBy={unId}
                   />
                 </PlusField>
+                */}
 
-                <div className="pdv-prod-row">
-                  <span>Tipo de custo</span>
-                  <Radios
-                    name="tipo-custo"
-                    value={form.tipoCusto}
-                    options={["Custo Real", "Último Custo", "Custo Médio"]}
-                    onChange={(tipoCusto) => patch("tipoCusto", tipoCusto)}
-                  />
+                <div className="pdv-prod-costs">
+                  <p>
+                    <span>Último custo</span>
+                    <strong>{formatMoneyRs(parseMoneyBr(form.precoCusto))}</strong>
+                  </p>
+                  <span className="pdv-prod-costs-pipe" aria-hidden="true" />
+                  <p>
+                    <span>Custo médio</span>
+                    <strong>{formatMoneyRs(parseMoneyBr(form.custoMedio))}</strong>
+                  </p>
                 </div>
 
                 <div className="pdv-prod-row">
@@ -875,7 +881,7 @@ export default function CadastrarProduto() {
               <div className="pdv-prod-cad-go">
                 <button className="pdv-cad-btn pdv-cad-btn-green" type="submit" disabled={busy}>
                   <Plus size={16} strokeWidth={2.6} aria-hidden="true" />
-                  {busy ? "Salvando…" : "Cadastrar"}
+                  {busy ? "Salvando…" : editingId ? "Salvar" : "Cadastrar"}
                 </button>
                 <button
                   className="pdv-cad-btn pdv-cad-btn-green"

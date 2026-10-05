@@ -40,6 +40,7 @@ type ClientAuthContextData = {
   clientRegister: (params: RegisterClientParams) => Promise<void>;
   clientForgotPassword: (email: string) => Promise<void>;
   clientLogout: () => void;
+  markPasswordChanged: () => void;
 };
 
 const CLIENT_TOKEN_KEY = "@client:token";
@@ -74,6 +75,15 @@ export function ClientAuthProvider({ children }: { children: React.ReactNode }) 
 
   const clientForgotPassword = useCallback(async (email: string) => {
     await api.post("/clients/forgot-password", { email });
+  }, []);
+
+  const markPasswordChanged = useCallback(() => {
+    setClient((current) => {
+      if (!current) return current;
+      const next = { ...current, mustChangePassword: false };
+      localStorage.setItem(CLIENT_USER_KEY, JSON.stringify(next));
+      return next;
+    });
   }, []);
 
   const loadClient = useCallback(async () => {
@@ -123,8 +133,9 @@ export function ClientAuthProvider({ children }: { children: React.ReactNode }) 
       clientRegister,
       clientForgotPassword,
       clientLogout,
+      markPasswordChanged,
     }),
-    [client, loadingClient, clientSignIn, clientRegister, clientForgotPassword, clientLogout]
+    [client, loadingClient, clientSignIn, clientRegister, clientForgotPassword, clientLogout, markPasswordChanged]
   );
 
   return <ClientAuthContext.Provider value={value}>{children}</ClientAuthContext.Provider>;

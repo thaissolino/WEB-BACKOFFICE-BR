@@ -1,6 +1,6 @@
 import { CSSProperties, FormEvent, ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { ClipboardList, ScanLine, ShoppingBag, Truck, Wallet } from "lucide-react";
+import { ArrowLeft, Boxes, CircleCheck, ClipboardList, LoaderCircle, PackageX, PartyPopper, ScanLine, Search, ShoppingBag, Truck, Wallet } from "lucide-react";
 import { api, parseError } from "../../../services/api";
 import { ProductPhoto } from "../cadastros/produtos/GradePhotoThumb";
 import PdvShell from "../dashboard/PdvShell";
@@ -84,7 +84,7 @@ function orderStatus(value?: string) {
 }
 
 function StatusLabel({ value, estornada }: { value?: string; estornada?: boolean }) {
-  if (estornada) return <span className="loja-status loja-status-wait">Estornada</span>;
+  if (estornada) return <span className="loja-status loja-status-void">Estornada</span>;
   const done = orderDone(value);
   return <span className={done ? "loja-status loja-status-done" : "loja-status loja-status-wait"}>{orderStatus(value)}</span>;
 }
@@ -133,11 +133,20 @@ function LojaFrame({ children }: { children: ReactNode }) {
   const { pathname } = useLocation();
   return (
       <div className="loja-pedidos">
-        <div className="loja-top loja-no-print">
-          <p className="loja-kicker">Gestão de pedidos</p>
+        <div className="loja-head loja-no-print">
+        <div className="loja-top">
+          <div className="loja-top-title">
+            {pathname.startsWith("/client/pedidos/venda") ? (
+              <Link className="loja-back" to="/client/pedidos">
+                <ArrowLeft size={15} aria-hidden="true" />
+                Voltar
+              </Link>
+            ) : null}
+            <p className="loja-kicker">Gestão de pedidos</p>
+          </div>
           <Link to="/client/dashboard">Painel da loja</Link>
         </div>
-        <nav className="loja-nav loja-no-print" aria-label="Pedidos do lojista">
+        <nav className="loja-nav" aria-label="Pedidos do lojista">
           {NAV.map((item) => {
             const current = item.end ? pathname === item.to : pathname.startsWith(item.to);
             return (
@@ -152,6 +161,7 @@ function LojaFrame({ children }: { children: ReactNode }) {
             </button>
           ) : null}
         </nav>
+        </div>
         {children}
       </div>
   );
@@ -217,12 +227,15 @@ function Venda() {
   const [products, setProducts] = useState<CatalogProduct[]>([]);
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("Todas");
+  const [onlyInStock, setOnlyInStock] = useState(true);
   const [storeCategories, setStoreCategories] = useState<StoreCategory[]>([]);
   const [lines, setLines] = useState<CartLine[]>([]);
   const [address, setAddress] = useState<Address>(EMPTY_ADDRESS);
   const [observacao, setObservacao] = useState("");
   const [ready, setReady] = useState(false);
   const [confirmClose, setConfirmClose] = useState(false);
+  const [closeStep, setCloseStep] = useState<"ask" | "sending" | "done">("ask");
+  const [closedFlash, setClosedFlash] = useState<{ id: string; total: number; qty: number } | null>(null);
   const [error, setError] = useState("");
   const hadOpen = useRef(false);
   const closing = useRef(false);
@@ -336,7 +349,7 @@ function Venda() {
     const matchesQuery = !terms.length || terms.every((term) => text.includes(term));
     const matchesCategory =
       category === "Todas" || item.categoryId === category || item.category === category;
-    const matchesStock = item.stockQuantity > 0;
+    const matchesStock = onlyInStock ? item.stockQuantity > 0 : item.stockQuantity <= 0;
     return matchesQuery && matchesCategory && matchesStock;
   });
 
@@ -368,17 +381,34 @@ function Venda() {
       address,
       observacao,
     };
+    const qty = payload.lines.reduce((sum, line) => sum + line.qty, 0);
+    const total = payload.lines.reduce((sum, line) => sum + line.price * line.qty, 0);
+    setCloseStep("sending");
     try {
-      await api.post("/clients/pre-vendas/fechar", payload);
+      const [{ data }] = await Promise.all([
+        api.post("/clients/pre-vendas/fechar", payload),
+        new Promise((resolve) => window.setTimeout(resolve, 900)),
+      ]);
+      const order = (data?.order || {}) as { id?: string; total?: number };
       setLines([]);
-      setConfirmClose(false);
-      navigate("/client/pedidos/historico");
+      setClosedFlash({
+        id: String(order.id || ""),
+        total: Number(order.total) || total,
+        qty,
+      });
+      setCloseStep("done");
+      closing.current = false;
     } catch (err) {
       closing.current = false;
+      setCloseStep("ask");
       setConfirmClose(false);
       const parsed = parseError(err);
       setError(parsed.friend || parsed.message || "Não foi possível gravar o pedido fechado.");
     }
+  }
+
+  function openClosedHistory() {
+    navigate("/client/pedidos/historico", { state: { justClosed: closedFlash } });
   }
 
   function setQty(id: string, qty: number) {
@@ -393,20 +423,50 @@ function Venda() {
     });
   }
 
+  const splitRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const root = splitRef.current?.closest(".loja-pedidos");
+    if (!root) return;
+    root.toggleAttribute("data-categorias", showCategories);
+    return () => root.removeAttribute("data-categorias");
+  }, [showCategories]);
+
   return (
-    <div className="loja-split">
+    <div className={showCategories ? "loja-split loja-split-cats" : "loja-split"} ref={splitRef}>
       <section>
-        <h1 className="loja-title">Pedido</h1>
-        <p className="loja-lede">Escolha o produto, a quantidade e feche o pedido.</p>
+        <h1 className="loja-title">{showCategories ? "Categoria" : "Pedido"}</h1>
+        <p className="loja-lede">
+          {showCategories ? "Escolha a categoria." : "Escolha o produto, a quantidade e feche o pedido."}
+        </p>
         {error ? <p className="loja-note">{error}</p> : null}
-        <div className="loja-tools">
-          <input
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="Buscar produto"
-            aria-label="Buscar produto"
-          />
+        {showCategories ? null : (
+        <div className="loja-tools loja-search-line">
+          {/* <button type="button" className="loja-btn" onClick={() => { setCategory("Todas"); setQuery(""); }}>
+            Categorias
+          </button> */}
+          <label className="loja-search">
+            <Search size={16} strokeWidth={2.4} aria-hidden="true" />
+            <input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Buscar produto"
+              aria-label="Buscar produto"
+            />
+          </label>
+          <button
+            type="button"
+            className="loja-stock-switch"
+            aria-pressed={onlyInStock}
+            onClick={() => setOnlyInStock((current) => !current)}
+          >
+            {onlyInStock ? <Boxes size={16} aria-hidden="true" /> : <PackageX size={16} aria-hidden="true" />}
+            <span>EXIBIR DISPONÍVEIS</span>
+            <span className="loja-switch" aria-hidden="true">
+              <span className="loja-switch-knob" />
+            </span>
+          </button>
         </div>
+        )}
         {showCategories ? (
           <div className="loja-cat-cards" aria-label="Categorias">
             {categoryCards.map((item) => (
@@ -418,14 +478,6 @@ function Venda() {
           </div>
         ) : (
           <>
-            <div className="loja-cats" aria-label="Estoque">
-              <button type="button" onClick={() => { setCategory("Todas"); setQuery(""); }}>
-                Categorias
-              </button>
-              <button type="button" aria-pressed="true">
-                Com estoque
-              </button>
-            </div>
             <div className="loja-products">
           {visible.slice(0, 80).map((product) => {
             const qty = lines.find((item) => item.id === product.id)?.qty ?? 0;
@@ -482,6 +534,7 @@ function Venda() {
           </>
         )}
       </section>
+      {showCategories ? null : (
       <aside className="loja-panel loja-cart">
         <strong>Pedido</strong>
         {lines.length === 0 ? <p className="loja-lede">Nenhum item no pedido.</p> : null}
@@ -504,12 +557,27 @@ function Venda() {
           </div>
         ))}
         {cartTotal(lines) > 0 ? <p className="loja-money">Total {money(cartTotal(lines))}</p> : null}
-        <button type="button" className="loja-btn primary" onClick={() => setConfirmClose(true)} disabled={!lines.length}>
+        <button
+          type="button"
+          className="loja-btn primary"
+          onClick={() => {
+            setCloseStep("ask");
+            setConfirmClose(true);
+          }}
+          disabled={!lines.length}
+        >
           Fechar pedido
         </button>
       </aside>
+      )}
       {confirmClose ? (
-        <div className="loja-confirm" role="presentation" onClick={() => setConfirmClose(false)}>
+        <div
+          className="loja-confirm"
+          role="presentation"
+          onClick={() => {
+            if (closeStep === "ask") setConfirmClose(false);
+          }}
+        >
           <div
             className="loja-confirm-card"
             role="dialog"
@@ -517,28 +585,71 @@ function Venda() {
             aria-labelledby="loja-confirm-title"
             onClick={(event) => event.stopPropagation()}
           >
-            <h2 id="loja-confirm-title">Fechar pedido?</h2>
-            <p>
-              {lines.reduce((sum, line) => sum + line.qty, 0)}{" "}
-              {lines.reduce((sum, line) => sum + line.qty, 0) === 1 ? "item" : "itens"}
-              {cartTotal(lines) > 0 ? ` · Total ${money(cartTotal(lines))}` : ""}
-            </p>
-            <ul>
-              {lines.map((line) => (
-                <li key={line.id}>
-                  <span>{line.name}</span>
-                  <strong>{line.qty}</strong>
-                </li>
-              ))}
-            </ul>
-            <div className="loja-confirm-actions">
-              <button type="button" className="loja-btn" onClick={() => setConfirmClose(false)}>
-                Voltar
-              </button>
-              <button type="button" className="loja-btn primary" onClick={finish}>
-                Confirmar
-              </button>
-            </div>
+            {closeStep === "sending" ? (
+              <div className="loja-confirm-status">
+                <span className="loja-confirm-icon loja-confirm-spin" aria-hidden="true">
+                  <LoaderCircle size={28} strokeWidth={1.8} />
+                </span>
+                <h2 id="loja-confirm-title">Estamos confirmando seu pedido</h2>
+                <p>Só um instante.</p>
+              </div>
+            ) : null}
+            {closeStep === "done" ? (
+              <div className="loja-confirm-status">
+                <span className="loja-confirm-icon loja-confirm-ok" aria-hidden="true">
+                  <PartyPopper size={28} strokeWidth={1.8} />
+                </span>
+                <h2 id="loja-confirm-title">Parabéns!</h2>
+                <p>Seu pedido foi confirmado com sucesso.</p>
+                <div className="loja-confirm-sum">
+                  <span>{closedFlash?.id ? `Pedido ${closedFlash.id.slice(0, 8).toUpperCase()}` : "Pedido fechado"}</span>
+                  {closedFlash && closedFlash.total > 0 ? <strong>{money(closedFlash.total)}</strong> : null}
+                </div>
+                <div className="loja-confirm-actions">
+                  <button type="button" className="loja-btn primary" onClick={openClosedHistory}>
+                    <CircleCheck size={16} strokeWidth={2} aria-hidden="true" />
+                    Ver no histórico
+                  </button>
+                </div>
+              </div>
+            ) : null}
+            {closeStep === "ask" ? (
+              <>
+                <div className="loja-confirm-head">
+                  <span className="loja-confirm-icon" aria-hidden="true">
+                    <ShoppingBag size={22} strokeWidth={1.8} />
+                  </span>
+                  <div>
+                    <h2 id="loja-confirm-title">Fechar pedido?</h2>
+                    <p>Confira os itens antes de enviar.</p>
+                  </div>
+                </div>
+                <div className="loja-confirm-sum">
+                  <span>
+                    {lines.reduce((sum, line) => sum + line.qty, 0)}{" "}
+                    {lines.reduce((sum, line) => sum + line.qty, 0) === 1 ? "item" : "itens"}
+                  </span>
+                  {cartTotal(lines) > 0 ? <strong>{money(cartTotal(lines))}</strong> : null}
+                </div>
+                <ul>
+                  {lines.map((line) => (
+                    <li key={line.id}>
+                      <span>{line.name}</span>
+                      <b>{line.qty}</b>
+                    </li>
+                  ))}
+                </ul>
+                <div className="loja-confirm-actions">
+                  <button type="button" className="loja-btn" onClick={() => setConfirmClose(false)}>
+                    Voltar
+                  </button>
+                  <button type="button" className="loja-btn primary" onClick={finish}>
+                    <CircleCheck size={16} strokeWidth={2} aria-hidden="true" />
+                    Confirmar
+                  </button>
+                </div>
+              </>
+            ) : null}
           </div>
         </div>
       ) : null}
@@ -566,6 +677,8 @@ function addressLine(address: Address) {
 
 function Historico() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const justClosed = (location.state as { justClosed?: { id: string; total: number; qty: number } } | null)?.justClosed || null;
   const [orders, setOrders] = useState<SavedOrder[]>([]);
   useEffect(() => {
     api
@@ -575,8 +688,28 @@ function Historico() {
   }, []);
   return (
     <section className="loja-panel">
+      {justClosed ? (
+        <div className="loja-success">
+          <span className="loja-confirm-icon loja-confirm-ok" aria-hidden="true">
+            <PartyPopper size={22} strokeWidth={1.8} />
+          </span>
+          <div>
+            <h2>Parabéns! Pedido confirmado com sucesso.</h2>
+            <p>
+              {justClosed.id ? `Pedido ${justClosed.id.slice(0, 8).toUpperCase()}` : "Seu pedido"}
+              {justClosed.qty ? ` · ${justClosed.qty} ${justClosed.qty === 1 ? "item" : "itens"}` : ""}
+              {justClosed.total > 0 ? ` · ${money(justClosed.total)}` : ""}
+              {" "}já está na lista.
+            </p>
+          </div>
+        </div>
+      ) : null}
       <h1 className="loja-title">Histórico de pedido</h1>
-      <p className="loja-lede">Pedidos fechados gravados no banco. A compra no atacado, pelo IMEI, fica em Busca IMEI/serial.</p>
+      <p className="loja-lede">
+        {justClosed
+          ? "Ele aparece aqui embaixo. A compra no atacado, pelo IMEI, fica em Busca IMEI/serial."
+          : "Pedidos fechados gravados no banco. A compra no atacado, pelo IMEI, fica em Busca IMEI/serial."}
+      </p>
       {orders.length === 0 ? <p>Nenhum pedido fechado ainda.</p> : null}
       <table className="loja-table">
         <thead>
@@ -756,11 +889,23 @@ function PedidoDetalhe() {
 
 function Financeiro() {
   const [orders, setOrders] = useState<SavedOrder[]>([]);
+  const [payments, setPayments] = useState<{ date: string; description: string; value: number }[]>([]);
   useEffect(() => {
     api
       .get("/clients/pre-vendas/fechadas")
       .then(({ data }) => setOrders((data?.orders || []) as SavedOrder[]))
       .catch(() => setOrders([]));
+    api
+      .get("/clients/conta")
+      .then(({ data }) => {
+        const lines = Array.isArray(data?.lines) ? data.lines : [];
+        setPayments(
+          lines.filter(
+            (line: { description?: string }) => !/^(pedido|estorno pedido)\b/i.test(line.description || ""),
+          ),
+        );
+      })
+      .catch(() => setPayments([]));
   }, []);
 
   const groups = useMemo(() => {
@@ -769,20 +914,28 @@ function Financeiro() {
     );
     let balance = 0;
     const byDate = new Map<string, { label: string; amount: number; balance: number; href: string }[]>();
-    const events = sorted.flatMap((order) => {
-      const code = order.id.slice(0, 8).toUpperCase();
-      const href = `/client/pedidos/historico/${order.id}`;
-      const rows = [{ at: order.closedAt || order.createdAt, label: `Pedido: ${code}`, amount: -Math.abs(order.total || 0), href }];
-      if (order.estornada) {
-        rows.push({
-          at: order.estornadaAt || order.closedAt || order.createdAt,
-          label: `Estorno pedido: ${code}`,
-          amount: Math.abs(order.total || 0),
-          href,
-        });
-      }
-      return rows;
-    }).sort((a, b) => new Date(a.at).getTime() - new Date(b.at).getTime());
+    const events = [
+      ...sorted.flatMap((order) => {
+        const code = order.id.slice(0, 8).toUpperCase();
+        const href = `/client/pedidos/historico/${order.id}`;
+        const rows = [{ at: order.closedAt || order.createdAt, label: `Pedido: ${code}`, amount: -Math.abs(order.total || 0), href }];
+        if (order.estornada) {
+          rows.push({
+            at: order.estornadaAt || order.closedAt || order.createdAt,
+            label: `Estorno pedido: ${code}`,
+            amount: Math.abs(order.total || 0),
+            href,
+          });
+        }
+        return rows;
+      }),
+      ...payments.map((line) => ({
+        at: line.date,
+        label: line.description || "Lançamento",
+        amount: Number(line.value) || 0,
+        href: "",
+      })),
+    ].sort((a, b) => new Date(a.at).getTime() - new Date(b.at).getTime());
     events.forEach((event) => {
       const date = new Date(event.at).toLocaleDateString("pt-BR");
       balance += event.amount;
@@ -791,12 +944,12 @@ function Financeiro() {
       byDate.set(date, rows);
     });
     return { balance, dates: [...byDate.entries()] };
-  }, [orders]);
+  }, [orders, payments]);
 
   return (
     <section className="loja-panel loja-ledger">
       <h1 className="loja-title">Financeiro</h1>
-      <p className="loja-lede">Conta desta loja com o atacado. Pedido fechado entra como débito. Estorno devolve o crédito.</p>
+      <p className="loja-lede">Conta desta loja com o atacado. Pedido fechado entra como débito. Estorno e pagamento lançado no caixa entram como crédito.</p>
       {groups.dates.length === 0 ? <p>Nenhum movimento nesta conta.</p> : null}
       {groups.dates.map(([date, rows], index) => (
         <div key={date} className="loja-ledger-day">
@@ -812,7 +965,7 @@ function Financeiro() {
           ) : null}
           {rows.map((row) => (
             <p key={`${row.href}-${row.label}`} className="loja-ledger-row">
-              <Link to={row.href}>{row.label}</Link>
+              {row.href ? <Link to={row.href}>{row.label}</Link> : <span>{row.label}</span>}
               <span className={row.amount < 0 ? "neg" : "pos"}>{signedMoney(row.amount)}</span>
               <strong className={row.balance < 0 ? "neg" : "pos"}>{signedMoney(row.balance)}</strong>
             </p>

@@ -378,6 +378,33 @@
   border-radius: 16px !important;
 }
 
+.gestao-page button.pdv-prod-btn,
+.gestao-page button.pdv-prod-btn[type="button"] {
+  background: #fff !important;
+  background-color: #fff !important;
+  color: #111 !important;
+  -webkit-text-fill-color: #111 !important;
+  border: 1px solid #c5c5c5 !important;
+}
+
+.gestao-page button.pdv-prod-btn svg {
+  color: #111 !important;
+}
+
+.gestao-page button.pdv-prod-btn-blue,
+.gestao-page button.pdv-prod-btn-blue[type="button"],
+.gestao-page button.pdv-prod-btn-blue[type="submit"] {
+  background: #42a5f5 !important;
+  background-color: #42a5f5 !important;
+  color: #fff !important;
+  -webkit-text-fill-color: #fff !important;
+  border-color: #1e88e5 !important;
+}
+
+.gestao-page button.pdv-prod-btn-blue svg {
+  color: #fff !important;
+}
+
 .pdv-chrome:not([data-theme="light"]) .gestao-page .bg-blue-500,
 .pdv-chrome:not([data-theme="light"]) .gestao-page .bg-blue-600,
 .pdv-chrome:not([data-theme="light"]) .gestao-page .bg-blue-700,
@@ -473,15 +500,37 @@
   color: #6d28d9 !important;
 }
 
-/* Calendário nativo branco. Preto no escuro não abre leitura. */
+/* No escuro o campo acompanha a tela e o ícone do calendário fica branco. */
 .pdv-chrome:not([data-theme="light"]) .gestao-page input[type="date"],
 .pdv-chrome:not([data-theme="light"]) .gestao-page input[type="datetime-local"],
 .pdv-chrome:not([data-theme="light"]) .gestao-page input[type="month"],
 .pdv-chrome:not([data-theme="light"]) .gestao-page input[type="time"] {
-  background: #ffffff !important;
-  color: #1c1814 !important;
+  background: #2a2119 !important;
+  color: #f5f1ea !important;
   color-scheme: light;
-  border-color: rgba(28, 24, 20, 0.18) !important;
+  border-color: rgba(255, 255, 255, 0.22) !important;
+  font-weight: 400 !important;
+}
+
+.pdv-chrome:not([data-theme="light"]) .gestao-page input[type="date"]::-webkit-datetime-edit,
+.pdv-chrome:not([data-theme="light"]) .gestao-page input[type="date"]::-webkit-datetime-edit-fields-wrapper,
+.pdv-chrome:not([data-theme="light"]) .gestao-page input[type="date"]::-webkit-datetime-edit-text,
+.pdv-chrome:not([data-theme="light"]) .gestao-page input[type="date"]::-webkit-datetime-edit-day-field,
+.pdv-chrome:not([data-theme="light"]) .gestao-page input[type="date"]::-webkit-datetime-edit-month-field,
+.pdv-chrome:not([data-theme="light"]) .gestao-page input[type="date"]::-webkit-datetime-edit-year-field,
+.pdv-chrome:not([data-theme="light"]) .gestao-page input[type="datetime-local"]::-webkit-datetime-edit,
+.pdv-chrome:not([data-theme="light"]) .gestao-page input[type="month"]::-webkit-datetime-edit,
+.pdv-chrome:not([data-theme="light"]) .gestao-page input[type="time"]::-webkit-datetime-edit {
+  font-weight: 400;
+}
+
+.pdv-chrome:not([data-theme="light"]) .gestao-page input[type="date"]::-webkit-calendar-picker-indicator,
+.pdv-chrome:not([data-theme="light"]) .gestao-page input[type="datetime-local"]::-webkit-calendar-picker-indicator,
+.pdv-chrome:not([data-theme="light"]) .gestao-page input[type="month"]::-webkit-calendar-picker-indicator,
+.pdv-chrome:not([data-theme="light"]) .gestao-page input[type="time"]::-webkit-calendar-picker-indicator {
+  filter: invert(1);
+  opacity: 1;
+  cursor: pointer;
 }
 
 /* Linha colorida da tabela cobre a célula inteira. */
@@ -529,6 +578,47 @@
 .pdv-chrome:not([data-theme="light"]) .gestao-page tr.bg-gray-200 {
   background-color: #2a2119 !important;
   color: #f5f1ea !important;
+}
+
+/* Cadastro de produtos: título e valor na mesma borda da coluna. */
+.pdv-chrome .gestao-page table.gestao-prod-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.pdv-chrome .gestao-page table.gestao-prod-table col.gestao-prod-check { width: 44px; }
+.pdv-chrome .gestao-page table.gestao-prod-table col.gestao-prod-foto { width: 76px; }
+.pdv-chrome .gestao-page table.gestao-prod-table col.gestao-prod-code { width: 88px; }
+.pdv-chrome .gestao-page table.gestao-prod-table col.gestao-prod-money { width: 138px; }
+.pdv-chrome .gestao-page table.gestao-prod-table col.gestao-prod-qty { width: 108px; }
+.pdv-chrome .gestao-page table.gestao-prod-table col.gestao-prod-actions { width: 148px; }
+
+.pdv-chrome .gestao-page table.gestao-prod-table th,
+.pdv-chrome .gestao-page table.gestao-prod-table td {
+  padding: 12px;
+  vertical-align: middle;
+  text-align: left;
+}
+
+.pdv-chrome .gestao-page table.gestao-prod-table thead th {
+  white-space: nowrap;
+  letter-spacing: 0.02em;
+}
+
+.pdv-chrome .gestao-page table.gestao-prod-table th.num,
+.pdv-chrome .gestao-page table.gestao-prod-table td.num,
+.pdv-chrome .gestao-page table.gestao-prod-table th.act,
+.pdv-chrome .gestao-page table.gestao-prod-table td.act {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.pdv-chrome .gestao-page table.gestao-prod-table th.gestao-prod-check,
+.pdv-chrome .gestao-page table.gestao-prod-table td.gestao-prod-check {
+  text-align: center;
+  padding-right: 8px;
+  padding-left: 12px;
 }
 
 /* Tema claro usa a mesma caixa do escuro. Só a cor muda. */
