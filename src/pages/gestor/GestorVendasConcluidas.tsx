@@ -1,5 +1,6 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { Loader2, Search, Truck, X } from "lucide-react";
+import Swal from "sweetalert2";
 import { api, parseError } from "../../services/api";
 import { printNotinha } from "../../lib/notinhaZebra";
 import GestaoShell from "./GestaoShell";
@@ -287,6 +288,7 @@ export default function GestorVendasConcluidas() {
     action: "scan" | "imei" | "reset" | "conclude" | "obs" | "autofill",
     value?: string,
     orderId?: string,
+    confirmUnknown = false,
   ) {
     const id = orderId || conferenceId;
     if (!id || acting) return;
@@ -296,7 +298,40 @@ export default function GestorVendasConcluidas() {
       const { data } = await api.post(`/backoffice/vendas-concluidas/${id}/conferencia`, {
         action,
         value,
+        confirmUnknown,
       });
+      if (data?.confirmUnknown && action === "imei") {
+        beep(false);
+        const sure = await Swal.fire({
+          icon: "warning",
+          title: "IMEI não cadastrado",
+          text: "Esse IMEI não está na base. Confirmar mesmo assim?",
+          showCancelButton: true,
+          confirmButtonText: "Sim, confirmar",
+          cancelButtonText: "Cancelar",
+          buttonsStyling: false,
+          customClass: {
+            confirmButton: "bg-blue-600 text-white hover:bg-blue-700 px-4 py-2 rounded font-semibold mr-2",
+            cancelButton: "bg-gray-300 text-gray-800 hover:bg-gray-400 px-4 py-2 rounded font-semibold",
+          },
+        });
+        if (!sure.isConfirmed) {
+          setNotice("Confirmação cancelada. O IMEI não foi registrado.");
+          return;
+        }
+        const again = await api.post(`/backoffice/vendas-concluidas/${id}/conferencia`, {
+          action,
+          value,
+          confirmUnknown: true,
+        });
+        const saved = again.data.order as ClosedSale;
+        setOrders((prev) => prev.map((item) => (item.id === saved.id ? saved : item)));
+        setImeiCode("");
+        if (typeof again.data.notice === "string" && again.data.notice) setNotice(again.data.notice);
+        void loadImeiSuggestions(id);
+        beep(true);
+        return;
+      }
       const order = data.order as ClosedSale;
       setOrders((prev) => prev.map((item) => (item.id === order.id ? order : item)));
       if (action === "scan" || action === "imei") setImeiCode("");

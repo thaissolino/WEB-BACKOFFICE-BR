@@ -1,4 +1,4 @@
-import { FormEvent, useState, useEffect, useMemo, useRef } from "react";
+import { FormEvent, useState, useEffect, useRef } from "react";
 import { Plus, Ban, RotateCcw, Boxes, Loader2, Settings } from "lucide-react";
 import Swal from "sweetalert2";
 import { api } from "../../../../services/api";
@@ -10,12 +10,13 @@ import { loadProductCategories, toFlatOptions, type FlatOption } from "../../../
 import {
   EMPTY_PRODUCT_FILTERS,
   OFFICE_PRODUCT_FILTER_KEY,
+  PRODUCT_PAGE_SIZE,
   ProductFilterForm,
-  productMatchesFilters,
+  productFilterParams,
   readProductFilters,
+  type ProductFacets,
   type ProductFilters,
 } from "../../../client/cadastros/produtos/productFilters";
-import type { PdvProduct } from "../../../client/cadastros/produtos/types";
 
 export interface Product {
   id: string;
@@ -66,31 +67,41 @@ function ProductThumb({
   const [src, setSrc] = useState("");
   const box = large ? "h-28 w-28" : "h-14 w-14";
 
+  const [node, setNode] = useState<HTMLLabelElement | null>(null);
+
   useEffect(() => {
     if (!photoFileId) {
       setSrc("");
       return;
     }
+    if (!node) return;
     let url = "";
     let cancelled = false;
-    api
-      .get(`/clients/products/${productId}/photo`, { responseType: "blob" })
-      .then(({ data }) => {
-        if (cancelled || !(data instanceof Blob) || data.size < 16) return;
-        url = URL.createObjectURL(data);
-        setSrc(url);
-      })
-      .catch(() => {
-        if (!cancelled) setSrc("");
-      });
+    const io = new IntersectionObserver((entries) => {
+      if (!entries.some((entry) => entry.isIntersecting)) return;
+      io.disconnect();
+      api
+        .get(`/clients/products/${productId}/photo`, { responseType: "blob" })
+        .then(({ data }) => {
+          if (cancelled || !(data instanceof Blob) || data.size < 16) return;
+          url = URL.createObjectURL(data);
+          setSrc(url);
+        })
+        .catch(() => {
+          if (!cancelled) setSrc("");
+        });
+    }, { rootMargin: "120px" });
+    io.observe(node);
     return () => {
       cancelled = true;
+      io.disconnect();
       if (url) URL.revokeObjectURL(url);
     };
-  }, [productId, photoFileId]);
+  }, [productId, photoFileId, node]);
 
   return (
     <label
+      ref={setNode}
       className={`relative inline-flex shrink-0 cursor-pointer ${box}`}
       title={photoFileId ? "Clique para trocar a foto" : "Clique para adicionar a foto"}
     >
@@ -125,6 +136,9 @@ export function ProductsTab() {
   // allProducts = lista bruta vinda do backend, só depois de Buscar.
   // products = essa lista filtrada pelos campos do formulário.
   const [allProducts, setAllProducts] = useState<Product[]>([]);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [facets, setFacets] = useState<ProductFacets>({ brands: [], collections: [], genders: [], suppliers: [] });
   const [showModal, setShowModal] = useState(false);
   const [currentProduct, setCurrentProduct] = useState<Product | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -146,50 +160,30 @@ export function ProductsTab() {
   const { setOpenNotification } = useNotification();
   const { isLoading: isActionLoading, executeAction } = useActionLoading();
 
-  const fetchData = async () => {
+  const appliedRef = useRef(applied);
+  appliedRef.current = applied;
+  const sortRef = useRef(sortBy);
+  sortRef.current = sortBy;
+  const inactiveRef = useRef(showInactive);
+  inactiveRef.current = showInactive;
+
+  const fetchData = async (filters: ProductFilters, nextPage: number) => {
     setIsLoading(true);
+    setPage(nextPage);
     try {
-      const response = await api.get<any>("/invoice/product", {
-        params: {
-          limit: 5000,
-          page: 1,
-          active: showInactive ? "false" : "true",
-        },
-      });
-      const productsData: Product[] = Array.isArray(response.data)
-        ? response.data
-        : response.data.products || [];
-      let extraById = new Map<string, PdvProduct>();
-      try {
-        const photos = await api.get("/clients/products", {
-          params: { ativo: showInactive ? "0" : "1" },
-        });
-        const list = (photos.data?.products || []) as PdvProduct[];
-        extraById = new Map(list.map((item) => [item.id, item]));
-      } catch {
-        extraById = new Map();
-      }
-      setAllProducts(
-        productsData.map((item) => {
-          const extra = extraById.get(item.id);
-          return {
-            ...item,
-            photoFileId: extra?.photoFileId ?? null,
-            barcode: extra?.barcode || "",
-            model: extra?.model || "",
-            reference: extra?.reference || "",
-            categoryId: extra?.categoryId || "",
-            category: extra?.category || "",
-            brand: extra?.brand || "",
-            collection: extra?.collection || "",
-            gender: extra?.gender || "",
-            supplierCode: extra?.supplierCode || "",
-            supplierName: extra?.supplierName || "",
-          };
+      const { data } = await api.get("/clients/products", {
+        params: productFilterParams(filters, nextPage, "backoffice", {
+          ativo: inactiveRef.current ? "0" : "1",
+          order: sortRef.current,
         }),
-      );
+      });
+      setAllProducts((data.products || []) as Product[]);
+      setTotal(Number(data.total) || 0);
+      if (data.facets) setFacets(data.facets as ProductFacets);
     } catch (error) {
       console.error("Erro ao buscar produtos:", error);
+      setAllProducts([]);
+      setTotal(0);
     } finally {
       setIsLoading(false);
     }
@@ -203,35 +197,22 @@ export function ProductsTab() {
 
   useEffect(() => {
     if (!searchedRef.current) return;
-    void fetchData();
-  }, [showInactive]);
+    void fetchData(appliedRef.current, 1);
+  }, [showInactive, sortBy]);
 
-  const products = useMemo(() => {
-    const list = allProducts.filter((item) =>
-      productMatchesFilters(item, applied, categoryOptions, Number(item.stockQuantity) || 0),
-    );
-    return [...list].sort((a, b) => {
-      if (sortBy === "name") {
-        return a.name.localeCompare(b.name, "pt-BR", { sensitivity: "base", numeric: true });
-      }
-      const codeA = parseInt(a.code);
-      const codeB = parseInt(b.code);
-      if (!isNaN(codeA) && !isNaN(codeB)) return codeA - codeB;
-      return a.code.localeCompare(b.code, "pt-BR", { sensitivity: "base", numeric: true });
-    });
-  }, [allProducts, applied, categoryOptions, sortBy]);
-
-  const brands = useMemo(() => fieldOptions(allProducts, "brand"), [allProducts]);
-  const collections = useMemo(() => fieldOptions(allProducts, "collection"), [allProducts]);
-  const genders = useMemo(() => fieldOptions(allProducts, "gender"), [allProducts]);
-  const suppliers = useMemo(() => fieldOptions(allProducts, "supplierName"), [allProducts]);
+  const products = allProducts;
+  const pageCount = Math.max(1, Math.ceil(total / PRODUCT_PAGE_SIZE));
+  const brands = facets.brands.length ? facets.brands : fieldOptions(allProducts, "brand");
+  const collections = facets.collections.length ? facets.collections : fieldOptions(allProducts, "collection");
+  const genders = facets.genders.length ? facets.genders : fieldOptions(allProducts, "gender");
+  const suppliers = facets.suppliers.length ? facets.suppliers : fieldOptions(allProducts, "supplierName");
 
   function runSearch(filters: ProductFilters) {
     sessionStorage.setItem(OFFICE_PRODUCT_FILTER_KEY, JSON.stringify(filters));
     setApplied(filters);
     searchedRef.current = true;
     setSearched(true);
-    void fetchData();
+    void fetchData(filters, 1);
   }
 
   function onSearch(event: FormEvent) {
@@ -245,6 +226,8 @@ export function ProductsTab() {
     searchedRef.current = false;
     setSearched(false);
     setAllProducts([]);
+    setTotal(0);
+    setPage(1);
     setSelectedProducts([]);
   }
 
@@ -908,6 +891,36 @@ export function ProductsTab() {
               )}
             </tbody>
           </table>
+        </div>
+      ) : null}
+
+      {searched && !isLoading ? (
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+          <p className="text-sm text-gray-600">
+            {total === 0
+              ? "Nenhum registro"
+              : `Página ${page} de ${pageCount} · ${products.length} nesta página · ${total} no total`}
+          </p>
+          {pageCount > 1 ? (
+            <div className="flex gap-2">
+              <button
+                className="pdv-prod-btn"
+                type="button"
+                disabled={page <= 1}
+                onClick={() => void fetchData(applied, page - 1)}
+              >
+                Anterior
+              </button>
+              <button
+                className="pdv-prod-btn"
+                type="button"
+                disabled={page >= pageCount}
+                onClick={() => void fetchData(applied, page + 1)}
+              >
+                Próxima
+              </button>
+            </div>
+          ) : null}
         </div>
       ) : null}
 

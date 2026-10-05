@@ -1448,7 +1448,7 @@
   font-weight: 700;
 }
 
-.pdv-prod-list-grid input,
+.pdv-prod-list-grid input:not([type="checkbox"]):not([type="radio"]),
 .pdv-prod-select-trigger,
 .pdv-prod-row input,
 .pdv-prod-row select,

@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Ban, Pencil, Plus, Settings } from "lucide-react";
 import { api, parseError } from "../../../../services/api";
@@ -9,9 +9,11 @@ import { loadProductCategories, toFlatOptions, type FlatOption } from "./categor
 import {
   CLIENT_PRODUCT_FILTER_KEY,
   EMPTY_PRODUCT_FILTERS,
+  PRODUCT_PAGE_SIZE,
   ProductFilterForm,
-  productMatchesFilters,
+  productFilterParams,
   readProductFilters,
+  type ProductFacets,
   type ProductFilters,
 } from "./productFilters";
 import { formatMoneyBr, parseMoneyBr, type PdvProduct } from "./types";
@@ -89,6 +91,9 @@ function ProdutosBoard() {
   const [draft, setDraft] = useState<ProductFilters>(EMPTY_PRODUCT_FILTERS);
   const [applied, setApplied] = useState<ProductFilters>(EMPTY_PRODUCT_FILTERS);
   const [rows, setRows] = useState<PdvProduct[]>([]);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [facets, setFacets] = useState<ProductFacets>({ brands: [], collections: [], genders: [], suppliers: [] });
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
   const [error, setError] = useState("");
@@ -117,18 +122,22 @@ function ProdutosBoard() {
     setParams(nextParams, { replace: true });
   }
 
-  function load() {
+  function load(nextPage: number, filters: ProductFilters) {
     setLoading(true);
+    setPage(nextPage);
     api
-      .get("/clients/products", { params: { ativo: "1" } })
+      .get("/clients/products", { params: productFilterParams(filters, nextPage, "loja") })
       .then(({ data }) => {
         setRows((data.products as PdvProduct[]) ?? []);
+        setTotal(Number(data.total) || 0);
+        if (data.facets) setFacets(data.facets as ProductFacets);
         setError("");
       })
       .catch((err) => {
         const parsed = parseError(err);
         setError(parsed.friend || parsed.message || "Não foi possível carregar os produtos.");
         setRows([]);
+        setTotal(0);
       })
       .finally(() => setLoading(false));
   }
@@ -144,25 +153,19 @@ function ProdutosBoard() {
     selectedRef.current.scrollIntoView({ block: "nearest", inline: "nearest" });
   }, [selectedId, tab, loading]);
 
-  const brands = useMemo(() => uniqField(rows, "brand"), [rows]);
-  const collections = useMemo(() => uniqField(rows, "collection"), [rows]);
-  const genders = useMemo(() => uniqField(rows, "gender"), [rows]);
-  const suppliers = useMemo(() => uniqField(rows, "supplierName"), [rows]);
-
-  const visible = useMemo(
-    () =>
-      rows.filter((item) =>
-        productMatchesFilters(item, applied, categoryOptions, Number(item.lojaStock) || 0),
-      ),
-    [applied, rows, categoryOptions],
-  );
+  const brands = facets.brands.length ? facets.brands : uniqField(rows, "brand");
+  const collections = facets.collections.length ? facets.collections : uniqField(rows, "collection");
+  const genders = facets.genders.length ? facets.genders : uniqField(rows, "gender");
+  const suppliers = facets.suppliers.length ? facets.suppliers : uniqField(rows, "supplierName");
+  const visible = rows;
+  const pageCount = Math.max(1, Math.ceil(total / PRODUCT_PAGE_SIZE));
 
   function onSearch(event: FormEvent) {
     event.preventDefault();
     sessionStorage.setItem(CLIENT_PRODUCT_FILTER_KEY, JSON.stringify(draft));
     setApplied(draft);
     setSearched(true);
-    load();
+    load(1, draft);
   }
 
   function onClear() {
@@ -170,6 +173,8 @@ function ProdutosBoard() {
     setApplied(EMPTY_PRODUCT_FILTERS);
     setSearched(false);
     setRows([]);
+    setTotal(0);
+    setPage(1);
     setError("");
   }
 
@@ -178,7 +183,7 @@ function ProdutosBoard() {
     setDraft(last);
     setApplied(last);
     setSearched(true);
-    load();
+    load(1, last);
   }
 
   async function saveAmount(item: PdvProduct, field: "sale" | "cost" | "stock", next: number) {
@@ -488,10 +493,32 @@ function ProdutosBoard() {
 
           {tab === "kits" || tab === "grade-beta" ? <div className="pdv-prod-stub" /> : null}
 
-          {showForm && searched ? (
+          {showForm && searched && !loading ? (
             <p className="pdv-cad-record">
-              Registro 1 de {visible.length} total de {rows.length}
+              {total === 0
+                ? "Nenhum registro"
+                : `Página ${page} de ${pageCount} · ${rows.length} nesta página · ${total} no total`}
             </p>
+          ) : null}
+          {showForm && searched && pageCount > 1 ? (
+            <div className="pdv-prod-toolbar">
+              <button
+                className="pdv-prod-btn"
+                type="button"
+                disabled={page <= 1 || loading}
+                onClick={() => load(page - 1, applied)}
+              >
+                Anterior
+              </button>
+              <button
+                className="pdv-prod-btn"
+                type="button"
+                disabled={page >= pageCount || loading}
+                onClick={() => load(page + 1, applied)}
+              >
+                Próxima
+              </button>
+            </div>
           ) : null}
         </div>
       </section>
