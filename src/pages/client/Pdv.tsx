@@ -19,6 +19,7 @@ import PdvShell, { PdvLoading } from "./dashboard/PdvShell"
 import { api, parseError } from "../../services/api"
 import { formatMoneyBr, formatMoneyRs, parseMoneyBr, type PdvProduct } from "./cadastros/produtos/types"
 import { listLojaCaixas } from "./cadastros/financeiro/caixaApi"
+import { listCatalog } from "./cadastros/catalog/catalogApi"
 import { CAIXA_STORAGE_KEY } from "./dashboard/mockData"
 import "./cadastros/cadastros.css"
 
@@ -86,6 +87,9 @@ function PdvBoard() {
   const [payments, setPayments] = useState<PayLine[]>([])
   const [sellers, setSellers] = useState<string[]>([])
   const [seller, setSeller] = useState("")
+  const [sellerAccounts, setSellerAccounts] = useState<Array<{ code: number; name: string; must: boolean }>>([])
+  const [passAsk, setPassAsk] = useState<{ code: number; name: string } | null>(null)
+  const [nextPass, setNextPass] = useState("")
   const [caixaName, setCaixaName] = useState("")
   const [caixaCode, setCaixaCode] = useState(0)
   const [modo, setModo] = useState<"finaliza" | "espera">("finaliza")
@@ -124,6 +128,13 @@ function PdvBoard() {
         if (vendedores[0]) setSeller(vendedores[0])
       })
       .catch(() => setStatus("Não foi possível carregar o caixa."))
+    listCatalog("user", true)
+      .then((rows) => setSellerAccounts(rows.map((item) => ({
+        code: item.code,
+        name: item.name,
+        must: Boolean(item.payload.mustChangePassword),
+      }))))
+      .catch(() => setSellerAccounts([]))
   }, [])
 
   useEffect(() => {
@@ -284,6 +295,13 @@ function PdvBoard() {
       setStatus("Escolha o vendedor deste caixa.")
       return
     }
+    const account = sellerAccounts.find((item) => item.name === seller && item.must)
+    if (account) {
+      setPassAsk({ code: account.code, name: account.name })
+      setNextPass("")
+      setStatus("Este vendedor precisa trocar a senha antes de concluir a venda.")
+      return
+    }
     const pending = parseMoneyBr(received)
     const nextPayments = pending > 0 ? [...payments, { method: payMethod, amount: pending }] : payments
     const covered = moneySum(nextPayments)
@@ -313,6 +331,25 @@ function PdvBoard() {
       }
     } catch (err) {
       setStatus(parseError(err).friend || "Não foi possível gravar a venda.")
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function saveSellerPassword() {
+    if (!passAsk || nextPass.trim().length < 6) {
+      setStatus("A nova senha precisa ter pelo menos 6 caracteres.")
+      return
+    }
+    setBusy(true)
+    try {
+      await api.post(`/clients/catalog/user/${passAsk.code}/senha/definir`, { password: nextPass.trim() })
+      setSellerAccounts((current) => current.map((item) => (item.code === passAsk.code ? { ...item, must: false } : item)))
+      setPassAsk(null)
+      setNextPass("")
+      setStatus("Senha atualizada. Pode finalizar a venda.")
+    } catch (err) {
+      setStatus(parseError(err).friend || "Não foi possível trocar a senha.")
     } finally {
       setBusy(false)
     }
@@ -420,6 +457,10 @@ function PdvBoard() {
     <section className="cx-pdv">
       <header className="cx-head">
         <div className="cx-brand">
+          <button type="button" className="cx-open-sales" onClick={() => void showOpenSales()}>
+            <Receipt size={15} strokeWidth={2.2} aria-hidden="true" />
+            Vendas em aberto
+          </button>
           <span className="cx-brand-ico" aria-hidden="true">
             <ShoppingCart size={18} strokeWidth={2.2} />
           </span>
@@ -432,14 +473,6 @@ function PdvBoard() {
           <button type="button" onClick={() => navigate("/client/dashboard")}>
             <ArrowLeft size={15} strokeWidth={2.2} aria-hidden="true" />
             Voltar
-          </button>
-          <button type="button" onClick={() => void showOpenSales()}>
-            <Receipt size={15} strokeWidth={2.2} aria-hidden="true" />
-            Vendas em aberto
-          </button>
-          <button type="button" onClick={() => document.getElementById("cx-produto")?.focus()}>
-            <Search size={15} strokeWidth={2.2} aria-hidden="true" />
-            Consultar Produto
           </button>
           <button className="cx-danger" type="button" onClick={() => (cart.length ? setAskCancel(true) : clearSale())}>
             <Trash2 size={15} strokeWidth={2.2} aria-hidden="true" />
@@ -707,6 +740,25 @@ function PdvBoard() {
           </>
         )}
       </div>
+
+      {passAsk ? (
+        <div className="pdv-caixa-confirm">
+          <div className="pdv-caixa-confirm-card" role="dialog" aria-modal="true" aria-labelledby="cx-pass-title">
+            <h2 id="cx-pass-title">Trocar a senha de {passAsk.name}</h2>
+            <p>A senha provisória chegou no e-mail. Defina a senha definitiva para continuar a venda.</p>
+            <label>
+              Nova senha
+              <input type="password" value={nextPass} autoComplete="new-password" onChange={(event) => setNextPass(event.target.value)} />
+            </label>
+            <div className="pdv-caixa-confirm-actions">
+              <button className="pdv-cad-btn" type="button" onClick={() => setPassAsk(null)}>Fechar</button>
+              <button className="pdv-cad-btn pdv-cad-btn-green" type="button" disabled={busy} onClick={() => void saveSellerPassword()}>
+                Salvar senha
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {askCancel ? (
         <div className="pdv-caixa-confirm" onClick={() => setAskCancel(false)}>

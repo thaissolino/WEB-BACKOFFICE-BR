@@ -10,7 +10,7 @@ import { parseError } from "../../../services/api"
 import { Pencil, Plus } from "lucide-react"
 import { useEffect } from "react"
 import "../vendas/pedidos.css"
-import { VendasMovimento } from "./LojaVendasPainel"
+import { VendasMovimento, listLojaSales, type LojaPdvSale } from "./LojaVendasPainel"
 
 const VENDA_COLS = [
   "Visualizar",
@@ -66,7 +66,36 @@ export function PainelEntregas() {
   )
 }
 
+function brl(value: number) {
+  return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
+}
+
+function useFinalizedSales() {
+  const [sales, setSales] = useState<LojaPdvSale[]>([])
+  const [hint, setHint] = useState("Carregando...")
+  useEffect(() => {
+    listLojaSales("finalizada")
+      .then((rows) => {
+        setSales(rows)
+        setHint(rows.length ? "" : "Nenhuma venda registrada no caixa.")
+      })
+      .catch((err) => setHint(parseError(err).friend || "Não foi possível carregar o caixa."))
+  }, [])
+  return { sales, hint }
+}
+
 export function RelatorioCaixa() {
+  const { sales, hint } = useFinalizedSales()
+  const grouped = new Map<string, number>()
+  sales.forEach((sale) => {
+    const day = new Date(sale.finalizedAt || sale.createdAt).toLocaleDateString("pt-BR")
+    const key = `${sale.caixaName || "Sem caixa"}|${day}`
+    grouped.set(key, (grouped.get(key) || 0) + sale.total)
+  })
+  const rows = [...grouped.entries()].map(([key, total]) => {
+    const [caixa, data] = key.split("|")
+    return [caixa, data, brl(0), brl(total), brl(0), brl(total)]
+  })
   return (
     <FilterPage
       title="RELATÓRIO DE CAIXA"
@@ -76,6 +105,8 @@ export function RelatorioCaixa() {
         { key: "caixa", label: "Caixa", kind: "select", options: ["Todos"] },
       ]}
       columns={["Caixa", "Data", "Saldo Inicial", "Entradas", "Saídas", "Saldo"]}
+      rows={rows}
+      hint={hint || undefined}
     />
   )
 }
@@ -128,6 +159,14 @@ export function RelatorioContaCorrente() {
   )
 }
 export function RelatorioCaixaDetalhado() {
+  const { sales, hint } = useFinalizedSales()
+  const rows = sales.flatMap((sale) => {
+    const when = new Date(sale.finalizedAt || sale.createdAt).toLocaleString("pt-BR")
+    if (!sale.payments.length) {
+      return [[when, sale.caixaName || "Sem caixa", "—", brl(sale.total)]]
+    }
+    return sale.payments.map((pay) => [when, sale.caixaName || "Sem caixa", pay.method, brl(pay.amount)])
+  })
   return (
     <FilterPage
       title="RELATÓRIO DE CAIXA DETALHADO"
@@ -136,6 +175,8 @@ export function RelatorioCaixaDetalhado() {
         { key: "fim", label: "Data Caixa fim", kind: "date" },
       ]}
       columns={["Data", "Caixa", "Forma de Pagamento", "Valor"]}
+      rows={rows}
+      hint={hint || undefined}
     />
   )
 }
@@ -181,6 +222,17 @@ export function ContasPagar() {
   )
 }
 export function FluxoCaixa() {
+  const { sales, hint } = useFinalizedSales()
+  const grouped = new Map<string, number>()
+  sales.forEach((sale) => {
+    const day = new Date(sale.finalizedAt || sale.createdAt).toLocaleDateString("pt-BR")
+    grouped.set(day, (grouped.get(day) || 0) + sale.total)
+  })
+  let balance = 0
+  const rows = [...grouped.entries()].map(([day, total]) => {
+    balance += total
+    return [day, brl(total), brl(0), brl(balance)]
+  })
   return (
     <FilterPage
       title="FLUXO DE CAIXA"
@@ -189,6 +241,8 @@ export function FluxoCaixa() {
         { key: "fim", label: "Data fim", kind: "date" },
       ]}
       columns={["Data", "Entradas", "Saídas", "Saldo"]}
+      rows={rows}
+      hint={hint || undefined}
     />
   )
 }
@@ -207,34 +261,23 @@ export function PrevisaoFluxo() {
 
 export function CadastrarDespesa({ receita = false }: { receita?: boolean }) {
   const navigate = useNavigate()
-  const [fornecedores, setFornecedores] = useState<string[]>(["Todos"])
-  const [planos, setPlanos] = useState<string[]>([])
   const [caixas, setCaixas] = useState<string[]>([])
-  const [formas, setFormas] = useState<string[]>([])
   const [status, setStatus] = useState("")
-  const [form, setForm] = useState({
-    fornecedor: "Todos",
-    plano: "",
-    dataNota: "",
-    numero: "",
-    competencia: "",
-    total: "",
-    obs: "",
-    caixa: "",
-    forma: "",
-  })
+  const [form, setForm] = useState({ descricao: "", total: "", data: "", caixa: "" })
 
   useEffect(() => {
-    listCatalog("account_plan", true).then((rows) => setPlanos(rows.map((item) => item.name))).catch(() => setPlanos([]))
     listLojaCaixas(true).then((rows) => setCaixas(rows.map((item) => item.name))).catch(() => setCaixas([]))
-    listCatalog("payment", true).then((rows) => setFormas(rows.map((item) => item.name))).catch(() => setFormas([]))
   }, [])
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault()
+    if (!form.descricao.trim() || !form.total.trim()) {
+      setStatus("Informe a descrição e o valor.")
+      return
+    }
     try {
       await createCatalog("expense", {
-        name: receita ? "Receita" : "Despesa",
+        name: form.descricao.trim(),
         payload: { ...form, tipo: receita ? "receita" : "despesa" },
       })
       navigate("/client/movimentacoes/financeiro/despesas")
@@ -249,39 +292,26 @@ export function CadastrarDespesa({ receita = false }: { receita?: boolean }) {
         <div className="pdv-cad-sheet">
           <h1 id="pdv-desp-form">{receita ? "CADASTRAR RECEITA" : "CADASTRAR DESPESA"}</h1>
           <form className="pdv-cad-form" onSubmit={onSubmit}>
-            <FormRow label="Fornecedor">
-              <select value={form.fornecedor} onChange={(event) => setForm({ ...form, fornecedor: event.target.value })}>
-                {fornecedores.map((item) => <option key={item}>{item}</option>)}
-              </select>
+            <FormRow label="Descrição">
+              <input value={form.descricao} onChange={(event) => setForm({ ...form, descricao: event.target.value })} autoComplete="off" />
             </FormRow>
-            <FormRow label="Plano de conta">
-              <select value={form.plano} onChange={(event) => setForm({ ...form, plano: event.target.value })}>
-                <option value="">Sem</option>
-                {planos.map((item) => <option key={item}>{item}</option>)}
-              </select>
+            <FormRow label="Valor">
+              <input value={form.total} onChange={(event) => setForm({ ...form, total: event.target.value })} inputMode="decimal" placeholder="0,00" autoComplete="off" />
             </FormRow>
-            <FormRow label="Data Nota"><input value={form.dataNota} onChange={(event) => setForm({ ...form, dataNota: event.target.value })} autoComplete="off" /></FormRow>
-            <FormRow label="Número da Nota / Série"><input value={form.numero} onChange={(event) => setForm({ ...form, numero: event.target.value })} autoComplete="off" /></FormRow>
-            <FormRow label="Competência"><input value={form.competencia} onChange={(event) => setForm({ ...form, competencia: event.target.value })} placeholder="MM/AAAA" autoComplete="off" /></FormRow>
-            <FormRow label="Total"><input value={form.total} onChange={(event) => setForm({ ...form, total: event.target.value })} autoComplete="off" /></FormRow>
-            <FormRow label="Observação"><textarea rows={3} value={form.obs} onChange={(event) => setForm({ ...form, obs: event.target.value })} /></FormRow>
+            <FormRow label="Data">
+              <input type="date" value={form.data} onChange={(event) => setForm({ ...form, data: event.target.value })} />
+            </FormRow>
             <FormRow label="Caixa">
               <select value={form.caixa} onChange={(event) => setForm({ ...form, caixa: event.target.value })}>
-                <option value="" />
+                <option value="">Sem caixa</option>
                 {caixas.map((item) => <option key={item}>{item}</option>)}
-              </select>
-            </FormRow>
-            <FormRow label="Forma de Pagamento">
-              <select value={form.forma} onChange={(event) => setForm({ ...form, forma: event.target.value })}>
-                <option value="" />
-                {formas.map((item) => <option key={item}>{item}</option>)}
               </select>
             </FormRow>
             {status ? <p className="pdv-prod-status" role="status">{status}</p> : null}
             <div className="pdv-cad-form-go">
               <button className="pdv-cad-btn pdv-cad-btn-green" type="submit">
                 <Plus size={16} strokeWidth={2.6} aria-hidden="true" />
-                Finalizar
+                Salvar
               </button>
             </div>
           </form>
@@ -292,6 +322,23 @@ export function CadastrarDespesa({ receita = false }: { receita?: boolean }) {
 }
 
 export function ListarDespesas() {
+  const [rows, setRows] = useState<string[][]>([])
+  const [hint, setHint] = useState("Carregando...")
+  useEffect(() => {
+    listCatalog("expense")
+      .then((items) => {
+        setRows(items.map((item) => [
+          String(item.code),
+          item.name,
+          String(item.payload.tipo || "despesa"),
+          String(item.payload.data || "—"),
+          String(item.payload.caixa || "—"),
+          String(item.payload.total || "—"),
+        ]))
+        setHint(items.length ? "" : "Nenhuma despesa ou receita lançada.")
+      })
+      .catch(() => setHint("Não foi possível carregar."))
+  }, [])
   return (
     <FilterPage
       title="RECEITA / DESPESAS REGISTRADA"
@@ -299,11 +346,10 @@ export function ListarDespesas() {
         { label: "Cadastrar Despesa", tone: "green", href: "/client/movimentacoes/financeiro/despesas/cadastrar" },
         { label: "Cadastrar Receita", tone: "blue", href: "/client/movimentacoes/financeiro/receitas/cadastrar" },
       ]}
-      fields={[
-        { key: "cod", label: "Cod. Receita / Despesa" },
-        { key: "fornecedor", label: "Fornecedor", kind: "select", options: ["<< Selecione >>"] },
-      ]}
-      columns={["Código", "Fornecedor", "Obs", "Estado", "Data Lançamento", "Total", "Estornar"]}
+      fields={[{ key: "nome", label: "Descrição" }]}
+      columns={["Código", "Descrição", "Tipo", "Data", "Caixa", "Valor"]}
+      rows={rows}
+      hint={hint || undefined}
       submitLabel="Filtrar"
     />
   )

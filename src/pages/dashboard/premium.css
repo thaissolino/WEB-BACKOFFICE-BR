@@ -238,6 +238,30 @@
   color: var(--board-faint);
 }
 
+.pdv-board-tools {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 10px;
+}
+
+.pdv-board-del {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid rgba(153, 27, 27, 0.35);
+  border-radius: 999px;
+  background: transparent;
+  color: #b91c1c;
+  cursor: pointer;
+}
+
+.pdv-board-del:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
 .pdv-board-table {
   width: 100%;
   border-collapse: collapse;
