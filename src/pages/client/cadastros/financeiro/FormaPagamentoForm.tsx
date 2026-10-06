@@ -10,6 +10,8 @@ type PayForm = {
   nome: string
   cartao: boolean
   parcelas: string
+  aceitaDebito: boolean
+  aceitaCredito: boolean
   debitoCredito: string
   crediario: boolean
   tipoChavePix: string
@@ -53,7 +55,9 @@ type PayForm = {
 const EMPTY: PayForm = {
   nome: "",
   cartao: false,
-  parcelas: "",
+  parcelas: "12",
+  aceitaDebito: false,
+  aceitaCredito: true,
   debitoCredito: "Crédito",
   crediario: false,
   tipoChavePix: "Celular",
@@ -146,15 +150,31 @@ export default function FormaPagamentoForm() {
               <RadioSimNao name="cartao" value={form.cartao} onChange={(next) => patch("cartao", next)} />
             </FormRow>
             {form.cartao ? (
-              <FormRow label="Parcelas">
-                <input
-                  value={form.parcelas}
-                  onChange={(event) => patch("parcelas", event.target.value.replace(/\D/g, "").slice(0, 2))}
-                  inputMode="numeric"
-                  autoComplete="off"
-                  placeholder="Quantidade máxima"
-                />
-              </FormRow>
+              <>
+                <FormRow label="Tipo do cartão">
+                  <div className="pdv-cad-check-grid">
+                    <label>
+                      <input type="checkbox" checked={form.aceitaDebito} onChange={(event) => patch("aceitaDebito", event.target.checked)} />
+                      Débito
+                    </label>
+                    <label>
+                      <input type="checkbox" checked={form.aceitaCredito} onChange={(event) => patch("aceitaCredito", event.target.checked)} />
+                      Crédito
+                    </label>
+                  </div>
+                </FormRow>
+                {form.aceitaCredito ? (
+                  <FormRow label="Parcelas máximas (crédito)">
+                    <input
+                      value={form.parcelas}
+                      onChange={(event) => patch("parcelas", event.target.value.replace(/\D/g, "").slice(0, 2))}
+                      inputMode="numeric"
+                      autoComplete="off"
+                      placeholder="Ex.: 12"
+                    />
+                  </FormRow>
+                ) : null}
+              </>
             ) : null}
             {status ? <p className="pdv-prod-status" role="status">{status}</p> : null}
             <div className="pdv-cad-form-go">
