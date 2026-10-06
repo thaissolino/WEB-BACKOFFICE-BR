@@ -5,7 +5,7 @@ import { useClientAuth } from "../../hooks/clientAuth";
 import PdvShell, { PdvLoading } from "./dashboard/PdvShell";
 import PdvTip from "./dashboard/PdvTip";
 import { CAIXA_STORAGE_KEY, NENHUM_CAIXA } from "./dashboard/mockData";
-import { createLojaCaixa, listLojaCaixas } from "./cadastros/financeiro/caixaApi";
+import { createLojaCaixa, listLojaCaixas, type LojaCaixa } from "./cadastros/financeiro/caixaApi";
 import { parseError } from "../../services/api";
 
 const ABRIR_PDV_TIP = `Troca a sessão do caixa.
@@ -121,11 +121,16 @@ function TrocarCaixaBoard() {
   const [error, setError] = useState("");
   const [novo, setNovo] = useState("");
   const [creating, setCreating] = useState(false);
+  const [rows, setRows] = useState<LojaCaixa[]>([]);
+  const [passAsk, setPassAsk] = useState(false);
+  const [passInput, setPassInput] = useState("");
+  const [pendingAction, setPendingAction] = useState<"select" | "pdv" | null>(null);
 
   function loadCaixas(prefer?: string) {
     listLojaCaixas(true)
-      .then((rows) => {
-        const next = [NENHUM_CAIXA, ...rows.map((item) => item.name)];
+      .then((items) => {
+        setRows(items);
+        const next = [NENHUM_CAIXA, ...items.map((item) => item.name)];
         setNames(next);
         const stored =
           typeof sessionStorage === "undefined" ? "" : sessionStorage.getItem(CAIXA_STORAGE_KEY) || "";
@@ -160,25 +165,63 @@ function TrocarCaixaBoard() {
     }
   }
 
-  function applyCaixa() {
+  function applyCaixa(persist = true) {
     if (picked === NENHUM_CAIXA) {
       setNotice("Selecione um caixa.");
       return false;
     }
-    setActive(picked);
-    sessionStorage.setItem(CAIXA_STORAGE_KEY, picked);
-    setNotice("");
+    if (persist) {
+      setActive(picked);
+      sessionStorage.setItem(CAIXA_STORAGE_KEY, picked);
+      setNotice("");
+    }
     return true;
   }
 
-  function onSelecionarCaixa() {
+  function caixaSenha(name: string) {
+    const item = rows.find((row) => row.name === name);
+    return String(item?.payload?.senhaAcesso || "").trim();
+  }
+
+  function runAfterAuth(action: "select" | "pdv") {
     if (!applyCaixa()) return;
-    setNotice(`Caixa ${picked} selecionado.`);
+    if (action === "select") {
+      setNotice(`Caixa ${picked} selecionado.`);
+      return;
+    }
+    navigate("/client/pdv");
+  }
+
+  function requestAction(action: "select" | "pdv") {
+    if (!applyCaixa(false)) return;
+    const senha = caixaSenha(picked);
+    if (senha) {
+      setPendingAction(action);
+      setPassInput("");
+      setPassAsk(true);
+      return;
+    }
+    runAfterAuth(action);
+  }
+
+  function confirmPass() {
+    const senha = caixaSenha(picked);
+    if (passInput.trim() !== senha) {
+      setError("Senha do caixa incorreta.");
+      return;
+    }
+    setPassAsk(false);
+    setError("");
+    if (pendingAction) runAfterAuth(pendingAction);
+    setPendingAction(null);
+  }
+
+  function onSelecionarCaixa() {
+    requestAction("select");
   }
 
   function onAbrirPdv() {
-    if (!applyCaixa()) return;
-    navigate("/client/pdv");
+    requestAction("pdv");
   }
 
   return (
@@ -240,6 +283,23 @@ function TrocarCaixaBoard() {
       <p className="pdv-caixa-foot">
         Caixa: <strong>{active}</strong>
       </p>
+
+      {passAsk ? (
+        <div className="pdv-caixa-confirm">
+          <div className="pdv-caixa-confirm-card" role="dialog" aria-modal="true" aria-labelledby="pdv-caixa-pass-title">
+            <h2 id="pdv-caixa-pass-title">Senha do caixa · {picked}</h2>
+            <p>Informe a senha de acesso configurada para este caixa.</p>
+            <label>
+              Senha
+              <input type="password" value={passInput} autoComplete="off" onChange={(event) => setPassInput(event.target.value)} />
+            </label>
+            <div className="pdv-caixa-confirm-actions">
+              <button className="pdv-cad-btn" type="button" onClick={() => { setPassAsk(false); setPendingAction(null) }}>Cancelar</button>
+              <button className="pdv-cad-btn pdv-cad-btn-green" type="button" onClick={confirmPass}>Entrar</button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 }

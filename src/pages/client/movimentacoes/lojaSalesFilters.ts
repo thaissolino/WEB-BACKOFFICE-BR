@@ -1,3 +1,4 @@
+import { todayIso } from "../../../utils/todayIso"
 import type { LojaPdvSale } from "./LojaVendasPainel"
 
 export type SaleFilters = {
@@ -9,8 +10,8 @@ export type SaleFilters = {
 }
 
 export const EMPTY_SALE_FILTERS: SaleFilters = {
-  inicio: "",
-  fim: "",
+  inicio: todayIso(),
+  fim: todayIso(),
   cod: "",
   nome: "",
   caixa: "Todos",

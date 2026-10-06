@@ -2,6 +2,7 @@ import { FormEvent, Fragment, ReactNode } from "react"
 import { useNavigate } from "react-router-dom"
 import CadastroShell from "../cadastros/CadastroShell"
 import { DatePreset } from "../cadastros/catalog/FormBits"
+import { todayIso } from "../../../utils/todayIso"
 
 export type FilterField = {
   key: string
@@ -78,6 +79,8 @@ export default function FilterPage({
                       <option key={opt}>{opt}</option>
                     ))}
                   </select>
+                ) : field.kind === "date" ? (
+                  <input type="date" defaultValue={todayIso()} autoComplete="off" />
                 ) : (
                   <input autoComplete="off" />
                 )}

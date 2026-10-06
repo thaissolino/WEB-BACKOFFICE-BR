@@ -42,6 +42,7 @@ export type CatalogListConfig = {
   extraActions?: ReactNode
   emptyHint?: string
   bulkDelete?: boolean
+  bulkDisable?: boolean
   renderCell?: (item: CatalogItem, column: CatalogColumn) => ReactNode
 }
 
@@ -84,18 +85,39 @@ export default function CatalogList({ config, inactive = false }: { config: Cata
   async function deleteSelected() {
     if (!picked.length || deleting) return
     const count = picked.length
-    if (!window.confirm(count === 1 ? "Excluir esta forma de pagamento?" : `Excluir ${count} formas de pagamento?`)) return
+    if (!window.confirm(count === 1 ? "Excluir este registro?" : `Excluir ${count} registros?`)) return
     setDeleting(true)
     setError("")
     try {
       await deleteCatalog(config.kind, picked)
       setPicked([])
       setPicking(false)
-      setToast(count === 1 ? "Forma de pagamento excluída." : `${count} formas de pagamento excluídas.`)
+      setToast(count === 1 ? "Registro excluído." : `${count} registros excluídos.`)
       load()
     } catch (err) {
       const parsed = parseError(err)
       setError(parsed.friend || parsed.message || "Não foi possível excluir.")
+    } finally {
+      setDeleting(false)
+    }
+  }
+
+  async function disableSelected() {
+    if (!picked.length || deleting) return
+    const count = picked.length
+    if (!window.confirm(count === 1 ? "Inabilitar este registro?" : `Inabilitar ${count} registros?`)) return
+    setDeleting(true)
+    setError("")
+    try {
+      const chosen = rows.filter((item) => picked.includes(item.code))
+      await Promise.all(chosen.map((item) => updateCatalog(config.kind, item.code, { name: item.name, payload: item.payload, active: false })))
+      setPicked([])
+      setPicking(false)
+      setToast(count === 1 ? "Registro inabilitado." : `${count} registros inabilitados.`)
+      load()
+    } catch (err) {
+      const parsed = parseError(err)
+      setError(parsed.friend || parsed.message || "Não foi possível inabilitar.")
     } finally {
       setDeleting(false)
     }
@@ -183,19 +205,26 @@ export default function CatalogList({ config, inactive = false }: { config: Cata
               )
             ) : null}
             {config.extraActions}
-            {config.bulkDelete ? (
+            {config.bulkDelete || config.bulkDisable ? (
               picking ? (
                 <>
-                  <button className="pdv-cad-btn pdv-cad-btn-red" type="button" disabled={!picked.length || deleting} onClick={deleteSelected}>
-                    {deleting ? "Excluindo..." : picked.length ? `Excluir selecionados (${picked.length})` : "Excluir selecionados"}
-                  </button>
+                  {config.bulkDisable ? (
+                    <button className="pdv-cad-btn pdv-cad-btn-red" type="button" disabled={!picked.length || deleting} onClick={() => void disableSelected()}>
+                      {deleting ? "Inabilitando..." : picked.length ? `Inabilitar (${picked.length})` : "Inabilitar selecionados"}
+                    </button>
+                  ) : null}
+                  {config.bulkDelete ? (
+                    <button className="pdv-cad-btn pdv-cad-btn-red" type="button" disabled={!picked.length || deleting} onClick={() => void deleteSelected()}>
+                      {deleting ? "Excluindo..." : picked.length ? `Excluir (${picked.length})` : "Excluir selecionados"}
+                    </button>
+                  ) : null}
                   <button className="pdv-cad-btn" type="button" disabled={deleting} onClick={() => { setPicking(false); setPicked([]) }}>
                     Cancelar
                   </button>
                 </>
               ) : (
-                <button className="pdv-cad-btn pdv-cad-btn-red" type="button" onClick={() => setPicking(true)}>
-                  Excluir
+                <button className="pdv-cad-btn pdv-cad-btn-blue" type="button" onClick={() => setPicking(true)}>
+                  Selecionar
                 </button>
               )
             ) : null}
