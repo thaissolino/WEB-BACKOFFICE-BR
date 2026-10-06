@@ -98,7 +98,9 @@ export default function UsuarioForm() {
     }
     setSaving(true)
     setStatus("")
-    const payload = { ...form }
+    const { senha, ...rest } = form
+    const payload: Record<string, unknown> = { ...rest }
+    if (senha.trim()) payload.senha = senha.trim()
     try {
       const saved = editId
         ? await updateCatalog("user", editId, { name: form.nome, payload, active: true })
@@ -130,7 +132,7 @@ export default function UsuarioForm() {
               <input value={form.usuario} onChange={(event) => setForm({ ...form, usuario: event.target.value })} autoComplete="off" />
             </FormRow>
             <FormRow label="Senha" required={!enviarSenha && !editId}>
-              <input type="password" value={form.senha} onChange={(event) => setForm({ ...form, senha: event.target.value })} autoComplete="new-password" />
+              <input type="password" value={form.senha} onChange={(event) => setForm({ ...form, senha: event.target.value })} autoComplete="new-password" placeholder={editId ? "Deixe em branco para manter a atual" : undefined} />
             </FormRow>
             <FormRow label="Troca no primeiro acesso">
               <label>

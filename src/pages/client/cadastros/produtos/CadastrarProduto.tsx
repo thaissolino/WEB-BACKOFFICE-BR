@@ -258,6 +258,7 @@ export default function CadastrarProduto() {
   const editingId = params.get("id") || "";
   const [lockedName, setLockedName] = useState("");
   const [askCopy, setAskCopy] = useState(false);
+  const [savedFlash, setSavedFlash] = useState(false);
   const [tab, setTab] = useState<CadTab>("gerais");
   const [form, setForm] = useState(EMPTY_FORM);
   const [, setBrands] = useState<string[]>([]);
@@ -291,7 +292,8 @@ export default function CadastrarProduto() {
     setForm(next.duplicate);
     setLockedName(next.fromName);
     setAskCopy(false);
-    setStatus("Cópia pronta. Troque o nome antes de cadastrar.");
+    setStatus("");
+    setSavedFlash(false);
   }, [editingId, location.key, location.state]);
 
   useEffect(() => {
@@ -390,15 +392,23 @@ export default function CadastrarProduto() {
         body.append("file", photo1);
         await api.post(`/clients/products/${productId}/photo`, body);
       }
-      setStatus(
-        editingId
-          ? "Produto atualizado."
-          : mode === "novo"
+      if (editingId) {
+        setStatus("Produto atualizado.");
+      } else if (lockedName) {
+        setLockedName("");
+        setSavedFlash(true);
+        setStatus("");
+        window.setTimeout(() => setSavedFlash(false), 4000);
+        if (data?.product?.id) navigate(`/client/produtos/cadastrar?id=${data.product.id}`, { replace: true });
+      } else {
+        setStatus(
+          mode === "novo"
             ? "Produto cadastrado. Formulário liberado para novo cadastro."
             : mode === "etiqueta"
               ? "Produto cadastrado. Impressão de etiqueta não foi disparada."
               : "Produto cadastrado.",
-      );
+        );
+      }
       if (mode === "novo") {
         setForm(EMPTY_FORM);
         setPhoto1(null);
@@ -421,6 +431,12 @@ export default function CadastrarProduto() {
     <CadastroShell>
       <section className="pdv-cad-page pdv-prod-page" aria-labelledby="pdv-prod-cad-title">
         <div className="pdv-cad-sheet pdv-prod-sheet">
+          {lockedName && !editingId ? (
+            <p className="pdv-prod-dup-banner" role="status">
+              Produto duplicado — altere o nome para salvar. O nome &quot;{lockedName}&quot; já está cadastrado.
+            </p>
+          ) : null}
+          {savedFlash ? <p className="pdv-prod-saved-bar" role="status">Salvo</p> : null}
           <div className="pdv-prod-cad-head">
             <h1 id="pdv-prod-cad-title">{editingId ? "ALTERAR PRODUTO" : "CADASTRO DE PRODUTO"}</h1>
             <div className="pdv-prod-cad-actions">
@@ -514,6 +530,12 @@ export default function CadastrarProduto() {
                       value={form.nome}
                       maxLength={200}
                       onChange={(event) => patch("nome", event.target.value)}
+                      onBlur={() => {
+                        if (!lockedName || editingId || busy) return;
+                        if (!form.nome.trim() || form.nome.trim().toLowerCase() === lockedName.trim().toLowerCase()) return;
+                        if (!form.categorias.length) return;
+                        void onSubmit({ preventDefault() {} } as FormEvent, "ok");
+                      }}
                       autoComplete="off"
                     />
                     <p className="pdv-prod-count">{form.nome.length} / 200 Caracteres.</p>

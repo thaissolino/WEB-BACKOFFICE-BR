@@ -41,6 +41,7 @@ type ClientAuthContextData = {
   clientForgotPassword: (email: string) => Promise<void>;
   clientLogout: () => void;
   markPasswordChanged: () => void;
+  refreshClient: () => Promise<void>;
 };
 
 const CLIENT_TOKEN_KEY = "@client:token";
@@ -84,6 +85,19 @@ export function ClientAuthProvider({ children }: { children: React.ReactNode }) 
       localStorage.setItem(CLIENT_USER_KEY, JSON.stringify(next));
       return next;
     });
+  }, []);
+
+  const refreshClient = useCallback(async () => {
+    const token = localStorage.getItem(CLIENT_TOKEN_KEY);
+    if (!token) {
+      setClient(null);
+      return;
+    }
+    const { data } = await api.get("/clients/me", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    localStorage.setItem(CLIENT_USER_KEY, JSON.stringify(data.client));
+    setClient(data.client);
   }, []);
 
   const loadClient = useCallback(async () => {
@@ -134,8 +148,9 @@ export function ClientAuthProvider({ children }: { children: React.ReactNode }) 
       clientForgotPassword,
       clientLogout,
       markPasswordChanged,
+      refreshClient,
     }),
-    [client, loadingClient, clientSignIn, clientRegister, clientForgotPassword, clientLogout, markPasswordChanged]
+    [client, loadingClient, clientSignIn, clientRegister, clientForgotPassword, clientLogout, markPasswordChanged, refreshClient]
   );
 
   return <ClientAuthContext.Provider value={value}>{children}</ClientAuthContext.Provider>;

@@ -8,8 +8,10 @@ import { createCatalog, listCatalog } from "../cadastros/catalog/catalogApi"
 import { listLojaCaixas } from "../cadastros/financeiro/caixaApi"
 import { parseError } from "../../../services/api"
 import { Pencil, Plus } from "lucide-react"
-import { useEffect } from "react"
+import { useEffect, useMemo } from "react"
 import "../vendas/pedidos.css"
+import { todayIso } from "../../../utils/todayIso"
+import { filterLojaSales, EMPTY_SALE_FILTERS, type SaleFilters } from "./lojaSalesFilters"
 import { VendasMovimento, listLojaSales, type LojaPdvSale } from "./LojaVendasPainel"
 
 const VENDA_COLS = [
@@ -36,9 +38,9 @@ const VENDA_FIELDS = [
 ]
 
 const VENDA_ACTIONS = [
-  { label: "Nova", tone: "green" as const, href: "/client/pdv" },
-  { label: "Abertas", tone: "blue" as const, href: "/client/movimentacoes/vendas/abertas" },
   { label: "Concluídas", href: "/client/movimentacoes/vendas/concluidas" },
+  { label: "Abertas", tone: "blue" as const, href: "/client/movimentacoes/vendas/abertas" },
+  { label: "Nova", tone: "green" as const, href: "/client/pdv" },
 ]
 
 export function VendasAbertas() {
@@ -85,28 +87,85 @@ function useFinalizedSales() {
 }
 
 export function RelatorioCaixa() {
-  const { sales, hint } = useFinalizedSales()
-  const grouped = new Map<string, number>()
-  sales.forEach((sale) => {
-    const day = new Date(sale.finalizedAt || sale.createdAt).toLocaleDateString("pt-BR")
-    const key = `${sale.caixaName || "Sem caixa"}|${day}`
-    grouped.set(key, (grouped.get(key) || 0) + sale.total)
-  })
-  const rows = [...grouped.entries()].map(([key, total]) => {
+  const [sales, setSales] = useState<LojaPdvSale[]>([])
+  const [hint, setHint] = useState("Carregando...")
+  const [draft, setDraft] = useState<SaleFilters>(EMPTY_SALE_FILTERS)
+  const [filters, setFilters] = useState<SaleFilters>(EMPTY_SALE_FILTERS)
+
+  useEffect(() => {
+    listLojaSales("finalizada")
+      .then((rows) => {
+        setSales(rows)
+        setHint(rows.length ? "" : "Nenhuma venda registrada no caixa.")
+      })
+      .catch((err) => setHint(parseError(err).friend || "Não foi possível carregar o caixa."))
+  }, [])
+
+  const caixas = useMemo(() => ["Todos", ...new Set(sales.map((sale) => sale.caixaName).filter(Boolean))], [sales])
+  const filtered = useMemo(() => filterLojaSales(sales, filters), [sales, filters])
+  const payTotals = useMemo(() => {
+    const map = new Map<string, number>()
+    filtered.forEach((sale) => {
+      sale.payments.forEach((pay) => {
+        map.set(pay.method, (map.get(pay.method) || 0) + pay.amount)
+      })
+    })
+    return map
+  }, [filtered])
+
+  const grouped = useMemo(() => {
+    const map = new Map<string, { vendas: number; total: number }>()
+    filtered.forEach((sale) => {
+      const day = new Date(sale.finalizedAt || sale.createdAt).toLocaleDateString("pt-BR")
+      const key = `${sale.caixaName || "Sem caixa"}|${day}`
+      const row = map.get(key) || { vendas: 0, total: 0 }
+      row.vendas += 1
+      row.total += sale.total
+      map.set(key, row)
+    })
+    return map
+  }, [filtered])
+
+  const rows = [...grouped.entries()].map(([key, row]) => {
     const [caixa, data] = key.split("|")
-    return [caixa, data, brl(0), brl(total), brl(0), brl(total)]
+    return [caixa, data, String(row.vendas), brl(row.total), brl(row.total), brl(row.total)]
   })
+
+  const payRows = [...payTotals.entries()].map(([method, total]) => [method, brl(total)])
+
   return (
     <FilterPage
       title="RELATÓRIO DE CAIXA"
-      fields={[
-        { key: "inicio", label: "Data Caixa inicio", kind: "date" },
-        { key: "fim", label: "Data Caixa fim", kind: "date" },
-        { key: "caixa", label: "Caixa", kind: "select", options: ["Todos"] },
-      ]}
-      columns={["Caixa", "Data", "Saldo Inicial", "Entradas", "Saídas", "Saldo"]}
+      fields={[]}
+      extra={(
+        <>
+          <form className="pdv-cad-filters" onSubmit={(event) => { event.preventDefault(); setFilters(draft) }}>
+            <label>Data início<input type="date" value={draft.inicio} onChange={(event) => setDraft({ ...draft, inicio: event.target.value })} /></label>
+            <label>Data fim<input type="date" value={draft.fim} onChange={(event) => setDraft({ ...draft, fim: event.target.value })} /></label>
+            <label>Caixa
+              <select value={draft.caixa} onChange={(event) => setDraft({ ...draft, caixa: event.target.value })}>
+                {caixas.map((name) => <option key={name}>{name}</option>)}
+              </select>
+            </label>
+            <div className="pdv-cad-filters-go">
+              <button className="pdv-cad-btn" type="button" onClick={() => { setDraft(EMPTY_SALE_FILTERS); setFilters(EMPTY_SALE_FILTERS) }}>Limpar</button>
+              <button className="pdv-cad-btn pdv-cad-btn-blue" type="submit">Filtrar</button>
+            </div>
+          </form>
+          {payRows.length ? (
+            <div className="pdv-cad-table-wrap">
+              <h2 className="pdv-cad-kicker">Total por forma de pagamento</h2>
+              <table className="pdv-cad-table">
+                <thead><tr><th>Forma</th><th>Total</th></tr></thead>
+                <tbody>{payRows.map(([method, total]) => <tr key={method}><td>{method}</td><td>{total}</td></tr>)}</tbody>
+              </table>
+            </div>
+          ) : null}
+        </>
+      )}
+      columns={["Caixa", "Data", "Vendas", "Entradas", "Saídas", "Saldo"]}
       rows={rows}
-      hint={hint || undefined}
+      hint={rows.length ? hint || undefined : "Nenhuma venda para o filtro atual."}
     />
   )
 }
@@ -263,7 +322,7 @@ export function CadastrarDespesa({ receita = false }: { receita?: boolean }) {
   const navigate = useNavigate()
   const [caixas, setCaixas] = useState<string[]>([])
   const [status, setStatus] = useState("")
-  const [form, setForm] = useState({ descricao: "", total: "", data: "", caixa: "" })
+  const [form, setForm] = useState({ descricao: "", total: "", data: todayIso(), caixa: "" })
 
   useEffect(() => {
     listLojaCaixas(true).then((rows) => setCaixas(rows.map((item) => item.name))).catch(() => setCaixas([]))

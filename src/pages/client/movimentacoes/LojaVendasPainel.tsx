@@ -40,9 +40,9 @@ export type LojaPdvSale = {
 }
 
 const ACTIONS = [
-  { label: "Nova", tone: "green" as const, href: "/client/pdv" },
-  { label: "Abertas", tone: "blue" as const, href: "/client/movimentacoes/vendas/abertas" },
   { label: "Concluídas", href: "/client/movimentacoes/vendas/concluidas" },
+  { label: "Abertas", tone: "blue" as const, href: "/client/movimentacoes/vendas/abertas" },
+  { label: "Nova", tone: "green" as const, href: "/client/pdv" },
 ]
 
 export async function listLojaSales(status?: "espera" | "finalizada") {
@@ -90,13 +90,13 @@ export function SaleGear({ sale, onClose }: { sale: LojaPdvSale; onClose: () => 
         <p><b>Cliente:</b> {sale.customerName}</p>
         <p><b>Vendedor:</b> {sale.sellerName || "Sem vendedor"}</p>
         <p><b>Caixa:</b> {sale.caixaName || "Sem caixa"}</p>
-        {sale.notes ? <p><b>Observação:</b> {sale.notes}</p> : null}
+        {sale.notes ? <p><b>Observação / IMEI:</b> {sale.notes}</p> : null}
         <p>Aberta em {when(sale.createdAt)} · {sale.status === "finalizada" ? `Concluída em ${when(sale.finalizedAt)}` : "Pendente de baixa"}</p>
         <h3>Itens</h3>
         <ul>
           {sale.lines.map((line) => (
             <li key={`${line.productId}-${line.name}`}>
-              <span>{line.qty} × {line.name}</span>
+              <span>{line.qty} × {line.name}{line.code ? ` · ref. ${line.code}` : ""}</span>
               <b>{formatMoneyRs(line.qty * Math.max(0, line.price - line.discount))}</b>
             </li>
           ))}

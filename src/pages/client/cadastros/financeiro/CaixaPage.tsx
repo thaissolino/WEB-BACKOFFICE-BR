@@ -25,6 +25,8 @@ export default function CaixaPage() {
   const [gearPay, setGearPay] = useState<string[]>([])
   const [gearUsers, setGearUsers] = useState<string[]>([])
   const [gearModo, setGearModo] = useState<"finaliza" | "espera">("finaliza")
+  const [gearPermitirTrocar, setGearPermitirTrocar] = useState(true)
+  const [gearSenha, setGearSenha] = useState("")
   const [gearSaving, setGearSaving] = useState(false)
 
   function load() {
@@ -56,6 +58,8 @@ export default function CaixaPage() {
     setGearPay(namesOf(item.payload.formasPagamento))
     setGearUsers(namesOf(item.payload.vendedores))
     setGearModo(item.payload.modo === "espera" ? "espera" : "finaliza")
+    setGearPermitirTrocar(item.payload.permitirTrocarCaixa !== false)
+    setGearSenha(String(item.payload.senhaAcesso || ""))
     try {
       const [pays, users] = await Promise.all([
         listCatalog("payment", true),
@@ -77,7 +81,13 @@ export default function CaixaPage() {
     setGearSaving(true)
     setError("")
     try {
-      await patch(gear, { formasPagamento: gearPay, vendedores: gearUsers, modo: gearModo })
+      await patch(gear, {
+        formasPagamento: gearPay,
+        vendedores: gearUsers,
+        modo: gearModo,
+        permitirTrocarCaixa: gearPermitirTrocar,
+        senhaAcesso: gearSenha.trim(),
+      })
       setGear(null)
     } catch (err) {
       setError(parseError(err).friend || "Não foi possível salvar os parâmetros.")
@@ -306,6 +316,17 @@ export default function CaixaPage() {
                 <label>
                   <input type="radio" name="modo-caixa" checked={gearModo === "espera"} onChange={() => setGearModo("espera")} />
                   Este caixa só envia para vendas em aberto
+                </label>
+              </fieldset>
+              <fieldset>
+                <legend>Acesso</legend>
+                <label>
+                  <input type="checkbox" checked={gearPermitirTrocar} onChange={(event) => setGearPermitirTrocar(event.target.checked)} />
+                  Permitir trocar de caixa no PDV
+                </label>
+                <label>
+                  Senha para abrir o caixa (opcional)
+                  <input value={gearSenha} onChange={(event) => setGearSenha(event.target.value)} autoComplete="new-password" placeholder="Deixe vazio para não exigir" />
                 </label>
               </fieldset>
             </div>

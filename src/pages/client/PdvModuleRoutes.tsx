@@ -1,6 +1,7 @@
 import { Route } from "react-router-dom"
 import UsuarioForm from "./cadastros/usuarios/UsuarioForm"
 import GrupoForm from "./cadastros/usuarios/GrupoForm"
+import GroupEventosPage from "./cadastros/usuarios/GroupEventosPage"
 import { IdentificadorForm, RepresentanteForm, VincularIdentificador } from "./cadastros/usuarios/Representantes"
 import ComissoesPage from "./cadastros/usuarios/ComissoesPage"
 import RelatorioAtividades from "./cadastros/atividades/RelatorioAtividades"
@@ -68,6 +69,7 @@ export function PdvModuleRoutes() {
       <Route path="client/usuarios/cadastrar" element={<UsuarioForm />} />
       <Route path="client/usuarios/inativos" element={<UsersList inactive />} />
       <Route path="client/usuarios/grupos/cadastrar" element={<GrupoForm />} />
+      <Route path="client/usuarios/grupos/eventos" element={<GroupEventosPage />} />
       <Route path="client/usuarios/grupos" element={<GroupsList />} />
       <Route path="client/usuarios/representantes/identificadores/cadastrar" element={<IdentificadorForm />} />
       <Route path="client/usuarios/representantes/identificadores/inativos" element={<IdsList inactive />} />

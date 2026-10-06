@@ -11,7 +11,7 @@ import { VitrineAuthLayout } from "./vitrine/VitrineAuthLayout";
  */
 export default function TrocarSenhaCliente() {
   const navigate = useNavigate();
-  const { client, markPasswordChanged } = useClientAuth();
+  const { client, refreshClient } = useClientAuth();
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -34,7 +34,7 @@ export default function TrocarSenhaCliente() {
     setIsSubmitting(true);
     try {
       await api.post("/clients/change-password", firstAccess ? { newPassword } : { currentPassword, newPassword });
-      markPasswordChanged();
+      await refreshClient();
       navigate("/client/dashboard");
     } catch (err) {
       const parsed = parseError(err);
