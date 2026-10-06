@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react"
+import { FormEvent, useEffect, useMemo, useState } from "react"
 import { Settings, X } from "lucide-react"
 import FilterPage, { type FilterPageProps } from "../pdv/FilterPage"
 import { api, parseError } from "../../../services/api"
 import { formatMoneyRs } from "../cadastros/produtos/types"
+import { EMPTY_SALE_FILTERS, filterLojaSales, type SaleFilters } from "./lojaSalesFilters"
 
 export type LojaPdvLine = {
   productId: string
@@ -16,6 +17,7 @@ export type LojaPdvLine = {
 export type LojaPdvPayment = {
   method: string
   amount: number
+  parcelas?: number
 }
 
 export type LojaPdvSale = {
@@ -26,6 +28,7 @@ export type LojaPdvSale = {
   status: "espera" | "finalizada"
   customerName: string
   sellerName: string
+  notes?: string
   lines: LojaPdvLine[]
   payments: LojaPdvPayment[]
   total: number
@@ -56,7 +59,10 @@ function when(value?: string | null) {
 
 function payText(sale: LojaPdvSale) {
   if (!sale.payments.length) return "—"
-  return sale.payments.map((pay) => `${pay.method} ${formatMoneyRs(pay.amount)}`).join(" · ")
+  return sale.payments.map((pay) => {
+    const label = pay.parcelas && pay.parcelas > 1 ? `${pay.method} ${pay.parcelas}x` : pay.method
+    return `${label} ${formatMoneyRs(pay.amount)}`
+  }).join(" · ")
 }
 
 export function SaleGear({ sale, onClose }: { sale: LojaPdvSale; onClose: () => void }) {
@@ -81,7 +87,10 @@ export function SaleGear({ sale, onClose }: { sale: LojaPdvSale; onClose: () => 
           <X size={16} />
         </button>
         <h2 id="loja-venda-title">Venda {sale.code}</h2>
-        <p>{sale.customerName} · {sale.caixaName || "Sem caixa"} · {sale.sellerName || "Sem vendedor"}</p>
+        <p><b>Cliente:</b> {sale.customerName}</p>
+        <p><b>Vendedor:</b> {sale.sellerName || "Sem vendedor"}</p>
+        <p><b>Caixa:</b> {sale.caixaName || "Sem caixa"}</p>
+        {sale.notes ? <p><b>Observação:</b> {sale.notes}</p> : null}
         <p>Aberta em {when(sale.createdAt)} · {sale.status === "finalizada" ? `Concluída em ${when(sale.finalizedAt)}` : "Pendente de baixa"}</p>
         <h3>Itens</h3>
         <ul>
@@ -97,7 +106,7 @@ export function SaleGear({ sale, onClose }: { sale: LojaPdvSale; onClose: () => 
           {sale.payments.length === 0 ? <li><span>Nenhuma forma lançada</span><b>—</b></li> : null}
           {sale.payments.map((pay, index) => (
             <li key={`${pay.method}-${index}`}>
-              <span>{pay.method}</span>
+              <span>{pay.parcelas && pay.parcelas > 1 ? `${pay.method} · ${pay.parcelas}x` : pay.method}</span>
               <b>{formatMoneyRs(pay.amount)}</b>
             </li>
           ))}
@@ -108,10 +117,62 @@ export function SaleGear({ sale, onClose }: { sale: LojaPdvSale; onClose: () => 
   )
 }
 
+function SaleFilterBar({
+  filters,
+  draft,
+  caixas,
+  onDraft,
+  onApply,
+  onClear,
+}: {
+  filters: SaleFilters
+  draft: SaleFilters
+  caixas: string[]
+  onDraft: (next: SaleFilters) => void
+  onApply: (event: FormEvent) => void
+  onClear: () => void
+}) {
+  return (
+    <form className="pdv-cad-filters" onSubmit={onApply}>
+      <label>
+        Data início
+        <input type="date" value={draft.inicio} onChange={(event) => onDraft({ ...draft, inicio: event.target.value })} />
+      </label>
+      <label>
+        Data fim
+        <input type="date" value={draft.fim} onChange={(event) => onDraft({ ...draft, fim: event.target.value })} />
+      </label>
+      <label>
+        Cod. venda
+        <input value={draft.cod} onChange={(event) => onDraft({ ...draft, cod: event.target.value })} autoComplete="off" />
+      </label>
+      <label>
+        Cliente
+        <input value={draft.nome} onChange={(event) => onDraft({ ...draft, nome: event.target.value })} autoComplete="off" />
+      </label>
+      <label>
+        Caixa
+        <select value={draft.caixa} onChange={(event) => onDraft({ ...draft, caixa: event.target.value })}>
+          {caixas.map((name) => <option key={name}>{name}</option>)}
+        </select>
+      </label>
+      <div className="pdv-cad-filters-go">
+        <button className="pdv-cad-btn" type="button" onClick={onClear}>Limpar</button>
+        <button className="pdv-cad-btn pdv-cad-btn-blue" type="submit">Filtrar</button>
+      </div>
+      {filters.inicio || filters.fim || filters.cod || filters.nome || filters.caixa !== "Todos" ? (
+        <p className="pdv-cad-kicker">Filtro ativo.</p>
+      ) : null}
+    </form>
+  )
+}
+
 export function VendasMovimento({ status }: { status: "espera" | "finalizada" }) {
   const [sales, setSales] = useState<LojaPdvSale[]>([])
   const [open, setOpen] = useState<LojaPdvSale | null>(null)
   const [hint, setHint] = useState("Carregando...")
+  const [draft, setDraft] = useState<SaleFilters>(EMPTY_SALE_FILTERS)
+  const [filters, setFilters] = useState<SaleFilters>(EMPTY_SALE_FILTERS)
 
   useEffect(() => {
     listLojaSales(status)
@@ -122,17 +183,27 @@ export function VendasMovimento({ status }: { status: "espera" | "finalizada" })
       .catch((err) => setHint(parseError(err).friend || "Não foi possível carregar as vendas."))
   }, [status])
 
+  const caixas = useMemo(() => ["Todos", ...new Set(sales.map((sale) => sale.caixaName).filter(Boolean))], [sales])
+  const visible = useMemo(() => filterLojaSales(sales, filters), [sales, filters])
+
   return (
     <>
       <FilterPage
         title={status === "espera" ? "VENDAS ABERTAS" : "VENDAS CONCLUÍDAS"}
         actions={ACTIONS}
-        fields={[
-          { key: "cod", label: "Cod. Vendas" },
-          { key: "nome", label: "Nome do Cliente" },
-        ]}
+        fields={[]}
+        extra={(
+          <SaleFilterBar
+            filters={filters}
+            draft={draft}
+            caixas={caixas}
+            onDraft={setDraft}
+            onApply={(event) => { event.preventDefault(); setFilters(draft) }}
+            onClear={() => { setDraft(EMPTY_SALE_FILTERS); setFilters(EMPTY_SALE_FILTERS) }}
+          />
+        )}
         columns={["Código", "Caixa", "Cliente", "Vendedor", "Abertura", "Conclusão", "Total", "Pagamento", "Status"]}
-        rows={sales.map((sale) => [
+        rows={visible.map((sale) => [
           sale.code,
           sale.caixaName || "—",
           sale.customerName,
@@ -143,15 +214,16 @@ export function VendasMovimento({ status }: { status: "espera" | "finalizada" })
           payText(sale),
           sale.status === "finalizada" ? "Concluída" : "Em aberto",
         ])}
-        hint={hint || undefined}
+        hint={visible.length ? hint || undefined : "Nenhuma venda para o filtro atual."}
+        onRowClick={(index) => setOpen(visible[index])}
         closedAction={(index) => (
           <button
             className="pdv-cad-icon-btn"
             type="button"
-            aria-label={`Ver venda ${sales[index]?.code || ""}`}
+            aria-label={`Ver venda ${visible[index]?.code || ""}`}
             onClick={(event) => {
               event.stopPropagation()
-              setOpen(sales[index])
+              setOpen(visible[index])
             }}
           >
             <Settings size={16} aria-hidden="true" />
@@ -264,34 +336,51 @@ function reportView(path: string, sales: LojaPdvSale[]) {
 
 export function VendasRelatorio({ def }: { def: FilterPageProps & { path: string } }) {
   const [sales, setSales] = useState<LojaPdvSale[]>([])
-  const [columns, setColumns] = useState(def.columns)
-  const [rows, setRows] = useState<string[][]>([])
-  const [linked, setLinked] = useState(false)
   const [hint, setHint] = useState("Carregando...")
   const [open, setOpen] = useState<LojaPdvSale | null>(null)
+  const [draft, setDraft] = useState<SaleFilters>(EMPTY_SALE_FILTERS)
+  const [filters, setFilters] = useState<SaleFilters>(EMPTY_SALE_FILTERS)
 
   useEffect(() => {
     listLojaSales("finalizada")
       .then((list) => {
-        const view = reportView(def.path, list)
         setSales(list)
-        setColumns(view.columns)
-        setRows(view.rows)
-        setLinked(view.linked)
-        setHint(view.rows.length ? "" : "Nenhuma venda da loja neste relatório.")
+        setHint(list.length ? "" : "Nenhuma venda da loja neste relatório.")
       })
       .catch((err) => setHint(parseError(err).friend || "Não foi possível carregar o relatório."))
   }, [def.path])
+
+  const caixas = useMemo(() => ["Todos", ...new Set(sales.map((sale) => sale.caixaName).filter(Boolean))], [sales])
+  const filtered = useMemo(() => filterLojaSales(sales, filters), [sales, filters])
+  const view = useMemo(() => reportView(def.path, filtered), [def.path, filtered])
+  const saleByCode = useMemo(() => new Map(filtered.map((sale) => [sale.code, sale])), [filtered])
 
   return (
     <>
       <FilterPage
         {...def}
-        columns={columns}
-        rows={rows}
-        hint={hint || def.hint}
-        closedAction={linked ? (index) => {
-          const sale = sales.find((item) => item.code === rows[index]?.[0])
+        fields={[]}
+        extra={(
+          <SaleFilterBar
+            filters={filters}
+            draft={draft}
+            caixas={caixas}
+            onDraft={setDraft}
+            onApply={(event) => { event.preventDefault(); setFilters(draft) }}
+            onClear={() => { setDraft(EMPTY_SALE_FILTERS); setFilters(EMPTY_SALE_FILTERS) }}
+          />
+        )}
+        columns={view.columns}
+        rows={view.rows}
+        hint={view.rows.length ? hint || def.hint : "Nenhuma venda para o filtro atual."}
+        onRowClick={view.linked ? (index) => {
+          const code = view.rows[index]?.[0]
+          const sale = code ? saleByCode.get(code) : undefined
+          if (sale) setOpen(sale)
+        } : undefined}
+        closedAction={view.linked ? (index) => {
+          const code = view.rows[index]?.[0]
+          const sale = code ? saleByCode.get(code) : undefined
           if (!sale) return null
           return (
             <button
