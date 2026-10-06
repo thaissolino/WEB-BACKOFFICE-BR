@@ -1,5 +1,5 @@
 import { FormEvent, ReactNode, useEffect, useId, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import {
   AlertTriangle,
   AlignJustify,
@@ -253,8 +253,11 @@ function formFromProduct(product: PdvProduct) {
 
 export default function CadastrarProduto() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [params] = useSearchParams();
   const editingId = params.get("id") || "";
+  const [lockedName, setLockedName] = useState("");
+  const [askCopy, setAskCopy] = useState(false);
   const [tab, setTab] = useState<CadTab>("gerais");
   const [form, setForm] = useState(EMPTY_FORM);
   const [, setBrands] = useState<string[]>([]);
@@ -281,6 +284,15 @@ export default function CadastrarProduto() {
   // const unId = useId();
   const fornId = useId();
   const origemId = useId();
+
+  useEffect(() => {
+    const next = (location.state || null) as { duplicate?: typeof EMPTY_FORM; fromName?: string } | null;
+    if (!next?.duplicate || !next.fromName || editingId) return;
+    setForm(next.duplicate);
+    setLockedName(next.fromName);
+    setAskCopy(false);
+    setStatus("Cópia pronta. Troque o nome antes de cadastrar.");
+  }, [editingId, location.key, location.state]);
 
   useEffect(() => {
     if (!editingId) return;
@@ -327,6 +339,10 @@ export default function CadastrarProduto() {
     }
     if (!form.nome.trim()) {
       setStatus("Informe o nome do produto.");
+      return;
+    }
+    if (!editingId && lockedName && form.nome.trim().toLowerCase() === lockedName.trim().toLowerCase()) {
+      setStatus("Esse produto já está cadastrado. Troque o nome para concluir a cópia.");
       return;
     }
 
@@ -391,7 +407,11 @@ export default function CadastrarProduto() {
       }
     } catch (err) {
       const parsed = parseError(err);
-      setStatus(parsed.friend || parsed.message || "Não foi possível cadastrar o produto.");
+      if (parsed.code === "PRODUCT_NAME_EXISTS") {
+        setStatus("Já existe um produto com esse nome. Troque o nome para cadastrar.");
+      } else {
+        setStatus(parsed.friend || parsed.message || "Não foi possível cadastrar o produto.");
+      }
     } finally {
       setBusy(false);
     }
@@ -910,10 +930,43 @@ export default function CadastrarProduto() {
                   <Plus size={16} strokeWidth={2.6} aria-hidden="true" />
                   Cadastrar e Imprimir Etiqueta
                 </button>
+                <button
+                  className="pdv-cad-btn"
+                  type="button"
+                  disabled={busy || !editingId}
+                  onClick={() => setAskCopy(true)}
+                >
+                  Duplicar produto
+                </button>
               </div>
             </form>
         </div>
       </section>
+      {askCopy ? (
+        <div className="pdv-caixa-confirm" onClick={() => setAskCopy(false)}>
+          <div className="pdv-caixa-confirm-card" role="dialog" aria-modal="true" aria-labelledby="pdv-dup-title" onClick={(event) => event.stopPropagation()}>
+            <h2 id="pdv-dup-title">Duplicar este produto?</h2>
+            <p>Depois da cópia é preciso trocar o nome. Sem isso o cadastro não conclui.</p>
+            <div className="pdv-caixa-confirm-actions">
+              <button className="pdv-cad-btn" type="button" onClick={() => setAskCopy(false)}>Cancelar</button>
+              <button
+                className="pdv-cad-btn"
+                type="button"
+                onClick={() => navigate("/client/produtos/cadastrar", { state: { duplicate: { ...form, estoque: "0" }, fromName: form.nome } })}
+              >
+                Sem estoque
+              </button>
+              <button
+                className="pdv-cad-btn pdv-cad-btn-green"
+                type="button"
+                onClick={() => navigate("/client/produtos/cadastrar", { state: { duplicate: form, fromName: form.nome } })}
+              >
+                Com estoque
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       <CadastrarMarcaModal
         open={quick === "marca"}

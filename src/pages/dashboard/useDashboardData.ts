@@ -62,6 +62,8 @@ export function useDashboardData() {
   return {
     user,
     users,
+    setUsers,
+    setTotalUsuarios,
     totalUsuarios,
     totalGrupos,
     totalChamadas: "431,225",

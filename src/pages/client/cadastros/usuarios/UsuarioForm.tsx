@@ -4,7 +4,7 @@ import { Plus } from "lucide-react"
 import CadastroShell from "../CadastroShell"
 import { FormRow, RadioSimNao } from "../catalog/FormBits"
 import { createCatalog, getCatalog, listCatalog, updateCatalog } from "../catalog/catalogApi"
-import { parseError } from "../../../../services/api"
+import { api, parseError } from "../../../../services/api"
 import { formatPhoneBr } from "../../../../utils/brMasks"
 import { usePdvSession } from "../../dashboard/PdvShell"
 
@@ -43,6 +43,7 @@ export default function UsuarioForm() {
   const [caixas, setCaixas] = useState<{ code: number; name: string }[]>([])
   const [status, setStatus] = useState("")
   const [saving, setSaving] = useState(false)
+  const [enviarSenha, setEnviarSenha] = useState(false)
 
   useEffect(() => {
     listCatalog("group", true).then((rows) => setGroups(rows.map((item) => ({ code: item.code, name: item.name })))).catch(() => setGroups([]))
@@ -91,7 +92,7 @@ export default function UsuarioForm() {
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault()
-    if (!form.nome.trim() || !form.usuario.trim() || (!editId && !form.senha.trim()) || !form.apelido.trim() || !form.email.trim() || !form.celular.trim() || !form.loja || !form.grupo) {
+    if (!form.nome.trim() || !form.usuario.trim() || (!editId && !enviarSenha && !form.senha.trim()) || !form.apelido.trim() || !form.email.trim() || !form.celular.trim() || !form.loja || !form.grupo) {
       setStatus("Preencha os campos obrigatórios.")
       return
     }
@@ -99,8 +100,10 @@ export default function UsuarioForm() {
     setStatus("")
     const payload = { ...form }
     try {
-      if (editId) await updateCatalog("user", editId, { name: form.nome, payload, active: true })
-      else await createCatalog("user", { name: form.nome, payload, active: true })
+      const saved = editId
+        ? await updateCatalog("user", editId, { name: form.nome, payload, active: true })
+        : await createCatalog("user", { name: form.nome, payload, active: true })
+      if (enviarSenha) await api.post(`/clients/catalog/user/${saved.code}/senha`)
       navigate("/client/usuarios")
     } catch (err) {
       const parsed = parseError(err)
@@ -126,8 +129,14 @@ export default function UsuarioForm() {
             <FormRow label="Usuário para logar no sistema" required>
               <input value={form.usuario} onChange={(event) => setForm({ ...form, usuario: event.target.value })} autoComplete="off" />
             </FormRow>
-            <FormRow label="Senha" required>
+            <FormRow label="Senha" required={!enviarSenha && !editId}>
               <input type="password" value={form.senha} onChange={(event) => setForm({ ...form, senha: event.target.value })} autoComplete="new-password" />
+            </FormRow>
+            <FormRow label="Troca no primeiro acesso">
+              <label>
+                <input type="checkbox" checked={enviarSenha} onChange={(event) => setEnviarSenha(event.target.checked)} />
+                Enviar senha para o e-mail cadastrado e pedir troca no primeiro acesso
+              </label>
             </FormRow>
             <FormRow label="Apelido" required>
               <input value={form.apelido} onChange={(event) => setForm({ ...form, apelido: event.target.value })} autoComplete="off" />

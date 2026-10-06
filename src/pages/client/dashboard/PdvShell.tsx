@@ -1,6 +1,7 @@
 import { createContext, FormEvent, ReactNode, useContext, useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
+  ArrowLeft,
   ChevronDown,
   Headphones,
   Home,
@@ -472,6 +473,12 @@ export default function PdvShell({
           </form>
 
           <nav className="pdv-icons" aria-label="Atalhos">
+            {onDashboard ? null : (
+              <button className="pdv-voltar-link" type="button" onClick={() => navigate(-1)}>
+                <ArrowLeft size={16} strokeWidth={2.2} aria-hidden="true" />
+                Voltar
+              </button>
+            )}
             <LayoutModeToggle />
             <PdvTip label="Voltar ao painel">
               <button

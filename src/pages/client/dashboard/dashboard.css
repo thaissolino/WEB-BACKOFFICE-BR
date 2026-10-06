@@ -350,6 +350,20 @@
   z-index: 1;
 }
 
+.pdv-voltar-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  margin-right: 8px;
+  padding: 0 12px;
+  border: 1px solid rgba(28, 20, 12, 0.12);
+  border-radius: 999px;
+  background: #fff;
+  color: #1c140c;
+  cursor: pointer;
+}
+
 .pdv-ico {
   flex: 0 0 auto;
   width: 40px;
