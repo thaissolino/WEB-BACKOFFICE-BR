@@ -2023,7 +2023,7 @@ export function InvoiceHistoryReport({
                       idProductInvoice: selectedProductToAnalyze.id,
                       bodyupdate: {
                         analising: true,
-                        quantityAnalizer: selectedProductToAnalyze.quantityAnalizer + quantityAnalizer,
+                        quantityAnalizer: (Number(selectedProductToAnalyze.quantityAnalizer) || 0) + quantityAnalizer,
                       },
                     });
                     setIsSavingId("");
@@ -2039,6 +2039,11 @@ export function InvoiceHistoryReport({
                     setSelectedInvoice(novaInvoice); // <- ESSA LINHA É CRUCIAL
                   } catch (err) {
                     console.error("Erro ao enviar para análise", err);
+                    Swal.fire({
+                      icon: "error",
+                      title: "Erro ao enviar para análise",
+                      text: "Não foi possível salvar. Tente novamente.",
+                    });
                   } finally {
                     setIsSaving(false);
                     setIsSavingId("");
