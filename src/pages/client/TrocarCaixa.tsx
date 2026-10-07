@@ -286,17 +286,35 @@ function TrocarCaixaBoard() {
 
       {passAsk ? (
         <div className="pdv-caixa-confirm">
-          <div className="pdv-caixa-confirm-card" role="dialog" aria-modal="true" aria-labelledby="pdv-caixa-pass-title">
-            <h2 id="pdv-caixa-pass-title">Senha do caixa · {picked}</h2>
-            <p>Informe a senha de acesso configurada para este caixa.</p>
-            <label>
-              Senha
-              <input type="password" value={passInput} autoComplete="off" onChange={(event) => setPassInput(event.target.value)} />
-            </label>
-            <div className="pdv-caixa-confirm-actions">
-              <button className="pdv-cad-btn" type="button" onClick={() => { setPassAsk(false); setPendingAction(null) }}>Cancelar</button>
-              <button className="pdv-cad-btn pdv-cad-btn-green" type="button" onClick={confirmPass}>Entrar</button>
-            </div>
+          <div className="pdv-caixa-confirm-card cx-open-modal pdv-caixa-pass-card" role="dialog" aria-modal="true" aria-labelledby="pdv-caixa-pass-title">
+            <header className="cx-open-head">
+              <div>
+                <h2 id="pdv-caixa-pass-title">Acesso ao caixa</h2>
+                <p className="cx-open-sub">{picked}</p>
+              </div>
+            </header>
+            <form
+              className="cx-client-modal-form"
+              onSubmit={(event) => {
+                event.preventDefault();
+                confirmPass();
+              }}
+            >
+              <label>
+                Senha de acesso
+                <input
+                  type="password"
+                  value={passInput}
+                  autoComplete="off"
+                  autoFocus
+                  onChange={(event) => setPassInput(event.target.value)}
+                />
+              </label>
+              <div className="pdv-caixa-confirm-actions">
+                <button className="pdv-cad-btn" type="button" onClick={() => { setPassAsk(false); setPendingAction(null) }}>Cancelar</button>
+                <button className="pdv-cad-btn pdv-cad-btn-green" type="submit">Entrar no caixa</button>
+              </div>
+            </form>
           </div>
         </div>
       ) : null}
