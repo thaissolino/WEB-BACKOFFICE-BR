@@ -43,8 +43,14 @@ export function ModalAnaliseProduct({ product, onClose, onConfirm }: Props) {
   };
 
   return createPortal(
-    <div className="fixed inset-0 bg-black/40 flex justify-center items-center z-50">
-      <div className="bg-white p-6 rounded-2xl shadow-xl w-full max-w-md border border-gray-200">
+    <div
+      className="fixed inset-0 bg-black/60 flex justify-center items-center z-[120] p-4"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white p-6 rounded-2xl shadow-xl w-full max-w-md border border-gray-200"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-lg font-bold text-gray-800">Enviar para Análise</h2>
           <button onClick={onClose} className="text-gray-500 hover:text-red-500 transition-colors">
@@ -91,6 +97,6 @@ export function ModalAnaliseProduct({ product, onClose, onConfirm }: Props) {
         </div>
       </div>
     </div>,
-    document.getElementById("modal-root") as HTMLElement
+    document.getElementById("modal-root") ?? document.body
   );
 }

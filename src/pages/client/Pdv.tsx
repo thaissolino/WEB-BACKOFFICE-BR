@@ -65,6 +65,13 @@ function isCreditLabel(name: string, meta?: PayMeta) {
   return lower.includes("crédito") || lower.includes("credito")
 }
 
+function needsParcelas(name: string, meta?: PayMeta) {
+  if (isCreditLabel(name, meta)) return true
+  if (meta?.cartao) return true
+  const lower = name.toLowerCase()
+  return lower.includes("cartão") || lower.includes("cartao")
+}
+
 function payLabel(pay: PayLine) {
   if (pay.parcelas && pay.parcelas > 1) return `${pay.method} · ${pay.parcelas}x`
   return pay.method
