@@ -4755,6 +4755,248 @@
   margin-top: 6px;
 }
 
+.cx-client-pick {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(28, 20, 12, 0.12);
+  background: #fff;
+  cursor: pointer;
+  text-align: left;
+}
+
+.cx-client-pick-label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #8a8178;
+}
+
+.cx-client-pick strong {
+  flex: 1;
+  font-size: 0.95rem;
+}
+
+.cx-client-picker {
+  width: min(520px, 100%);
+}
+
+.cx-client-picker-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(28, 20, 12, 0.12);
+  background: #fff;
+  margin-bottom: 12px;
+}
+
+.cx-client-picker-search input {
+  flex: 1;
+  border: 0;
+  outline: none;
+  min-height: 32px;
+  background: transparent;
+}
+
+.cx-client-picker-list {
+  list-style: none;
+  margin: 0 0 12px;
+  padding: 0;
+  max-height: 280px;
+  overflow: auto;
+  display: grid;
+  gap: 6px;
+}
+
+.cx-client-picker-list button {
+  width: 100%;
+  text-align: left;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(28, 20, 12, 0.08);
+  background: #faf8f4;
+  cursor: pointer;
+}
+
+.cx-pay-value-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: end;
+  margin-bottom: 10px;
+}
+
+.cx-pay-value-row .cx-received {
+  flex: 1 1 140px;
+  margin: 0;
+}
+
+.cx-parcelas-inline {
+  display: grid;
+  gap: 4px;
+  font-size: 0.82rem;
+}
+
+.cx-parcelas-inline select {
+  min-height: 40px;
+  border-radius: 12px;
+  border: 1px solid rgba(28, 20, 12, 0.12);
+  padding: 0 10px;
+  background: #fff;
+}
+
+.cx-pay-value-row .cx-pay-btn {
+  min-width: 44px;
+  min-height: 40px;
+  border-radius: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cx-line-qty-plus {
+  justify-content: flex-start;
+  gap: 6px;
+}
+
+.cx-line-qty-plus button {
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  border: 1px solid rgba(28, 20, 12, 0.12);
+  background: #1f7a45;
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cx-split-parcelas,
+.cx-split-amount input {
+  min-height: 34px;
+  border-radius: 10px;
+  border: 1px solid rgba(28, 20, 12, 0.12);
+  padding: 0 8px;
+  background: #fff;
+  max-width: 88px;
+}
+
+.cx-split-amount {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.82rem;
+}
+
+.cx-open-item.is-clickable {
+  cursor: pointer;
+  transition: box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.cx-open-item.is-clickable:hover {
+  box-shadow: 0 8px 24px rgba(28, 20, 12, 0.08);
+}
+
+.cx-open-tag-go {
+  color: #1f7a45;
+  font-weight: 600;
+}
+
+.pdv-prod-saved-bar {
+  position: sticky;
+  top: 8px;
+  z-index: 5;
+  box-shadow: 0 8px 24px rgba(22, 101, 52, 0.15);
+}
+
+.pdv-prod-dup-banner {
+  position: sticky;
+  top: 8px;
+  z-index: 4;
+}
+
+.pdv-caixa-pass-card {
+  width: min(420px, 100%);
+  border-radius: 18px;
+}
+
+.cx-hits li {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.cx-hit-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.cx-hit-add {
+  flex: 0 0 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  border: 1px solid rgba(28, 20, 12, 0.12);
+  background: #fff;
+  color: #1f7a45;
+}
+
+.cx-client-picker-list button {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  text-align: left;
+}
+
+.cx-client-picker-list button span {
+  font-size: 0.78rem;
+  color: #6b7280;
+}
+
+.pdv-cad-totals-footer {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+  margin-top: 20px;
+  padding: 16px 18px;
+  border-radius: 16px;
+  background: linear-gradient(180deg, #f8faf9 0%, #eef6f0 100%);
+  border: 1px solid rgba(31, 122, 69, 0.12);
+}
+
+.pdv-cad-totals-footer p {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+}
+
+.pdv-cad-totals-footer span {
+  font-size: 0.78rem;
+  color: #6b7280;
+}
+
+.pdv-cad-totals-footer strong {
+  font-size: 1.05rem;
+  color: #163b24;
+}
+
+.cx-pay-value-row {
+  grid-template-columns: 1fr auto;
+}
+
+.cx-pay-value-row .cx-pay-btn {
+  display: none;
+}
+
 @media print {
   .cx-head,
   .cx-entry,

@@ -253,6 +253,7 @@ export default function CatalogList({ config, inactive = false }: { config: Cata
             </form>
           ) : null}
 
+          {toast ? <p className="pdv-prod-saved-bar" role="status">{toast}</p> : null}
           {error ? <p className="pdv-prod-status" role="alert">{error}</p> : null}
 
           <div className="pdv-cad-table-wrap">
@@ -298,7 +299,6 @@ export default function CatalogList({ config, inactive = false }: { config: Cata
           {visible.length === 0 ? (
             <p className="pdv-cad-kicker">{config.emptyHint || "Nenhum registro para o filtro atual."}</p>
           ) : null}
-          <p className="pdv-sr" aria-live="polite">{toast}</p>
         </div>
       </section>
     </CadastroShell>

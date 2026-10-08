@@ -91,8 +91,15 @@ function serialsOf(order: ClosedSale, line: Line) {
     .filter((device) => (device.code || "").trim().toUpperCase() === code)
     .map((device) => device.imei)
     .filter(Boolean);
-  if (linked.length) return linked;
-  return (line.imeis || []).filter(Boolean);
+  const seen = new Set<string>();
+  const all: string[] = [];
+  for (const serial of [...linked, ...(line.imeis || [])]) {
+    const key = (serial || "").trim().toUpperCase();
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    all.push(serial);
+  }
+  return all;
 }
 
 function serialList(serials: string[]) {

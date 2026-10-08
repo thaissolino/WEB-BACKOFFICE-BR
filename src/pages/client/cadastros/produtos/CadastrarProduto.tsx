@@ -272,6 +272,7 @@ export default function CadastrarProduto() {
   const [busy, setBusy] = useState(false);
   const [photo1, setPhoto1] = useState<File | null>(null);
   const [photo2, setPhoto2] = useState<File | null>(null);
+  const [copyPhotoFrom, setCopyPhotoFrom] = useState<{ photoFileId?: string | null; photoPath?: string | null } | null>(null);
   const [balanca, setBalanca] = useState({
     disponivel: false,
     codInterno: true,
@@ -302,7 +303,10 @@ export default function CadastrarProduto() {
       .get(`/clients/products/${editingId}`)
       .then(({ data }) => {
         const product = data.product as PdvProduct | undefined;
-        if (product) setForm(formFromProduct(product));
+        if (product) {
+          setForm(formFromProduct(product));
+          setCopyPhotoFrom({ photoFileId: product.photoFileId, photoPath: product.photoPath });
+        }
       })
       .catch((err) => {
         const parsed = parseError(err);
@@ -391,6 +395,12 @@ export default function CadastrarProduto() {
         const body = new FormData();
         body.append("file", photo1);
         await api.post(`/clients/products/${productId}/photo`, body);
+      } else if (productId && !editingId && copyPhotoFrom?.photoFileId && copyPhotoFrom?.photoPath) {
+        await api.put(`/clients/products/${productId}`, {
+          ...body,
+          photoFileId: copyPhotoFrom.photoFileId,
+          photoPath: copyPhotoFrom.photoPath,
+        });
       }
       if (editingId) {
         setStatus("Produto atualizado.");
@@ -399,7 +409,9 @@ export default function CadastrarProduto() {
         setSavedFlash(true);
         setStatus("");
         window.setTimeout(() => setSavedFlash(false), 4000);
-        if (data?.product?.id) navigate(`/client/produtos/cadastrar?id=${data.product.id}`, { replace: true });
+        if (data?.product?.id) {
+          navigate("/client/produtos", { replace: true });
+        }
       } else {
         setStatus(
           mode === "novo"
@@ -443,14 +455,7 @@ export default function CadastrarProduto() {
               <button
                 className="pdv-cad-btn pdv-cad-btn-back pdv-voltar"
                 type="button"
-                onClick={() => {
-                  const idx = window.history.state?.idx;
-                  if (typeof idx === "number" && idx > 0) {
-                    navigate(-1);
-                    return;
-                  }
-                  navigate("/client/produtos");
-                }}
+                onClick={() => navigate("/client/produtos")}
               >
                 Voltar
               </button>
@@ -974,14 +979,14 @@ export default function CadastrarProduto() {
               <button
                 className="pdv-cad-btn"
                 type="button"
-                onClick={() => navigate("/client/produtos/cadastrar", { state: { duplicate: { ...form, estoque: "0" }, fromName: form.nome } })}
+                onClick={() => navigate("/client/produtos/cadastrar", { state: { duplicate: { ...form, estoque: "0" }, fromName: form.nome, copyPhotoFrom } })}
               >
                 Sem estoque
               </button>
               <button
                 className="pdv-cad-btn pdv-cad-btn-green"
                 type="button"
-                onClick={() => navigate("/client/produtos/cadastrar", { state: { duplicate: form, fromName: form.nome } })}
+                onClick={() => navigate("/client/produtos/cadastrar", { state: { duplicate: form, fromName: form.nome, copyPhotoFrom } })}
               >
                 Com estoque
               </button>

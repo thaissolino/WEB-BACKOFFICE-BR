@@ -132,6 +132,9 @@ export function RelatorioCaixa() {
   })
 
   const payRows = [...payTotals.entries()].map(([method, total]) => [method, brl(total)])
+  const sumVendas = filtered.reduce((sum, sale) => sum + sale.total, 0)
+  const sumRecebido = filtered.reduce((sum, sale) => sum + sale.received, 0)
+  const sumQtd = filtered.length
 
   return (
     <FilterPage
@@ -161,6 +164,11 @@ export function RelatorioCaixa() {
               </table>
             </div>
           ) : null}
+          <div className="pdv-cad-totals-footer">
+            <p><span>Vendas no período</span><strong>{sumQtd}</strong></p>
+            <p><span>Total vendido</span><strong>{brl(sumVendas)}</strong></p>
+            <p><span>Total recebido</span><strong>{brl(sumRecebido)}</strong></p>
+          </div>
         </>
       )}
       columns={["Caixa", "Data", "Vendas", "Entradas", "Saídas", "Saldo"]}

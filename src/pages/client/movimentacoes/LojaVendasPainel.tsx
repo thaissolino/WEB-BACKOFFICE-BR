@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useMemo, useState } from "react"
-import { Settings, X } from "lucide-react"
+import { Printer, Settings, X } from "lucide-react"
 import FilterPage, { type FilterPageProps } from "../pdv/FilterPage"
 import { api, parseError } from "../../../services/api"
 import { formatMoneyRs } from "../cadastros/produtos/types"
@@ -40,9 +40,9 @@ export type LojaPdvSale = {
 }
 
 const ACTIONS = [
-  { label: "Concluídas", href: "/client/movimentacoes/vendas/concluidas" },
-  { label: "Abertas", tone: "blue" as const, href: "/client/movimentacoes/vendas/abertas" },
-  { label: "Nova", tone: "green" as const, href: "/client/pdv" },
+  { label: "Concluídas", tone: "blue" as const, href: "/client/movimentacoes/vendas/concluidas" },
+  { label: "Abertas", href: "/client/movimentacoes/vendas/abertas" },
+  { label: "Nova venda", tone: "green" as const, href: "/client/pdv" },
 ]
 
 export async function listLojaSales(status?: "espera" | "finalizada") {
@@ -65,7 +65,17 @@ function payText(sale: LojaPdvSale) {
   }).join(" · ")
 }
 
-export function SaleGear({ sale, onClose }: { sale: LojaPdvSale; onClose: () => void }) {
+function imeisFromNotes(notes?: string) {
+  if (!notes?.trim()) return [] as string[]
+  return notes
+    .split(/[\s,;|]+/g)
+    .map((item) => item.trim())
+    .filter((item) => item.length >= 8)
+}
+
+export function SaleDetailPanel({ sale, onClose }: { sale: LojaPdvSale; onClose: () => void }) {
+  const imeis = imeisFromNotes(sale.notes)
+
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
       if (event.key === "Escape") onClose()
@@ -80,29 +90,41 @@ export function SaleGear({ sale, onClose }: { sale: LojaPdvSale; onClose: () => 
         className="pdv-caixa-confirm-card pdv-gear-card"
         role="dialog"
         aria-modal="true"
-        aria-labelledby="loja-venda-title"
+        aria-labelledby="loja-venda-detail-title"
         onClick={(event) => event.stopPropagation()}
       >
         <button className="pdv-cad-icon-btn pdv-gear-close" type="button" aria-label="Fechar" onClick={onClose}>
           <X size={16} />
         </button>
-        <h2 id="loja-venda-title">Venda {sale.code}</h2>
-        <p><b>Cliente:</b> {sale.customerName}</p>
-        <p><b>Vendedor:</b> {sale.sellerName || "Sem vendedor"}</p>
-        <p><b>Caixa:</b> {sale.caixaName || "Sem caixa"}</p>
-        {sale.notes ? <p><b>Observação / IMEI:</b> {sale.notes}</p> : null}
-        <p>Aberta em {when(sale.createdAt)} · {sale.status === "finalizada" ? `Concluída em ${when(sale.finalizedAt)}` : "Pendente de baixa"}</p>
+        <h2 id="loja-venda-detail-title">Venda {sale.code}</h2>
+        <div className="pdv-gear-grid">
+          <p><b>Cliente:</b> {sale.customerName}</p>
+          <p><b>Vendedor:</b> {sale.sellerName || "Sem vendedor"}</p>
+          <p><b>Caixa:</b> {sale.caixaName || "Sem caixa"}</p>
+          <p><b>Abertura:</b> {when(sale.createdAt)}</p>
+          <p><b>Conclusão:</b> {sale.status === "finalizada" ? when(sale.finalizedAt) : "Pendente"}</p>
+        </div>
         <h3>Itens</h3>
-        <ul>
+        <ul className="pdv-gear-list">
           {sale.lines.map((line) => (
             <li key={`${line.productId}-${line.name}`}>
-              <span>{line.qty} × {line.name}{line.code ? ` · ref. ${line.code}` : ""}</span>
+              <span>{line.qty} × {line.name}{line.code ? ` · ${line.code}` : ""}</span>
               <b>{formatMoneyRs(line.qty * Math.max(0, line.price - line.discount))}</b>
             </li>
           ))}
         </ul>
+        {imeis.length ? (
+          <>
+            <h3>IMEI / serial</h3>
+            <ul className="pdv-gear-list">
+              {imeis.map((serial) => <li key={serial}><code>{serial}</code></li>)}
+            </ul>
+          </>
+        ) : sale.notes ? (
+          <p><b>Observação:</b> {sale.notes}</p>
+        ) : null}
         <h3>Pagamento</h3>
-        <ul>
+        <ul className="pdv-gear-list">
           {sale.payments.length === 0 ? <li><span>Nenhuma forma lançada</span><b>—</b></li> : null}
           {sale.payments.map((pay, index) => (
             <li key={`${pay.method}-${index}`}>
@@ -111,7 +133,38 @@ export function SaleGear({ sale, onClose }: { sale: LojaPdvSale; onClose: () => 
             </li>
           ))}
         </ul>
-        <p>Total {formatMoneyRs(sale.total)} · Recebido {formatMoneyRs(sale.received)} · Troco {formatMoneyRs(sale.changeAmount)}</p>
+        <p><b>Total</b> {formatMoneyRs(sale.total)} · <b>Recebido</b> {formatMoneyRs(sale.received)} · <b>Troco</b> {formatMoneyRs(sale.changeAmount)}</p>
+      </div>
+    </div>
+  )
+}
+
+export function SaleActionsMenu({ sale, onClose }: { sale: LojaPdvSale; onClose: () => void }) {
+  useEffect(() => {
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "Escape") onClose()
+    }
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+  }, [onClose])
+
+  return (
+    <div className="pdv-caixa-confirm" onClick={onClose}>
+      <div
+        className="pdv-caixa-confirm-card"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="loja-venda-actions-title"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <h2 id="loja-venda-actions-title">Ações · {sale.code}</h2>
+        <p className="cx-open-sub">Cliente: {sale.customerName} · {formatMoneyRs(sale.total)}</p>
+        <div className="pdv-caixa-confirm-actions">
+          <button className="pdv-cad-btn" type="button" onClick={() => window.print()}>
+            <Printer size={16} /> Imprimir
+          </button>
+          <button className="pdv-cad-btn" type="button" onClick={onClose}>Fechar</button>
+        </div>
       </div>
     </div>
   )
@@ -169,7 +222,8 @@ function SaleFilterBar({
 
 export function VendasMovimento({ status }: { status: "espera" | "finalizada" }) {
   const [sales, setSales] = useState<LojaPdvSale[]>([])
-  const [open, setOpen] = useState<LojaPdvSale | null>(null)
+  const [detail, setDetail] = useState<LojaPdvSale | null>(null)
+  const [actions, setActions] = useState<LojaPdvSale | null>(null)
   const [hint, setHint] = useState("Carregando...")
   const [draft, setDraft] = useState<SaleFilters>(EMPTY_SALE_FILTERS)
   const [filters, setFilters] = useState<SaleFilters>(EMPTY_SALE_FILTERS)
@@ -215,22 +269,23 @@ export function VendasMovimento({ status }: { status: "espera" | "finalizada" })
           sale.status === "finalizada" ? "Concluída" : "Em aberto",
         ])}
         hint={visible.length ? hint || undefined : "Nenhuma venda para o filtro atual."}
-        onRowClick={(index) => setOpen(visible[index])}
+        onRowClick={(index) => setDetail(visible[index])}
         closedAction={(index) => (
           <button
             className="pdv-cad-icon-btn"
             type="button"
-            aria-label={`Ver venda ${visible[index]?.code || ""}`}
+            aria-label={`Ações da venda ${visible[index]?.code || ""}`}
             onClick={(event) => {
               event.stopPropagation()
-              setOpen(visible[index])
+              setActions(visible[index])
             }}
           >
             <Settings size={16} aria-hidden="true" />
           </button>
         )}
       />
-      {open ? <SaleGear sale={open} onClose={() => setOpen(null)} /> : null}
+      {detail ? <SaleDetailPanel sale={detail} onClose={() => setDetail(null)} /> : null}
+      {actions ? <SaleActionsMenu sale={actions} onClose={() => setActions(null)} /> : null}
     </>
   )
 }
@@ -337,7 +392,8 @@ function reportView(path: string, sales: LojaPdvSale[]) {
 export function VendasRelatorio({ def }: { def: FilterPageProps & { path: string } }) {
   const [sales, setSales] = useState<LojaPdvSale[]>([])
   const [hint, setHint] = useState("Carregando...")
-  const [open, setOpen] = useState<LojaPdvSale | null>(null)
+  const [detail, setDetail] = useState<LojaPdvSale | null>(null)
+  const [actions, setActions] = useState<LojaPdvSale | null>(null)
   const [draft, setDraft] = useState<SaleFilters>(EMPTY_SALE_FILTERS)
   const [filters, setFilters] = useState<SaleFilters>(EMPTY_SALE_FILTERS)
 
@@ -376,7 +432,7 @@ export function VendasRelatorio({ def }: { def: FilterPageProps & { path: string
         onRowClick={view.linked ? (index) => {
           const code = view.rows[index]?.[0]
           const sale = code ? saleByCode.get(code) : undefined
-          if (sale) setOpen(sale)
+          if (sale) setDetail(sale)
         } : undefined}
         closedAction={view.linked ? (index) => {
           const code = view.rows[index]?.[0]
@@ -386,10 +442,10 @@ export function VendasRelatorio({ def }: { def: FilterPageProps & { path: string
             <button
               className="pdv-cad-icon-btn"
               type="button"
-              aria-label={`Ver venda ${sale.code}`}
+              aria-label={`Ações da venda ${sale.code}`}
               onClick={(event) => {
                 event.stopPropagation()
-                setOpen(sale)
+                setActions(sale)
               }}
             >
               <Settings size={16} aria-hidden="true" />
@@ -397,7 +453,8 @@ export function VendasRelatorio({ def }: { def: FilterPageProps & { path: string
           )
         } : undefined}
       />
-      {open ? <SaleGear sale={open} onClose={() => setOpen(null)} /> : null}
+      {detail ? <SaleDetailPanel sale={detail} onClose={() => setDetail(null)} /> : null}
+      {actions ? <SaleActionsMenu sale={actions} onClose={() => setActions(null)} /> : null}
     </>
   )
 }
