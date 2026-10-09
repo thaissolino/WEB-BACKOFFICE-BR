@@ -396,103 +396,179 @@
   -webkit-text-fill-color: #43a047 !important;
 }
 
-.pdv-bank-scrim {
+.pdv-bank-splash {
   position: fixed;
   inset: 0;
   z-index: 80;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 24px;
-  background: rgba(18, 14, 10, 0.46);
+  gap: 14px;
+  padding: 32px 28px calc(28px + env(safe-area-inset-bottom));
+  background:
+    radial-gradient(ellipse at 50% 22%, rgba(91, 75, 219, 0.16), transparent 42%),
+    var(--paper, #f4f1ea);
+  color: var(--ink, #1a1511);
+  text-align: center;
+  font-family: var(--font-body, "Plus Jakarta Sans", sans-serif);
 }
 
-.pdv-bank-card {
-  width: min(420px, 100%);
-  padding: 28px 24px 22px;
-  border-radius: 1.1rem;
-  background: #f7f1e8;
-  color: #1c140c;
-  text-align: center;
-  box-shadow: 0 24px 60px rgba(18, 14, 10, 0.28);
+.pdv-bank-mark {
+  display: grid;
+  place-items: center;
+  width: 84px;
+  height: 84px;
+  margin-bottom: 8px;
+  border-radius: 28px;
+  background: var(--sheet, #fffdf8);
+  color: #5b4bdb;
+  box-shadow: 0 16px 40px rgba(91, 75, 219, 0.14);
+}
+
+.pdv-bank-splash[data-phase="run"] .pdv-bank-mark {
+  animation: pdv-bank-rise 0.7s var(--ease, ease) both;
 }
 
 .pdv-bank-kicker {
-  margin: 0 0 6px;
-  font-size: 0.75rem;
-  letter-spacing: 0.08em;
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
   color: #5b4bdb;
 }
 
-.pdv-bank-card h2 {
-  margin: 0 0 18px;
-  font-size: 1.35rem;
-}
-
-.pdv-bank-marks {
-  display: grid;
-  grid-template-columns: 1fr auto 1fr;
-  gap: 12px;
+.pdv-bank-route {
+  display: flex;
+  flex-direction: column;
   align-items: center;
-  margin-bottom: 16px;
-  font-weight: 700;
+  gap: 8px;
+  margin: 4px 0 2px;
+  font-family: var(--font-display, "Outfit", sans-serif);
+  font-size: 1.65rem;
+  font-weight: 650;
+  letter-spacing: -0.03em;
+  line-height: 1;
 }
 
-.pdv-bank-marks[data-phase="run"] span:first-child {
+.pdv-bank-route[data-phase="run"] span:first-child {
   animation: pdv-bank-out 1.6s ease forwards;
 }
 
-.pdv-bank-marks[data-phase="run"] span:last-child {
+.pdv-bank-route[data-phase="run"] span:last-child {
   animation: pdv-bank-in 1.6s ease forwards;
 }
 
 .pdv-bank-rail {
-  width: 72px;
-  height: 3px;
-  border-radius: 999px;
-  background: rgba(91, 75, 219, 0.2);
-  overflow: hidden;
   position: relative;
+  width: 2px;
+  height: 36px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(91, 75, 219, 0.18);
 }
 
 .pdv-bank-rail::after {
   content: "";
   position: absolute;
-  inset: 0 auto 0 0;
-  width: 40%;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 42%;
   background: #5b4bdb;
-  animation: pdv-bank-slide 0.8s ease-in-out infinite;
+  animation: pdv-bank-drop 0.9s ease-in-out infinite;
 }
 
 .pdv-bank-msg {
-  margin: 0 0 14px;
-  color: #4a4036;
+  max-width: 18rem;
+  margin: 6px 0 0;
+  color: var(--ink-soft, #4a433c);
+  font-size: 0.98rem;
 }
 
-.pdv-bank-card button {
-  min-height: 40px;
-  padding: 0 16px;
+.pdv-bank-splash .pdv-bank-back {
+  min-height: 44px;
+  margin-top: 10px;
+  padding: 0 8px;
   border: 0;
-  border-radius: 999px;
-  background: #1c140c;
-  color: #f7f1e8;
+  background: transparent;
+  color: var(--ink, #1a1511);
+  font: inherit;
+  font-weight: 650;
+  text-decoration: underline;
+  text-underline-offset: 5px;
   cursor: pointer;
 }
 
+@media (min-width: 720px) {
+  .pdv-bank-route {
+    flex-direction: row;
+    gap: 18px;
+    font-size: 2rem;
+  }
+
+  .pdv-bank-rail {
+    width: 96px;
+    height: 2px;
+  }
+
+  .pdv-bank-rail::after {
+    width: 42%;
+    height: 100%;
+    animation-name: pdv-bank-slide;
+  }
+
+  .pdv-bank-route[data-phase="run"] span:first-child {
+    animation-name: pdv-bank-out-x;
+  }
+
+  .pdv-bank-route[data-phase="run"] span:last-child {
+    animation-name: pdv-bank-in-x;
+  }
+}
+
+@keyframes pdv-bank-rise {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
 @keyframes pdv-bank-out {
+  from { opacity: 1; transform: translateY(0); }
+  to { opacity: 0.35; transform: translateY(-6px); }
+}
+
+@keyframes pdv-bank-in {
+  from { opacity: 0.35; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pdv-bank-out-x {
   from { opacity: 1; transform: translateX(0); }
   to { opacity: 0.35; transform: translateX(-8px); }
 }
 
-@keyframes pdv-bank-in {
+@keyframes pdv-bank-in-x {
   from { opacity: 0.35; transform: translateX(8px); }
   to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes pdv-bank-drop {
+  from { transform: translateY(-130%); }
+  to { transform: translateY(280%); }
 }
 
 @keyframes pdv-bank-slide {
   from { transform: translateX(-120%); }
   to { transform: translateX(280%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pdv-bank-mark,
+  .pdv-bank-route span,
+  .pdv-bank-rail::after {
+    animation: none;
+  }
 }
 
 .pdv-ico-gear {
