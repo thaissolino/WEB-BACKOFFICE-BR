@@ -24,6 +24,7 @@ import AdmManagementPerfilEdit from "../pages/form-adm-perfil-edit/AdmManagement
 import { useClientAuth } from "../hooks/clientAuth";
 // import { GestorVixHome } from "../pages/home/GestorVixHome"; // /home desativado
 import ClientLogin from "../pages/client/Login";
+import ClientSso from "../pages/client/ClientSso";
 import ClientRegister from "../pages/client/Register";
 import ClientForgotPassword from "../pages/client/ForgotPassword";
 import ClientDashboard from "../pages/client/Dashboard";
@@ -123,6 +124,7 @@ export function Router() {
 
       {/* Rota pública: sessão expirada (sem proteção de auth) */}
       <Route path="session-expired/backoffice" element={<SessionExpiredBackoffice />} />
+      <Route path="client/sso" element={<ClientSso />} />
 
       <Route
         element={

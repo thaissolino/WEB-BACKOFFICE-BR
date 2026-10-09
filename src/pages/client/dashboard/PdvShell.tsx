@@ -23,6 +23,7 @@ import PdvTip from "./PdvTip";
 import ConfigModal from "./ConfigModal";
 import SupportModal from "./SupportModal";
 import LogoModal from "./LogoModal";
+import { BankSwitchButton, BankSwitchOverlay, useBankSwitch } from "./BankSwitch";
 import {
   EMPTY_PDV_UI_CONFIG,
   normalizePdvUiConfig,
@@ -207,6 +208,7 @@ export default function PdvShell({
   const [stores, setStores] = useState<StoreOption[]>([]);
   const [pendingStoreId, setPendingStoreId] = useState<string | null>(null);
   const [chromeModal, setChromeModal] = useState<"config" | "support" | "logo" | null>(null);
+  const bank = useBankSwitch();
   const [uiConfig, setUiConfig] = useState<PdvUiConfig>(EMPTY_PDV_UI_CONFIG);
   const [logoSrc, setLogoSrc] = useState<string | null>(null);
   const [logoTick, setLogoTick] = useState(0);
@@ -491,6 +493,7 @@ export default function PdvShell({
                 <Home size={22} strokeWidth={2.2} aria-hidden="true" />
               </button>
             </PdvTip>
+            <BankSwitchButton onClick={bank.goToBank} />
             {!isClassic ? (
               <>
                 <PdvTip label="Carrinho">
@@ -594,6 +597,7 @@ export default function PdvShell({
           uiConfig={uiConfig}
           onClose={() => setDrawerOpen(false)}
           onCart={goCaixa}
+          onBank={bank.goToBank}
           onConfig={() => setChromeModal("config")}
           onSupport={() => setChromeModal("support")}
         />
@@ -611,6 +615,10 @@ export default function PdvShell({
           onClose={() => setChromeModal(null)}
           onSaved={() => setLogoTick((value) => value + 1)}
         />
+
+        {bank.phase === "run" || bank.phase === "error" ? (
+          <BankSwitchOverlay phase={bank.phase} message={bank.message} onClose={bank.close} />
+        ) : null}
 
         {pendingStore ? (
           <div className="pdv-confirm-scrim">
