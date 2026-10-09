@@ -386,9 +386,113 @@
   -webkit-text-fill-color: #1e88e5 !important;
 }
 
+.pdv-ico-bank {
+  color: #5b4bdb !important;
+  -webkit-text-fill-color: #5b4bdb !important;
+}
+
 .pdv-ico-cart {
   color: #43a047 !important;
   -webkit-text-fill-color: #43a047 !important;
+}
+
+.pdv-bank-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(18, 14, 10, 0.46);
+}
+
+.pdv-bank-card {
+  width: min(420px, 100%);
+  padding: 28px 24px 22px;
+  border-radius: 1.1rem;
+  background: #f7f1e8;
+  color: #1c140c;
+  text-align: center;
+  box-shadow: 0 24px 60px rgba(18, 14, 10, 0.28);
+}
+
+.pdv-bank-kicker {
+  margin: 0 0 6px;
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #5b4bdb;
+}
+
+.pdv-bank-card h2 {
+  margin: 0 0 18px;
+  font-size: 1.35rem;
+}
+
+.pdv-bank-marks {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 16px;
+  font-weight: 700;
+}
+
+.pdv-bank-marks[data-phase="run"] span:first-child {
+  animation: pdv-bank-out 1.6s ease forwards;
+}
+
+.pdv-bank-marks[data-phase="run"] span:last-child {
+  animation: pdv-bank-in 1.6s ease forwards;
+}
+
+.pdv-bank-rail {
+  width: 72px;
+  height: 3px;
+  border-radius: 999px;
+  background: rgba(91, 75, 219, 0.2);
+  overflow: hidden;
+  position: relative;
+}
+
+.pdv-bank-rail::after {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 40%;
+  background: #5b4bdb;
+  animation: pdv-bank-slide 0.8s ease-in-out infinite;
+}
+
+.pdv-bank-msg {
+  margin: 0 0 14px;
+  color: #4a4036;
+}
+
+.pdv-bank-card button {
+  min-height: 40px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 999px;
+  background: #1c140c;
+  color: #f7f1e8;
+  cursor: pointer;
+}
+
+@keyframes pdv-bank-out {
+  from { opacity: 1; transform: translateX(0); }
+  to { opacity: 0.35; transform: translateX(-8px); }
+}
+
+@keyframes pdv-bank-in {
+  from { opacity: 0.35; transform: translateX(8px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes pdv-bank-slide {
+  from { transform: translateX(-120%); }
+  to { transform: translateX(280%); }
 }
 
 .pdv-ico-gear {

@@ -1,6 +1,6 @@
 import { useEffect, useState, type MouseEvent } from "react";
 import { useNavigate } from "react-router-dom";
-import { ChevronRight, Headphones, Settings, ShoppingCart, Star, X } from "lucide-react";
+import { ChevronRight, Headphones, Landmark, Settings, ShoppingCart, Star, X } from "lucide-react";
 import { PDV_MENUS, hasKnownChildren, openMenuHref, type PdvMenuItem, type PdvMenuRoot } from "./menuData";
 import { filterMenuItems, isNavVisible, type PdvNavId, type PdvUiConfig } from "./pdvUiConfig";
 
@@ -82,6 +82,7 @@ export default function ClassicDrawer({
   uiConfig,
   onClose,
   onCart,
+  onBank,
   onConfig,
   onSupport,
 }: {
@@ -90,6 +91,7 @@ export default function ClassicDrawer({
   uiConfig: PdvUiConfig;
   onClose: () => void;
   onCart: () => void;
+  onBank: () => void;
   onConfig: () => void;
   onSupport: () => void;
 }) {
@@ -168,6 +170,10 @@ export default function ClassicDrawer({
 
           <p className="pdvd-kicker pdvd-kicker-pad">Ações</p>
           <div className="pdvd-actions">
+            <button type="button" onClick={() => run(onBank)}>
+              <Landmark size={17} strokeWidth={2.2} aria-hidden="true" />
+              Ir para o banco
+            </button>
             <button type="button" onClick={() => run(onCart)}>
               <ShoppingCart size={17} strokeWidth={2.2} aria-hidden="true" />
               Caixa / Carrinho
