@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { api, parseError } from "../../services/api";
+import { BankSwitchOverlay } from "./dashboard/BankSwitch";
 import "./dashboard/dashboard.css";
 
 const CLIENT_TOKEN_KEY = "@client:token";
@@ -8,7 +9,7 @@ const CLIENT_USER_KEY = "@client:user";
 
 export default function ClientSso() {
   const [params] = useSearchParams();
-  const [message, setMessage] = useState("Abrindo o PDV da loja.");
+  const [message, setMessage] = useState("");
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
@@ -40,23 +41,15 @@ export default function ClientSso() {
 
   return (
     <div className="pdv-root" data-surface="cream" lang="pt-BR">
-      <div className="pdv-bank-scrim" role="alertdialog" aria-modal="true" aria-labelledby="pdv-sso-title">
-        <div className="pdv-bank-card">
-          <p className="pdv-bank-kicker">Troca de conta</p>
-          <h2 id="pdv-sso-title">Banco e GestorVix</h2>
-          <div className="pdv-bank-marks" data-phase={failed ? "error" : "run"}>
-            <span>Banco</span>
-            <span className="pdv-bank-rail" aria-hidden="true" />
-            <span>GestorVix</span>
-          </div>
-          <p className="pdv-bank-msg">{message}</p>
-          {failed ? (
-            <button type="button" onClick={() => window.location.assign("/signin/lojista")}>
-              Ir para o login
-            </button>
-          ) : null}
-        </div>
-      </div>
+      <BankSwitchOverlay
+        phase={failed ? "error" : "run"}
+        message={message}
+        onClose={() => window.location.assign("/signin/lojista")}
+        from="Banco"
+        to="GestorVix"
+        pending="Abrindo o GestorVix."
+        backLabel="Voltar ao login"
+      />
     </div>
   );
 }

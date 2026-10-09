@@ -11,10 +11,18 @@ export function BankSwitchOverlay({
   phase,
   message,
   onClose,
+  from = "GestorVix",
+  to = "Banco",
+  pending = "Abrindo a conta vinculada.",
+  backLabel = "Voltar ao PDV",
 }: {
   phase: Exclude<Phase, "idle">;
   message: string;
   onClose: () => void;
+  from?: string;
+  to?: string;
+  pending?: string;
+  backLabel?: string;
 }) {
   return (
     <div className="pdv-bank-splash" data-phase={phase} role="alertdialog" aria-modal="true" aria-labelledby="pdv-bank-title">
@@ -23,16 +31,16 @@ export function BankSwitchOverlay({
       </div>
       <p className="pdv-bank-kicker">Troca de conta</p>
       <div className="pdv-bank-route" data-phase={phase}>
-        <span>GestorVix</span>
+        <span>{from}</span>
         <span className="pdv-bank-rail" aria-hidden="true" />
-        <span>Banco</span>
+        <span>{to}</span>
       </div>
       <p id="pdv-bank-title" className="pdv-bank-msg">
-        {phase === "error" ? message : "Abrindo a conta vinculada."}
+        {phase === "error" ? message : pending}
       </p>
       {phase === "error" ? (
         <button type="button" className="pdv-bank-back" onClick={onClose}>
-          Voltar ao PDV
+          {backLabel}
         </button>
       ) : null}
     </div>
