@@ -8,6 +8,7 @@ on:
   push:
     branches:
       - main
+      - mauro-indev
   workflow_dispatch:
 
 jobs:
