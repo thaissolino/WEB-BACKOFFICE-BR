@@ -3,7 +3,7 @@ import { ChartBar } from "lucide-react";
 import { formatCurrency } from "../../../cambiobackoffice/formatCurrencyUtil";
 import { InvoiceData, InvoiceHistory } from "./InvoiceHistory";
 import { api } from "../../../../services/api";
-import { InvoiceHistoryReport } from "./InvoiceHistoryReport";
+import { InvoiceHistoryReport, saoPauloDay } from "./InvoiceHistoryReport";
 
 function isFinalizedInvoice(invoice: InvoiceData) {
   return Boolean(invoice.completed && invoice.paid && invoice.labelsPrintedAt);
@@ -59,6 +59,7 @@ export function ReportsTab() {
     supplier: "all",
   });
   const [showReceipts, setShowReceipts] = useState(false);
+  const [printCount, setPrintCount] = useState(0);
 
   const pickStatus = (status: string) => {
     setShowReceipts(false);
@@ -113,11 +114,37 @@ export function ReportsTab() {
   const paidCount = invoices.filter((inv) => inv.paid && !inv.completed).length;
   const awaitingPrint = useMemo(() => invoices.filter(isAwaitingPrint), [invoices]);
   const labelQueue = useMemo(
-    () => invoices.filter((invoice) => invoice.paid && !invoice.labelsPrintedAt),
+    () => invoices.filter((invoice) => !invoice.labelsPrintedAt),
     [invoices],
   );
   const completedCount = awaitingPrint.length;
-  const printCount = labelQueue.length;
+
+  useEffect(() => {
+    let cancel = false;
+    const openIds = new Set(labelQueue.map((invoice) => invoice.id));
+    api
+      .get("/invoice/receipt-history")
+      .then(({ data }) => {
+        if (cancel) return;
+        const keys = new Set<string>();
+        const groups = Array.isArray(data?.grouped) ? data.grouped : [];
+        for (const group of groups) {
+          for (const entry of group.entries || []) {
+            if (entry.labelPrintedAt || !openIds.has(entry.invoiceId)) continue;
+            const day = saoPauloDay(entry.date);
+            if (!day) continue;
+            keys.add(`${entry.invoiceId}|${day}`);
+          }
+        }
+        setPrintCount(keys.size);
+      })
+      .catch(() => {
+        if (!cancel) setPrintCount(0);
+      });
+    return () => {
+      cancel = true;
+    };
+  }, [labelQueue]);
   const finalizedCount = invoices.filter(isFinalizedInvoice).length;
 
   return (
@@ -224,7 +251,7 @@ export function ReportsTab() {
         >
           <h3 className="text-lg font-medium mb-2 text-blue-700">Gerar etiquetas</h3>
           <p className="text-3xl font-bold text-gray-900">{printCount}</p>
-          <p className="text-sm text-gray-600">Prontas para imprimir</p>
+          <p className="text-sm text-gray-600">Recebimento do dia, mesmo parcial</p>
         </button>
         <button
           onClick={() => pickStatus("finalized")}

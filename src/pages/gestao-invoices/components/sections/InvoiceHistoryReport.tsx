@@ -152,7 +152,7 @@ function remainingWeight(item: {
   return item.weight * remainingQty(item);
 }
 
-function saoPauloDay(value: string) {
+export function saoPauloDay(value: string) {
   const when = new Date(value);
   if (Number.isNaN(when.getTime())) return "";
   return new Intl.DateTimeFormat("en-CA", {
