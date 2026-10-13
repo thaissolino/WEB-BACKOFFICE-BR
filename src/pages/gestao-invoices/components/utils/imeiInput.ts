@@ -26,9 +26,40 @@ export const normalizeImeiOrSerial = normalizeCandidate;
 
 const isValidImei = (value: string): boolean => /^\d{15}$/.test(value);
 
-const isValidSerial = (value: string): boolean => /^(?=.*[A-Z])(?=.*\d)[A-Z0-9]{10,15}$/.test(value);
+/** Serial Apple: 10–12 pode ser só letras (Watch). 13–15 exige letra e número. */
+const isValidSerial = (value: string): boolean => {
+  if (value.length < 10 || value.length > 15) return false;
+  if (!/^[A-Z0-9]+$/.test(value) || !/[A-Z]/.test(value)) return false;
+  if (/\d+(GB|TB)/i.test(value)) return false;
+  if (value.length <= 12) return true;
+  return /\d/.test(value);
+};
+
+export const isValidImeiOrSerial = (value: string): boolean => {
+  const normalized = normalizeCandidate(value);
+  return isValidImei(normalized) || isValidSerial(normalized);
+};
 
 const isValidIdentifier = (value: string): boolean => isValidImei(value) || isValidSerial(value);
+
+export const collectIdentifiers = (input: string): { valid: string[]; invalid: string[] } => {
+  const valid: string[] = [];
+  const invalid: string[] = [];
+  const seen = new Set<string>();
+
+  for (const token of tokenizeIdentifiers(input)) {
+    const normalized = normalizeCandidate(token);
+    if (!normalized || !isValidIdentifier(normalized)) {
+      invalid.push(token);
+      continue;
+    }
+    if (seen.has(normalized)) continue;
+    seen.add(normalized);
+    valid.push(normalized);
+  }
+
+  return { valid, invalid };
+};
 
 const tokenizeIdentifiers = (input: string): string[] => {
   const chunks = input

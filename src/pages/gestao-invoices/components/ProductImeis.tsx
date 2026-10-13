@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { ChevronDown, ChevronUp, Copy, Loader2, Smartphone, Trash2 } from "lucide-react";
 import { api } from "../../../services/api";
 import { useNotification } from "../../../hooks/notification";
+import { collectIdentifiers, previewIdentifiersInput } from "./utils/imeiInput";
 
 interface ProductImeisProps {
   invoiceProductId: string;
@@ -58,58 +59,22 @@ export function ProductImeis({ invoiceProductId, productName }: ProductImeisProp
     });
   };
 
-  const parseInput = (input: string) => {
-    const chunks = input
-      .split(/[,\n;:]+/g)
-      .map((item) => item.trim())
-      .filter(Boolean);
-
-    const rawTokens: string[] = [];
-    for (const chunk of chunks) {
-      const digitsOnly = chunk.replace(/[^\d]/g, "");
-      if (/^\d{15}$/.test(digitsOnly) && /^[\d\s]+$/.test(chunk)) {
-        rawTokens.push(digitsOnly);
-        continue;
-      }
-      rawTokens.push(
-        ...chunk
-          .split(/\s+/g)
-          .map((item) => item.trim())
-          .filter(Boolean),
-      );
-    }
-
-    const valid: string[] = [];
-    const invalid: string[] = [];
-    const seen = new Set<string>();
-
-    for (const token of rawTokens) {
-      const normalized = token.replace(/[^A-Za-z0-9]/g, "").toUpperCase();
-      const isImei = /^\d{15}$/.test(normalized);
-      const isSerial = /^(?=.*[A-Z])(?=.*\d)[A-Z0-9]{10,15}$/.test(normalized);
-      if (!normalized || (!isImei && !isSerial)) {
-        invalid.push(token);
-        continue;
-      }
-      if (seen.has(normalized)) continue;
-      seen.add(normalized);
-      valid.push(normalized);
-    }
-
-    return { valid, invalid };
-  };
-
   const preview = useMemo(() => {
-    const { valid, invalid } = parseInput(draftInput);
-    const existing = new Set(imeis.map((item) => String(item.imei || "").toUpperCase()));
-    const duplicateCount = valid.filter((item) => existing.has(item)).length;
-    const addCount = valid.length - duplicateCount;
-    return { addCount, duplicateCount, invalidCount: invalid.length, invalidSamples: invalid.slice(0, 4) };
+    const result = previewIdentifiersInput(
+      imeis.map((item) => String(item.imei || "")),
+      draftInput,
+    );
+    return {
+      addCount: result.addedCount,
+      duplicateCount: result.duplicateCount,
+      invalidCount: result.invalidCount,
+      invalidSamples: result.invalidTokens.slice(0, 4),
+    };
   }, [draftInput, imeis]);
 
   const updateImeis = async (mode: "merge" | "replace" | "clear") => {
     if (mode !== "clear") {
-      const { valid } = parseInput(draftInput);
+      const { valid } = collectIdentifiers(draftInput);
       if (valid.length === 0) {
         setOpenNotification({
           type: "warning",
@@ -125,7 +90,7 @@ export function ProductImeis({ invoiceProductId, productName }: ProductImeisProp
       const payload =
         mode === "clear"
           ? { mode, imeis: [] as string[] }
-          : { mode, imeis: parseInput(draftInput).valid };
+          : { mode, imeis: collectIdentifiers(draftInput).valid };
       const response = await api.patch(`/invoice/imeis/invoice-product/${invoiceProductId}`, payload);
       const finalImeis: string[] = response.data?.finalImeis || [];
       setImeis(finalImeis.map((item, idx) => ({ id: `local-${idx}`, imei: item })));
@@ -169,7 +134,7 @@ export function ProductImeis({ invoiceProductId, productName }: ProductImeisProp
         className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs text-gray-900 placeholder:text-gray-500 font-mono focus:ring-2 focus:ring-blue-400 focus:border-blue-400"
       />
       <div className="text-[11px] text-gray-500">
-        Formato aceito: IMEI (15 dígitos) ou serial alfanumérico (10–15, com letra e número). Pode colar vários de uma vez.
+        Formato aceito: IMEI (15 dígitos) ou serial Apple (10–12, pode ser só letras; 13–15 com letra e número). Pode colar vários de uma vez.
       </div>
       {draftInput.trim() && (
         <div className="text-[11px] text-gray-600">
