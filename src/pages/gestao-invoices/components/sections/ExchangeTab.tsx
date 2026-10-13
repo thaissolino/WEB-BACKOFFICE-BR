@@ -8,6 +8,25 @@ import { useNotification } from "../../../../hooks/notification";
 import { useActionLoading } from "../../context/ActionLoadingContext";
 import { formatProductMoney, isBrlSupplierCurrency } from "../utils/invoiceCurrency";
 
+/** Montante digitado em real: 200.000,00 / 200000 / 200.000. */
+function parseBrlAmount(raw: string): number {
+  const text = String(raw || "").trim().replace(/[R$\s]/g, "");
+  if (!text) return Number.NaN;
+  if (text.includes(",")) {
+    return Number(text.replace(/\./g, "").replace(",", "."));
+  }
+  if (/^\d{1,3}(\.\d{3})+$/.test(text)) {
+    return Number(text.replace(/\./g, ""));
+  }
+  return Number(text.replace(/[^0-9.-]/g, ""));
+}
+
+/** Única inversão: reais ÷ taxa = dólares. O restante da média segue igual. */
+function usdFromBrl(brl: number, rate: number): number {
+  if (!(brl > 0) || !(rate > 0)) return Number.NaN;
+  return Math.round((brl / rate) * 100) / 100;
+}
+
 export interface FinancialTransaction {
   id: string;
   date: Date;
@@ -41,6 +60,7 @@ export function ExchangeTab() {
   const [selectedTransactions, setSelectedTransactions] = useState<string[]>([]);
   const [valorRaw, setValorRaw] = useState("");
   const [valorRaw2, setValorRaw2] = useState("");
+  const [buyInBrl, setBuyInBrl] = useState(false);
 
   const [dataPayment, setDataUpdated] = useState({
     invoiceId: "",
@@ -254,7 +274,7 @@ export function ExchangeTab() {
       Swal.fire({
         icon: "warning",
         title: "Atenção",
-        text: "Informe a Quantidade (USD)!",
+        text: buyInBrl ? "Informe o montante em reais!" : "Informe a Quantidade (USD)!",
         confirmButtonText: "Ok",
         buttonsStyling: false,
         customClass: {
@@ -264,13 +284,33 @@ export function ExchangeTab() {
       return;
     }
 
+    const rate = Number(addBalance.rate);
+    let usd = Number(String(addBalance.usd).replace(/[^0-9.-]/g, ""));
+    if (buyInBrl) {
+      usd = usdFromBrl(parseBrlAmount(valorRaw2 || String(addBalance.usd)), rate);
+      if (!Number.isFinite(usd) || usd <= 0) {
+        Swal.fire({
+          icon: "warning",
+          title: "Atenção",
+          text: "Não foi possível converter o real em dólar. Confira o montante e a taxa.",
+          confirmButtonText: "Ok",
+          buttonsStyling: false,
+          customClass: {
+            confirmButton: "bg-green-600 text-white hover:bg-green-700 px-4 py-2 rounded font-semibold",
+          },
+        });
+        return;
+      }
+    }
+
     try {
       setIsSaving(true);
       await api.post("/invoice/exchange-records", {
         ...addBalance,
         date: new Date(addBalance.date),
-        rate: Number(addBalance.rate),
-        usd: Number(addBalance.usd),
+        rate,
+        usd,
+        description: "Compra de dólares",
       });
       setOpenNotification({
         type: "success",
@@ -279,6 +319,7 @@ export function ExchangeTab() {
       });
       setValorRaw("");
       setValorRaw2("");
+      setBuyInBrl(false);
       setAddBalance({
         date: new Date().toLocaleDateString("en-CA"),
         rate: "",
@@ -691,14 +732,48 @@ export function ExchangeTab() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700">Quantidade (USD)</label>
+              <div className="flex items-center justify-between gap-2">
+                <label className="block text-sm font-medium text-gray-700">
+                  {buyInBrl ? "Montante (BRL)" : "Quantidade (USD)"}
+                </label>
+                <div className="flex rounded-md border border-gray-300 overflow-hidden text-xs font-semibold">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setBuyInBrl(false);
+                      setValorRaw2("");
+                      setAddBalance((prev) => ({ ...prev, usd: "" }));
+                    }}
+                    className={`px-2 py-1 ${buyInBrl ? "bg-white text-gray-600" : "bg-yellow-500 text-white"}`}
+                  >
+                    USD
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setBuyInBrl(true);
+                      setValorRaw2("");
+                      setAddBalance((prev) => ({ ...prev, usd: "" }));
+                    }}
+                    className={`px-2 py-1 ${buyInBrl ? "bg-yellow-500 text-white" : "bg-white text-gray-600"}`}
+                  >
+                    BRL
+                  </button>
+                </div>
+              </div>
               <input
                 type="text"
                 step="0.01"
                 name="usd"
                 value={valorRaw2}
-                placeholder="$0.00 ou $0,00"
+                placeholder={buyInBrl ? "R$ 0,00 ou 200.000,00" : "$0.00 ou $0,00"}
                 onChange={(e) => {
+                  if (buyInBrl) {
+                    const next = e.target.value.replace(/[^0-9.,]/g, "");
+                    setValorRaw2(next);
+                    setAddBalance({ ...addBalance, usd: next });
+                    return;
+                  }
                   // Permite números, ponto decimal, vírgula e sinal negativo
                   let cleanedValue = e.target.value.replace(/[^0-9.,-]/g, "");
 
@@ -721,6 +796,21 @@ export function ExchangeTab() {
                   setAddBalance({ ...addBalance, usd: newValue });
                 }}
                 onBlur={(e) => {
+                  if (buyInBrl) {
+                    const numericValue = parseBrlAmount(valorRaw2);
+                    if (!Number.isNaN(numericValue)) {
+                      setValorRaw2(
+                        numericValue.toLocaleString("pt-BR", {
+                          style: "currency",
+                          currency: "BRL",
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        }),
+                      );
+                      setAddBalance({ ...addBalance, usd: numericValue.toString() });
+                    }
+                    return;
+                  }
                   // Formata apenas se houver valor
                   if (valorRaw2) {
                     const numericValue = parseFloat(valorRaw2);
@@ -737,17 +827,29 @@ export function ExchangeTab() {
                     }
                   }
                 }}
-                onFocus={(e) => {
-                  // Remove formatação quando o input recebe foco
-                  if (valorRaw2) {
-                    const numericValue = parseFloat(valorRaw2.replace(/[^0-9.-]/g, ""));
-                    if (!isNaN(numericValue)) {
-                      setValorRaw2(numericValue.toString());
-                    }
+                onFocus={() => {
+                  if (!valorRaw2) return;
+                  if (buyInBrl) {
+                    const numericValue = parseBrlAmount(valorRaw2);
+                    if (!Number.isNaN(numericValue)) setValorRaw2(numericValue.toString());
+                    return;
                   }
+                  const numericValue = parseFloat(valorRaw2.replace(/[^0-9.-]/g, ""));
+                  if (!isNaN(numericValue)) setValorRaw2(numericValue.toString());
                 }}
                 className="mt-1 block w-full border border-gray-300 rounded-md p-2"
               />
+              {buyInBrl &&
+                (() => {
+                  const brl = parseBrlAmount(valorRaw2);
+                  const usd = usdFromBrl(brl, Number(addBalance.rate));
+                  if (!Number.isFinite(usd)) return null;
+                  return (
+                    <p className="mt-1 text-xs text-gray-600">
+                      Entra na média como {formatCurrency(usd, 2, "USD")} ({formatCurrency(brl, 2, "BRL")} ÷ taxa).
+                    </p>
+                  );
+                })()}
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700">Taxa de Câmbio (BRL)</label>
