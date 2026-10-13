@@ -152,6 +152,17 @@ function remainingWeight(item: {
   return item.weight * remainingQty(item);
 }
 
+export function saoPauloDay(value: string) {
+  const when = new Date(value);
+  if (Number.isNaN(when.getTime())) return "";
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Sao_Paulo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(when);
+}
+
 type ReceiptPrintEntry = {
   id: string;
   date: string;
@@ -410,9 +421,8 @@ export function InvoiceHistoryReport({
     const rows = new Map<string, LabelRow>();
     for (const entry of receiptEntries) {
       if (!reprint && entry.labelPrintedAt) continue;
-      const when = new Date(entry.date);
-      if (Number.isNaN(when.getTime())) continue;
-      const day = `${when.getFullYear()}-${String(when.getMonth() + 1).padStart(2, "0")}-${String(when.getDate()).padStart(2, "0")}`;
+      const day = saoPauloDay(entry.date);
+      if (!day) continue;
       const name = entry.productName || "Produto";
       const code = entry.productCode || "—";
       const key = `${entry.invoiceId || entry.invoiceNumber}|${day}`;
@@ -439,7 +449,7 @@ export function InvoiceHistoryReport({
       if (operator !== "—" && !current.operator.split(", ").includes(operator)) {
         current.operator = current.operator === "—" ? operator : `${current.operator}, ${operator}`;
       }
-      if (when.getTime() < new Date(current.date).getTime()) current.date = entry.date;
+      if (new Date(entry.date).getTime() < new Date(current.date).getTime()) current.date = entry.date;
       const same = current.items.find((item) => item.name === name && item.code === code);
       if (same) same.quantity += quantity;
       else current.items.push({ code, name, quantity });
@@ -448,11 +458,7 @@ export function InvoiceHistoryReport({
       const parsed = Number(String(value).replace(/\D/g, ""));
       return Number.isFinite(parsed) ? parsed : 0;
     };
-    const dayOf = (value: string) => {
-      const when = new Date(value);
-      if (Number.isNaN(when.getTime())) return "";
-      return `${when.getFullYear()}-${String(when.getMonth() + 1).padStart(2, "0")}-${String(when.getDate()).padStart(2, "0")}`;
-    };
+    const dayOf = (value: string) => saoPauloDay(value);
     return Array.from(rows.values()).sort((a, b) => {
       const byNumber = invoiceNumber(b.invoiceNumber) - invoiceNumber(a.invoiceNumber);
       if (byNumber) return byNumber;
@@ -515,9 +521,8 @@ export function InvoiceHistoryReport({
     const previous = receiptEntries;
     setReceiptEntries((current) =>
       current.map((entry) => {
-        const when = new Date(entry.date);
-        if (Number.isNaN(when.getTime())) return entry;
-        const entryDay = `${when.getFullYear()}-${String(when.getMonth() + 1).padStart(2, "0")}-${String(when.getDate()).padStart(2, "0")}`;
+        const entryDay = saoPauloDay(entry.date);
+        if (!entryDay) return entry;
         const sameInvoice =
           (row.invoiceId && entry.invoiceId === row.invoiceId) ||
           String(entry.invoiceNumber) === String(row.invoiceNumber);
