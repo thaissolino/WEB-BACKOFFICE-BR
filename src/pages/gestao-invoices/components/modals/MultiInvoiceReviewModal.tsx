@@ -5,7 +5,7 @@ import { api } from "../../../../services/api";
 import { useNotification } from "../../../../hooks/notification";
 import { useActionLoading } from "../../context/ActionLoadingContext";
 import { ProductSearchSelect } from "../sections/SupplierSearchSelect";
-import { mergeValidatedIdentifiers, previewIdentifiersInput } from "../utils/imeiInput";
+import { isValidImeiOrSerial, mergeValidatedIdentifiers, previewIdentifiersInput } from "../utils/imeiInput";
 import { buildAfiProductAliasVariants } from "../utils/afiAlias";
 import type { PdfData, PdfProduct } from "./ReviewPdfModal";
 import type { Invoice } from "../types/invoice";
@@ -377,7 +377,7 @@ export function MultiInvoiceReviewModal({
       Swal.fire({
         icon: "warning",
         title: "Nenhum identificador válido",
-        text: "Use IMEI com 15 dígitos ou serial alfanumérico de 10 a 15 caracteres (com letra e número).",
+        text: "Use IMEI com 15 dígitos ou 1 serial por Watch (10–12 caracteres, pode ser só letras).",
         confirmButtonText: "Ok",
         buttonsStyling: false,
         customClass: {
@@ -433,9 +433,6 @@ export function MultiInvoiceReviewModal({
       return next;
     });
   };
-
-  const isValidImeiOrSerial = (value: string) =>
-    /^\d{15}$/.test(value) || /^(?=.*[A-Z])(?=.*\d)[A-Z0-9]{10,15}$/i.test(value);
 
   const normalizeImeiOrSerial = (value: string) =>
     /^\d{15}$/.test(value) ? value : value.toUpperCase();
@@ -496,7 +493,7 @@ export function MultiInvoiceReviewModal({
         await Swal.fire({
           icon: "warning",
           title: "Valor inválido",
-          text: "Use IMEI (15 dígitos) ou serial alfanumérico de 10 a 15 caracteres com letra e número.",
+          text: "Use IMEI (15 dígitos) ou 1 serial por Watch (10–12, pode ser só letras).",
           confirmButtonText: "Ok",
           buttonsStyling: false,
           customClass: {
@@ -1486,7 +1483,7 @@ export function MultiInvoiceReviewModal({
                                               className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:ring-2 focus:ring-purple-400 focus:border-purple-400"
                                             />
                                             <div className="mt-1 text-[11px] text-gray-500">
-                                              Formato aceito: IMEI com 15 dígitos ou serial alfanumérico de 10 a 15 caracteres.
+                                              Formato aceito: IMEI com 15 dígitos, ou 1 serial por Watch (10–12, pode ser só letras).
                                             </div>
                                             {livePreview.totalTokens > 0 && (
                                               <div className="mt-1 text-[11px] text-gray-600">
