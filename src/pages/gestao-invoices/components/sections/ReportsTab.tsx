@@ -112,8 +112,12 @@ export function ReportsTab() {
   const pendingCount = invoices.filter((inv) => !inv.completed && !inv.paid).length;
   const paidCount = invoices.filter((inv) => inv.paid && !inv.completed).length;
   const awaitingPrint = useMemo(() => invoices.filter(isAwaitingPrint), [invoices]);
+  const labelQueue = useMemo(
+    () => invoices.filter((invoice) => invoice.paid && !invoice.labelsPrintedAt),
+    [invoices],
+  );
   const completedCount = awaitingPrint.length;
-  const printCount = completedCount;
+  const printCount = labelQueue.length;
   const finalizedCount = invoices.filter(isFinalizedInvoice).length;
 
   return (
@@ -239,7 +243,7 @@ export function ReportsTab() {
         reprint={filters.status === "finalized" && !showReceipts}
         printInvoiceIds={
           showReceipts
-            ? awaitingPrint.map((invoice) => invoice.id)
+            ? labelQueue.map((invoice) => invoice.id)
             : filters.status === "finalized"
               ? filteredInvoices.map((invoice) => invoice.id)
               : undefined
