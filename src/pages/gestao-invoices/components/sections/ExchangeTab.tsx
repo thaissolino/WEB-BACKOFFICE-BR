@@ -7,6 +7,23 @@ import Swal from "sweetalert2";
 import { useNotification } from "../../../../hooks/notification";
 import { useActionLoading } from "../../context/ActionLoadingContext";
 import { formatProductMoney, isBrlSupplierCurrency } from "../utils/invoiceCurrency";
+import { GenericSearchSelect } from "./SearchSelect";
+
+type CaixaEntity = {
+  id: string;
+  name: string;
+  typeInvoice: "freteiro" | "fornecedor" | "parceiro";
+};
+
+function caixaEntityType(typeInvoice: CaixaEntity["typeInvoice"]) {
+  if (typeInvoice === "freteiro") return "CARRIER";
+  if (typeInvoice === "parceiro") return "PARTNER";
+  return "SUPPLIER";
+}
+
+function isDasyCaixa(name: string) {
+  return /dasy|daisy/i.test(name);
+}
 
 /** Montante digitado em real: 200.000,00 / 200000 / 200.000. */
 function parseBrlAmount(raw: string): number {
@@ -61,6 +78,8 @@ export function ExchangeTab() {
   const [valorRaw, setValorRaw] = useState("");
   const [valorRaw2, setValorRaw2] = useState("");
   const [buyInBrl, setBuyInBrl] = useState(false);
+  const [caixaEntities, setCaixaEntities] = useState<CaixaEntity[]>([]);
+  const [buyCaixaId, setBuyCaixaId] = useState("");
 
   const [dataPayment, setDataUpdated] = useState({
     invoiceId: "",
@@ -241,6 +260,45 @@ export function ExchangeTab() {
     fetchData();
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const [carriersRes, suppliersRes, partnerRes] = await Promise.all([
+          api.get("/invoice/carriers"),
+          api.get("/invoice/supplier"),
+          api.get("/invoice/partner").catch(() => ({ data: { usd: [] } })),
+        ]);
+        if (cancelled) return;
+        const combined: CaixaEntity[] = [
+          ...(carriersRes.data || []).map((item: CaixaEntity) => ({
+            id: item.id,
+            name: item.name,
+            typeInvoice: "freteiro" as const,
+          })),
+          ...(suppliersRes.data || []).map((item: CaixaEntity) => ({
+            id: item.id,
+            name: item.name,
+            typeInvoice: "fornecedor" as const,
+          })),
+          ...((partnerRes.data?.usd || []) as CaixaEntity[]).map((item) => ({
+            id: item.id,
+            name: item.name,
+            typeInvoice: "parceiro" as const,
+          })),
+        ];
+        setCaixaEntities(combined);
+        const dasy = combined.find((item) => item.typeInvoice === "fornecedor" && isDasyCaixa(item.name));
+        if (dasy) setBuyCaixaId(dasy.id);
+      } catch (error) {
+        console.error("Erro ao carregar caixas da compra em real:", error);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const sendBuyDolar = async () => {
     if (!addBalance.date) {
       Swal.fire({
@@ -286,6 +344,7 @@ export function ExchangeTab() {
 
     const rate = Number(addBalance.rate);
     let usd = Number(String(addBalance.usd).replace(/[^0-9.-]/g, ""));
+    const buyCaixa = caixaEntities.find((item) => item.id === buyCaixaId);
     if (buyInBrl) {
       usd = usdFromBrl(parseBrlAmount(valorRaw2 || String(addBalance.usd)), rate);
       if (!Number.isFinite(usd) || usd <= 0) {
@@ -301,8 +360,22 @@ export function ExchangeTab() {
         });
         return;
       }
+      if (!buyCaixa) {
+        Swal.fire({
+          icon: "warning",
+          title: "Atenção",
+          text: "Selecione o caixa que recebe o crédito em dólar.",
+          confirmButtonText: "Ok",
+          buttonsStyling: false,
+          customClass: {
+            confirmButton: "bg-green-600 text-white hover:bg-green-700 px-4 py-2 rounded font-semibold",
+          },
+        });
+        return;
+      }
     }
 
+    let exchangeSaved = false;
     try {
       setIsSaving(true);
       await api.post("/invoice/exchange-records", {
@@ -312,6 +385,20 @@ export function ExchangeTab() {
         usd,
         description: "Compra de dólares",
       });
+      exchangeSaved = true;
+      if (buyInBrl && buyCaixa) {
+        const now = new Date();
+        const currentTime = now.toTimeString().split(" ")[0];
+        const fullDate = new Date(`${addBalance.date}T${currentTime}`);
+        await api.post("/invoice/box/transaction", {
+          value: usd,
+          entityId: buyCaixa.id,
+          direction: "IN",
+          date: fullDate.toISOString(),
+          description: "COMPRA DE DÓLAR",
+          entityType: caixaEntityType(buyCaixa.typeInvoice),
+        });
+      }
       setOpenNotification({
         type: "success",
         title: "Sucesso!",
@@ -331,10 +418,13 @@ export function ExchangeTab() {
       await fetchData();
     } catch (error) {
       console.log("error");
+      if (exchangeSaved) await fetchData();
       Swal.fire({
         icon: "error",
         title: "Atenção",
-        text: "Erro ao Adicionar Saldo",
+        text: exchangeSaved
+          ? "A média foi gravada, mas o crédito não entrou no caixa."
+          : "Erro ao Adicionar Saldo",
         confirmButtonText: "Ok",
         buttonsStyling: false,
         customClass: {
@@ -846,11 +936,32 @@ export function ExchangeTab() {
                   if (!Number.isFinite(usd)) return null;
                   return (
                     <p className="mt-1 text-xs text-gray-600">
-                      Entra na média como {formatCurrency(usd, 2, "USD")} ({formatCurrency(brl, 2, "BRL")} ÷ taxa).
+                      Entra na média como {formatCurrency(usd, 2, "USD")} ({formatCurrency(brl, 2, "BRL")} ÷ taxa). O caixa recebe crédito {formatCurrency(usd, 2, "USD")} COMPRA DE DÓLAR.
                     </p>
                   );
                 })()}
             </div>
+            {buyInBrl && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Caixa</label>
+                {caixaEntities.length === 0 ? (
+                  <p className="text-sm text-gray-500">Carregando caixas...</p>
+                ) : (
+                  <GenericSearchSelect
+                    items={caixaEntities}
+                    value={buyCaixaId}
+                    placeholder="Buscar..."
+                    label="Selecione o caixa"
+                    getId={(item) => item.id}
+                    getSearchString={(item) => item.name}
+                    getLabel={(item) =>
+                      `${item.name} (${item.typeInvoice === "freteiro" ? "Transportadora" : item.typeInvoice === "fornecedor" ? "Fornecedor" : "Parceiro"})`
+                    }
+                    onChange={(id) => setBuyCaixaId(id)}
+                  />
+                )}
+              </div>
+            )}
             <div>
               <label className="block text-sm font-medium text-gray-700">Taxa de Câmbio (BRL)</label>
               <input
