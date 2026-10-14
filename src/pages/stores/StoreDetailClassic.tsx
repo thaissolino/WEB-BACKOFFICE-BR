@@ -22,6 +22,7 @@ import {
 import Header from "../../components/Header";
 import { tokens } from "../../theme";
 import { api, parseError } from "../../services/api";
+import { DatePreset } from "../client/cadastros/catalog/FormBits";
 import {
   formatDateTime,
   formatMoney,
@@ -295,7 +296,10 @@ export default function StoreDetailClassic({ storeId: storeIdProp }: { storeId?:
 
       <Typography variant="h5" mb={1}>Histórico desta loja</Typography>
       <Box display="flex" gap={1} flexWrap="wrap" mb={2} alignItems="center">
-        <TextField size="small" type="date" label="De" InputLabelProps={{ shrink: true }} value={from} onChange={(e) => setFrom(e.target.value)} />
+        <span className="pdv-date-field">
+          <TextField size="small" type="date" label="De" InputLabelProps={{ shrink: true }} value={from} onChange={(e) => setFrom(e.target.value)} />
+          <DatePreset onPick={(start, end) => { setFrom(start); setTo(end); }} />
+        </span>
         <TextField size="small" type="date" label="Até" InputLabelProps={{ shrink: true }} value={to} onChange={(e) => setTo(e.target.value)} />
         <Button color="secondary" variant="contained" onClick={loadMovements}>Filtrar</Button>
       </Box>

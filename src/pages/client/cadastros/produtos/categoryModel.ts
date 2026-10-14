@@ -16,6 +16,7 @@ export type ProductCategory = {
   defaultDiscount: boolean;
   defaultDiscountValue: string;
   active: boolean;
+  storePick?: boolean;
 };
 
 export type FlatOption = {
@@ -50,6 +51,7 @@ export function categoryFromCatalog(item: CatalogItem): ProductCategory {
     defaultDiscount: asBool(payload.defaultDiscount),
     defaultDiscountValue: String(payload.defaultDiscountValue ?? ""),
     active: item.active,
+    storePick: asBool(payload.storePick),
   };
 }
 
@@ -99,6 +101,33 @@ export function toFlatOptions(rows: ProductCategory[]): FlatOption[] {
 export async function loadProductCategories(ativo?: boolean) {
   const items = await listCatalog("product_category", ativo);
   return items.map(categoryFromCatalog);
+}
+
+export function categoryPaths(pathname: string) {
+  const office = pathname.startsWith("/gestao/");
+  const base = office ? "/gestao/cadastro/categorias" : "/client/produtos/categorias";
+  return {
+    office,
+    list: base,
+    create: `${base}/cadastrar`,
+    inactive: `${base}/inativas`,
+    adjust: `${base}/reajuste`,
+    products: office ? "/gestao/cadastro?aba=products" : "/client/produtos",
+  };
+}
+
+export const OPEN_STORE_CATEGORIES = ["iphone-novos", "iphone-seminovos", "apple-watch", "ipad", "macbook"];
+
+export function isOpenStoreCategory(id: string, name = "") {
+  const idSlug = slugifyCategory(id);
+  const nameSlug = name ? slugifyCategory(name) : "";
+  return OPEN_STORE_CATEGORIES.includes(idSlug) || OPEN_STORE_CATEGORIES.includes(nameSlug);
+}
+
+export function openCategoryRank(id: string, name = "") {
+  const byId = OPEN_STORE_CATEGORIES.indexOf(slugifyCategory(id));
+  if (byId !== -1) return byId;
+  return OPEN_STORE_CATEGORIES.indexOf(name ? slugifyCategory(name) : "");
 }
 
 export function slugifyCategory(name: string) {

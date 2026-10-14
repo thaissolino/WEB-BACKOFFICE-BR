@@ -13,6 +13,7 @@ import {
   type StoreMetrics,
   type StoreProduct,
 } from "./types";
+import { DatePreset } from "../client/cadastros/catalog/FormBits";
 
 const emptyProduct = { name: "", sku: "", quantity: "0", price: "" };
 
@@ -257,7 +258,10 @@ export default function PremiumStoreDetail({ storeId: storeIdProp }: { storeId?:
         <div className="br-toolbar" style={{ marginBottom: 8 }}>
           <label className="br-field">
             <span>De</span>
-            <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
+            <span className="pdv-date-field">
+              <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
+              <DatePreset onPick={(start, end) => { setFrom(start); setTo(end); }} />
+            </span>
           </label>
           <label className="br-field">
             <span>Até</span>

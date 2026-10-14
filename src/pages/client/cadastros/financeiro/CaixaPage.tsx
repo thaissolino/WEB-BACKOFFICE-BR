@@ -1,7 +1,7 @@
 import { FormEvent, useEffect, useState } from "react"
-import { useNavigate, useSearchParams } from "react-router-dom"
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom"
 import { Pencil, Plus, Settings, X } from "lucide-react"
-import CadastroShell from "../CadastroShell"
+import { CadastroFrame } from "../CadastroShell"
 import { FormRow } from "../catalog/FormBits"
 import { getCatalog, createCatalog, listCatalog, updateCatalog } from "../catalog/catalogApi"
 import { createLojaCaixa, deleteLojaCaixas, listLojaCaixas, updateLojaCaixa, type LojaCaixa } from "./caixaApi"
@@ -152,7 +152,7 @@ export default function CaixaPage() {
   }
 
   return (
-    <CadastroShell>
+    <CadastroFrame>
       <section className="pdv-cad-page" aria-labelledby="pdv-caixa-cad">
         <div className="pdv-cad-sheet pdv-cad-sheet-wide">
           <h1 id="pdv-caixa-cad">CAIXAS DA LOJA</h1>
@@ -371,12 +371,14 @@ export default function CaixaPage() {
           </div>
         </div>
       ) : null}
-    </CadastroShell>
+    </CadastroFrame>
   )
 }
 
 export function PlanoContaForm() {
   const navigate = useNavigate()
+  const { pathname } = useLocation()
+  const listPath = pathname.startsWith("/gestao/") ? "/gestao/cadastro/financeiro/plano-conta" : "/client/financeiro/plano-conta"
   const [params] = useSearchParams()
   const editId = Number(params.get("id") || 0)
   const [nome, setNome] = useState("")
@@ -403,7 +405,7 @@ export function PlanoContaForm() {
       const payload = { ordem, descricao }
       if (editId) await updateCatalog("account_plan", editId, { name: nome, payload })
       else await createCatalog("account_plan", { name: nome, payload })
-      navigate("/client/financeiro/plano-conta")
+      navigate(listPath)
     } catch (err) {
       const parsed = parseError(err)
       setStatus(parsed.friend || parsed.message || "Não foi possível salvar.")
@@ -411,11 +413,11 @@ export function PlanoContaForm() {
   }
 
   return (
-    <CadastroShell>
+    <CadastroFrame>
       <section className="pdv-cad-page" aria-labelledby="pdv-plano-form">
         <div className="pdv-cad-sheet">
           <h1 id="pdv-plano-form">CADASTRAR CENTRO DE CUSTO</h1>
-          <button className="pdv-cad-btn pdv-cad-btn-back pdv-voltar" type="button" onClick={() => navigate("/client/financeiro/plano-conta")}>
+          <button className="pdv-cad-btn pdv-cad-btn-back pdv-voltar" type="button" onClick={() => navigate(listPath)}>
             Voltar
           </button>
           <form className="pdv-cad-form" onSubmit={onSubmit}>
@@ -439,6 +441,6 @@ export function PlanoContaForm() {
           </form>
         </div>
       </section>
-    </CadastroShell>
+    </CadastroFrame>
   )
 }

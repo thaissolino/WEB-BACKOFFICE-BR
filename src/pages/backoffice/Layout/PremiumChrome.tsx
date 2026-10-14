@@ -1,6 +1,7 @@
 import { useContext, useEffect, useState } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import {
+  ArrowLeftRight,
   BadgeCheck,
   Bell,
   DatabaseBackup,
@@ -14,20 +15,23 @@ import {
   Tag,
   UserRound,
   Wallet,
+  BarChart3,
   X,
   type LucideIcon,
 } from "lucide-react";
 import { useTheme } from "@mui/material/styles";
 import { ColorModeContext } from "../../../theme";
 import { ModesPopover } from "../../../components/ui-mode/ModesPopover";
-import { LEGACY_GROUP_LABEL, useBackofficeNavItems, type BackofficeNavItem } from "../../../store/useBackofficeNavItems";
+import { LEGACY_GROUP_LABEL, useBackofficeNavItems, type BackofficeNavChild } from "../../../store/useBackofficeNavItems";
 import { api } from "../../../services/api";
 import "./premium-chrome.css";
 
 const NAV_ICONS: Record<string, LucideIcon> = {
   "gestao-cadastro": FilePenLine,
   "gestao-compras": ShoppingCart,
+  "gestao-movimentacoes": ArrowLeftRight,
   "gestao-caixas": Wallet,
+  "gestao-relatorios": BarChart3,
   "gerenciar-lojistas": UserRound,
   "vendas-concluidas": BadgeCheck,
   "etiquetas-entrada": Tag,
@@ -39,37 +43,91 @@ function NavGlyph({ id }: { id: string }) {
   return <Icon size={18} strokeWidth={1.8} aria-hidden />;
 }
 
+function branchActive(item: { to?: string; children?: BackofficeNavChild[] }, active: (to: string) => boolean): boolean {
+  if (item.to && active(item.to)) return true;
+  return item.children?.some((child) => branchActive(child, active)) ?? false;
+}
+
 function NavBranch({
   item,
   active,
+  nested = false,
 }: {
-  item: BackofficeNavItem;
+  item: { id: string; label: string; to?: string; children?: BackofficeNavChild[] };
   active: (to: string) => boolean;
+  nested?: boolean;
 }) {
-  const childActive = item.children?.some((child) => active(child.to)) ?? false;
-  const [open, setOpen] = useState(childActive);
+  const location = useLocation();
+  const current = branchActive(item, active);
+  const [open, setOpen] = useState(false);
 
   useEffect(() => {
-    if (childActive) setOpen(true);
-  }, [childActive]);
+    setOpen(false);
+  }, [location.pathname, location.search]);
 
   return (
     <details
-      className="pdv-chrome-sub"
+      className={nested ? "pdv-chrome-sub pdv-chrome-sub-nested" : "pdv-chrome-sub"}
       open={open}
-      onToggle={(event) => setOpen((event.currentTarget as HTMLDetailsElement).open)}
     >
-      <summary className={childActive ? "is-current" : undefined}>
+      <summary
+        className={current ? "is-current" : undefined}
+        onClick={(event) => {
+          event.preventDefault();
+          setOpen((value) => !value);
+        }}
+      >
         <NavGlyph id={item.id} />
         {item.label}
       </summary>
       <div className="pdv-chrome-sub-list">
-        {item.children?.map((child) => (
-          <Link key={child.id} to={child.to} aria-current={active(child.to) ? "page" : undefined}>
-            {child.label}
-          </Link>
-        ))}
+        {item.children?.map((child) =>
+          child.children?.length ? (
+            <NavBranch key={child.id} item={child} active={active} nested />
+          ) : (
+            <Link key={child.id} to={child.to || "#"} aria-current={child.to && active(child.to) ? "page" : undefined}>
+              {child.label}
+            </Link>
+          ),
+        )}
       </div>
+    </details>
+  );
+}
+
+function LegacyNav({
+  items,
+  active,
+}: {
+  items: Array<{ id: string; label: string; to: string }>;
+  active: (to: string) => boolean;
+}) {
+  const location = useLocation();
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    setOpen(false);
+  }, [location.pathname, location.search]);
+
+  return (
+    <details className="pdv-chrome-legacy" open={open} style={{ marginTop: 12, opacity: 0.72 }}>
+      <summary
+        className="pdv-chrome-group"
+        style={{ cursor: "pointer", listStyle: "revert", margin: 0 }}
+        onClick={(event) => {
+          event.preventDefault();
+          setOpen((value) => !value);
+        }}
+      >
+        {LEGACY_GROUP_LABEL}
+      </summary>
+      {items.map((item) => (
+        <div key={item.id}>
+          <Link to={item.to} aria-current={active(item.to) ? "page" : undefined}>
+            {item.label}
+          </Link>
+        </div>
+      ))}
     </details>
   );
 }
@@ -157,25 +215,7 @@ export function PremiumChrome() {
           );
         })}
         {legacyItems.length > 0 ? (
-          <details
-            className="pdv-chrome-legacy"
-            open={legacyItems.some((item) => isActive(item.to))}
-            style={{ marginTop: 12, opacity: 0.72 }}
-          >
-            <summary
-              className="pdv-chrome-group"
-              style={{ cursor: "pointer", listStyle: "revert", margin: 0 }}
-            >
-              {LEGACY_GROUP_LABEL}
-            </summary>
-            {legacyItems.map((item) => (
-              <div key={item.id}>
-                <Link to={item.to} aria-current={isActive(item.to) ? "page" : undefined}>
-                  {item.label}
-                </Link>
-              </div>
-            ))}
-          </details>
+          <LegacyNav items={legacyItems} active={isActive} />
         ) : null}
         {canBackup ? (
           <div className="pdv-chrome-snapshot">

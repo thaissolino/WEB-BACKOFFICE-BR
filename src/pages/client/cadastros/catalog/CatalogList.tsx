@@ -1,7 +1,8 @@
 import { FormEvent, ReactNode, useEffect, useMemo, useState } from "react"
 import { useLocation, useNavigate } from "react-router-dom"
 import { Pencil, Plus } from "lucide-react"
-import CadastroShell from "../CadastroShell"
+import { CadastroFrame } from "../CadastroShell"
+import "../cadastros.css"
 import { AtivoToggle } from "../produtos/QuickCadWindows"
 import {
   deleteCatalog,
@@ -43,24 +44,27 @@ export type CatalogListConfig = {
   emptyHint?: string
   bulkDelete?: boolean
   bulkDisable?: boolean
+  bulkLabel?: string
+  alwaysPick?: boolean
   renderCell?: (item: CatalogItem, column: CatalogColumn) => ReactNode
 }
 
 export default function CatalogList({ config, inactive = false }: { config: CatalogListConfig; inactive?: boolean }) {
   const navigate = useNavigate()
   const location = useLocation()
-  const isInactive = inactive || location.pathname === config.inativosPath
+  const showAll = new URLSearchParams(location.search).get("todos") === "1"
+  const isInactive = !showAll && (inactive || location.pathname === config.inativosPath)
   const [rows, setRows] = useState<CatalogItem[]>([])
   const [draft, setDraft] = useState<Record<string, string>>({})
   const [applied, setApplied] = useState<Record<string, string>>({})
   const [error, setError] = useState("")
   const [toast, setToast] = useState("")
-  const [picking, setPicking] = useState(false)
+  const [picking, setPicking] = useState(Boolean(config.alwaysPick))
   const [picked, setPicked] = useState<number[]>([])
   const [deleting, setDeleting] = useState(false)
 
   function load() {
-    listCatalog(config.kind, isInactive ? false : true)
+    listCatalog(config.kind, showAll ? undefined : isInactive ? false : true)
       .then((items) => {
         setRows(items)
         setError("")
@@ -72,11 +76,11 @@ export default function CatalogList({ config, inactive = false }: { config: Cata
   }
 
   useEffect(() => {
-    setPicking(false)
+    setPicking(Boolean(config.alwaysPick))
     setPicked([])
     load()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [config.kind, isInactive])
+  }, [config.kind, isInactive, showAll])
 
   function togglePicked(code: number) {
     setPicked((current) => (current.includes(code) ? current.filter((item) => item !== code) : [...current, code]))
@@ -105,15 +109,17 @@ export default function CatalogList({ config, inactive = false }: { config: Cata
   async function disableSelected() {
     if (!picked.length || deleting) return
     const count = picked.length
-    if (!window.confirm(count === 1 ? "Inabilitar este registro?" : `Inabilitar ${count} registros?`)) return
+    const verb = config.bulkLabel || "Inabilitar"
+    if (!window.confirm(count === 1 ? `${verb} este registro?` : `${verb} ${count} registros?`)) return
     setDeleting(true)
     setError("")
     try {
       const chosen = rows.filter((item) => picked.includes(item.code))
       await Promise.all(chosen.map((item) => updateCatalog(config.kind, item.code, { name: item.name, payload: item.payload, active: false })))
       setPicked([])
-      setPicking(false)
-      setToast(count === 1 ? "Registro inabilitado." : `${count} registros inabilitados.`)
+      if (!config.alwaysPick) setPicking(false)
+      const past = (config.bulkLabel || "").toLowerCase() === "inativar" ? "inativado" : "inabilitado"
+      setToast(count === 1 ? `Registro ${past}.` : `${count} registros ${past}s.`)
       load()
     } catch (err) {
       const parsed = parseError(err)
@@ -181,8 +187,7 @@ export default function CatalogList({ config, inactive = false }: { config: Cata
     return payloadStr(item, column.payloadKey || column.key)
   }
 
-  return (
-    <CadastroShell>
+  const page = (
       <section className="pdv-cad-page" aria-labelledby={`pdv-cat-${config.kind}`}>
         <div className="pdv-cad-sheet pdv-cad-sheet-wide">
           <h1 id={`pdv-cat-${config.kind}`}>{config.title}</h1>
@@ -205,7 +210,11 @@ export default function CatalogList({ config, inactive = false }: { config: Cata
               )
             ) : null}
             {config.extraActions}
-            {config.bulkDelete || config.bulkDisable ? (
+            {config.alwaysPick && config.bulkDisable ? (
+              <button className="pdv-cad-btn pdv-cad-btn-red" type="button" disabled={!picked.length || deleting} onClick={() => void disableSelected()}>
+                {deleting ? "Inativando..." : "Inativar"}
+              </button>
+            ) : config.bulkDelete || config.bulkDisable ? (
               picking ? (
                 <>
                   {config.bulkDisable ? (
@@ -268,6 +277,7 @@ export default function CatalogList({ config, inactive = false }: { config: Cata
                         checked={visible.length > 0 && picked.length === visible.length}
                         onChange={(event) => setPicked(event.target.checked ? visible.map((item) => item.code) : [])}
                       />
+                      {config.alwaysPick ? " Todos" : null}
                     </th>
                   ) : null}
                   {config.columns.map((column) => (
@@ -301,6 +311,6 @@ export default function CatalogList({ config, inactive = false }: { config: Cata
           ) : null}
         </div>
       </section>
-    </CadastroShell>
   )
+  return <CadastroFrame>{page}</CadastroFrame>
 }

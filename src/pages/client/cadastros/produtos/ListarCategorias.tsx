@@ -2,11 +2,13 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Eraser, Eye, FolderPlus, Pencil, Plus, Search, X } from "lucide-react";
 import CadastroShell from "../CadastroShell";
+import "../cadastros.css";
 import { listCatalog, updateCatalog } from "../catalog/catalogApi";
 import { parseError } from "../../../../services/api";
 import {
   categoryDepth,
   categoryFromCatalog,
+  categoryPaths,
   sortCategoryTree,
   type ProductCategory,
 } from "./categoryModel";
@@ -14,6 +16,7 @@ import {
 export default function ListarCategorias({ inactive = false }: { inactive?: boolean }) {
   const navigate = useNavigate();
   const location = useLocation();
+  const paths = categoryPaths(location.pathname);
   const isInactive = inactive || location.pathname.endsWith("/inativas");
   const [draft, setDraft] = useState({ code: "", name: "" });
   const [applied, setApplied] = useState(draft);
@@ -83,8 +86,7 @@ export default function ListarCategorias({ inactive = false }: { inactive?: bool
     }
   }
 
-  return (
-    <CadastroShell>
+  const page = (
       <section className="pdv-cad-page" aria-labelledby="pdv-cat-title">
         <div className="pdv-cad-sheet">
           <h1 id="pdv-cat-title">CATEGORIAS</h1>
@@ -93,7 +95,7 @@ export default function ListarCategorias({ inactive = false }: { inactive?: bool
             <button
               className="pdv-cad-btn pdv-cad-btn-green"
               type="button"
-              onClick={() => navigate("/client/produtos/categorias/cadastrar")}
+              onClick={() => navigate(paths.create)}
             >
               <Plus size={16} strokeWidth={2.4} aria-hidden="true" />
               Cadastrar Categoria
@@ -101,7 +103,7 @@ export default function ListarCategorias({ inactive = false }: { inactive?: bool
             <button
               className="pdv-cad-btn pdv-cad-btn-blue"
               type="button"
-              onClick={() => navigate("/client/produtos/categorias/reajuste")}
+              onClick={() => navigate(paths.adjust)}
             >
               Reajuste
             </button>
@@ -109,7 +111,7 @@ export default function ListarCategorias({ inactive = false }: { inactive?: bool
               <button
                 className="pdv-cad-btn pdv-cad-btn-green"
                 type="button"
-                onClick={() => navigate("/client/produtos/categorias")}
+                onClick={() => navigate(paths.list)}
               >
                 Categorias Ativas
               </button>
@@ -117,7 +119,7 @@ export default function ListarCategorias({ inactive = false }: { inactive?: bool
               <button
                 className="pdv-cad-btn pdv-cad-btn-red"
                 type="button"
-                onClick={() => navigate("/client/produtos/categorias/inativas")}
+                onClick={() => navigate(paths.inactive)}
               >
                 Categorias Inativas
               </button>
@@ -205,7 +207,7 @@ export default function ListarCategorias({ inactive = false }: { inactive?: bool
                             type="button"
                             aria-label={`Visualizar Produtos ${item.name}`}
                             title="Visualizar Produtos"
-                            onClick={() => navigate("/client/produtos")}
+                            onClick={() => navigate(paths.products)}
                           >
                             <Eye size={16} aria-hidden="true" />
                           </button>
@@ -215,7 +217,7 @@ export default function ListarCategorias({ inactive = false }: { inactive?: bool
                             aria-label={`Atualizar Categoria ${item.name}`}
                             title="Atualizar Categoria"
                             onClick={() =>
-                              navigate(`/client/produtos/categorias/cadastrar?id=${item.code}`)
+                              navigate(`${paths.create}?id=${item.code}`)
                             }
                           >
                             <Pencil size={16} aria-hidden="true" />
@@ -226,7 +228,7 @@ export default function ListarCategorias({ inactive = false }: { inactive?: bool
                             aria-label={`Adicionar SubCategoria em ${item.name}`}
                             title="+ Adicionar SubCategoria"
                             onClick={() =>
-                              navigate(`/client/produtos/categorias/cadastrar?pai=${item.code}`)
+                              navigate(`${paths.create}?pai=${item.code}`)
                             }
                           >
                             <FolderPlus size={16} aria-hidden="true" />
@@ -258,6 +260,6 @@ export default function ListarCategorias({ inactive = false }: { inactive?: bool
           </p>
         </div>
       </section>
-    </CadastroShell>
   );
+  return paths.office ? page : <CadastroShell>{page}</CadastroShell>;
 }

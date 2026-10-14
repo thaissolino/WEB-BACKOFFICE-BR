@@ -4,6 +4,7 @@ import FilterPage, { type FilterPageProps } from "../pdv/FilterPage"
 import { api, parseError } from "../../../services/api"
 import { formatMoneyRs } from "../cadastros/produtos/types"
 import { EMPTY_SALE_FILTERS, filterLojaSales, type SaleFilters } from "./lojaSalesFilters"
+import { DatePreset } from "../cadastros/catalog/FormBits"
 
 export type LojaPdvLine = {
   productId: string
@@ -189,7 +190,10 @@ function SaleFilterBar({
     <form className="pdv-cad-filters" onSubmit={onApply}>
       <label>
         Data início
-        <input type="date" value={draft.inicio} onChange={(event) => onDraft({ ...draft, inicio: event.target.value })} />
+        <span className="pdv-date-field">
+          <input type="date" value={draft.inicio} onChange={(event) => onDraft({ ...draft, inicio: event.target.value })} />
+          <DatePreset onPick={(inicio, fim) => onDraft({ ...draft, inicio, fim })} />
+        </span>
       </label>
       <label>
         Data fim

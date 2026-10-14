@@ -74,6 +74,25 @@ import GestorCadastroPlanos from "../pages/gestor/GestorCadastroPlanos";
 import GestorEstoqueAtacado from "../pages/gestor/GestorEstoqueAtacado";
 import GestorVendasConcluidas from "../pages/gestor/GestorVendasConcluidas";
 import GestorEtiquetasEntrada from "../pages/gestor/GestorEtiquetasEntrada";
+import DreGerencial from "../pages/gestor/DreGerencial";
+import ItensVendas from "../pages/gestor/ItensVendas";
+import FormaPagamentoForm from "../pages/client/cadastros/financeiro/FormaPagamentoForm";
+import CaixaPage, { PlanoContaForm } from "../pages/client/cadastros/financeiro/CaixaPage";
+import { PayList, PlanList } from "../pages/client/cadastros/catalogLists";
+import {
+  BoletosPage,
+  CadastrarDespesa,
+  ContasPagar,
+  ContasReceber,
+  FluxoCaixa,
+  ListarDespesas,
+  PainelEntregas,
+  PreVendas,
+  PrevisaoFluxo,
+  RelatorioCaixaClientes,
+  VendasAbertas,
+  VendasConcluidas,
+} from "../pages/client/movimentacoes/MovPages";
 import TrocarSenhaCliente from "../pages/client/TrocarSenha";
 import CreateCommercialClient from "../pages/commercial-clients/CreateCommercialClient";
 import CommercialClientsList from "../pages/commercial-clients/CommercialClientsList";
@@ -272,8 +291,37 @@ export function Router() {
           <Route path="create-form-user" element={<FormUser />} />
           <Route path="cambioPage" element={<CambioPage />} />
           <Route path="gestao/cadastro" element={<InvocesManagement area="cadastro" />} />
+          <Route path="gestao/cadastro/categorias/inativas" element={<ListarCategorias inactive />} />
+          <Route path="gestao/cadastro/categorias/cadastrar" element={<CadastrarCategoria />} />
+          <Route path="gestao/cadastro/categorias/reajuste" element={<ReajusteCategoria />} />
+          <Route path="gestao/cadastro/categorias" element={<ListarCategorias />} />
+          <Route path="gestao/cadastro/financeiro/formas-pagamento/cadastrar" element={<FormaPagamentoForm />} />
+          <Route path="gestao/cadastro/financeiro/formas-pagamento/inativos" element={<PayList inactive />} />
+          <Route path="gestao/cadastro/financeiro/formas-pagamento" element={<PayList />} />
+          <Route path="gestao/cadastro/financeiro/plano-conta/cadastrar" element={<PlanoContaForm />} />
+          <Route path="gestao/cadastro/financeiro/plano-conta/inativos" element={<PlanList inactive />} />
+          <Route path="gestao/cadastro/financeiro/plano-conta" element={<PlanList />} />
+          <Route path="gestao/cadastro/financeiro/caixa" element={<CaixaPage />} />
           <Route path="gestao/compras" element={<InvocesManagement area="compras" />} />
+          <Route path="gestao/movimentacoes/vendas/pre" element={<PreVendas />} />
+          <Route path="gestao/movimentacoes/vendas/entregas" element={<PainelEntregas />} />
+          <Route path="gestao/movimentacoes/vendas/abertas" element={<VendasAbertas />} />
+          <Route path="gestao/movimentacoes/vendas/concluidas" element={<VendasConcluidas />} />
+          <Route path="gestao/movimentacoes/financeiro/receber" element={<ContasReceber />} />
+          <Route path="gestao/movimentacoes/financeiro/pagar" element={<ContasPagar />} />
+          <Route path="gestao/movimentacoes/financeiro/fluxo" element={<FluxoCaixa />} />
+          <Route path="gestao/movimentacoes/financeiro/previsao" element={<PrevisaoFluxo />} />
+          <Route path="gestao/movimentacoes/financeiro/despesas/cadastrar" element={<CadastrarDespesa />} />
+          <Route path="gestao/movimentacoes/financeiro/receitas/cadastrar" element={<CadastrarDespesa receita />} />
+          <Route path="gestao/movimentacoes/financeiro/despesas" element={<ListarDespesas />} />
+          <Route path="gestao/movimentacoes/financeiro/caixa-clientes" element={<RelatorioCaixaClientes />} />
+          <Route path="gestao/movimentacoes/financeiro/boletos/recorrentes" element={<BoletosPage title="BOLETOS RECORRENTES" />} />
+          <Route path="gestao/movimentacoes/financeiro/boletos/contas" element={<BoletosPage title="CONTAS BANCÁRIAS" />} />
+          <Route path="gestao/movimentacoes/financeiro/boletos/gerenciar" element={<BoletosPage title="GERENCIAR BOLETOS" />} />
+          <Route path="gestao/movimentacoes/financeiro/boletos/arquivos" element={<BoletosPage title="GERENCIAR ARQUIVOS" />} />
           <Route path="gestao/caixas" element={<InvocesManagement area="caixas" />} />
+          <Route path="gestao/relatorios/dre" element={<DreGerencial />} />
+          <Route path="gestao/relatorios/itens-vendas" element={<ItensVendas />} />
           <Route path="invoices-management" element={<InvocesManagement area="compras" />} />
           <Route path="vendas-concluidas" element={<GestorVendasConcluidas />} />
           <Route path="etiquetas-entrada" element={<GestorEtiquetasEntrada />} />

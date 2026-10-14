@@ -1,5 +1,7 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { api, parseError } from "../../services/api";
+import { InvoiceHistoryReport, saoPauloDay } from "../gestao-invoices/components/sections/InvoiceHistoryReport";
+import type { InvoiceData } from "../gestao-invoices/components/sections/InvoiceHistory";
 import GestaoShell from "./GestaoShell";
 
 type Line = {
@@ -25,6 +27,10 @@ function money(value: number) {
   return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 
+function isFinalizedInvoice(invoice: InvoiceData) {
+  return Boolean(invoice.completed && invoice.paid && invoice.labelsPrintedAt);
+}
+
 export default function GestorEtiquetasEntrada() {
   const [number, setNumber] = useState("");
   const [fantasy, setFantasy] = useState("Black Rabbit");
@@ -33,6 +39,55 @@ export default function GestorEtiquetasEntrada() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [printing, setPrinting] = useState(false);
+  const [invoices, setInvoices] = useState<InvoiceData[]>([]);
+  const [printCount, setPrintCount] = useState(0);
+  const [markTick, setMarkTick] = useState(0);
+  const [card, setCard] = useState<"gerar" | "finalizadas">("gerar");
+
+  const needle = number.trim().toLowerCase();
+  const labelQueue = useMemo(
+    () => invoices.filter((invoice) => !invoice.labelsPrintedAt && (!needle || String(invoice.number).toLowerCase().includes(needle))),
+    [invoices, needle],
+  );
+  const finalized = useMemo(
+    () => invoices.filter((invoice) => isFinalizedInvoice(invoice) && (!needle || String(invoice.number).toLowerCase().includes(needle))),
+    [invoices, needle],
+  );
+
+  useEffect(() => {
+    api
+      .get("/invoice/get")
+      .then(({ data }) => setInvoices((data || []) as InvoiceData[]))
+      .catch(() => setInvoices([]));
+  }, []);
+
+  useEffect(() => {
+    let cancel = false;
+    const openIds = new Set(invoices.filter((invoice) => !invoice.labelsPrintedAt).map((invoice) => invoice.id));
+    api
+      .get("/invoice/receipt-history")
+      .then(({ data }) => {
+        if (cancel) return;
+        const keys = new Set<string>();
+        const groups = Array.isArray(data?.grouped) ? data.grouped : [];
+        for (const group of groups) {
+          for (const entry of group.entries || []) {
+            if (entry.labelPrintedAt || !openIds.has(entry.invoiceId)) continue;
+            if (needle && !String(entry.invoiceNumber || "").toLowerCase().includes(needle)) continue;
+            const day = saoPauloDay(entry.date);
+            if (!day) continue;
+            keys.add(`${entry.invoiceId}|${day}`);
+          }
+        }
+        setPrintCount(keys.size);
+      })
+      .catch(() => {
+        if (!cancel) setPrintCount(0);
+      });
+    return () => {
+      cancel = true;
+    };
+  }, [invoices, needle, markTick]);
 
   const total = useMemo(
     () => rows.reduce((sum, row) => sum + (row.selected ? Math.max(0, row.printQty) : 0), 0),
@@ -139,6 +194,61 @@ export default function GestorEtiquetasEntrada() {
         </button>
       </form>
 
+      <div className="mb-6 grid grid-cols-1 gap-6 md:grid-cols-2">
+        <button
+          type="button"
+          onClick={() => setCard("gerar")}
+          className={`rounded-2xl border bg-white p-6 text-center shadow-sm ${
+            card === "gerar" ? "border-gray-900" : "border-gray-100"
+          }`}
+        >
+          <h3 className="mb-2 text-lg font-medium text-blue-700">Gerar etiquetas</h3>
+          <p className="text-3xl font-bold text-gray-900">{printCount}</p>
+          <p className="text-sm text-gray-600">Recebimento do dia, mesmo parcial</p>
+        </button>
+        <button
+          type="button"
+          onClick={() => setCard("finalizadas")}
+          className={`rounded-2xl border bg-white p-6 text-center shadow-sm ${
+            card === "finalizadas" ? "border-gray-900" : "border-gray-100"
+          }`}
+        >
+          <h3 className="mb-2 text-lg font-medium text-teal-700">Impressas</h3>
+          <p className="text-3xl font-bold text-teal-600">{finalized.length}</p>
+          <p className="text-sm text-gray-600">Depois da impressão</p>
+        </button>
+      </div>
+
+      <InvoiceHistoryReport
+        printTable
+        reprint={card === "finalizadas"}
+        printInvoiceIds={(card === "gerar" ? labelQueue : finalized).map((invoice) => invoice.id)}
+        onLabelsPrinted={async ({ invoiceId, invoiceNumber, day, historyIds }) => {
+          const id = invoiceId || invoices.find((invoice) => String(invoice.number) === String(invoiceNumber))?.id;
+          if (!id) return;
+          const reprint = card === "finalizadas";
+          const { data } = await api.post(`/invoice/labels-printed/${id}`, {
+            ...(day && !reprint ? { day } : {}),
+            ...(historyIds?.length ? { ids: historyIds } : {}),
+          });
+          if (!data?.invoicePrinted) {
+            setMarkTick((value) => value + 1);
+            return;
+          }
+          const stamped = data.labelsPrintedAt || new Date().toISOString();
+          setInvoices((current) =>
+            current.map((invoice) => (invoice.id === id ? { ...invoice, labelsPrintedAt: stamped } : invoice)),
+          );
+          setMarkTick((value) => value + 1);
+        }}
+        invoiceHistory={(card === "gerar" ? labelQueue : finalized) as unknown as import("../gestao-invoices/components/sections/InvoiceHistoryReport").InvoiceData[]}
+        setInvoiceHistory={
+          setInvoices as unknown as React.Dispatch<
+            React.SetStateAction<import("../gestao-invoices/components/sections/InvoiceHistoryReport").InvoiceData[]>
+          >
+        }
+      />
+
       {error ? (
         <div className="mb-4 rounded border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700" role="alert">
           {error}
@@ -151,7 +261,7 @@ export default function GestorEtiquetasEntrada() {
             Invoice {loaded.invoice.number}
             {loaded.invoice.supplier ? ` · ${loaded.invoice.supplier}` : ""}
           </p>
-          <div className="overflow-x-auto">
+          <div className="iv-linhas overflow-x-auto">
             <table className="min-w-full text-left text-sm">
               <thead className="border-b text-xs uppercase tracking-wide text-blue-800">
                 <tr>

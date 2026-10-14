@@ -1,6 +1,6 @@
-import { FormEvent, Fragment, ReactNode } from "react"
-import { useNavigate } from "react-router-dom"
-import CadastroShell from "../cadastros/CadastroShell"
+import { FormEvent, Fragment, ReactNode, useState } from "react"
+import { useLocation, useNavigate } from "react-router-dom"
+import { CadastroFrame } from "../cadastros/CadastroShell"
 import { DatePreset } from "../cadastros/catalog/FormBits"
 import { todayIso } from "../../../utils/todayIso"
 
@@ -45,13 +45,53 @@ export default function FilterPage({
   closedAction,
 }: FilterPageProps) {
   const navigate = useNavigate()
+  const { pathname } = useLocation()
+  const dateKeys = fields.filter((field) => field.kind === "date").map((field) => field.key)
+  const [values, setValues] = useState<Record<string, string>>(() => {
+    const next: Record<string, string> = {}
+    for (const field of fields) {
+      next[field.key] = field.kind === "date" ? todayIso() : field.kind === "select" ? field.options?.[0] || "" : ""
+    }
+    return next
+  })
+
+  function setValue(key: string, value: string) {
+    setValues((current) => ({ ...current, [key]: value }))
+  }
+
+  function applyPeriod(start: string, end: string) {
+    setValues((current) => {
+      const next = { ...current }
+      if (dateKeys[0]) next[dateKeys[0]] = start
+      if (dateKeys[1]) next[dateKeys[1]] = end
+      return next
+    })
+  }
+
+  function clearValues() {
+    setValues((current) => {
+      const next = { ...current }
+      for (const field of fields) {
+        next[field.key] = field.kind === "date" ? todayIso() : field.kind === "select" ? field.options?.[0] || "" : ""
+      }
+      return next
+    })
+  }
+
+  function go(href?: string) {
+    if (!href) return
+    const next = pathname.startsWith("/gestao/")
+      ? href.replace("/client/movimentacoes", "/gestao/movimentacoes")
+      : href
+    navigate(next)
+  }
 
   function onSubmit(event: FormEvent) {
     event.preventDefault()
   }
 
   return (
-    <CadastroShell>
+    <CadastroFrame>
       <section className="pdv-cad-page" aria-labelledby="pdv-filter-title">
         <div className={`pdv-cad-sheet pdv-cad-sheet-wide${premium ? " pdv-cad-premium" : ""}`}>
           {hideList ? null : <h1 id="pdv-filter-title">{title}</h1>}
@@ -62,7 +102,7 @@ export default function FilterPage({
                   key={action.label}
                   className={`pdv-cad-btn ${action.tone === "green" ? "pdv-cad-btn-green" : action.tone === "red" ? "pdv-cad-btn-red" : action.tone === "blue" ? "pdv-cad-btn-blue" : ""}`}
                   type="button"
-                  onClick={() => action.href && navigate(action.href)}
+                  onClick={() => go(action.href)}
                 >
                   {action.label}
                 </button>
@@ -74,26 +114,30 @@ export default function FilterPage({
               <label key={field.key}>
                 {field.label}
                 {field.kind === "select" ? (
-                  <select defaultValue={field.options?.[0]}>
+                  <select value={values[field.key] ?? ""} onChange={(event) => setValue(field.key, event.target.value)}>
                     {(field.options || []).map((opt) => (
                       <option key={opt}>{opt}</option>
                     ))}
                   </select>
                 ) : field.kind === "date" ? (
-                  <input type="date" defaultValue={todayIso()} autoComplete="off" />
+                  field.key === dateKeys[0] ? (
+                    <span className="pdv-date-field">
+                      <input type="date" value={values[field.key] ?? ""} onChange={(event) => setValue(field.key, event.target.value)} autoComplete="off" />
+                      <DatePreset onPick={applyPeriod} />
+                    </span>
+                  ) : (
+                    <input type="date" value={values[field.key] ?? ""} onChange={(event) => setValue(field.key, event.target.value)} autoComplete="off" />
+                  )
                 ) : (
-                  <input autoComplete="off" />
+                  <input value={values[field.key] ?? ""} onChange={(event) => setValue(field.key, event.target.value)} autoComplete="off" />
                 )}
               </label>
             ))}
             <div className="pdv-cad-filters-go">
-              <button className="pdv-cad-btn" type="button">Limpar</button>
+              <button className="pdv-cad-btn" type="button" onClick={clearValues}>Limpar</button>
               <button className="pdv-cad-btn pdv-cad-btn-blue" type="submit">{submitLabel}</button>
             </div>
           </form>}
-          {fields.some((field) => field.kind === "date") ? (
-            <DatePreset onPick={() => undefined} />
-          ) : null}
           {extra}
           {hideList ? null : <div className="pdv-cad-table-wrap">
             <table className="pdv-cad-table">
@@ -147,6 +191,6 @@ export default function FilterPage({
           )}
         </div>
       </section>
-    </CadastroShell>
+    </CadastroFrame>
   )
 }

@@ -1,7 +1,8 @@
 import { CSSProperties, FormEvent, ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { ArrowLeft, Boxes, CircleCheck, ClipboardList, LoaderCircle, PackageX, PartyPopper, ScanLine, Search, ShoppingBag, Truck, Wallet, X } from "lucide-react";
+import { ArrowLeft, Boxes, CircleCheck, ClipboardList, LoaderCircle, PackageX, PartyPopper, ScanLine, Search, ShoppingBag, ShoppingCart, Trash2, Truck, Wallet, X } from "lucide-react";
 import { api, parseError } from "../../../services/api";
+import { isOpenStoreCategory, openCategoryRank } from "../cadastros/produtos/categoryModel";
 import { ProductPhoto } from "../cadastros/produtos/GradePhotoThumb";
 import PdvShell from "../dashboard/PdvShell";
 import { useClientAuth } from "../../../hooks/clientAuth";
@@ -17,19 +18,13 @@ type CatalogProduct = {
   categoryId: string;
   photoFileId: string | null;
   stockQuantity: number;
+  search: string;
 };
 
 type StoreCategory = {
   id: string;
   name: string;
 };
-
-const CATEGORY_ORDER = ["iphone-novos", "iphone-seminovos", "apple-watch", "ipad", "macbook"];
-
-function categorySortKey(id: string) {
-  const index = CATEGORY_ORDER.indexOf(id);
-  return index === -1 ? CATEGORY_ORDER.length : index;
-}
 
 type CartLine = CatalogProduct & { qty: number; imeis?: string[] };
 
@@ -68,7 +63,7 @@ const EMPTY_ADDRESS: Address = {};
 
 const NAV = [
   { to: "/client/pedidos", label: "Início", end: true },
-  { to: "/client/pedidos/venda", label: "Pedido" },
+  { to: "/client/pedidos/venda", label: "Novo pedido" },
   { to: "/client/pedidos/historico", label: "Histórico" },
   { to: "/client/pedidos/financeiro", label: "Financeiro" },
   { to: "/client/pedidos/rastreio", label: "Rastreio" },
@@ -129,22 +124,141 @@ function cartTotal(lines: CartLine[], discount = 0) {
   return Math.max(0, raw - discount);
 }
 
+const cartBadge = { count: 0, open: () => {} };
+const cartBadgeListeners = new Set<() => void>();
+
+function publishCartBadge(next: { count: number; open: () => void }) {
+  cartBadge.count = next.count;
+  cartBadge.open = next.open;
+  cartBadgeListeners.forEach((listener) => listener());
+}
+
+function useCartBadge() {
+  const [, refresh] = useState(0);
+  useEffect(() => {
+    const listener = () => refresh((value) => value + 1);
+    cartBadgeListeners.add(listener);
+    return () => {
+      cartBadgeListeners.delete(listener);
+    };
+  }, []);
+  return cartBadge;
+}
+
+function QtyField({
+  stock,
+  value,
+  onChange,
+}: {
+  stock: number;
+  value: number;
+  onChange: (qty: number) => void;
+}) {
+  const [more, setMore] = useState(false);
+  const [draft, setDraft] = useState("");
+  const qty = Math.max(1, Math.floor(Number(value) || 1));
+  const knownStock = Math.floor(Number(stock));
+  const max = Math.max(qty, Number.isFinite(knownStock) && knownStock > 0 ? knownStock : qty);
+  const shown = Math.min(qty, max);
+  const presets = [1, 2, 3, 4, 5, 6].filter((item) => item <= max);
+  return (
+    <div className="loja-qty-field">
+      <label>
+        Quantidade
+        <select
+          aria-label="Quantidade"
+          value={more ? "more" : String(shown)}
+          disabled={max <= 0}
+          onChange={(event) => {
+            if (event.target.value === "more") {
+              setMore(true);
+              setDraft(String(Math.min(max, Math.max(shown, 7))));
+              return;
+            }
+            setMore(false);
+            onChange(Number(event.target.value));
+          }}
+        >
+          {presets.map((item) => (
+            <option key={item} value={item}>
+              {item} {item === 1 ? "unidade" : "unidades"}
+            </option>
+          ))}
+          {shown > 6 ? <option value={shown}>{shown} unidades</option> : null}
+          {max > 6 ? <option value="more">Mais de 6 unidades</option> : null}
+        </select>
+      </label>
+      {more ? (
+        <div className="loja-qty-more">
+          <label>
+            Quantidade
+            <input
+              type="number"
+              min={1}
+              max={max}
+              value={draft}
+              onChange={(event) => setDraft(event.target.value)}
+            />
+          </label>
+          <button
+            type="button"
+            onClick={() => {
+              const next = Math.min(max, Math.max(1, Math.round(Number(draft) || 1)));
+              onChange(next);
+              setMore(false);
+            }}
+          >
+            Aplicar
+          </button>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function LojaFrame({ children }: { children: ReactNode }) {
   const { pathname } = useLocation();
+  const navigate = useNavigate();
+  const cart = useCartBadge();
+  const onSale = pathname.startsWith("/client/pedidos/venda");
+  const onHome = pathname === "/client/pedidos" || pathname === "/client/pedidos/";
+  function goBack() {
+    if (onSale) {
+      const event = new CustomEvent("loja-voltar", { cancelable: true });
+      if (window.dispatchEvent(event)) navigate("/client/pedidos");
+      return;
+    }
+    if (onHome) {
+      navigate("/client/dashboard");
+      return;
+    }
+    if (pathname.includes("/historico/") || pathname.includes("/imprimir")) {
+      navigate("/client/pedidos/historico");
+      return;
+    }
+    navigate("/client/pedidos");
+  }
   return (
       <div className="loja-pedidos">
         <div className="loja-head loja-no-print">
         <div className="loja-top">
           <div className="loja-top-title">
-            {pathname.startsWith("/client/pedidos/venda") ? (
-              <Link className="loja-back" to="/client/pedidos">
-                <ArrowLeft size={15} aria-hidden="true" />
-                Voltar
-              </Link>
-            ) : null}
+            <button type="button" className="loja-back" onClick={goBack}>
+              <ArrowLeft size={15} aria-hidden="true" />
+              Voltar
+            </button>
             <p className="loja-kicker">Gestão de pedidos</p>
           </div>
-          <Link to="/client/dashboard">Painel da loja</Link>
+          <div className="loja-top-actions">
+            {onSale ? (
+              <button type="button" className="loja-cart-top" onClick={cart.open} aria-label="Abrir carrinho">
+                <ShoppingCart size={18} strokeWidth={1.9} aria-hidden="true" />
+                <span>Carrinho</span>
+                {cart.count > 0 ? <b>{cart.count}</b> : null}
+              </button>
+            ) : null}
+            <Link to="/client/dashboard">Painel da loja</Link>
+          </div>
         </div>
         <nav className="loja-nav" aria-label="Pedidos do lojista">
           {NAV.map((item) => {
@@ -174,49 +288,58 @@ function Home() {
       .then((order) => setLines(order?.lines || []))
       .catch(() => setLines([]));
   }, []);
-  const total = cartTotal(lines);
   return (
     <>
       <header>
-        <h1 className="loja-title">Pedido</h1>
+        <h1 className="loja-title">Pedidos</h1>
         <p className="loja-lede">
           {lines.length
-            ? `Pedido aberto com ${lines.length} item(ns), total ${money(total)}.`
-            : "Nenhum pedido aberto."}
+            ? `${lines.length} ${lines.length === 1 ? "item" : "itens"} no pedido aberto.`
+            : "Nenhum pedido aberto. Escolha por onde começar."}
         </p>
       </header>
-      <div className="loja-grid">
-        <Link className="loja-card loja-card-feature" to="/client/pedidos/venda">
-          <span className="loja-card-kicker">Pedido</span>
-          <strong>{lines.length ? money(total) : "Abrir pedido"}</strong>
-          <span className="loja-card-copy">
-            {lines.length
-              ? `${lines.length} ${lines.length === 1 ? "item" : "itens"} no pedido aberto.`
-              : "Escolha os produtos e a quantidade."}
+      <div className="loja-split-home">
+        <Link className="loja-order-panel" to="/client/pedidos/venda">
+          <img src="/pedidos-novo-claro.jpg" alt="" />
+          <span className="loja-order-panel-copy">
+            <strong>Novo pedido</strong>
+            <span>
+              {lines.length
+                ? `${lines.length} ${lines.length === 1 ? "item" : "itens"} no pedido aberto.`
+                : "Escolha os produtos e a quantidade."}
+            </span>
           </span>
-          <span className="loja-card-go">Continuar</span>
-          <ShoppingBag className="loja-card-mark" size={148} strokeWidth={1.15} aria-hidden="true" />
         </Link>
-        <Link className="loja-card" to="/client/pedidos/historico">
-          <ClipboardList size={26} strokeWidth={1.75} aria-hidden="true" />
-          <strong>Histórico</strong>
-          <span>Pedidos já fechados.</span>
-        </Link>
-        <Link className="loja-card" to="/client/pedidos/financeiro">
-          <Wallet size={26} strokeWidth={1.75} aria-hidden="true" />
-          <strong>Financeiro</strong>
-          <span>Conta da loja com o atacado.</span>
-        </Link>
-        <Link className="loja-card" to="/client/pedidos/rastreio">
-          <Truck size={26} strokeWidth={1.75} aria-hidden="true" />
-          <strong>Rastreio</strong>
-          <span>Entrega do pedido.</span>
-        </Link>
-        <Link className="loja-card" to="/client/pedidos/observacao">
-          <ScanLine size={26} strokeWidth={1.75} aria-hidden="true" />
-          <strong>IMEI / serial</strong>
-          <span>Achar uma compra desta loja.</span>
-        </Link>
+        <div className="loja-side-actions">
+          <Link className="loja-action" to="/client/pedidos/historico">
+            <span className="loja-action-ico" aria-hidden="true">
+              <ClipboardList size={30} strokeWidth={1.75} />
+            </span>
+            <strong>Histórico</strong>
+            <span>Pedidos já fechados.</span>
+          </Link>
+          <Link className="loja-action" to="/client/pedidos/financeiro">
+            <span className="loja-action-ico" aria-hidden="true">
+              <Wallet size={30} strokeWidth={1.75} />
+            </span>
+            <strong>Financeiro</strong>
+            <span>Conta da loja com o atacado.</span>
+          </Link>
+          <Link className="loja-action" to="/client/pedidos/rastreio">
+            <span className="loja-action-ico" aria-hidden="true">
+              <Truck size={30} strokeWidth={1.75} />
+            </span>
+            <strong>Rastreio</strong>
+            <span>Entrega do pedido.</span>
+          </Link>
+          <Link className="loja-action" to="/client/pedidos/observacao">
+            <span className="loja-action-ico" aria-hidden="true">
+              <ScanLine size={30} strokeWidth={1.75} />
+            </span>
+            <strong>IMEI / serial</strong>
+            <span>Achar uma compra desta loja.</span>
+          </Link>
+        </div>
       </div>
     </>
   );
@@ -230,6 +353,9 @@ function Venda() {
   const [onlyInStock, setOnlyInStock] = useState(true);
   const [storeCategories, setStoreCategories] = useState<StoreCategory[]>([]);
   const [lines, setLines] = useState<CartLine[]>([]);
+  const [picks, setPicks] = useState<Record<string, number>>({});
+  const [cartOpen, setCartOpen] = useState(false);
+  const [addedPopup, setAddedPopup] = useState<{ product: CatalogProduct; qty: number } | null>(null);
   const [address, setAddress] = useState<Address>(EMPTY_ADDRESS);
   const [observacao, setObservacao] = useState("");
   const [ready, setReady] = useState(false);
@@ -296,11 +422,34 @@ function Venda() {
             categoryId: String(item.categoryId || ""),
             photoFileId: item.photoFileId ? String(item.photoFileId) : null,
             stockQuantity: Number(item.stockQuantity || 0),
+            search: [item.name, item.code, item.category, item.barcode, item.brand, item.model, item.reference, item.description, item.supplierCode, item.supplierName, item.ncm]
+              .filter(Boolean)
+              .join(" ")
+              .toLowerCase(),
           })),
         );
       })
       .catch(() => setError("Não foi possível carregar o catálogo da central."));
   }, []);
+
+  useEffect(() => {
+    if (!products.length) return;
+    setLines((current) => {
+      let changed = false;
+      const next = current.map((line) => {
+        const product = products.find((item) => item.id === line.id);
+        if (!product?.photoFileId) return line;
+        if (line.photoFileId === product.photoFileId && line.stockQuantity === product.stockQuantity) return line;
+        changed = true;
+        return {
+          ...line,
+          photoFileId: product.photoFileId,
+          stockQuantity: product.stockQuantity || line.stockQuantity,
+        };
+      });
+      return changed ? next : current;
+    });
+  }, [products]);
 
   const categories = useMemo(() => {
     const priced = products.filter((item) => item.price > 0);
@@ -311,11 +460,9 @@ function Venda() {
     const extras = Array.from(usedNames)
       .filter((name) => !known.has(name))
       .map((name) => ({ id: name, name }));
-    const ordered = [...fromStore, ...extras].sort((a, b) => {
-      const rank = categorySortKey(a.id) - categorySortKey(b.id);
-      if (rank !== 0) return rank;
-      return a.name.localeCompare(b.name, "pt-BR");
-    });
+    const ordered = [...fromStore, ...extras]
+      .filter((item) => isOpenStoreCategory(item.id, item.name))
+      .sort((a, b) => openCategoryRank(a.id, a.name) - openCategoryRank(b.id, b.name));
     return [{ id: "Todas", name: "Todas" }, ...ordered];
   }, [products, storeCategories]);
 
@@ -344,26 +491,35 @@ function Venda() {
 
   const visible = products.filter((item) => {
     if (!(item.price > 0)) return false;
-    const text = `${item.name} ${item.code} ${item.category}`.toLowerCase();
+    const text = item.search || `${item.name} ${item.code} ${item.category}`.toLowerCase();
     const terms = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
     const matchesQuery = !terms.length || terms.every((term) => text.includes(term));
     const matchesCategory =
-      category === "Todas" || item.categoryId === category || item.category === category;
-    const matchesStock = onlyInStock ? item.stockQuantity > 0 : item.stockQuantity <= 0;
+      (category === "Todas" || item.categoryId === category || item.category === category) &&
+      isOpenStoreCategory(item.categoryId, item.category);
+    const hasBackofficeStock = item.stockQuantity > 0;
+    const matchesStock = onlyInStock ? hasBackofficeStock : !hasBackofficeStock;
     return matchesQuery && matchesCategory && matchesStock;
   });
 
-  function add(product: CatalogProduct) {
+  function add(product: CatalogProduct, amount = 1) {
     const stock = Math.max(0, Math.floor(Number(product.stockQuantity) || 0));
+    const want = Math.max(1, Math.round(Number(amount) || 1));
+    const found = lines.find((line) => line.id === product.id);
+    if (stock <= 0 || stock - (found?.qty || 0) <= 0) return false;
     setLines((current) => {
-      const found = current.find((line) => line.id === product.id);
-      const next = (found?.qty || 0) + 1;
-      if (next > stock) return current;
-      if (found) {
-        return current.map((line) => (line.id === product.id ? { ...line, qty: next, stockQuantity: stock } : line));
+      const line = current.find((item) => item.id === product.id);
+      const room = stock - (line?.qty || 0);
+      if (room <= 0) return current;
+      const extra = Math.min(room, want);
+      if (line) {
+        return current.map((item) =>
+          item.id === product.id ? { ...item, qty: item.qty + extra, stockQuantity: stock } : item,
+        );
       }
-      return [...current, { ...product, stockQuantity: stock, qty: 1 }];
+      return [...current, { ...product, stockQuantity: stock, qty: extra }];
     });
+    return true;
   }
 
   async function finish() {
@@ -424,33 +580,66 @@ function Venda() {
   }
 
   const splitRef = useRef<HTMLDivElement>(null);
+  const categoryRef = useRef(category);
+  const queryRef = useRef(query);
+  const cartOpenRef = useRef(cartOpen);
+  categoryRef.current = category;
+  queryRef.current = query;
+  cartOpenRef.current = cartOpen;
+  useEffect(() => {
+    publishCartBadge({
+      count: lines.reduce((sum, line) => sum + line.qty, 0),
+      open: () => setCartOpen(true),
+    });
+    return () => publishCartBadge({ count: 0, open: () => {} });
+  }, [lines]);
+  useEffect(() => {
+    function onBack(event: Event) {
+      if (cartOpenRef.current) {
+        event.preventDefault();
+        setCartOpen(false);
+        return;
+      }
+      if (categoryRef.current === "Todas" && !queryRef.current.trim()) return;
+      event.preventDefault();
+      setCategory("Todas");
+      setQuery("");
+    }
+    window.addEventListener("loja-voltar", onBack);
+    return () => window.removeEventListener("loja-voltar", onBack);
+  }, []);
   useEffect(() => {
     const root = splitRef.current?.closest(".loja-pedidos");
     if (!root) return;
-    root.toggleAttribute("data-categorias", showCategories);
+    root.toggleAttribute("data-categorias", showCategories && !cartOpen);
     return () => root.removeAttribute("data-categorias");
-  }, [showCategories]);
+  }, [showCategories, cartOpen]);
+
+  const cartUnits = lines.reduce((sum, line) => sum + line.qty, 0);
 
   return (
-    <div className={showCategories ? "loja-split loja-split-cats" : "loja-split"} ref={splitRef}>
+    <div className={showCategories && !cartOpen ? "loja-split loja-split-cats" : "loja-split loja-split-full"} ref={splitRef}>
       <section>
-        <h1 className="loja-title">{showCategories ? "Categoria" : "Pedido"}</h1>
+        <h1 className="loja-title">{cartOpen ? "Carrinho" : showCategories ? "Categoria" : "Pedido"}</h1>
         <p className="loja-lede">
-          {showCategories ? "Escolha a categoria." : "Escolha o produto, a quantidade e feche o pedido."}
+          {cartOpen
+            ? cartUnits
+              ? `${cartUnits} ${cartUnits === 1 ? "unidade" : "unidades"} no carrinho.`
+              : "O carrinho está vazio."
+            : showCategories
+              ? "Escolha a categoria."
+              : "Escolha o produto e a quantidade."}
         </p>
         {error ? <p className="loja-note">{error}</p> : null}
-        {showCategories ? null : (
+        {cartOpen ? null : (
         <div className="loja-tools loja-search-line">
-          {/* <button type="button" className="loja-btn" onClick={() => { setCategory("Todas"); setQuery(""); }}>
-            Categorias
-          </button> */}
           <label className="loja-search">
             <Search size={16} strokeWidth={2.4} aria-hidden="true" />
             <input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Buscar produto"
-              aria-label="Buscar produto"
+              placeholder={category === "Todas" ? "Buscar em todas as categorias" : "Buscar nesta categoria"}
+              aria-label={category === "Todas" ? "Buscar em todas as categorias" : "Buscar nesta categoria"}
             />
           </label>
           <button
@@ -467,20 +656,115 @@ function Venda() {
           </button>
         </div>
         )}
-        {showCategories ? (
-          <div className="loja-cat-cards" aria-label="Categorias">
-            {categoryCards.map((item) => (
-              <button key={item.id} type="button" className="loja-cat-card" onClick={() => setCategory(item.id)}>
-                <ProductPhoto productId={item.productId} photoFileId={item.photoFileId} name={item.name} />
+        {cartOpen ? (
+          <div className="loja-cart-page">
+            <div className="loja-cart-list">
+              {lines.length === 0 ? <p className="loja-lede">Nenhum item no carrinho.</p> : null}
+              {lines.map((line) => {
+                const stock = Math.max(0, Math.floor(Number(line.stockQuantity) || line.qty));
+                const left = Math.max(0, stock - line.qty);
+                return (
+                  <article key={line.id} className="loja-cart-row">
+                    <ProductPhoto productId={line.id} photoFileId={line.photoFileId} name={line.name} />
+                    <div className="loja-cart-row-body">
+                      <strong>{line.name}</strong>
+                      <div className="loja-step">
+                        <button type="button" aria-label={`Diminuir ${line.name}`} onClick={() => setQty(line.id, line.qty - 1)}>
+                          −
+                        </button>
+                        <span>{line.qty}</span>
+                        <button
+                          type="button"
+                          aria-label={`Aumentar ${line.name}`}
+                          disabled={line.qty >= stock}
+                          onClick={() => setQty(line.id, line.qty + 1)}
+                        >
+                          +
+                        </button>
+                      </div>
+                      <small>{left > 0 ? `+${left} disponíveis` : "Quantidade no limite do estoque"}</small>
+                    </div>
+                    {line.price > 0 ? <span className="loja-money">{money(line.price * line.qty)}</span> : <span />}
+                    <button type="button" className="loja-cart-remove" aria-label={`Remover ${line.name}`} onClick={() => setQty(line.id, 0)}>
+                      <Trash2 size={18} strokeWidth={1.7} />
+                    </button>
+                  </article>
+                );
+              })}
+            </div>
+            <aside className="loja-cart-summary">
+              <h2>Resumo da compra</h2>
+              <p>
+                <span>Produtos ({lines.length})</span>
+                <b>{money(cartTotal(lines))}</b>
+              </p>
+              <p className="loja-cart-total">
+                <span>Total</span>
+                <b>{money(cartTotal(lines))}</b>
+              </p>
+              <button
+                type="button"
+                className="loja-btn primary loja-buy-now"
+                disabled={!lines.length}
+                onClick={() => {
+                  setCloseStep("ask");
+                  setConfirmClose(true);
+                }}
+              >
+                Finalizar pedido{cartUnits ? ` (${cartUnits})` : ""}
+              </button>
+              <button
+                type="button"
+                className="loja-cart-keep"
+                onClick={() => {
+                  setCartOpen(false);
+                  setCategory("Todas");
+                  setQuery("");
+                }}
+              >
+                Continuar comprando
+              </button>
+            </aside>
+          </div>
+        ) : showCategories ? (
+          <div
+            className="loja-cat-cards"
+            aria-label="Categorias"
+            style={
+              {
+                "--cat-cols": String(categoryCards.length > 6 ? Math.ceil(categoryCards.length / 2) : Math.max(categoryCards.length, 1)),
+                "--cat-rows": String(categoryCards.length > 6 ? 2 : 1),
+              } as CSSProperties
+            }
+          >
+            {categoryCards.map((item) => {
+              const fallbackCover = !item.photoFileId && /ipad/i.test(`${item.id} ${item.name}`) ? "/capa-ipad.jpg" : "";
+              return (
+              <button
+                key={item.id}
+                type="button"
+                className={item.photoFileId || fallbackCover ? "loja-cat-card has-cover" : "loja-cat-card"}
+                onClick={() => setCategory(item.id)}
+              >
+                {fallbackCover ? (
+                  <span className="loja-photo">
+                    <img src={fallbackCover} alt="" />
+                  </span>
+                ) : (
+                  <ProductPhoto productId={item.productId} photoFileId={item.photoFileId} name={item.name} />
+                )}
                 <strong>{item.name}</strong>
               </button>
-            ))}
+              );
+            })}
           </div>
         ) : (
           <>
             <div className="loja-products">
           {visible.slice(0, 80).map((product) => {
-            const qty = lines.find((item) => item.id === product.id)?.qty ?? 0;
+            const inCart = lines.find((item) => item.id === product.id)?.qty ?? 0;
+            const stock = Math.max(0, Math.floor(product.stockQuantity));
+            const pick = Math.min(Math.max(1, picks[product.id] || 1), Math.max(stock, 1));
             return (
               <article key={product.id} className="loja-product">
                 <ProductPhoto productId={product.id} photoFileId={product.photoFileId} name={product.name} />
@@ -504,27 +788,36 @@ function Venda() {
                     </span>
                     <small>Cód. {product.code}</small>
                   </p>
-                  <div className="loja-buy">
+                  <div className="loja-buy loja-buy-actions">
                     <span className="loja-money">{money(product.price)}</span>
-                    <div className="loja-qty">
-                      <button
-                        type="button"
-                        aria-label={`Diminuir ${product.name}`}
-                        disabled={qty === 0}
-                        onClick={() => setQty(product.id, qty - 1)}
-                      >
-                        −
-                      </button>
-                      <span>{qty}</span>
-                      <button
-                        type="button"
-                        aria-label={`Aumentar ${product.name}`}
-                        onClick={() => (qty === 0 ? add(product) : setQty(product.id, qty + 1))}
-                        disabled={product.stockQuantity <= 0 || qty >= product.stockQuantity}
-                      >
-                        +
-                      </button>
-                    </div>
+                    <QtyField
+                      stock={stock}
+                      value={pick}
+                      onChange={(qty) => setPicks((current) => ({ ...current, [product.id]: qty }))}
+                    />
+                    <button
+                      type="button"
+                      className="loja-btn primary loja-buy-now"
+                      disabled={stock <= 0 || inCart >= stock}
+                      onClick={() => {
+                        if (!add(product, pick)) return;
+                        setCartOpen(true);
+                      }}
+                    >
+                      Comprar agora
+                    </button>
+                    <button
+                      type="button"
+                      className="loja-btn loja-add-cart"
+                      disabled={stock <= 0 || inCart >= stock}
+                      onClick={() => {
+                        if (!add(product, pick)) return;
+                        setAddedPopup({ product, qty: pick });
+                      }}
+                    >
+                      <ShoppingCart size={16} strokeWidth={2} aria-hidden="true" />
+                      Adicionar ao carrinho
+                    </button>
                   </div>
                 </div>
               </article>
@@ -534,42 +827,40 @@ function Venda() {
           </>
         )}
       </section>
-      {showCategories ? null : (
-      <aside className="loja-panel loja-cart">
-        <strong>Pedido</strong>
-        {lines.length === 0 ? <p className="loja-lede">Nenhum item no pedido.</p> : null}
-        {lines.map((line) => (
-          <div key={line.id} className="loja-line">
-            <ProductPhoto productId={line.id} photoFileId={line.photoFileId} name={line.name} />
-            <div>
-              <span>{line.name}</span>
-              <div className="loja-qty">
-                <button type="button" aria-label={`Diminuir ${line.name}`} onClick={() => setQty(line.id, line.qty - 1)}>
-                  −
-                </button>
-                <span>{line.qty}</span>
-                <button type="button" aria-label={`Aumentar ${line.name}`} disabled={line.qty >= line.stockQuantity} onClick={() => setQty(line.id, line.qty + 1)}>
-                  +
-                </button>
-              </div>
+      {addedPopup ? (
+        <div className="loja-confirm" role="presentation" onClick={() => setAddedPopup(null)}>
+          <div
+            className="loja-confirm-card loja-added-card"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="loja-added-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <ProductPhoto productId={addedPopup.product.id} photoFileId={addedPopup.product.photoFileId} name={addedPopup.product.name} />
+            <h2 id="loja-added-title">Adicionado ao carrinho</h2>
+            <p>{addedPopup.product.name}</p>
+            <strong>
+              {addedPopup.qty} {addedPopup.qty === 1 ? "unidade" : "unidades"}
+              {addedPopup.product.price > 0 ? ` · ${money(addedPopup.product.price * addedPopup.qty)}` : ""}
+            </strong>
+            <div className="loja-confirm-actions">
+              <button
+                type="button"
+                className="loja-btn primary loja-buy-now"
+                onClick={() => {
+                  setAddedPopup(null);
+                  setCartOpen(true);
+                }}
+              >
+                Ir ao carrinho
+              </button>
+              <button type="button" className="loja-btn loja-go-cart" onClick={() => setAddedPopup(null)}>
+                Continuar comprando
+              </button>
             </div>
-            {line.price > 0 ? <span className="loja-money">{money(line.price * line.qty)}</span> : <span />}
           </div>
-        ))}
-        {cartTotal(lines) > 0 ? <p className="loja-money">Total {money(cartTotal(lines))}</p> : null}
-        <button
-          type="button"
-          className="loja-btn primary"
-          onClick={() => {
-            setCloseStep("ask");
-            setConfirmClose(true);
-          }}
-          disabled={!lines.length}
-        >
-          Fechar pedido
-        </button>
-      </aside>
-      )}
+        </div>
+      ) : null}
       {confirmClose ? (
         <div
           className="loja-confirm"
@@ -634,7 +925,10 @@ function Venda() {
                 <ul>
                   {lines.map((line) => (
                     <li key={line.id}>
-                      <span>{line.name}</span>
+                      <span className="loja-confirm-item">
+                        <ProductPhoto productId={line.id} photoFileId={line.photoFileId} name={line.name} />
+                        {line.name}
+                      </span>
                       <b>{line.qty}</b>
                     </li>
                   ))}

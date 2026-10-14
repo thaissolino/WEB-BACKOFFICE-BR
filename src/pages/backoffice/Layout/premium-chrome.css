@@ -13,10 +13,13 @@
   --chrome-hover: rgba(181, 121, 32, 0.12);
   --chrome-active: rgba(181, 121, 32, 0.2);
   --shadow-soft: 0 12px 40px rgba(80, 60, 20, 0.12);
+  color-scheme: light;
 }
 
-.pdv-chrome[data-theme="light"] .pdv-chrome-dialog-card input {
-  background: #f4eee4;
+.pdv-chrome[data-theme="light"] .pdv-chrome-dialog-card input:not(:disabled):not([readonly]) {
+  background: #fff;
+  color: #1c1814;
+  border-color: #b7aa98;
 }
 
 .pdv-chrome {
@@ -337,6 +340,29 @@
   margin: 2px 8px 10px 20px;
   padding: 2px 0 2px 12px;
   border-left: 1px solid var(--chrome-rule);
+}
+
+.pdv-chrome-sub-nested {
+  margin: 0;
+}
+
+.pdv-chrome-sub-nested > summary {
+  min-height: 32px;
+  padding: 4px 12px;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.pdv-chrome-sub summary a {
+  color: inherit;
+  background: none;
+  box-shadow: none;
+  min-height: 0;
+  width: auto;
+  margin: 0;
+  padding: 0;
+  font: inherit;
+  font-weight: inherit;
 }
 
 .pdv-chrome-sub-list a {

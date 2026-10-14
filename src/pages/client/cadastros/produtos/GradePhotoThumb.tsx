@@ -40,6 +40,10 @@ function useProductPhoto(productId: string, photoFileId: string | null, node: HT
   return src;
 }
 
+export function cachedProductPhoto(productId: string) {
+  return cache.get(productId) || "";
+}
+
 export function ProductPhoto({
   productId,
   photoFileId,

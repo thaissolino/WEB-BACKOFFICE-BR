@@ -4,6 +4,7 @@ import { formatCurrency } from "../../../cambiobackoffice/formatCurrencyUtil";
 import { InvoiceData, InvoiceHistory } from "./InvoiceHistory";
 import { api } from "../../../../services/api";
 import { InvoiceHistoryReport, saoPauloDay } from "./InvoiceHistoryReport";
+import { DatePreset } from "../../../client/cadastros/catalog/FormBits";
 
 function isFinalizedInvoice(invoice: InvoiceData) {
   return Boolean(invoice.completed && invoice.paid && invoice.labelsPrintedAt);
@@ -60,6 +61,7 @@ export function ReportsTab() {
   });
   const [showReceipts, setShowReceipts] = useState(false);
   const [printCount, setPrintCount] = useState(0);
+  const [markTick, setMarkTick] = useState(0);
 
   const pickStatus = (status: string) => {
     setShowReceipts(false);
@@ -144,7 +146,7 @@ export function ReportsTab() {
     return () => {
       cancel = true;
     };
-  }, [labelQueue]);
+  }, [labelQueue, markTick]);
   const finalizedCount = invoices.filter(isFinalizedInvoice).length;
 
   return (
@@ -161,12 +163,15 @@ export function ReportsTab() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Data Inicial</label>
-              <input
-                type="date"
-                value={filters.startDate}
-                onChange={(e) => setFilters({ ...filters, startDate: e.target.value })}
-                className="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500"
-              />
+              <span className="pdv-date-field">
+                <input
+                  type="date"
+                  value={filters.startDate}
+                  onChange={(e) => setFilters({ ...filters, startDate: e.target.value })}
+                  className="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+                <DatePreset onPick={(startDate, endDate) => setFilters({ ...filters, startDate, endDate })} />
+              </span>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Data Final</label>
@@ -189,7 +194,7 @@ export function ReportsTab() {
               <option value="pending">Apenas Pendentes</option>
               <option value="paid">Apenas Pagas</option>
               <option value="completed">Apenas Concluídas</option>
-              <option value="finalized">Apenas Finalizadas</option>
+              <option value="finalized">Apenas Impressas</option>
             </select>
           </div>
           <div>
@@ -257,8 +262,8 @@ export function ReportsTab() {
           onClick={() => pickStatus("finalized")}
           className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm text-center"
         >
-          <h3 className="text-lg font-medium mb-2 text-indigo-700">Finalizadas</h3>
-          <p className="text-3xl font-bold text-indigo-600">{finalizedCount}</p>
+          <h3 className="text-lg font-medium mb-2 text-teal-700">Impressas</h3>
+          <p className="text-3xl font-bold text-teal-600">{finalizedCount}</p>
           <p className="text-sm text-gray-600">Depois da impressão</p>
         </button>
       </div>
@@ -275,35 +280,23 @@ export function ReportsTab() {
               ? filteredInvoices.map((invoice) => invoice.id)
               : undefined
         }
-        onLabelsPrinted={async ({ invoiceId, invoiceNumber, day }) => {
+        onLabelsPrinted={async ({ invoiceId, invoiceNumber, day, historyIds }) => {
           const id = invoiceId || invoices.find((invoice) => String(invoice.number) === String(invoiceNumber))?.id;
           if (!id) return;
           const reprint = filters.status === "finalized" && !showReceipts;
-          if (day && !reprint) {
-            const { data } = await api.post(`/invoice/labels-printed/${id}`, { day });
-            if (!data?.invoicePrinted) return;
-            const stamped = data.labelsPrintedAt || new Date().toISOString();
-            setInvoices((current) =>
-              current.map((invoice) => (invoice.id === id ? { ...invoice, labelsPrintedAt: stamped } : invoice)),
-            );
+          const { data } = await api.post(`/invoice/labels-printed/${id}`, {
+            ...(day && !reprint ? { day } : {}),
+            ...(historyIds?.length ? { ids: historyIds } : {}),
+          });
+          if (!data?.invoicePrinted) {
+            setMarkTick((value) => value + 1);
             return;
           }
-          const previous = invoices.find((invoice) => invoice.id === id)?.labelsPrintedAt || null;
-          const stamped = new Date().toISOString();
+          const stamped = data.labelsPrintedAt || new Date().toISOString();
           setInvoices((current) =>
             current.map((invoice) => (invoice.id === id ? { ...invoice, labelsPrintedAt: stamped } : invoice)),
           );
-          try {
-            await api.post(`/invoice/labels-printed/${id}`);
-          } catch (error) {
-            console.error("Erro ao marcar impressão:", error);
-            setInvoices((current) =>
-              current.map((invoice) =>
-                invoice.id === id ? { ...invoice, labelsPrintedAt: reprint ? previous : null } : invoice,
-              ),
-            );
-            throw error;
-          }
+          setMarkTick((value) => value + 1);
         }}
         invoiceHistory={(showReceipts ? awaitingPrint : filteredInvoices) as unknown as import("./InvoiceHistoryReport").InvoiceData[]}
         setInvoiceHistory={

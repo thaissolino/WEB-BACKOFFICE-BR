@@ -1337,9 +1337,9 @@
   min-height: 0;
   padding: 22px 28px;
   background:
-    radial-gradient(120% 80% at 100% 0%, rgba(196, 132, 42, 0.32), transparent 48%),
-    #1a1511 !important;
-  border-color: #1a1511;
+    radial-gradient(120% 80% at 100% 0%, rgba(196, 132, 42, 0.22), transparent 48%),
+    #3a3129 !important;
+  border-color: #3a3129;
 }
 
 .pdv-root[data-surface="cream"] .pdv-main button.pdv-home-shortcut-feature,
@@ -1380,15 +1380,27 @@
   content: " →";
 }
 
-.pdv-home-shortcut-mark {
+.pdv-home-shortcut-photo {
   position: absolute;
-  right: -18px;
-  bottom: -28px;
-  width: 210px;
-  height: 210px;
-  color: rgba(255, 253, 248, 0.12) !important;
-  -webkit-text-fill-color: rgba(255, 253, 248, 0.12) !important;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: 72%;
+  width: 100%;
+  object-fit: cover;
+  object-position: center 38%;
   pointer-events: none;
+  filter: brightness(1.35);
+  -webkit-mask-image: linear-gradient(to bottom, #000 58%, transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 58%, transparent 100%);
+}
+
+.pdv-home-shortcut-feature .pdv-home-shortcut-kicker,
+.pdv-home-shortcut-feature .pdv-home-shortcut-label,
+.pdv-home-shortcut-feature .pdv-home-shortcut-copy,
+.pdv-home-shortcut-feature .pdv-home-shortcut-go {
+  position: relative;
+  z-index: 1;
 }
 
 .pdv-home-shortcut:focus-visible {

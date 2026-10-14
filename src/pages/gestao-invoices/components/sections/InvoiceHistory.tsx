@@ -494,7 +494,7 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
         </button>
       </h2>
 
-      <div className="overflow-x-auto">
+      <div className="iv-linhas overflow-x-auto">
         {loading ? (
           <p className="text-center text-gray-500 py-6">Carregando invoices...</p>
         ) : (

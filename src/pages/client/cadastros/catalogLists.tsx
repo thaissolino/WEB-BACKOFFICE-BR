@@ -3,7 +3,7 @@ import { Settings } from "lucide-react"
 import CatalogList, { type CatalogColumn, type CatalogListConfig } from "./catalog/CatalogList"
 import { type CatalogItem } from "./catalog/catalogApi"
 import { api, parseError } from "../../../services/api"
-import { useNavigate } from "react-router-dom"
+import { useLocation, useNavigate } from "react-router-dom"
 
 function GroupEventos({ item }: { item: CatalogItem }) {
   const navigate = useNavigate()
@@ -211,8 +211,49 @@ export function IdsList({ inactive = false }: { inactive?: boolean }) {
   return <CatalogList config={ID_LIST} inactive={inactive} />
 }
 export function PayList({ inactive = false }: { inactive?: boolean }) {
-  return <CatalogList config={{ ...PAY_LIST, title: inactive ? "FORMA DE PAGAMENTO INATIVO" : PAY_LIST.title }} inactive={inactive} />
+  const { pathname } = useLocation()
+  const base = pathname.startsWith("/gestao/") ? "/gestao/cadastro/financeiro/formas-pagamento" : "/client/financeiro/formas-pagamento"
+  return (
+    <CatalogList
+      config={{
+        ...PAY_LIST,
+        title: inactive ? "FORMA DE PAGAMENTO INATIVO" : PAY_LIST.title,
+        listPath: base,
+        cadastrarPath: `${base}/cadastrar`,
+        inativosPath: `${base}/inativos`,
+      }}
+      inactive={inactive}
+    />
+  )
 }
 export function PlanList({ inactive = false }: { inactive?: boolean }) {
-  return <CatalogList config={{ ...PLAN_LIST, title: inactive ? "CENTRO DE CUSTO INATIVOS" : PLAN_LIST.title }} inactive={inactive} />
+  const { pathname } = useLocation()
+  const navigate = useNavigate()
+  const base = pathname.startsWith("/gestao/") ? "/gestao/cadastro/financeiro/plano-conta" : "/client/financeiro/plano-conta"
+  return (
+    <CatalogList
+      config={{
+        ...PLAN_LIST,
+        title: inactive ? "CENTRO DE CUSTO INATIVOS" : PLAN_LIST.title,
+        listPath: base,
+        cadastrarPath: `${base}/cadastrar`,
+        inativosPath: `${base}/inativos`,
+        bulkDisable: true,
+        bulkLabel: "Inativar",
+        alwaysPick: true,
+        columns: [
+          { key: "code", label: "Cod. Centro de Custo", from: "code" },
+          { key: "nome", label: "Centro de Custo", from: "name" },
+          { key: "ordem", label: "Ordem", payloadKey: "ordem" },
+          { key: "atualizar", label: "Atualizar", from: "action" },
+        ],
+        extraActions: (
+          <button className="pdv-cad-btn pdv-cad-btn-blue" type="button" onClick={() => navigate(`${base}?todos=1`)}>
+            Centro de Custo Todos
+          </button>
+        ),
+      }}
+      inactive={inactive}
+    />
+  )
 }

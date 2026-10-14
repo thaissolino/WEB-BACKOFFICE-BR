@@ -1,9 +1,9 @@
 import FilterPage from "../pdv/FilterPage"
-import CadastroShell from "../cadastros/CadastroShell"
-import { useNavigate } from "react-router-dom"
+import { CadastroFrame } from "../cadastros/CadastroShell"
+import { useLocation, useNavigate } from "react-router-dom"
 import { FormEvent, MouseEvent, useRef, useState } from "react"
 import { api } from "../../../services/api"
-import { FormRow } from "../cadastros/catalog/FormBits"
+import { FormRow, DatePreset } from "../cadastros/catalog/FormBits"
 import { createCatalog, listCatalog } from "../cadastros/catalog/catalogApi"
 import { listLojaCaixas } from "../cadastros/financeiro/caixaApi"
 import { parseError } from "../../../services/api"
@@ -55,7 +55,7 @@ export function PreVendas() {
 
 export function PainelEntregas() {
   return (
-    <CadastroShell>
+    <CadastroFrame>
       <section className="pdv-cad-page" aria-labelledby="pdv-entregas">
         <div className="pdv-cad-sheet">
           <h1 id="pdv-entregas">PAINEL DE ENTREGAS</h1>
@@ -64,7 +64,7 @@ export function PainelEntregas() {
           </div>
         </div>
       </section>
-    </CadastroShell>
+    </CadastroFrame>
   )
 }
 
@@ -143,7 +143,7 @@ export function RelatorioCaixa() {
       extra={(
         <>
           <form className="pdv-cad-filters" onSubmit={(event) => { event.preventDefault(); setFilters(draft) }}>
-            <label>Data início<input type="date" value={draft.inicio} onChange={(event) => setDraft({ ...draft, inicio: event.target.value })} /></label>
+            <label>Data início<span className="pdv-date-field"><input type="date" value={draft.inicio} onChange={(event) => setDraft({ ...draft, inicio: event.target.value })} /><DatePreset onPick={(inicio, fim) => setDraft({ ...draft, inicio, fim })} /></span></label>
             <label>Data fim<input type="date" value={draft.fim} onChange={(event) => setDraft({ ...draft, fim: event.target.value })} /></label>
             <label>Caixa
               <select value={draft.caixa} onChange={(event) => setDraft({ ...draft, caixa: event.target.value })}>
@@ -328,6 +328,10 @@ export function PrevisaoFluxo() {
 
 export function CadastrarDespesa({ receita = false }: { receita?: boolean }) {
   const navigate = useNavigate()
+  const { pathname } = useLocation()
+  const listPath = pathname.startsWith("/gestao/")
+    ? "/gestao/movimentacoes/financeiro/despesas"
+    : "/client/movimentacoes/financeiro/despesas"
   const [caixas, setCaixas] = useState<string[]>([])
   const [status, setStatus] = useState("")
   const [form, setForm] = useState({ descricao: "", total: "", data: todayIso(), caixa: "" })
@@ -347,14 +351,14 @@ export function CadastrarDespesa({ receita = false }: { receita?: boolean }) {
         name: form.descricao.trim(),
         payload: { ...form, tipo: receita ? "receita" : "despesa" },
       })
-      navigate("/client/movimentacoes/financeiro/despesas")
+      navigate(listPath)
     } catch (err) {
       setStatus(parseError(err).friend || "Não foi possível salvar.")
     }
   }
 
   return (
-    <CadastroShell>
+    <CadastroFrame>
       <section className="pdv-cad-page" aria-labelledby="pdv-desp-form">
         <div className="pdv-cad-sheet">
           <h1 id="pdv-desp-form">{receita ? "CADASTRAR RECEITA" : "CADASTRAR DESPESA"}</h1>
@@ -384,7 +388,7 @@ export function CadastrarDespesa({ receita = false }: { receita?: boolean }) {
           </form>
         </div>
       </section>
-    </CadastroShell>
+    </CadastroFrame>
   )
 }
 

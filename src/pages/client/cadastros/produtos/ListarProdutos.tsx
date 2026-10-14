@@ -1,10 +1,11 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Ban, Pencil, Plus, Settings } from "lucide-react";
+import { Ban, Pencil, Plus, Settings, X } from "lucide-react";
 import { api, parseError } from "../../../../services/api";
 import CadastroShell from "../CadastroShell";
 // import EstoqueGradeModal from "./EstoqueGradeModal";
-import GradePhotoThumb from "./GradePhotoThumb";
+import GradePhotoThumb, { cachedProductPhoto } from "./GradePhotoThumb";
 import { loadProductCategories, toFlatOptions, type FlatOption } from "./categoryModel";
 import {
   CLIENT_PRODUCT_FILTER_KEY,
@@ -535,10 +536,10 @@ function ProdutosBoard() {
 }
 
 function PhotoPreview({ product, onClose }: { product: PdvProduct; onClose: () => void }) {
-  const [src, setSrc] = useState("");
+  const [src, setSrc] = useState(() => cachedProductPhoto(product.id));
 
   useEffect(() => {
-    if (!product.photoFileId) return;
+    if (!product.photoFileId || cachedProductPhoto(product.id)) return;
     let url = "";
     let cancelled = false;
     api
@@ -551,29 +552,33 @@ function PhotoPreview({ product, onClose }: { product: PdvProduct; onClose: () =
       .catch(() => {});
     return () => {
       cancelled = true;
-      if (url) URL.revokeObjectURL(url);
+      if (url && url !== cachedProductPhoto(product.id)) URL.revokeObjectURL(url);
     };
   }, [product.id, product.photoFileId]);
 
-  return (
-    <div className="pdv-prod-modal-scrim" onClick={onClose}>
-      <div
-        className="pdv-prod-modal pdv-prod-photo-modal"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="pdv-prod-photo-view"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <header className="pdv-prod-estoque-head">
-          <h2 id="pdv-prod-photo-view">{product.name}</h2>
-          <button type="button" className="pdv-prod-win-close" aria-label="Fechar" onClick={onClose}>
-            <X size={12} strokeWidth={3} aria-hidden="true" />
-          </button>
-        </header>
-        <div className="pdv-prod-photo-view">
-          {src ? <img src={src} alt="" /> : <p className="pdv-cad-kicker">Nenhuma foto selecionada.</p>}
-        </div>
-      </div>
-    </div>
+  useEffect(() => {
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "Escape") onClose();
+    }
+    document.addEventListener("keydown", onKey);
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = previous;
+    };
+  }, [onClose]);
+
+  return createPortal(
+    <div className="pdv-photo-zoom" role="dialog" aria-modal="true" aria-label={product.name} onClick={onClose}>
+      <button type="button" className="pdv-photo-zoom-close" aria-label="Fechar" onClick={onClose}>
+        <X size={22} strokeWidth={2.4} aria-hidden="true" />
+      </button>
+      <figure className="pdv-photo-zoom-frame" onClick={(event) => event.stopPropagation()}>
+        {src ? <img src={src} alt={product.name} /> : <p>Carregando foto...</p>}
+        <figcaption>{product.name}</figcaption>
+      </figure>
+    </div>,
+    document.body,
   );
 }

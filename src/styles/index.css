@@ -126,3 +126,99 @@
   border: 1px solid var(--ios-border);
   box-shadow: var(--ios-shadow);
 }
+
+.pdv-date-field {
+  display: flex;
+  align-items: stretch;
+  width: 100%;
+  min-width: 0;
+}
+
+.pdv-date-field > input,
+.pdv-date-field > .MuiFormControl-root,
+.pdv-date-field > .MuiTextField-root {
+  flex: 1;
+  min-width: 0;
+  width: auto;
+  border-top-right-radius: 0 !important;
+  border-bottom-right-radius: 0 !important;
+}
+
+.pdv-date-presets {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  flex: 0 0 auto;
+}
+
+.pdv-date-presets-btn {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  min-height: 100%;
+  margin: 0;
+  padding: 0;
+  border: 1px solid #b7aa98;
+  border-left: 0;
+  border-radius: 0 10px 10px 0;
+  background: #fff;
+  color: #1c1814 !important;
+  -webkit-text-fill-color: #1c1814 !important;
+  cursor: pointer;
+}
+
+.pdv-date-presets-caret {
+  width: 0;
+  height: 0;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 6px solid #1c1814;
+}
+
+.pdv-date-presets-menu {
+  position: fixed;
+  z-index: 80;
+  min-width: 168px;
+  margin: 0;
+  padding: 6px 0;
+  background: #fff;
+  border: 1px solid #e4ddd2;
+  border-radius: 10px;
+  box-shadow: 0 10px 28px rgba(28, 24, 20, 0.14);
+}
+
+.pdv-date-presets-menu button {
+  display: block;
+  width: 100%;
+  margin: 0;
+  padding: 8px 14px;
+  border: 0;
+  background: transparent;
+  color: #1c1814 !important;
+  -webkit-text-fill-color: #1c1814 !important;
+  font: inherit;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+}
+
+.pdv-date-presets-menu button:hover {
+  background: #f6f1e8;
+}
+
+/* O reset do Tailwind zera o fundo do SweetAlert. O texto branco some no cartão branco. */
+.swal2-container button.swal2-styled.swal2-confirm,
+.swal2-container button.swal2-styled.swal2-deny {
+  background-color: #1c1814 !important;
+  color: #fff !important;
+  -webkit-text-fill-color: #fff !important;
+  opacity: 1 !important;
+}
+
+.swal2-container button.swal2-styled.swal2-cancel {
+  background-color: #fff !important;
+  color: #1c1814 !important;
+  -webkit-text-fill-color: #1c1814 !important;
+  border: 1px solid #1c1814 !important;
+  opacity: 1 !important;
+}

@@ -1,10 +1,11 @@
 import { FormEvent, useEffect, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { Folder } from "lucide-react";
 import CadastroShell from "../CadastroShell";
+import "../cadastros.css";
 import { createCatalog, getCatalog, updateCatalog } from "../catalog/catalogApi";
 import { parseError } from "../../../../services/api";
-import { categoryFromCatalog, slugifyCategory, type ProductCategory } from "./categoryModel";
+import { categoryFromCatalog, categoryPaths, slugifyCategory, type ProductCategory } from "./categoryModel";
 import { CATEGORY_TYPE_OPTIONS, GRADE_OPTIONS } from "./productOptions";
 
 const EMPTY = {
@@ -24,6 +25,8 @@ const EMPTY = {
 
 export default function CadastrarCategoria() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const paths = categoryPaths(location.pathname);
   const [params] = useSearchParams();
   const editId = Number(params.get("id") || 0);
   const parentCode = Number(params.get("pai") || 0);
@@ -110,7 +113,7 @@ export default function CadastrarCategoria() {
           payload,
         });
       }
-      navigate("/client/produtos/categorias");
+      navigate(paths.list);
     } catch (err) {
       setStatus(parseError(err).friend || "Não foi possível salvar a categoria.");
     } finally {
@@ -118,15 +121,14 @@ export default function CadastrarCategoria() {
     }
   }
 
-  return (
-    <CadastroShell>
+  const page = (
       <section className="pdv-cad-page" aria-labelledby="pdv-cat-form-title">
         <div className="pdv-cad-sheet">
           <h1 id="pdv-cat-form-title">{title}</h1>
           <button
             className="pdv-cad-btn pdv-cad-btn-back pdv-voltar"
             type="button"
-            onClick={() => navigate("/client/produtos/categorias")}
+            onClick={() => navigate(paths.list)}
           >
             Voltar
           </button>
@@ -320,6 +322,6 @@ export default function CadastrarCategoria() {
           </form>
         </div>
       </section>
-    </CadastroShell>
   );
+  return paths.office ? page : <CadastroShell>{page}</CadastroShell>;
 }

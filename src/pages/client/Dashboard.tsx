@@ -21,7 +21,6 @@ import {
   UserCog,
   List,
   ClipboardList,
-  ShoppingBag,
   Wallet,
 } from "lucide-react";
 import { useClientAuth, type ClientUser } from "../../hooks/clientAuth";
@@ -413,7 +412,6 @@ function DashboardBoard({ client }: { client: ClientUser }) {
                   className={feature ? "pdv-home-shortcut pdv-home-shortcut-feature" : "pdv-home-shortcut"}
                   onClick={() => navigate(item.href)}
                 >
-                  {feature ? <span className="pdv-home-shortcut-kicker">Pedidos</span> : null}
                   {feature ? null : (
                     <span className="pdv-home-shortcut-ico" aria-hidden="true">
                       {SHORTCUT_ICONS[item.id]}
@@ -421,9 +419,8 @@ function DashboardBoard({ client }: { client: ClientUser }) {
                   )}
                   <span className="pdv-home-shortcut-label">{item.label}</span>
                   <span className="pdv-home-shortcut-copy">{SHORTCUT_COPY[item.id]}</span>
-                  {feature ? <span className="pdv-home-shortcut-go">Abrir</span> : null}
                   {feature ? (
-                    <ShoppingBag className="pdv-home-shortcut-mark" size={148} strokeWidth={1.15} aria-hidden="true" />
+                    <img className="pdv-home-shortcut-photo" src="/pedidos-gestao.jpg" alt="" />
                   ) : null}
                 </button>
               );

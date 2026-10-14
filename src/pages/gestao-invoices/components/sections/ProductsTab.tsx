@@ -1,12 +1,13 @@
 import { FormEvent, useState, useEffect, useRef } from "react";
-import { Plus, Ban, RotateCcw, Boxes, Loader2, Settings } from "lucide-react";
+import { Plus, Ban, RotateCcw, Boxes, Loader2, Settings, Copy } from "lucide-react";
 import Swal from "sweetalert2";
 import { api } from "../../../../services/api";
 import { sameProductCode } from "../utils/productBarcode";
 import { useNotification } from "../../../../hooks/notification";
 import { useActionLoading } from "../../context/ActionLoadingContext";
 import "../../../client/cadastros/cadastros.css";
-import { loadProductCategories, toFlatOptions, type FlatOption } from "../../../client/cadastros/produtos/categoryModel";
+import { createCatalog } from "../../../client/cadastros/catalog/catalogApi";
+import { isOpenStoreCategory, loadProductCategories, openCategoryRank, slugifyCategory, toFlatOptions, type FlatOption } from "../../../client/cadastros/produtos/categoryModel";
 import {
   EMPTY_PRODUCT_FILTERS,
   OFFICE_PRODUCT_FILTER_KEY,
@@ -40,6 +41,37 @@ export interface Product {
   gender?: string;
   supplierCode?: string;
   supplierName?: string;
+}
+
+type ProductColumn = "code" | "category" | "photo" | "name" | "sale" | "cost" | "stock" | "weight";
+
+const PRODUCT_COLUMNS: { id: ProductColumn; label: string; numeric?: boolean }[] = [
+  { id: "code", label: "Cód" },
+  { id: "category", label: "Categoria" },
+  { id: "photo", label: "Foto" },
+  { id: "name", label: "Nome" },
+  { id: "sale", label: "Preço de venda", numeric: true },
+  { id: "cost", label: "Preço de compra", numeric: true },
+  { id: "stock", label: "Estoque", numeric: true },
+  { id: "weight", label: "Peso", numeric: true },
+];
+
+const DEFAULT_COLUMN_ORDER = PRODUCT_COLUMNS.map((column) => column.id);
+const COLUMN_ORDER_KEY = "gestao-prod-column-order";
+
+function readColumnOrder(): ProductColumn[] {
+  try {
+    const raw = JSON.parse(localStorage.getItem(COLUMN_ORDER_KEY) || "null");
+    if (!Array.isArray(raw)) return [...DEFAULT_COLUMN_ORDER];
+    const known = new Set<string>(DEFAULT_COLUMN_ORDER);
+    const next = raw.filter((id): id is ProductColumn => typeof id === "string" && known.has(id));
+    for (const id of DEFAULT_COLUMN_ORDER) {
+      if (!next.includes(id)) next.push(id);
+    }
+    return next;
+  } catch {
+    return [...DEFAULT_COLUMN_ORDER];
+  }
 }
 
 function fieldOptions(rows: Product[], key: keyof Product) {
@@ -140,6 +172,9 @@ export function ProductsTab() {
   const [total, setTotal] = useState(0);
   const [facets, setFacets] = useState<ProductFacets>({ brands: [], collections: [], genders: [], suppliers: [] });
   const [showModal, setShowModal] = useState(false);
+  const [duplicateAsk, setDuplicateAsk] = useState(false);
+  const [newCategoryOpen, setNewCategoryOpen] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState("");
   const [currentProduct, setCurrentProduct] = useState<Product | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -149,6 +184,9 @@ export function ProductsTab() {
   const [searched, setSearched] = useState(false);
   const searchedRef = useRef(false);
   const [categoryOptions, setCategoryOptions] = useState<FlatOption[]>([]);
+  const [columns, setColumns] = useState<ProductColumn[]>(readColumnOrder);
+  const [draggingColumn, setDraggingColumn] = useState<ProductColumn | null>(null);
+  const draggingColumnRef = useRef<ProductColumn | null>(null);
   const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
   const [showInactive, setShowInactive] = useState(false);
   const [editingCell, setEditingCell] = useState<{
@@ -191,7 +229,13 @@ export function ProductsTab() {
 
   useEffect(() => {
     loadProductCategories(true)
-      .then((rows) => setCategoryOptions(toFlatOptions(rows)))
+      .then((rows) =>
+        setCategoryOptions(
+          toFlatOptions(rows.filter((item) => isOpenStoreCategory(item.id, item.name) || item.storePick))
+            .sort((a, b) => openCategoryRank(a.id, a.label) - openCategoryRank(b.id, b.label))
+            .map((item) => ({ ...item, depth: 0 })),
+        ),
+      )
       .catch(() => setCategoryOptions([]));
   }, []);
 
@@ -238,8 +282,54 @@ export function ProductsTab() {
   }
 
   const handleEdit = (product: Product) => {
+    setDuplicateAsk(false);
+    setNewCategoryOpen(false);
+    setNewCategoryName("");
     setCurrentProduct(product);
     setShowModal(true);
+  };
+
+  const createCategory = async () => {
+    const name = newCategoryName.trim();
+    if (!name || !currentProduct) return;
+    try {
+      const slug = slugifyCategory(name);
+      await createCatalog("product_category", {
+        name,
+        payload: {
+          slug,
+          parentSlug: "",
+          grade: "Sem Grade",
+          commission: "0,00",
+          discount: "0,00",
+          profit: "0,00",
+          type: "Produto c/ Controle de Estoque",
+          description: "",
+          ncmSuggest: false,
+          ncm: "",
+          defaultDiscount: false,
+          defaultDiscountValue: "0,00",
+          storePick: true,
+        },
+      });
+      setCategoryOptions((current) =>
+        current.some((item) => item.id === slug) ? current : [...current, { id: slug, label: name, depth: 0 }],
+      );
+      setCurrentProduct({ ...currentProduct, categoryId: slug, category: name });
+      setNewCategoryName("");
+      setNewCategoryOpen(false);
+    } catch (error) {
+      console.error("Erro ao criar categoria:", error);
+      Swal.fire({
+        icon: "error",
+        title: "Erro",
+        text: "Não foi possível criar a categoria.",
+        buttonsStyling: false,
+        customClass: {
+          confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
+        },
+      });
+    }
   };
 
   const handleSelectProduct = (id: string) => {
@@ -397,9 +487,18 @@ export function ProductsTab() {
       try {
       let createdProduct: Product | null = null;
       if (currentProduct.id) {
+        const categoryId = currentProduct.categoryId || "";
+        const category = categoryOptions.find((item) => item.id === categoryId)?.label || "";
         const { data: updated } = await api.patch(`/invoice/product/${currentProduct.id}`, currentProduct);
+        await api.put(`/clients/products/${currentProduct.id}`, {
+          name: currentProduct.name,
+          ...(currentProduct.code ? { code: String(currentProduct.code) } : {}),
+          categoryId,
+          category,
+          priceweightAverage: Number(currentProduct.priceweightAverage) || 0,
+        });
         setAllProducts((prev) =>
-          prev.map((p) => (p.id === currentProduct.id ? { ...p, ...updated, ...currentProduct } : p))
+          prev.map((p) => (p.id === currentProduct.id ? { ...p, ...updated, ...currentProduct, categoryId, category } : p))
         );
         setOpenNotification({
           type: "success",
@@ -409,8 +508,6 @@ export function ProductsTab() {
       } else {
         const { data: created } = await api.post("/invoice/product", currentProduct);
         createdProduct = created;
-        setSearchInput("");
-        setSearchTerm("");
         setAllProducts((prev) => {
           if (prev.some((p) => p.id === created.id)) return prev;
           return [...prev, created];
@@ -459,6 +556,88 @@ export function ProductsTab() {
         }
       }
     }, "saveProduct").catch((error: any) => {
+      console.error("Erro no executeAction:", error);
+    });
+  };
+
+  const handleDuplicate = async (withStock: boolean) => {
+    if (isActionLoading || !currentProduct?.id) return;
+    await executeAction(async () => {
+      const names = new Set(allProducts.map((item) => item.name.trim().toLowerCase()));
+      const root = currentProduct.name.trim().toUpperCase();
+      let name = `${root} CÓPIA`;
+      let copyNumber = 2;
+      while (names.has(name.toLowerCase())) {
+        name = `${root} CÓPIA ${copyNumber}`;
+        copyNumber += 1;
+      }
+      const categoryId = currentProduct.categoryId || "";
+      const category = categoryOptions.find((item) => item.id === categoryId)?.label || currentProduct.category || "";
+      try {
+        const payload = {
+          description: currentProduct.description || "",
+          priceweightAverage: Number(currentProduct.priceweightAverage) || 0,
+          weightAverage: Number(currentProduct.weightAverage) || 0,
+          salePrice: Number(currentProduct.salePrice) || 0,
+          costPrice: Number(currentProduct.costPrice) || 0,
+          categoryId,
+          category,
+          stockQuantity: withStock ? Number(currentProduct.stockQuantity) || 0 : 0,
+          active: true,
+        };
+        let created: Product | null = null;
+        for (let attempt = 0; attempt < 20 && !created; attempt += 1) {
+          try {
+            const { data } = await api.post("/clients/products", { ...payload, name });
+            created = (data?.product || data) as Product;
+          } catch (error: any) {
+            const status = error?.response?.status;
+            const message = String(error?.response?.data?.message || "");
+            if (status !== 409 && !message.toLowerCase().includes("já existe")) throw error;
+            name = `${root} CÓPIA ${copyNumber}`;
+            copyNumber += 1;
+          }
+        }
+        if (!created?.id) throw new Error("Não foi possível duplicar o produto.");
+        if (currentProduct.photoFileId && created?.id) {
+          try {
+            const { data: blob } = await api.get(`/clients/products/${currentProduct.id}/photo`, { responseType: "blob" });
+            if (blob instanceof Blob && blob.size > 16) {
+              const type = blob.type || "image/jpeg";
+              const ext = type.includes("png") ? "png" : "jpg";
+              const body = new FormData();
+              body.append("file", new File([blob], `foto.${ext}`, { type }));
+              const { data: photo } = await api.post(`/clients/products/${created.id}/photo`, body);
+              created.photoFileId = (photo?.product?.photoFileId as string | undefined) || created.photoFileId;
+            }
+          } catch (error) {
+            console.error("Erro ao copiar a foto do produto:", error);
+          }
+        }
+        setAllProducts((prev) => (prev.some((item) => item.id === created.id) ? prev : [...prev, created]));
+        setDuplicateAsk(false);
+        setShowModal(false);
+        setCurrentProduct(null);
+        window.dispatchEvent(new Event("productsUpdated"));
+        await fetchData();
+        setOpenNotification({
+          type: "success",
+          title: "Sucesso!",
+          notification: withStock ? "Produto duplicado com estoque." : "Produto duplicado sem estoque.",
+        });
+      } catch (error: any) {
+        const errorMessage = error?.response?.data?.message || error?.message || "Não foi possível duplicar o produto.";
+        Swal.fire({
+          icon: "error",
+          title: "Erro!",
+          text: errorMessage,
+          buttonsStyling: false,
+          customClass: {
+            confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
+          },
+        });
+      }
+    }, "duplicateProduct").catch((error: any) => {
       console.error("Erro no executeAction:", error);
     });
   };
@@ -632,6 +811,7 @@ export function ProductsTab() {
                 }
               });
 
+              setDuplicateAsk(false);
               setCurrentProduct({
                 id: "",
                 name: "",
@@ -674,18 +854,6 @@ export function ProductsTab() {
       ) : searched ? (
         <div className="overflow-x-auto rounded-2xl border border-gray-100 shadow-sm">
           <table className="gestao-prod-table min-w-full divide-y divide-gray-100">
-            <colgroup>
-              <col className="gestao-prod-check" />
-              <col className="gestao-prod-foto" />
-              <col />
-              <col className="gestao-prod-code" />
-              <col className="gestao-prod-money" />
-              <col className="gestao-prod-money" />
-              <col className="gestao-prod-qty" />
-              <col className="gestao-prod-money" />
-              <col className="gestao-prod-qty" />
-              <col className="gestao-prod-actions" />
-            </colgroup>
             <thead className="bg-gray-100">
               <tr>
                 <th className="gestao-prod-check">
@@ -696,31 +864,49 @@ export function ProductsTab() {
                     className="rounded"
                   />
                 </th>
-                <th>Foto</th>
-                <th className="gestao-prod-name">Nome</th>
-                <th>Código</th>
-                <th className="num" title="Clique duas vezes no valor para editar">
-                  Preço de venda
-                </th>
-                <th className="num" title="Clique duas vezes no valor para editar">
-                  Preço de custo
-                </th>
-                <th className="num" title="Clique duas vezes no valor para editar">
-                  Estoque
-                </th>
-                <th className="num" title="Clique duas vezes no valor para editar">
-                  Preço médio
-                </th>
-                <th className="num" title="Clique duas vezes no valor para editar">
-                  Peso médio
-                </th>
+                {columns.map((id) => {
+                  const column = PRODUCT_COLUMNS.find((item) => item.id === id)!;
+                  const active = draggingColumn === id;
+                  return (
+                    <th
+                      key={id}
+                      draggable
+                      title="Segure e arraste para mudar a posição"
+                      className={`${column.numeric ? "num" : ""} cursor-grab select-none ${active ? "bg-blue-100 opacity-60" : ""}`}
+                      onDragStart={(event) => {
+                        draggingColumnRef.current = id;
+                        setDraggingColumn(id);
+                        event.dataTransfer.effectAllowed = "move";
+                        event.dataTransfer.setData("text/plain", id);
+                      }}
+                      onDragOver={(event) => {
+                        event.preventDefault();
+                        const from = draggingColumnRef.current;
+                        if (!from || from === id) return;
+                        setColumns((current) => {
+                          const next = current.filter((item) => item !== from);
+                          next.splice(next.indexOf(id), 0, from);
+                          localStorage.setItem(COLUMN_ORDER_KEY, JSON.stringify(next));
+                          return next;
+                        });
+                      }}
+                      onDrop={(event) => event.preventDefault()}
+                      onDragEnd={() => {
+                        draggingColumnRef.current = null;
+                        setDraggingColumn(null);
+                      }}
+                    >
+                      {column.label}
+                    </th>
+                  );
+                })}
                 <th className="act">Ações</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-100">
               {products.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="px-6 py-4 text-center text-gray-500">
+                  <td colSpan={columns.length + 2} className="px-6 py-4 text-center text-gray-500">
                     {isLoading
                       ? "Carregando..."
                       : "Nenhum produto para esse filtro."}
@@ -728,6 +914,50 @@ export function ProductsTab() {
                 </tr>
               ) : (
                 products.map((product) => {
+                  const money = (value: number) =>
+                    (value || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+                  const editable = (
+                    field: "sale" | "cost" | "stock" | "weight",
+                    text: string,
+                    label: string,
+                  ) => {
+                    const editing = editingCell?.id === product.id && editingCell.field === field;
+                    return (
+                      <td
+                        key={field}
+                        className="num text-sm text-gray-500"
+                        onDoubleClick={() => startCellEdit(product, field)}
+                        title={`Clique duas vezes para editar o ${label}`}
+                      >
+                        {editing ? (
+                          <input
+                            autoFocus
+                            type="text"
+                            inputMode="decimal"
+                            value={editingValue}
+                            onChange={(event) => {
+                              const value = event.target.value.replace(",", ".");
+                              if (/^\d*\.?\d{0,2}$/.test(value) || value === "") setEditingValue(value);
+                            }}
+                            onBlur={() => commitCellEdit(product)}
+                            onKeyDown={(event) => {
+                              if (event.key === "Enter") {
+                                event.preventDefault();
+                                commitCellEdit(product);
+                              }
+                              if (event.key === "Escape") {
+                                event.preventDefault();
+                                cancelCellEdit();
+                              }
+                            }}
+                            className="ml-auto w-24 rounded-lg border border-blue-400 px-2 py-1 text-right focus:outline-none focus:ring-2 focus:ring-blue-400"
+                          />
+                        ) : (
+                          <span className="cursor-text">{text}</span>
+                        )}
+                      </td>
+                    );
+                  };
                   return (
                     <tr key={product.id} className="hover:bg-gray-50">
                       <td className="gestao-prod-check">
@@ -738,129 +968,40 @@ export function ProductsTab() {
                           className="rounded"
                         />
                       </td>
-                      <td>
-                        <ProductThumb
-                          productId={product.id}
-                          photoFileId={product.photoFileId}
-                          disabled={isActionLoading}
-                          onFile={(file) => saveProductPhoto(product, file)}
-                        />
-                      </td>
-                      <td className="gestao-prod-name text-sm font-medium text-gray-900">{product.name}</td>
-                      <td className="text-sm text-gray-500">{product.code}</td>
-                      {(
-                        [
-                          ["sale", (product.salePrice || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" }), "preço de venda"],
-                          ["cost", (product.costPrice || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" }), "preço de custo"],
-                          ["stock", String(product.stockQuantity || 0), "estoque"],
-                        ] as const
-                      ).map(([field, text, label]) => (
-                        <td
-                          key={field}
-                          className="num text-sm text-gray-500"
-                          onDoubleClick={() => startCellEdit(product, field)}
-                          title={`Clique duas vezes para editar o ${label}`}
-                        >
-                          {editingCell?.id === product.id && editingCell.field === field ? (
-                            <input
-                              autoFocus
-                              type="text"
-                              inputMode="decimal"
-                              value={editingValue}
-                              onChange={(e) => {
-                                const value = e.target.value.replace(",", ".");
-                                if (/^\d*\.?\d{0,2}$/.test(value) || value === "") setEditingValue(value);
-                              }}
-                              onBlur={() => commitCellEdit(product)}
-                              onKeyDown={(e) => {
-                                if (e.key === "Enter") {
-                                  e.preventDefault();
-                                  commitCellEdit(product);
-                                }
-                                if (e.key === "Escape") {
-                                  e.preventDefault();
-                                  cancelCellEdit();
-                                }
-                              }}
-                              className="w-24 ml-auto text-right border border-blue-400 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-400"
-                            />
-                          ) : (
-                            <span className="cursor-text">{text}</span>
-                          )}
-                        </td>
-                      ))}
-                      <td
-                        className="num text-sm text-gray-500"
-                        onDoubleClick={() => startCellEdit(product, "price")}
-                        title="Clique duas vezes para editar o preço"
-                      >
-                        {editingCell?.id === product.id && editingCell.field === "price" ? (
-                          <input
-                            autoFocus
-                            type="text"
-                            inputMode="decimal"
-                            value={editingValue}
-                            onChange={(e) => {
-                              const value = e.target.value.replace(",", ".");
-                              if (/^\d*\.?\d{0,2}$/.test(value) || value === "") {
-                                setEditingValue(value);
-                              }
-                            }}
-                            onBlur={() => commitCellEdit(product)}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") {
-                                e.preventDefault();
-                                commitCellEdit(product);
-                              }
-                              if (e.key === "Escape") {
-                                e.preventDefault();
-                                cancelCellEdit();
-                              }
-                            }}
-                            className="w-24 ml-auto text-right border border-blue-400 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-400"
-                          />
-                        ) : (
-                          <span className="cursor-text">
-                            {product.priceweightAverage.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
-                          </span>
-                        )}
-                      </td>
-                      <td
-                        className="num text-sm text-gray-500"
-                        onDoubleClick={() => startCellEdit(product, "weight")}
-                        title="Clique duas vezes para editar o peso"
-                      >
-                        {editingCell?.id === product.id && editingCell.field === "weight" ? (
-                          <input
-                            autoFocus
-                            type="text"
-                            inputMode="decimal"
-                            value={editingValue}
-                            onChange={(e) => {
-                              const value = e.target.value.replace(",", ".");
-                              if (/^\d*\.?\d{0,2}$/.test(value) || value === "") {
-                                setEditingValue(value);
-                              }
-                            }}
-                            onBlur={() => commitCellEdit(product)}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") {
-                                e.preventDefault();
-                                commitCellEdit(product);
-                              }
-                              if (e.key === "Escape") {
-                                e.preventDefault();
-                                cancelCellEdit();
-                              }
-                            }}
-                            className="w-24 ml-auto text-right border border-blue-400 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-400"
-                          />
-                        ) : (
-                          <span className="cursor-text">
-                            {product.weightAverage.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kg
-                          </span>
-                        )}
-                      </td>
+                      {columns.map((id) => {
+                        if (id === "code") {
+                          return <td key={id} className="text-sm text-gray-500">{product.code}</td>;
+                        }
+                        if (id === "category") {
+                          const label = product.category
+                            || categoryOptions.find((item) => item.id === product.categoryId)?.label
+                            || "—";
+                          return <td key={id} className="text-sm text-gray-500">{label}</td>;
+                        }
+                        if (id === "photo") {
+                          return (
+                            <td key={id}>
+                              <ProductThumb
+                                productId={product.id}
+                                photoFileId={product.photoFileId}
+                                disabled={isActionLoading}
+                                onFile={(file) => saveProductPhoto(product, file)}
+                              />
+                            </td>
+                          );
+                        }
+                        if (id === "name") {
+                          return <td key={id} className="gestao-prod-name text-sm font-medium text-gray-900">{product.name}</td>;
+                        }
+                        if (id === "sale") return editable("sale", money(product.salePrice || 0), "preço de venda");
+                        if (id === "cost") return editable("cost", money(product.costPrice || 0), "preço de compra");
+                        if (id === "stock") return editable("stock", String(product.stockQuantity || 0), "estoque");
+                        return editable(
+                          "weight",
+                          `${product.weightAverage.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kg`,
+                          "peso",
+                        );
+                      })}
                       <td className="act text-sm font-medium">
                         <div className="flex flex-wrap justify-end gap-2">
                           <button
@@ -989,6 +1130,69 @@ export function ProductsTab() {
                   className="w-full border border-gray-200 rounded-xl p-3 bg-gray-50 cursor-not-allowed"
                 />
               </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="produto-categoria">
+                  Categoria
+                </label>
+                <div className="flex items-center gap-2">
+                  <select
+                    id="produto-categoria"
+                    value={currentProduct.categoryId || ""}
+                    disabled={isActionLoading}
+                    onChange={(event) => {
+                      const categoryId = event.target.value;
+                      const category = categoryOptions.find((item) => item.id === categoryId)?.label || "";
+                      setCurrentProduct({ ...currentProduct, categoryId, category });
+                    }}
+                    className="w-full rounded-xl border border-gray-200 bg-white p-3 text-gray-900 focus:border-blue-300 focus:ring-2 focus:ring-blue-400"
+                  >
+                    <option value="">Selecione</option>
+                    {currentProduct.categoryId && !categoryOptions.some((item) => item.id === currentProduct.categoryId) ? (
+                      <option value={currentProduct.categoryId}>{currentProduct.category || currentProduct.categoryId}</option>
+                    ) : null}
+                    {categoryOptions.map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {`${"\u00A0\u00A0".repeat(item.depth)}${item.label}`}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    aria-label="Criar categoria"
+                    title="Criar categoria"
+                    onClick={() => setNewCategoryOpen((open) => !open)}
+                    className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-800 hover:bg-gray-50"
+                    disabled={isActionLoading}
+                  >
+                    <Plus size={18} />
+                  </button>
+                </div>
+                {newCategoryOpen ? (
+                  <div className="mt-2 flex gap-2">
+                    <input
+                      type="text"
+                      value={newCategoryName}
+                      placeholder="Nome da categoria"
+                      onChange={(event) => setNewCategoryName(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") {
+                          event.preventDefault();
+                          void createCategory();
+                        }
+                      }}
+                      className="w-full rounded-xl border border-gray-200 bg-white p-3 text-gray-900 focus:border-blue-300 focus:ring-2 focus:ring-blue-400"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => void createCategory()}
+                      className="px-4 py-2 rounded-xl bg-blue-500 text-white hover:bg-blue-600"
+                      disabled={isActionLoading || !newCategoryName.trim()}
+                    >
+                      Criar
+                    </button>
+                  </div>
+                ) : null}
+              </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Preço ($)</label>
@@ -1051,7 +1255,40 @@ export function ProductsTab() {
                 ></textarea>
               </div>
             </div>
-            <div className="mt-6 flex justify-end space-x-3">
+            <div className="mt-6 flex flex-wrap items-center justify-end gap-3">
+              {currentProduct.id ? (
+                duplicateAsk ? (
+                  <div className="mr-auto flex flex-wrap items-center gap-2">
+                    <span className="text-sm text-gray-600">Duplicar</span>
+                    <button
+                      type="button"
+                      onClick={() => handleDuplicate(true)}
+                      className="px-4 py-2 border border-gray-200 rounded-xl hover:bg-gray-50"
+                      disabled={isActionLoading}
+                    >
+                      Com estoque
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDuplicate(false)}
+                      className="px-4 py-2 border border-gray-200 rounded-xl hover:bg-gray-50"
+                      disabled={isActionLoading}
+                    >
+                      Sem estoque
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setDuplicateAsk(true)}
+                    className="mr-auto px-4 py-2 border border-gray-200 rounded-xl hover:bg-gray-50 inline-flex items-center gap-2"
+                    disabled={isActionLoading}
+                  >
+                    <Copy size={16} />
+                    Duplicar
+                  </button>
+                )
+              ) : null}
               <button
                 onClick={() => setShowModal(false)}
                 className="px-4 py-2 border border-gray-200 rounded-xl hover:bg-gray-50"

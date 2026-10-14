@@ -85,6 +85,10 @@ function readsOf(order: ClosedSale, line: Line) {
   return (order.conference?.reads || []).filter((read) => (read.code || "").trim().toUpperCase() === code).length;
 }
 
+function serialKey(serial: string) {
+  return (serial || "").trim().toUpperCase().replace(/\s/g, "");
+}
+
 function serialsOf(order: ClosedSale, line: Line) {
   const code = (line.code || "").trim().toUpperCase();
   const linked = (order.devices || [])
@@ -94,12 +98,54 @@ function serialsOf(order: ClosedSale, line: Line) {
   const seen = new Set<string>();
   const all: string[] = [];
   for (const serial of [...linked, ...(line.imeis || [])]) {
-    const key = (serial || "").trim().toUpperCase();
-    if (!key || seen.has(key)) continue;
+    const key = serialKey(serial);
+    if (key.length < 8 || seen.has(key)) continue;
     seen.add(key);
-    all.push(serial);
+    all.push(serial.trim());
   }
   return all;
+}
+
+function lineKey(line: Line) {
+  return line.id || `${line.code}-${line.name}`;
+}
+
+/** Seriais gravados na conferência, inclusive os que não existem no estoque. */
+function registeredSerials(order: ClosedSale) {
+  const seen = new Set<string>();
+  const all: string[] = [];
+  for (const serial of order.conference?.imeis || []) {
+    const key = serialKey(serial);
+    if (key.length < 8 || seen.has(key)) continue;
+    seen.add(key);
+    all.push(serial.trim());
+  }
+  return all;
+}
+
+function serialsByLine(order: ClosedSale) {
+  const groups = new Map<string, string[]>();
+  const taken = new Set<string>();
+  for (const line of order.lines) {
+    const own = serialsOf(order, line).filter((serial) => {
+      const key = serialKey(serial);
+      if (taken.has(key)) return false;
+      taken.add(key);
+      return true;
+    });
+    const room = Math.max(0, Number(line.qty) || 0);
+    groups.set(lineKey(line), own.slice(0, room));
+  }
+  const loose = registeredSerials(order).filter((serial) => !taken.has(serialKey(serial)));
+  for (const line of order.lines) {
+    const list = groups.get(lineKey(line)) || [];
+    const room = Math.max(0, Number(line.qty) || 0) - list.length;
+    if (room <= 0) continue;
+    const next = loose.splice(0, room);
+    next.forEach((serial) => taken.add(serialKey(serial)));
+    groups.set(lineKey(line), [...list, ...next]);
+  }
+  return groups;
 }
 
 function serialList(serials: string[]) {
@@ -169,6 +215,8 @@ export default function GestorVendasConcluidas() {
   const [imeiSuggestions, setImeiSuggestions] = useState<ImeiSuggestion[]>([]);
   const [imeiMenuOpen, setImeiMenuOpen] = useState(false);
   const imeiBoxRef = useRef<HTMLDivElement>(null);
+  const ordersTableRef = useRef<HTMLDivElement>(null);
+  const orderDetailRef = useRef<HTMLElement>(null);
   const obsFocused = useRef(false);
   const [notice, setNotice] = useState("");
   const [concludedNotice, setConcludedNotice] = useState("");
@@ -178,6 +226,20 @@ export default function GestorVendasConcluidas() {
   const [error, setError] = useState("");
   const [zebraNotice, setZebraNotice] = useState("");
   const imeiRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!selectedId) return;
+    function onPointerDown(event: MouseEvent) {
+      const target = event.target instanceof Element ? event.target : null;
+      if (!target) return;
+      if (ordersTableRef.current?.contains(target)) return;
+      if (orderDetailRef.current?.contains(target)) return;
+      if (target.closest("[role='dialog'], .swal2-container")) return;
+      setSelectedId("");
+    }
+    document.addEventListener("mousedown", onPointerDown);
+    return () => document.removeEventListener("mousedown", onPointerDown);
+  }, [selectedId]);
 
   async function load(term = search) {
     setIsLoading(true);
@@ -359,6 +421,38 @@ export default function GestorVendasConcluidas() {
     }
   }
 
+  async function estornar(id: string) {
+    const sure = await Swal.fire({
+      icon: "warning",
+      title: "Estornar este pedido?",
+      text: "O crédito volta para o lojista e o estoque volta para o backoffice.",
+      showCancelButton: true,
+      confirmButtonText: "Estornar",
+      cancelButtonText: "Cancelar",
+      buttonsStyling: false,
+      customClass: {
+        confirmButton: "bg-red-700 text-white hover:bg-red-800 px-4 py-2 rounded font-semibold mr-2",
+        cancelButton: "bg-gray-300 text-gray-800 hover:bg-gray-400 px-4 py-2 rounded font-semibold",
+      },
+    });
+    if (!sure.isConfirmed || acting) return;
+    setActing(true);
+    setNotice("");
+    try {
+      const { data } = await api.post(`/backoffice/vendas-concluidas/${id}/estornar`);
+      const order = data.order as ClosedSale;
+      setOrders((prev) => prev.map((item) => (item.id === order.id ? order : item)));
+      if (conferenceId === id) setConferenceId("");
+      if (selectedId === id) setSelectedId("");
+      setNotice(typeof data.notice === "string" && data.notice ? data.notice : "Pedido estornado.");
+    } catch (err) {
+      const parsed = parseError(err);
+      setNotice(parsed.friend || parsed.message || "Não foi possível estornar o pedido.");
+    } finally {
+      setActing(false);
+    }
+  }
+
   function confirmLookup(raw: string) {
     const typed = raw.trim();
     if (!typed || !conference) return;
@@ -467,7 +561,7 @@ export default function GestorVendasConcluidas() {
         </button>
       </form>
 
-      <div className="overflow-visible rounded-lg border border-gray-200 bg-white shadow-sm">
+      <div ref={ordersTableRef} className="overflow-visible rounded-lg border border-gray-200 bg-white shadow-sm">
         {isLoading && orders.length === 0 ? (
           <p className="flex items-center gap-2 p-6 text-sm text-gray-500">
             <Loader2 size={16} className="animate-spin" /> Carregando vendas...
@@ -480,17 +574,17 @@ export default function GestorVendasConcluidas() {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="min-w-full text-left text-sm">
-              <thead className="bg-gray-50 text-xs uppercase tracking-wide text-gray-600">
+            <table className="w-full border-collapse text-center text-sm">
+              <thead className="bg-gray-50 text-xs uppercase text-gray-600">
                 <tr>
-                  <th className="px-4 py-3 font-semibold">Pedido</th>
-                  <th className="px-4 py-3 font-semibold">Fechado em</th>
-                  <th className="px-4 py-3 font-semibold">Lojista</th>
-                  <th className="px-4 py-3 font-semibold">Documento</th>
-                  <th className="px-4 py-3 font-semibold text-right">Itens</th>
-                  <th className="px-4 py-3 font-semibold text-right">Total</th>
-                  <th className="px-4 py-3 font-semibold">Status</th>
-                  <th className="px-4 py-3 font-semibold">Conferência</th>
+                  <th className="px-3 py-3 text-center font-semibold">Pedido</th>
+                  <th className="px-3 py-3 text-center font-semibold">Fechado em</th>
+                  <th className="px-3 py-3 text-center font-semibold">Lojista</th>
+                  <th className="px-3 py-3 text-center font-semibold">Documento</th>
+                  <th className="px-3 py-3 text-center font-semibold">Itens</th>
+                  <th className="px-3 py-3 text-center font-semibold">Total</th>
+                  <th className="px-3 py-3 text-center font-semibold">Status</th>
+                  <th className="px-3 py-3 text-center font-semibold">Ações</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -511,17 +605,17 @@ export default function GestorVendasConcluidas() {
                         if (conferenceId !== order.id) setConferenceId("");
                       }}
                     >
-                      <td className="px-4 py-3 font-mono font-semibold text-gray-900">{orderCode(order.id)}</td>
-                      <td className="px-4 py-3 text-gray-700">{when(order.closedAt || order.createdAt)}</td>
-                      <td className="px-4 py-3 font-medium text-gray-900">{shown(order.client?.name)}</td>
-                      <td className="px-4 py-3 text-gray-700">{shown(order.client?.document)}</td>
-                      <td className="px-4 py-3 text-right text-gray-700">{units}</td>
-                      <td className="px-4 py-3 text-right font-semibold text-gray-900">{money(order.total)}</td>
-                      <td className="px-4 py-3">
+                      <td className="whitespace-nowrap px-3 py-3 text-center align-middle font-mono font-semibold text-gray-900">{orderCode(order.id)}</td>
+                      <td className="whitespace-nowrap px-3 py-3 text-center align-middle text-gray-700">{when(order.closedAt || order.createdAt)}</td>
+                      <td className="whitespace-nowrap px-3 py-3 text-center align-middle font-medium text-gray-900">{shown(order.client?.name)}</td>
+                      <td className="whitespace-nowrap px-3 py-3 text-center align-middle text-gray-700">{shown(order.client?.document)}</td>
+                      <td className="whitespace-nowrap px-3 py-3 text-center align-middle text-gray-700">{units}</td>
+                      <td className="whitespace-nowrap px-3 py-3 text-center align-middle font-semibold text-gray-900">{money(order.total)}</td>
+                      <td className="whitespace-nowrap px-3 py-3 text-center align-middle">
                         <StatusBadge status={order.dispatchStatus || "A ENVIAR"} estornada={order.estornada} />
                       </td>
-                      <td className="px-4 py-3">
-                        <div className="flex flex-wrap gap-2">
+                      <td className="px-3 py-3 text-center align-middle">
+                        <div className="flex flex-nowrap items-center justify-center gap-2">
                           {isSent(order.dispatchStatus) || order.estornada ? null : (
                             <button
                               type="button"
@@ -536,8 +630,20 @@ export default function GestorVendasConcluidas() {
                             </button>
                           )}
                           {order.estornada ? (
-                            <span className="px-1 py-1.5 text-xs font-semibold text-red-700">Estornada</span>
-                          ) : null}
+                            <span className="text-xs font-semibold text-red-700">Estornada</span>
+                          ) : (
+                            <button
+                              type="button"
+                              className="rounded border border-red-700 bg-white px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-50"
+                              disabled={acting}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                void estornar(order.id);
+                              }}
+                            >
+                              Estornar
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -569,6 +675,12 @@ export default function GestorVendasConcluidas() {
             </div>
           </div>
           <h3 className="mb-2 border-b pb-2 font-medium text-blue-700">Produtos a separar</h3>
+          {(() => {
+            const unitTotal = conference.lines.reduce((sum, line) => sum + Math.max(0, Number(line.qty || 0)), 0);
+            const serialDone = registeredSerials(conference).length;
+            const serialGroups = serialsByLine(conference);
+            const canFinish = unitTotal > 0 && serialDone >= unitTotal;
+            return (
           <div className="grid gap-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(280px,0.8fr)]">
             <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-md">
               <p className="text-sm text-gray-600">
@@ -588,7 +700,7 @@ export default function GestorVendasConcluidas() {
                   <tbody className="divide-y divide-gray-100">
                     {conference.lines.map((line) => {
                       const qty = Math.max(0, Number(line.qty || 0));
-                      const serials = serialsOf(conference, line).slice(0, qty);
+                      const serials = (serialGroups.get(lineKey(line)) || []).slice(0, qty);
                       const lidos = Math.min(qty, Math.max(readsOf(conference, line), serials.length));
                       const restante = Math.max(0, qty - lidos);
                       return (
@@ -600,7 +712,7 @@ export default function GestorVendasConcluidas() {
                           <td className="px-3 py-2">
                             <div>{shown(line.name)}</div>
                             {serials.length ? (
-                              <div className="mt-1 max-h-12 overflow-y-auto font-mono text-xs font-normal leading-4 text-gray-700">
+                              <div className="mt-1 max-h-32 overflow-y-auto font-mono text-xs font-normal leading-4 text-gray-700">
                                 {serials.map((serial) => (
                                   <div key={serial} className="truncate">
                                     {serial}
@@ -627,8 +739,7 @@ export default function GestorVendasConcluidas() {
                 {conference.lines.reduce((sum, line) => sum + Number(line.qty || 0), 0)}
               </p>
               <p className="mt-1 text-sm font-semibold text-gray-800">
-                imeis/serial: {conference.lines.reduce((sum, line) => sum + Math.min(Number(line.qty || 0), serialsOf(conference, line).length), 0)}/
-                {conference.lines.reduce((sum, line) => sum + Number(line.qty || 0), 0)}
+                imeis/serial: {Math.min(serialDone, unitTotal)}/{unitTotal}
               </p>
             </div>
             <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-md">
@@ -724,13 +835,19 @@ export default function GestorVendasConcluidas() {
                 </button>
                 <button
                   type="button"
-                  className="rounded bg-green-700 px-3 py-2 text-sm font-semibold text-white hover:bg-green-800 disabled:cursor-not-allowed disabled:bg-gray-300"
-                  disabled={acting || isSent(conference.dispatchStatus) || conference.blockers.length > 0 || !(conference.conference.imeis || []).length}
+                  className="rounded bg-green-700 px-3 py-2 text-sm font-semibold text-white hover:bg-green-800 disabled:cursor-not-allowed disabled:bg-gray-300 disabled:text-gray-500"
+                  style={canFinish ? { color: "#ffffff", backgroundColor: "#15803d" } : { color: "#6b7280", backgroundColor: "#d1d5db" }}
+                  disabled={acting || isSent(conference.dispatchStatus) || !canFinish}
                   onClick={() => act("conclude")}
                 >
                   Concluir conferência
                 </button>
               </div>
+              {!canFinish ? (
+                <p className="mt-3 text-sm font-semibold text-amber-800">
+                  Faltam {Math.max(0, unitTotal - serialDone)} {unitTotal - serialDone === 1 ? "serial" : "seriais"}. O botão só libera em {unitTotal}/{unitTotal}.
+                </p>
+              ) : null}
               {conference.blockers.length ? (
                 <ul className="mt-3 space-y-1 text-sm text-amber-800">
                   {conference.blockers.map((item) => (
@@ -740,6 +857,8 @@ export default function GestorVendasConcluidas() {
               ) : null}
             </div>
           </div>
+            );
+          })()}
           <label className="mt-4 block text-sm font-semibold text-gray-800" htmlFor="order-obs">
             Obs do pedido
           </label>
@@ -764,7 +883,7 @@ export default function GestorVendasConcluidas() {
       ) : null}
 
       {orders.filter((order) => order.id === selectedId).map((order) => (
-        <section key={order.id} className="mt-4 rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+        <section ref={orderDetailRef} key={order.id} className="mt-4 rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
           <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
             <div>
               <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Despacho</p>

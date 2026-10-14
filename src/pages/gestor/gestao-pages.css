@@ -718,3 +718,383 @@
 .pdv-chrome[data-theme="light"] .gestao-page button.rounded-2xl {
   border-radius: 16px;
 }
+
+/* Campo liberado fica branco. O bege de painel parecia campo bloqueado. */
+.pdv-chrome[data-theme="light"] .gestao-page input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="hidden"]):not(:disabled):not([readonly]),
+.pdv-chrome[data-theme="light"] .gestao-page select:not(:disabled),
+.pdv-chrome[data-theme="light"] .gestao-page textarea:not(:disabled):not([readonly]),
+.pdv-chrome[data-theme="light"] .gestao-page div.bg-white.cursor-pointer {
+  background-color: #fff !important;
+  color: #1c1814 !important;
+  -webkit-text-fill-color: #1c1814 !important;
+  border-color: #b7aa98;
+}
+
+.pdv-chrome[data-theme="light"] .gestao-page input:not(:disabled):not([readonly]):focus,
+.pdv-chrome[data-theme="light"] .gestao-page select:not(:disabled):focus,
+.pdv-chrome[data-theme="light"] .gestao-page textarea:not(:disabled):not([readonly]):focus {
+  background-color: #fff;
+  border-color: #1c1814;
+  outline: none;
+}
+
+.pdv-chrome[data-theme="light"] .gestao-page input:disabled,
+.pdv-chrome[data-theme="light"] .gestao-page select:disabled,
+.pdv-chrome[data-theme="light"] .gestao-page textarea:disabled,
+.pdv-chrome[data-theme="light"] .gestao-page input[readonly],
+.pdv-chrome[data-theme="light"] .gestao-page textarea[readonly] {
+  background-color: #efe8dc;
+  color: #8a8176;
+  -webkit-text-fill-color: #8a8176;
+  cursor: not-allowed;
+}
+
+.dre-resumo {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.dre-resumo p {
+  margin: 0;
+  padding: 14px 16px;
+  border: 1px solid #e6dfd4;
+  border-radius: 16px;
+  background: #fff;
+}
+
+.dre-resumo span {
+  display: block;
+  margin-bottom: 6px;
+  color: #6f675e;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.dre-resumo strong {
+  font-size: 1.15rem;
+}
+
+.dre-sheet {
+  overflow: auto;
+  border: 1px solid #e6dfd4;
+  border-radius: 18px;
+  background: #fff;
+}
+
+.dre-sheet table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.92rem;
+}
+
+.dre-sheet th,
+.dre-sheet td {
+  padding: 10px 14px;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.dre-sheet thead th {
+  color: #6f675e;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  border-bottom: 1px solid #e6dfd4;
+}
+
+.dre-sheet tbody th {
+  text-align: left;
+  font-weight: 600;
+  color: #1c1814;
+}
+
+.dre-group th,
+.dre-group td {
+  background: #f6f1e8;
+  font-weight: 700;
+}
+
+.dre-conta th {
+  padding-left: 42px;
+  font-weight: 500;
+}
+
+.dre-strong th,
+.dre-strong td {
+  font-weight: 700;
+  border-top: 1px solid #e6dfd4;
+}
+
+.dre-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.dre-pos {
+  color: #15803d;
+}
+
+.dre-neg {
+  color: #b91c1c;
+}
+
+@media (max-width: 800px) {
+  .dre-resumo {
+    grid-template-columns: 1fr;
+  }
+}
+
+.iv-filtros {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0;
+  margin-bottom: 16px;
+  border: 1px solid #d3c9bb;
+  border-radius: 16px;
+  background: #fff;
+  overflow: visible;
+}
+
+.iv-filtros label,
+.iv-filtros .iv-acoes {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  margin: 0;
+  padding: 12px;
+  border-right: 1px solid #e6dfd4;
+  border-bottom: 1px solid #e6dfd4;
+  color: #6f675e;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.iv-filtros label:nth-child(4n) {
+  border-right: 0;
+}
+
+.iv-filtros input,
+.iv-filtros select {
+  width: 100%;
+  min-height: 40px;
+  margin: 0;
+  padding: 8px 10px;
+  box-sizing: border-box;
+  border: 1px solid #b7aa98;
+  border-radius: 10px;
+  background: #fff;
+  color: #1c1814;
+  font: inherit;
+  font-weight: 500;
+}
+
+.iv-filtros .pdv-date-field > input {
+  width: auto;
+  flex: 1 1 auto;
+  min-width: 0;
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.iv-filtros .pdv-date-presets-btn {
+  min-height: 40px;
+}
+
+.iv-completa {
+  position: relative;
+  display: block;
+}
+
+.iv-completa ul {
+  position: absolute;
+  z-index: 40;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+  background: #fff;
+  border: 1px solid #b7aa98;
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(28, 24, 20, 0.12);
+  max-height: 220px;
+  overflow: auto;
+}
+
+.iv-filtros .iv-completa button {
+  display: block;
+  width: 100%;
+  min-height: 34px;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #1c1814 !important;
+  -webkit-text-fill-color: #1c1814 !important;
+  font: inherit;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+}
+
+.iv-filtros .iv-completa button:hover {
+  background: #f3eee6;
+}
+
+.iv-filtros .iv-acoes {
+  grid-column: 1 / -1;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  border-right: 0;
+}
+
+.iv-acoes button {
+  min-height: 42px;
+  padding: 0 16px;
+  border-radius: 12px;
+  border: 1px solid #1c1814;
+  background: #1c1814;
+  color: #fff !important;
+  -webkit-text-fill-color: #fff !important;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.iv-filtros .iv-acoes .iv-limpar {
+  background: #fff;
+  color: #1c1814 !important;
+  -webkit-text-fill-color: #1c1814 !important;
+}
+
+.iv-sheet thead th {
+  white-space: normal;
+  vertical-align: bottom;
+  line-height: 1.25;
+  text-align: left;
+}
+
+.iv-sheet td,
+.iv-sheet th {
+  text-align: left;
+}
+
+.iv-sheet thead th.iv-num,
+.iv-num {
+  text-align: right !important;
+}
+
+.iv-sheet .iv-grupo-espaco td {
+  height: 22px;
+  padding: 0 !important;
+  border: 0 !important;
+  background: #f3efe8 !important;
+  font-size: 0;
+  line-height: 0;
+}
+
+.iv-linhas {
+  overflow: auto;
+  border: 1px solid #e6dfd4;
+  border-radius: 18px;
+  background: #f3efe8;
+  padding: 8px 8px 12px;
+}
+
+.iv-linhas table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0 10px;
+}
+
+.iv-linhas thead th {
+  background: transparent !important;
+  color: #6f675e !important;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  border: 0 !important;
+}
+
+.iv-linhas tbody td {
+  background: #fff !important;
+  border-top: 1px solid #e6dfd4;
+  border-bottom: 1px solid #e6dfd4;
+}
+
+.iv-linhas tbody td:first-child {
+  border-left: 1px solid #e6dfd4;
+  border-top-left-radius: 12px;
+  border-bottom-left-radius: 12px;
+}
+
+.iv-linhas tbody td:last-child {
+  border-right: 1px solid #e6dfd4;
+  border-top-right-radius: 12px;
+  border-bottom-right-radius: 12px;
+}
+
+.iv-linhas button.iv-imprimir,
+button.iv-imprimir {
+  background: #1c1814 !important;
+  color: #fff !important;
+  -webkit-text-fill-color: #fff !important;
+  border: 0;
+  border-radius: 999px;
+  padding: 2px 10px;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+button.iv-imprimir:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.iv-linhas button.iv-impressa {
+  background: #0f766e !important;
+  color: #fff !important;
+  -webkit-text-fill-color: #fff !important;
+  border: 0;
+  border-radius: 999px;
+  padding: 2px 10px;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.iv-vazio {
+  padding: 28px 14px !important;
+  text-align: center !important;
+  color: #6f675e;
+}
+
+@media (max-width: 900px) {
+  .iv-filtros {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .iv-filtros label:nth-child(4n) {
+    border-right: 1px solid #e6dfd4;
+  }
+
+  .iv-filtros label:nth-child(2n) {
+    border-right: 0;
+  }
+}

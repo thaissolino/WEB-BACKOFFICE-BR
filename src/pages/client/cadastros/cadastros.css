@@ -191,6 +191,17 @@
   box-shadow: 0 0 0 1px #90caf9;
 }
 
+.pdv-cad-filters .pdv-date-field > input {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.pdv-cad-filters .pdv-date-presets-btn {
+  min-height: 36px;
+  border-color: #8a8378;
+  border-radius: 0 2px 2px 0;
+}
+
 .pdv-cad-filters-go {
   display: flex;
   flex-wrap: wrap;
@@ -1836,6 +1847,63 @@
   object-fit: contain;
 }
 
+.pdv-photo-zoom {
+  position: fixed;
+  inset: 0;
+  z-index: 8000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 56px 24px 28px;
+  background: rgba(12, 10, 8, 0.86);
+}
+
+.pdv-photo-zoom-frame {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  max-width: min(92vw, 1100px);
+}
+
+.pdv-photo-zoom-frame img {
+  display: block;
+  width: auto;
+  height: auto;
+  max-width: min(92vw, 1100px);
+  max-height: 82vh;
+  object-fit: contain;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.45);
+}
+
+.pdv-photo-zoom-frame p,
+.pdv-photo-zoom-frame figcaption {
+  margin: 0;
+  color: #fff;
+  font-weight: 600;
+  text-align: center;
+}
+
+.pdv-photo-zoom-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: #fff;
+  color: #111 !important;
+  -webkit-text-fill-color: #111 !important;
+  cursor: pointer;
+}
+
 .pdv-prod-stub {
   min-height: 8rem;
 }
@@ -3025,11 +3093,83 @@
   min-height: 220px;
 }
 
-.pdv-date-presets {
+.pdv-date-field {
   display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin: 0 0 14px;
+  align-items: stretch;
+  width: 100%;
+  min-width: 0;
+}
+
+.pdv-date-field > input,
+.pdv-date-field > .MuiFormControl-root,
+.pdv-date-field > .MuiTextField-root {
+  flex: 1;
+  min-width: 0;
+  width: auto;
+  border-top-right-radius: 0 !important;
+  border-bottom-right-radius: 0 !important;
+}
+
+.pdv-date-presets {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  flex: 0 0 auto;
+}
+
+.pdv-date-presets-btn {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  min-height: 100%;
+  margin: 0;
+  padding: 0;
+  border: 1px solid #b7aa98;
+  border-left: 0;
+  border-radius: 0 10px 10px 0;
+  background: #fff;
+  color: #1c1814 !important;
+  -webkit-text-fill-color: #1c1814 !important;
+  cursor: pointer;
+}
+
+.pdv-date-presets-caret {
+  width: 0;
+  height: 0;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 6px solid #1c1814;
+}
+
+.pdv-date-presets-menu {
+  position: fixed;
+  z-index: 80;
+  min-width: 168px;
+  margin: 0;
+  padding: 6px 0;
+  background: #fff;
+  border: 1px solid #e4ddd2;
+  border-radius: 10px;
+  box-shadow: 0 10px 28px rgba(28, 24, 20, 0.14);
+}
+
+.pdv-date-presets-menu button {
+  display: block;
+  width: 100%;
+  margin: 0;
+  padding: 8px 14px;
+  border: 0;
+  background: transparent;
+  color: #1c1814 !important;
+  -webkit-text-fill-color: #1c1814 !important;
+  font: inherit;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+}
+
+.pdv-date-presets-menu button:hover {
+  background: #f6f1e8;
 }
 
 .pdv-loc-kanban,

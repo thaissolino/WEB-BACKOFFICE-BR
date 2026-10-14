@@ -1,7 +1,7 @@
 import { FormEvent, useEffect, useState } from "react"
-import { useNavigate, useSearchParams } from "react-router-dom"
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom"
 import { Plus } from "lucide-react"
-import CadastroShell from "../CadastroShell"
+import { CadastroFrame } from "../CadastroShell"
 import { FormRow, RadioSimNao } from "../catalog/FormBits"
 import { createCatalog, getCatalog, updateCatalog } from "../catalog/catalogApi"
 import { parseError } from "../../../../services/api"
@@ -100,6 +100,8 @@ const EMPTY: PayForm = {
 
 export default function FormaPagamentoForm() {
   const navigate = useNavigate()
+  const { pathname } = useLocation()
+  const listPath = pathname.startsWith("/gestao/") ? "/gestao/cadastro/financeiro/formas-pagamento" : "/client/financeiro/formas-pagamento"
   const [params] = useSearchParams()
   const editId = Number(params.get("id") || 0)
   const [form, setForm] = useState<PayForm>(EMPTY)
@@ -122,7 +124,7 @@ export default function FormaPagamentoForm() {
       const { nome, ...payload } = form
       if (editId) await updateCatalog("payment", editId, { name: nome, payload, active: form.ativoGeral })
       else await createCatalog("payment", { name: nome, payload, active: form.ativoGeral })
-      navigate("/client/financeiro/formas-pagamento")
+      navigate(listPath)
     } catch (err) {
       const parsed = parseError(err)
       setStatus(parsed.friend || parsed.message || "Não foi possível salvar.")
@@ -134,11 +136,11 @@ export default function FormaPagamentoForm() {
   }
 
   return (
-    <CadastroShell>
+    <CadastroFrame>
       <section className="pdv-cad-page" aria-labelledby="pdv-pay-form">
         <div className="pdv-cad-sheet">
           <h1 id="pdv-pay-form">CADASTRAR FORMA DE PAGAMENTO</h1>
-          <button className="pdv-cad-btn pdv-cad-btn-back pdv-voltar" type="button" onClick={() => navigate("/client/financeiro/formas-pagamento")}>
+          <button className="pdv-cad-btn pdv-cad-btn-back pdv-voltar" type="button" onClick={() => navigate(listPath)}>
             Voltar
           </button>
           <form className="pdv-cad-form" onSubmit={onSubmit}>
@@ -186,6 +188,6 @@ export default function FormaPagamentoForm() {
           </form>
         </div>
       </section>
-    </CadastroShell>
+    </CadastroFrame>
   )
 }

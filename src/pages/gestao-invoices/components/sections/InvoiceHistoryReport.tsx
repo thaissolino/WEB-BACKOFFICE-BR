@@ -163,6 +163,13 @@ export function saoPauloDay(value: string) {
   }).format(when);
 }
 
+function formatSpDate(value: string) {
+  const day = saoPauloDay(value);
+  if (!day) return "";
+  const [year, month, date] = day.split("-");
+  return `${date}/${month}/${year}`;
+}
+
 type ReceiptPrintEntry = {
   id: string;
   date: string;
@@ -185,6 +192,8 @@ type LabelRow = {
   operator: string;
   quantity: number;
   items: { code: string; name: string; quantity: number }[];
+  historyIds: string[];
+  printedAt: string;
 };
 
 const CODE128_PATTERNS = [
@@ -291,7 +300,7 @@ type InvoiceHistoryReportProps = {
   printTable?: boolean;
   printInvoiceIds?: string[];
   reprint?: boolean;
-  onLabelsPrinted?: (row: { invoiceId: string; invoiceNumber: string; day?: string }) => void | Promise<void>;
+  onLabelsPrinted?: (row: { invoiceId: string; invoiceNumber: string; day?: string; historyIds?: string[] }) => void | Promise<void>;
 };
 
 export function InvoiceHistoryReport({
@@ -355,6 +364,7 @@ export function InvoiceHistoryReport({
   const [exchanges, setExchangeResponse] = useState<exchange[]>([]);
   const [selectedProductToAnalyze, setSelectedProductToAnalyze] = useState<ProductData | null>(null);
   const [currentPage, setCurrentPage] = useState(0);
+  const [picked, setPicked] = useState<string[]>([]);
   const itemsPerPage = 10;
 
   const fetchInvoicesAndSuppliers = async () => {
@@ -420,7 +430,7 @@ export function InvoiceHistoryReport({
   const printRows = useMemo(() => {
     const rows = new Map<string, LabelRow>();
     for (const entry of receiptEntries) {
-      if (!reprint && entry.labelPrintedAt) continue;
+      if (reprint ? !entry.labelPrintedAt : entry.labelPrintedAt) continue;
       const day = saoPauloDay(entry.date);
       if (!day) continue;
       const name = entry.productName || "Produto";
@@ -442,6 +452,8 @@ export function InvoiceHistoryReport({
           operator,
           quantity,
           items: [{ code, name, quantity }],
+          historyIds: entry.id ? [entry.id] : [],
+          printedAt: entry.labelPrintedAt || "",
         });
         continue;
       }
@@ -449,35 +461,44 @@ export function InvoiceHistoryReport({
       if (operator !== "—" && !current.operator.split(", ").includes(operator)) {
         current.operator = current.operator === "—" ? operator : `${current.operator}, ${operator}`;
       }
-      if (new Date(entry.date).getTime() < new Date(current.date).getTime()) current.date = entry.date;
+      if (new Date(entry.date).getTime() > new Date(current.date).getTime()) current.date = entry.date;
+      if (entry.labelPrintedAt && entry.labelPrintedAt > current.printedAt) current.printedAt = entry.labelPrintedAt;
       const same = current.items.find((item) => item.name === name && item.code === code);
       if (same) same.quantity += quantity;
       else current.items.push({ code, name, quantity });
+      if (entry.id && !current.historyIds.includes(entry.id)) current.historyIds.push(entry.id);
     }
     const invoiceNumber = (value: string) => {
       const parsed = Number(String(value).replace(/\D/g, ""));
       return Number.isFinite(parsed) ? parsed : 0;
     };
     const dayOf = (value: string) => saoPauloDay(value);
+    const momentOf = (row: LabelRow) => (reprint ? row.printedAt || row.date : row.date);
     return Array.from(rows.values()).sort((a, b) => {
+      const byDay = dayOf(momentOf(b)).localeCompare(dayOf(momentOf(a)));
+      if (byDay) return byDay;
+      const byTime = new Date(momentOf(b)).getTime() - new Date(momentOf(a)).getTime();
+      if (byTime) return byTime;
       const byNumber = invoiceNumber(b.invoiceNumber) - invoiceNumber(a.invoiceNumber);
       if (byNumber) return byNumber;
-      const byDay = dayOf(b.date).localeCompare(dayOf(a.date));
-      if (byDay) return byDay;
       return a.key.localeCompare(b.key);
     });
   }, [receiptEntries, printInvoiceIds, reprint]);
 
+  useEffect(() => {
+    setPicked((current) => current.filter((key) => printRows.some((row) => row.key === key)));
+  }, [printRows]);
+
   const getStatusText = (invoice: InvoiceData) => {
     console.log(invoice);
-    if (invoice.labelsPrintedAt && invoice.completed && invoice.paid) return "Finalizada";
+    if (invoice.labelsPrintedAt && invoice.completed && invoice.paid) return "Impressa";
     if (invoice.completed && invoice.paid) return "Concluída";
     if (!invoice.completed && invoice.paid) return "Pago";
     return "Pendente";
   };
 
   const getStatusClass = (invoice: InvoiceData) => {
-    if (invoice.labelsPrintedAt && invoice.completed && invoice.paid) return "bg-indigo-100 text-indigo-800";
+    if (invoice.labelsPrintedAt && invoice.completed && invoice.paid) return "bg-teal-100 text-teal-800";
     if (invoice.completed && invoice.paid) return "bg-blue-100 text-blue-800";
     if (!invoice.completed && invoice.paid) return "bg-green-100 text-green-800";
     return "bg-yellow-100 text-yellow-800";
@@ -491,50 +512,71 @@ export function InvoiceHistoryReport({
     setIsModalOpen(true);
   };
 
-  async function printInvoicePdf(row: LabelRow) {
+  async function printLabels(rows: LabelRow[]) {
+    if (!rows.length) return;
     const { jsPDF } = await import("jspdf");
     const doc = new jsPDF({ unit: "mm", format: "a4" });
-    const grouped = new Map<string, { code: string; name: string }>();
-    row.items.forEach((item) => {
-      const code = item.code || "—";
-      const name = item.name || "Produto";
-      grouped.set(`${code}::${name}`, { code, name });
-    });
-    const labels = grouped.size ? Array.from(grouped.values()) : [{ code: "—", name: "Produto" }];
     const { cols, perPage } = labelsPerSheet();
-    labels.forEach((item, index) => {
-      if (index > 0 && index % perPage === 0) doc.addPage("a4", "portrait");
-      const slot = index % perPage;
-      const x = SHEET_MARGIN + (slot % cols) * (LABEL_W + LABEL_GAP);
-      const y = SHEET_MARGIN + Math.floor(slot / cols) * (LABEL_H + LABEL_GAP);
-      drawEntryLabel(doc as unknown as LabelPdf, item, x, y);
-    });
+    let slotIndex = 0;
+    for (const row of rows) {
+      const grouped = new Map<string, { code: string; name: string }>();
+      row.items.forEach((item) => {
+        const code = item.code || "—";
+        const name = item.name || "Produto";
+        grouped.set(`${code}::${name}`, { code, name });
+      });
+      const labels = grouped.size ? Array.from(grouped.values()) : [{ code: "—", name: "Produto" }];
+      for (const item of labels) {
+        if (slotIndex > 0 && slotIndex % perPage === 0) doc.addPage("a4", "portrait");
+        const slot = slotIndex % perPage;
+        const x = SHEET_MARGIN + (slot % cols) * (LABEL_W + LABEL_GAP);
+        const y = SHEET_MARGIN + Math.floor(slot / cols) * (LABEL_H + LABEL_GAP);
+        drawEntryLabel(doc as unknown as LabelPdf, item, x, y);
+        slotIndex += 1;
+      }
+    }
     doc.autoPrint();
     const url = doc.output("bloburl");
     const opened = window.open(url, "_blank");
-    if (!opened) doc.save(`etiquetas-${row.invoiceNumber}.pdf`);
-    const day = row.key.slice(row.key.indexOf("|") + 1);
-    if (reprint || !day) {
-      await onLabelsPrinted?.({ invoiceId: row.invoiceId, invoiceNumber: row.invoiceNumber });
-      return;
+    if (!opened) doc.save("etiquetas.pdf");
+    const failed: string[] = [];
+    for (const row of rows) {
+      const day = row.key.slice(row.key.indexOf("|") + 1);
+      try {
+        await onLabelsPrinted?.({
+          invoiceId: row.invoiceId,
+          invoiceNumber: row.invoiceNumber,
+          day: reprint || !day ? undefined : day,
+          historyIds: row.historyIds,
+        });
+        if (!reprint && day) {
+          setReceiptEntries((current) =>
+            current.map((entry) => {
+              const entryDay = saoPauloDay(entry.date);
+              if (!entryDay || entry.labelPrintedAt) return entry;
+              const sameInvoice =
+                (row.invoiceId && entry.invoiceId === row.invoiceId) ||
+                String(entry.invoiceNumber) === String(row.invoiceNumber);
+              return sameInvoice && entryDay === day
+                ? { ...entry, labelPrintedAt: new Date().toISOString() }
+                : entry;
+            }),
+          );
+        }
+      } catch (error) {
+        console.error("Erro ao marcar a linha impressa:", error);
+        failed.push(row.invoiceNumber || row.key);
+      }
     }
-    const previous = receiptEntries;
-    setReceiptEntries((current) =>
-      current.map((entry) => {
-        const entryDay = saoPauloDay(entry.date);
-        if (!entryDay) return entry;
-        const sameInvoice =
-          (row.invoiceId && entry.invoiceId === row.invoiceId) ||
-          String(entry.invoiceNumber) === String(row.invoiceNumber);
-        if (!sameInvoice || entryDay !== day) return entry;
-        return { ...entry, labelPrintedAt: new Date().toISOString() };
-      }),
-    );
-    try {
-      await onLabelsPrinted?.({ invoiceId: row.invoiceId, invoiceNumber: row.invoiceNumber, day });
-    } catch (error) {
-      console.error("Erro ao marcar a linha impressa:", error);
-      setReceiptEntries(previous);
+    setPicked((current) => current.filter((key) => rows.some((row) => row.key === key && failed.includes(row.invoiceNumber || row.key))));
+    setReceiptReload((value) => value + 1);
+    if (failed.length) {
+      void Swal.fire({
+        icon: "warning",
+        title: "Atenção",
+        text: `Não foi possível marcar: ${failed.join(", ")}. As outras ficam impressas.`,
+        confirmButtonText: "OK",
+      });
     }
   }
 
@@ -675,9 +717,20 @@ export function InvoiceHistoryReport({
   return (
     <div className="mt-8 min-w-0 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
       <h2 className="text-xl w-full justify-between items-center flex flex-row font-semibold mb-4 border-b px-6 pt-4 pb-2 text-blue-700">
-        <div className="flex justify-center items-center">
+        <div className="flex justify-center items-center gap-3">
           <History className="mr-2 inline" size={18} />
-          {printTable ? "Gerar etiquetas" : "Histórico de Invoices"}
+          {printTable ? (reprint ? "Impressas" : "Gerar etiquetas") : "Histórico de Invoices"}
+          {printTable ? (
+            <button
+              type="button"
+              data-allow-click
+              className="iv-imprimir px-3 py-1 text-sm"
+              disabled={!picked.length}
+              onClick={() => printLabels(printRows.filter((row) => picked.includes(row.key)))}
+            >
+              Imprimir selecionadas{picked.length ? ` (${picked.length})` : ""}
+            </button>
+          ) : null}
         </div>
         <button
           onClick={() => {
@@ -690,13 +743,21 @@ export function InvoiceHistoryReport({
         </button>
       </h2>
 
-      <div className="overflow-x-auto">
+      <div className="iv-linhas overflow-x-auto">
         {loading || (printTable && receiptLoading) ? (
           <p className="text-center text-gray-500 py-6">Carregando invoices...</p>
         ) : printTable ? (
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
+                <th className="px-4 py-3 text-left">
+                  <input
+                    type="checkbox"
+                    aria-label="Selecionar todas"
+                    checked={printRows.length > 0 && printRows.every((row) => picked.includes(row.key))}
+                    onChange={(event) => setPicked(event.target.checked ? printRows.map((row) => row.key) : [])}
+                  />
+                </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Data</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Invoice Número</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fornecedor</th>
@@ -709,24 +770,41 @@ export function InvoiceHistoryReport({
             <tbody className="bg-white divide-y divide-gray-200">
               {printRows.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-4 text-center text-gray-500">Nenhuma lista para etiqueta</td>
+                  <td colSpan={8} className="px-6 py-4 text-center text-gray-500">Nenhuma lista para etiqueta</td>
                 </tr>
               ) : (
                 printRows.slice(currentPage * itemsPerPage, (currentPage + 1) * itemsPerPage).map((row) => {
                   return (
                     <tr key={row.key} className="odd:bg-blue-50 even:bg-green-50">
+                      <td className="px-4 py-4">
+                        <input
+                          type="checkbox"
+                          aria-label={`Selecionar invoice ${row.invoiceNumber}`}
+                          checked={picked.includes(row.key)}
+                          onChange={() =>
+                            setPicked((current) =>
+                              current.includes(row.key) ? current.filter((key) => key !== row.key) : [...current, row.key],
+                            )
+                          }
+                        />
+                      </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         <i className="fas fa-clock text-green-500 mr-2"></i>
-                        {new Date(row.date).toLocaleDateString("pt-BR")}
+                        {formatSpDate(reprint ? row.printedAt || row.date : row.date)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{row.invoiceNumber}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{row.supplierName || "—"}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{row.operator || "—"}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">{row.quantity}</td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-900 text-white">
-                          Imprimir
-                        </span>
+                        <button
+                          type="button"
+                          data-allow-click
+                          className={reprint ? "iv-impressa px-2 inline-flex text-xs leading-5 font-semibold" : "iv-imprimir px-2 inline-flex text-xs leading-5 font-semibold"}
+                          onClick={() => printLabels([row])}
+                        >
+                          {reprint ? "Impressa" : "Imprimir"}
+                        </button>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                         <div className="flex justify-end gap-2">
@@ -734,7 +812,7 @@ export function InvoiceHistoryReport({
                             type="button"
                             className="text-gray-800 hover:text-black"
                             title={reprint ? "Reimprimir etiqueta" : "Gerar etiqueta"}
-                            onClick={() => printInvoicePdf(row)}
+                            onClick={() => printLabels([row])}
                           >
                             <Printer size={16} />
                           </button>

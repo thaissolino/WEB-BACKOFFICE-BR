@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { BrToast, PremiumStage } from "../../components/premium/PremiumStage";
 import { api, parseError } from "../../services/api";
 import { formatDateTime, movementLabel, type StockMovement, type StockRankItem, type Store } from "./types";
+import { DatePreset } from "../client/cadastros/catalog/FormBits";
 
 export default function PremiumStockOverview() {
   const navigate = useNavigate();
@@ -97,7 +98,10 @@ export default function PremiumStockOverview() {
           </label>
           <label className="br-field">
             <span>De</span>
-            <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
+            <span className="pdv-date-field">
+              <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
+              <DatePreset onPick={(start, end) => { setFrom(start); setTo(end); }} />
+            </span>
           </label>
           <label className="br-field">
             <span>Até</span>

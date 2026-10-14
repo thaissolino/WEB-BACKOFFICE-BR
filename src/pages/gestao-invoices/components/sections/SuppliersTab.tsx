@@ -394,7 +394,8 @@ export function SuppliersTab() {
         </div>
       )}
 
-      {/* Seção de Aliases (Vínculos PDF → Fornecedor) */}
+      {/* Vínculos (Aliases) ficam ocultos nesta tela. */}
+      {false && (
       <div className="mt-8 pt-6 border-t border-gray-200">
         <div className="flex justify-between items-center mb-2">
           <h3 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
@@ -507,6 +508,7 @@ export function SuppliersTab() {
           </table>
         </div>
       </div>
+      )}
 
       {showModal && currentSupplier && (
         <div onClick={()=> setShowModal(false)} className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 backdrop-blur-sm">
