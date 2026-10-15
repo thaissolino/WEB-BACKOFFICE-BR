@@ -79,6 +79,7 @@ export type FilterableProduct = {
   collection?: string;
   gender?: string;
   salePrice?: number;
+  lojaSalePrice?: number;
   priceweightAverage?: number;
 };
 
@@ -186,7 +187,7 @@ export function productMatchesFilters(
   if (applied.colecao && item.collection !== applied.colecao) return false;
   if (applied.genero && item.gender !== applied.genero) return false;
   if (applied.fornecedor && item.supplierName !== applied.fornecedor) return false;
-  if (!matchCompare(applied.preco.op, item.salePrice || item.priceweightAverage || 0, applied.preco.value)) {
+  if (!matchCompare(applied.preco.op, item.lojaSalePrice || 0, applied.preco.value)) {
     return false;
   }
   if (!matchCompare(applied.estoque.op, stock, applied.estoque.value)) return false;

@@ -936,6 +936,22 @@
   border-radius: 20px;
 }
 
+.loja-confirm-status .loja-confirm-icon.loja-confirm-block {
+  background: #fde8e4;
+  color: #9f2d20;
+}
+
+.loja-confirm-status ul {
+  width: 100%;
+  margin-top: 8px;
+  text-align: left;
+}
+
+.loja-blocked-actions {
+  width: 100%;
+  justify-content: center;
+}
+
 .loja-confirm-status .loja-confirm-sum {
   width: 100%;
   margin-top: 8px;

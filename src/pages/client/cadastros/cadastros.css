@@ -1375,6 +1375,12 @@
   gap: 6px;
 }
 
+.pdv-prod-edit-symbol {
+  flex: none;
+  font-weight: 700;
+  color: inherit;
+}
+
 .pdv-prod-edit-input {
   width: 6.2rem;
   min-height: 32px;

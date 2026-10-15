@@ -1,6 +1,6 @@
 import { CSSProperties, FormEvent, ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { ArrowLeft, Boxes, CircleCheck, ClipboardList, LoaderCircle, PackageX, PartyPopper, ScanLine, Search, ShoppingBag, ShoppingCart, Trash2, Truck, Wallet, X } from "lucide-react";
+import { ArrowLeft, Ban, Boxes, CircleCheck, ClipboardList, LoaderCircle, PackageX, PartyPopper, ScanLine, Search, ShoppingBag, ShoppingCart, Trash2, Truck, Wallet, X } from "lucide-react";
 import { api, parseError } from "../../../services/api";
 import { isOpenStoreCategory, openCategoryRank } from "../cadastros/produtos/categoryModel";
 import { ProductPhoto } from "../cadastros/produtos/GradePhotoThumb";
@@ -14,12 +14,19 @@ type CatalogProduct = {
   name: string;
   code: string;
   price: number;
+  costPrice: number;
   category: string;
   categoryId: string;
   photoFileId: string | null;
   stockQuantity: number;
   search: string;
 };
+
+function saleBelowCost(price: number, cost: number) {
+  const costCents = Math.round((Number(cost) || 0) * 100);
+  if (costCents <= 0) return false;
+  return Math.round((Number(price) || 0) * 100) < costCents;
+}
 
 type StoreCategory = {
   id: string;
@@ -149,10 +156,12 @@ function QtyField({
   stock,
   value,
   onChange,
+  disabled = false,
 }: {
   stock: number;
   value: number;
   onChange: (qty: number) => void;
+  disabled?: boolean;
 }) {
   const [more, setMore] = useState(false);
   const [draft, setDraft] = useState("");
@@ -168,7 +177,7 @@ function QtyField({
         <select
           aria-label="Quantidade"
           value={more ? "more" : String(shown)}
-          disabled={max <= 0}
+          disabled={disabled || max <= 0}
           onChange={(event) => {
             if (event.target.value === "more") {
               setMore(true);
@@ -363,6 +372,7 @@ function Venda() {
   const [closeStep, setCloseStep] = useState<"ask" | "sending" | "done">("ask");
   const [closedFlash, setClosedFlash] = useState<{ id: string; total: number; qty: number } | null>(null);
   const [error, setError] = useState("");
+  const [blockedNotice, setBlockedNotice] = useState<CatalogProduct[]>([]);
   const hadOpen = useRef(false);
   const closing = useRef(false);
 
@@ -417,7 +427,8 @@ function Venda() {
             id: String(item.id),
             name: String(item.name || ""),
             code: String(item.code || ""),
-            price: Number(item.salePrice || item.priceweightAverage || 0),
+            price: Number(item.salePrice || 0),
+            costPrice: Number(item.costPrice || 0),
             category: String(item.category || ""),
             categoryId: String(item.categoryId || ""),
             photoFileId: item.photoFileId ? String(item.photoFileId) : null,
@@ -438,13 +449,22 @@ function Venda() {
       let changed = false;
       const next = current.map((line) => {
         const product = products.find((item) => item.id === line.id);
-        if (!product?.photoFileId) return line;
-        if (line.photoFileId === product.photoFileId && line.stockQuantity === product.stockQuantity) return line;
+        if (!product) return line;
+        if (
+          line.photoFileId === product.photoFileId &&
+          line.stockQuantity === product.stockQuantity &&
+          line.price === product.price &&
+          line.costPrice === product.costPrice
+        ) {
+          return line;
+        }
         changed = true;
         return {
           ...line,
           photoFileId: product.photoFileId,
           stockQuantity: product.stockQuantity || line.stockQuantity,
+          price: product.price,
+          costPrice: product.costPrice,
         };
       });
       return changed ? next : current;
@@ -452,9 +472,9 @@ function Venda() {
   }, [products]);
 
   const categories = useMemo(() => {
-    const priced = products.filter((item) => item.price > 0);
-    const usedIds = new Set(priced.map((item) => item.categoryId).filter(Boolean));
-    const usedNames = new Set(priced.map((item) => item.category).filter(Boolean));
+    const listed = products.filter((item) => item.stockQuantity > 0);
+    const usedIds = new Set(listed.map((item) => item.categoryId).filter(Boolean));
+    const usedNames = new Set(listed.map((item) => item.category).filter(Boolean));
     const fromStore = storeCategories.filter((item) => usedIds.has(item.id) || usedNames.has(item.name));
     const known = new Set(fromStore.flatMap((item) => [item.id, item.name]));
     const extras = Array.from(usedNames)
@@ -472,7 +492,6 @@ function Venda() {
       .map((item) => {
         const inCategory = products.filter(
           (product) =>
-            product.price > 0 &&
             product.stockQuantity > 0 &&
             (product.categoryId === item.id || product.category === item.name),
         );
@@ -490,19 +509,24 @@ function Venda() {
   const showCategories = category === "Todas" && !query.trim();
 
   const visible = products.filter((item) => {
-    if (!(item.price > 0)) return false;
     const text = item.search || `${item.name} ${item.code} ${item.category}`.toLowerCase();
     const terms = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
     const matchesQuery = !terms.length || terms.every((term) => text.includes(term));
     const matchesCategory =
-      (category === "Todas" || item.categoryId === category || item.category === category) &&
-      isOpenStoreCategory(item.categoryId, item.category);
+      category === "Todas"
+        ? Boolean(query.trim()) || isOpenStoreCategory(item.categoryId, item.category)
+        : item.categoryId === category || item.category === category;
     const hasBackofficeStock = item.stockQuantity > 0;
     const matchesStock = onlyInStock ? hasBackofficeStock : !hasBackofficeStock;
     return matchesQuery && matchesCategory && matchesStock;
   });
 
   function add(product: CatalogProduct, amount = 1) {
+    if (!(Number(product.price) > 0)) return false;
+    if (saleBelowCost(product.price, product.costPrice)) {
+      setBlockedNotice([product]);
+      return false;
+    }
     const stock = Math.max(0, Math.floor(Number(product.stockQuantity) || 0));
     const want = Math.max(1, Math.round(Number(amount) || 1));
     const found = lines.find((line) => line.id === product.id);
@@ -524,6 +548,13 @@ function Venda() {
 
   async function finish() {
     if (!lines.length || closing.current) return;
+    const blocked = lines.filter((line) => saleBelowCost(line.price, line.costPrice));
+    if (blocked.length) {
+      setConfirmClose(false);
+      setCloseStep("ask");
+      setBlockedNotice(blocked);
+      return;
+    }
     closing.current = true;
     const payload = {
       lines: lines.map((line) => ({
@@ -559,6 +590,11 @@ function Venda() {
       setCloseStep("ask");
       setConfirmClose(false);
       const parsed = parseError(err);
+      if (parsed.code === "BELOW_COST") {
+        const blocked = lines.filter((line) => saleBelowCost(line.price, line.costPrice));
+        setBlockedNotice(blocked.length ? blocked : lines);
+        return;
+      }
       setError(parsed.friend || parsed.message || "Não foi possível gravar o pedido fechado.");
     }
   }
@@ -707,6 +743,11 @@ function Venda() {
                 className="loja-btn primary loja-buy-now"
                 disabled={!lines.length}
                 onClick={() => {
+                  const blocked = lines.filter((line) => saleBelowCost(line.price, line.costPrice));
+                  if (blocked.length) {
+                    setBlockedNotice(blocked);
+                    return;
+                  }
                   setCloseStep("ask");
                   setConfirmClose(true);
                 }}
@@ -764,6 +805,7 @@ function Venda() {
           {visible.slice(0, 80).map((product) => {
             const inCart = lines.find((item) => item.id === product.id)?.qty ?? 0;
             const stock = Math.max(0, Math.floor(product.stockQuantity));
+            const semPreco = !(product.price > 0);
             const pick = Math.min(Math.max(1, picks[product.id] || 1), Math.max(stock, 1));
             return (
               <article key={product.id} className="loja-product">
@@ -793,12 +835,13 @@ function Venda() {
                     <QtyField
                       stock={stock}
                       value={pick}
+                      disabled={semPreco}
                       onChange={(qty) => setPicks((current) => ({ ...current, [product.id]: qty }))}
                     />
                     <button
                       type="button"
                       className="loja-btn primary loja-buy-now"
-                      disabled={stock <= 0 || inCart >= stock}
+                      disabled={semPreco || stock <= 0 || inCart >= stock}
                       onClick={() => {
                         if (!add(product, pick)) return;
                         setCartOpen(true);
@@ -809,7 +852,7 @@ function Venda() {
                     <button
                       type="button"
                       className="loja-btn loja-add-cart"
-                      disabled={stock <= 0 || inCart >= stock}
+                      disabled={semPreco || stock <= 0 || inCart >= stock}
                       onClick={() => {
                         if (!add(product, pick)) return;
                         setAddedPopup({ product, qty: pick });
@@ -827,6 +870,38 @@ function Venda() {
           </>
         )}
       </section>
+      {blockedNotice.length ? (
+        <div className="loja-confirm" role="presentation" onClick={() => setBlockedNotice([])}>
+          <div
+            className="loja-confirm-card"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="loja-blocked-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="loja-confirm-status">
+              <span className="loja-confirm-icon loja-confirm-block" aria-hidden="true">
+                <Ban size={28} strokeWidth={1.8} />
+              </span>
+              <h2 id="loja-blocked-title">Produto bloqueado para compra</h2>
+              <p>Entre em contato com o suporte.</p>
+              <ul>
+                {blockedNotice.map((item) => (
+                  <li key={item.id}>
+                    <span>{item.name}</span>
+                    {item.code ? <b>Cód. {item.code}</b> : null}
+                  </li>
+                ))}
+              </ul>
+              <div className="loja-confirm-actions loja-blocked-actions">
+                <button type="button" className="loja-btn primary" onClick={() => setBlockedNotice([])}>
+                  Entendi
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
       {addedPopup ? (
         <div className="loja-confirm" role="presentation" onClick={() => setAddedPopup(null)}>
           <div

@@ -175,6 +175,10 @@ function passa(item: ItemVenda, filtros: Filtros) {
   return true;
 }
 
+function ajusteDe(item: { desconto: number; acrescimo: number }) {
+  return (Number(item.acrescimo) || 0) - (Number(item.desconto) || 0);
+}
+
 function montarLinha(base: Omit<ItemVenda, "lucro" | "qtd" | "compra" | "vendaValor" | "desconto" | "acrescimo"> & {
   qtd: number;
   compra: number;
@@ -532,36 +536,34 @@ export default function ItensVendas() {
               <th>Cód do Produto</th>
               <th>Produto</th>
               <th className="iv-num">Qtd</th>
-              <th className="iv-num">Compra (Valor)</th>
               <th className="iv-num">Venda (Valor)</th>
-              <th className="iv-num">Desconto</th>
-              <th className="iv-num">Acréscimo</th>
+              <th className="iv-num">Desconto/Acréscimo</th>
+              <th className="iv-num">Custo (Valor)</th>
               <th className="iv-num">Lucro</th>
             </tr>
           </thead>
           <tbody>
             {grupos.length === 0 ? (
               <tr>
-                <td className="iv-vazio" colSpan={14}>{hint || "Nenhuma venda para o filtro atual."}</td>
+                <td className="iv-vazio" colSpan={13}>{hint || "Nenhuma venda para o filtro atual."}</td>
               </tr>
             ) : (
               grupos.map(([nome, linhas], grupo) => {
                 const qtd = linhas.reduce((sum, item) => sum + item.qtd, 0);
                 const compra = linhas.reduce((sum, item) => sum + item.compra * item.qtd, 0);
                 const vendaValor = linhas.reduce((sum, item) => sum + item.vendaValor * item.qtd, 0);
-                const desconto = linhas.reduce((sum, item) => sum + item.desconto, 0);
-                const acrescimo = linhas.reduce((sum, item) => sum + item.acrescimo, 0);
+                const ajuste = linhas.reduce((sum, item) => sum + ajusteDe(item), 0);
                 const lucro = linhas.reduce((sum, item) => sum + item.lucro, 0);
                 const resumido = SO_TOTAL.has(filtros.tipo);
                 return (
                   <Fragment key={nome}>
                     {grupo > 0 ? (
                       <tr className="iv-grupo-espaco" aria-hidden="true">
-                        <td colSpan={14}>&nbsp;</td>
+                        <td colSpan={13}>&nbsp;</td>
                       </tr>
                     ) : null}
                     <tr className="dre-group">
-                      <th colSpan={14}>{ROTULO[filtros.tipo]}: {nome}</th>
+                      <th colSpan={13}>{ROTULO[filtros.tipo]}: {nome}</th>
                     </tr>
                     {resumido ? null : linhas.map((item, index) => (
                       <tr key={`${nome}-${item.venda}-${item.codigo}-${index}`}>
@@ -574,20 +576,18 @@ export default function ItensVendas() {
                         <td>{item.codigo}</td>
                         <td>{item.produto}</td>
                         <td className="iv-num">{item.qtd}</td>
-                        <td className="iv-num">{money(item.compra)}</td>
                         <td className="iv-num">{money(item.vendaValor)}</td>
-                        <td className="iv-num">{money(item.desconto)}</td>
-                        <td className="iv-num">{money(item.acrescimo)}</td>
+                        <td className={`iv-num ${ajusteDe(item) < 0 ? "dre-neg" : ajusteDe(item) > 0 ? "dre-pos" : ""}`}>{money(ajusteDe(item))}</td>
+                        <td className="iv-num">{money(item.compra)}</td>
                         <td className={`iv-num ${item.lucro < 0 ? "dre-neg" : "dre-pos"}`}>{money(item.lucro)}</td>
                       </tr>
                     ))}
                     <tr className="dre-strong">
                       <th colSpan={8}>Total ({nome})</th>
                       <td className="iv-num">{qtd}</td>
-                      <td className="iv-num">{money(compra)}</td>
                       <td className="iv-num">{money(vendaValor)}</td>
-                      <td className="iv-num">{money(desconto)}</td>
-                      <td className="iv-num">{money(acrescimo)}</td>
+                      <td className={`iv-num ${ajuste < 0 ? "dre-neg" : ajuste > 0 ? "dre-pos" : ""}`}>{money(ajuste)}</td>
+                      <td className="iv-num">{money(compra)}</td>
                       <td className={`iv-num ${lucro < 0 ? "dre-neg" : "dre-pos"}`}>{money(lucro)}</td>
                     </tr>
                   </Fragment>

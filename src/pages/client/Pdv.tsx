@@ -301,7 +301,7 @@ function PdvBoard() {
           reference: product.reference || "—",
           name: product.name,
           qty: 1,
-          price: product.salePrice || 0,
+          price: product.lojaSalePrice || 0,
           discount: 0,
           stock: available - 1,
           lojaStock,
@@ -757,7 +757,7 @@ function PdvBoard() {
                 <button type="button" className="cx-hit-main" onClick={() => addProduct(product)}>
                   <b>{product.code}</b>
                   <span>{product.name}</span>
-                  <em>{formatMoneyRs(product.salePrice || 0)}</em>
+                  <em>{formatMoneyRs(product.lojaSalePrice || 0)}</em>
                 </button>
                 <button type="button" className="cx-hit-add" aria-label={`Adicionar ${product.name}`} onClick={() => addProduct(product)}>
                   <Plus size={14} />

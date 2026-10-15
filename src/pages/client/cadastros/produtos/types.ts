@@ -17,7 +17,9 @@ export type PdvProduct = {
   categoryId: string
   category: string
   salePrice: number
+  lojaSalePrice?: number
   costPrice: number
+  lojaCostPrice?: number
   lojaCostAverage?: number
   stockQuantity: number
   lojaStock?: number

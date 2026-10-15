@@ -431,7 +431,7 @@ function EstoqueProdutos({ categoryId }: { categoryId: string }) {
                       </td>
                       <td>{stock[item.id] ?? String(item.stockQuantity)}</td>
                       <td>—</td>
-                      <td>{formatMoneyBr(item.salePrice || item.priceweightAverage)}</td>
+                      <td>{formatMoneyBr(item.lojaSalePrice || 0)}</td>
                       <td>
                         <input
                           className="pdv-cad-stock-num"

@@ -61,6 +61,7 @@ function EditableAmount({
   const text = money ? formatMoneyBr(value) : String(value).replace(".", ",");
   return (
     <label className="pdv-prod-edit" onClick={(event) => event.stopPropagation()}>
+      {money ? <span className="pdv-prod-edit-symbol">R$</span> : null}
       <input
         className="pdv-prod-edit-input"
         aria-label={label}
@@ -192,7 +193,7 @@ function ProdutosBoard() {
       const { data } =
         field === "stock"
           ? await api.patch(`/clients/products/${item.id}/stock`, { stockQuantity: next })
-          : await api.put(`/clients/products/${item.id}`, field === "sale" ? { salePrice: next } : { lojaCostAverage: next });
+          : await api.put(`/clients/products/${item.id}`, field === "sale" ? { lojaSalePrice: next } : { lojaCostAverage: next });
       const product = data.product as PdvProduct;
       setRows((current) => current.map((row) => (row.id === item.id ? { ...row, ...product } : row)));
       setError("");
@@ -351,7 +352,7 @@ function ProdutosBoard() {
                           <td className="pdv-prod-edit-cell">
                             <EditableAmount
                               money
-                              value={Number(item.salePrice || item.priceweightAverage) || 0}
+                              value={Number(item.lojaSalePrice) || 0}
                               label={`Preço de venda de ${item.name}`}
                               onSave={(next) => saveAmount(item, "sale", next)}
                             />
@@ -437,7 +438,7 @@ function ProdutosBoard() {
                     </thead>
                     <tbody>
                       {visible.map((item) => {
-                        const sale = item.salePrice || item.priceweightAverage;
+                        const sale = Number(item.lojaSalePrice) || 0;
                         const selected = selectedId === item.id || selectedId === item.code;
                         return (
                           <tr
