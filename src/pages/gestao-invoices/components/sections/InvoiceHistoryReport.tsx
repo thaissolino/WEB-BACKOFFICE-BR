@@ -223,16 +223,10 @@ type LabelPdf = {
   roundedRect: (x: number, y: number, w: number, h: number, rx: number, ry: number, style?: string) => void;
 };
 
-const SHEET_MARGIN = 8;
-const LABEL_GAP = 4;
-const LABEL_W = 95;
-const LABEL_H = 42;
-
-function labelsPerSheet() {
-  const cols = Math.floor((210 - SHEET_MARGIN * 2 + LABEL_GAP) / (LABEL_W + LABEL_GAP));
-  const rows = Math.floor((297 - SHEET_MARGIN * 2 + LABEL_GAP) / (LABEL_H + LABEL_GAP));
-  return { cols, rows, perPage: cols * rows };
-}
+const PAGE_W = 100;
+const PAGE_H = 30;
+const LABEL_W = 50;
+const LABEL_H = 30;
 
 function code128Symbols(value: string) {
   const digits = value.replace(/\D/g, "");
@@ -263,35 +257,40 @@ function drawCode128(doc: LabelPdf, value: string, x: number, y: number, barHeig
   return cursor;
 }
 
+function barcodeModules(value: string) {
+  return code128Symbols(value).reduce((total, code) => {
+    return total + CODE128_PATTERNS[code].split("").reduce((sum, part) => sum + Number(part), 0);
+  }, 0);
+}
+
 function drawEntryLabel(doc: LabelPdf, data: { code: string; name: string }, x: number, y: number) {
   const barcode = barcodeFromProductCode(data.code);
   const product = (data.name || "Produto").toUpperCase();
-  const moduleWidth = 0.42;
-  const barHeight = 14;
+  const maxBar = LABEL_W - 6;
+  const moduleWidth = Math.min(0.34, maxBar / Math.max(1, barcodeModules(barcode)));
+  const symbolWidth = barcodeModules(barcode) * moduleWidth;
+  const barHeight = 12;
 
   doc.setDrawColor(226, 232, 240);
-  doc.setLineWidth(0.3);
-  doc.roundedRect(x, y, LABEL_W, LABEL_H, 2.2, 2.2, "S");
+  doc.setLineWidth(0.2);
+  doc.roundedRect(x + 1.2, y + 1.2, LABEL_W - 2.4, LABEL_H - 2.4, 1.4, 1.4, "S");
 
   doc.setTextColor(17, 24, 39);
   doc.setFont("helvetica", "bold");
-  let nameSize = 9;
+  let nameSize = 7;
   doc.setFontSize(nameSize);
-  while (nameSize > 6.5 && doc.getTextWidth(product) > LABEL_W - 8) {
-    nameSize -= 0.5;
+  while (nameSize > 5 && doc.getTextWidth(product) > LABEL_W - 6) {
+    nameSize -= 0.4;
     doc.setFontSize(nameSize);
   }
-  doc.text(product, x + (LABEL_W - doc.getTextWidth(product)) / 2, y + 8);
+  doc.text(product, x + LABEL_W / 2, y + 5.2, { align: "center" });
 
-  const symbolWidth = code128Symbols(barcode).reduce((total, code) => {
-    return total + CODE128_PATTERNS[code].split("").reduce((sum, part) => sum + Number(part), 0);
-  }, 0) * moduleWidth;
-  const barY = y + 11;
+  const barY = y + 7;
   drawCode128(doc, barcode, x + (LABEL_W - symbolWidth) / 2, barY, barHeight, moduleWidth);
 
   doc.setFont("courier", "normal");
-  doc.setFontSize(8);
-  doc.text(barcode, x + (LABEL_W - doc.getTextWidth(barcode)) / 2, barY + barHeight + 4.5);
+  doc.setFontSize(7);
+  doc.text(barcode, x + LABEL_W / 2, y + 26.2, { align: "center" });
 }
 
 type InvoiceHistoryReportProps = {
@@ -515,8 +514,7 @@ export function InvoiceHistoryReport({
   async function printLabels(rows: LabelRow[]) {
     if (!rows.length) return;
     const { jsPDF } = await import("jspdf");
-    const doc = new jsPDF({ unit: "mm", format: "a4" });
-    const { cols, perPage } = labelsPerSheet();
+    const doc = new jsPDF({ unit: "mm", format: [PAGE_W, PAGE_H], orientation: "landscape" });
     let slotIndex = 0;
     for (const row of rows) {
       const grouped = new Map<string, { code: string; name: string; quantity: number }>();
@@ -533,10 +531,9 @@ export function InvoiceHistoryReport({
       for (const item of labels) {
         const copies = Math.max(1, Math.round(Number(item.quantity) || 0));
         for (let copy = 0; copy < copies; copy += 1) {
-          if (slotIndex > 0 && slotIndex % perPage === 0) doc.addPage("a4", "portrait");
-          const slot = slotIndex % perPage;
-          const x = SHEET_MARGIN + (slot % cols) * (LABEL_W + LABEL_GAP);
-          const y = SHEET_MARGIN + Math.floor(slot / cols) * (LABEL_H + LABEL_GAP);
+          if (slotIndex > 0 && slotIndex % 2 === 0) doc.addPage([PAGE_W, PAGE_H], "landscape");
+          const x = (slotIndex % 2) * LABEL_W;
+          const y = 0;
           drawEntryLabel(doc as unknown as LabelPdf, item, x, y);
           slotIndex += 1;
         }
