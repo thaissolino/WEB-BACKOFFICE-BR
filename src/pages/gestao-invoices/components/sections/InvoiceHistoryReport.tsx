@@ -225,11 +225,12 @@ type LabelPdf = {
 
 const PAGE_W = 100;
 const PAGE_H = 60;
+const LABEL_W = 42;
 const COLS = [
-  { x: 1, w: 46 },
-  { x: 48, w: 24 },
+  { x: 4, w: LABEL_W },
+  { x: 54, w: LABEL_W },
 ];
-const ROW_Y = [1, 29.5];
+const ROW_Y = [4, 34];
 
 function code128Symbols(value: string) {
   const digits = value.replace(/\D/g, "");
@@ -269,31 +270,31 @@ function barcodeModules(value: string) {
 function drawEntryLabel(doc: LabelPdf, data: { code: string; name: string }, x: number, y: number, width: number) {
   const barcode = barcodeFromProductCode(data.code);
   const product = (data.name || "Produto").toUpperCase();
-  const maxBar = width - 4;
+  const maxBar = width - 8;
   const moduleWidth = Math.min(0.28, maxBar / Math.max(1, barcodeModules(barcode)));
   const symbolWidth = barcodeModules(barcode) * moduleWidth;
-  const barHeight = 10;
+  const barHeight = 9;
 
   doc.setDrawColor(226, 232, 240);
   doc.setLineWidth(0.2);
-  doc.roundedRect(x + 0.6, y + 0.6, width - 1.2, 24, 1.2, 1.2, "S");
+  doc.roundedRect(x + 0.8, y + 0.8, width - 1.6, 21, 1.2, 1.2, "S");
 
   doc.setTextColor(17, 24, 39);
   doc.setFont("helvetica", "bold");
   let nameSize = 7;
   doc.setFontSize(nameSize);
-  while (nameSize > 5 && doc.getTextWidth(product) > width - 3) {
+  while (nameSize > 5 && doc.getTextWidth(product) > width - 4) {
     nameSize -= 0.4;
     doc.setFontSize(nameSize);
   }
-  doc.text(product, x + width / 2, y + 4.6, { align: "center" });
+  doc.text(product, x + width / 2, y + 5, { align: "center" });
 
-  const barY = y + 6;
+  const barY = y + 6.4;
   drawCode128(doc, barcode, x + (width - symbolWidth) / 2, barY, barHeight, moduleWidth);
 
   doc.setFont("courier", "normal");
-  doc.setFontSize(6);
-  doc.text(barcode, x + width / 2, y + 19.4, { align: "center" });
+  doc.setFontSize(6.5);
+  doc.text(barcode, x + width / 2, y + 18.6, { align: "center" });
 }
 
 type InvoiceHistoryReportProps = {
