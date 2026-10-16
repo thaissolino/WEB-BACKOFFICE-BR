@@ -81,7 +81,7 @@ function notinhaHtml(receipt: Notinha) {
   const items = (receipt.lines || [])
     .map((line) => {
       const name = [line.name, line.detail].filter(Boolean).join(" ");
-      return `<p class='item'><b>${escapeHtml(line.code)}</b><span>${escapeHtml(line.qty)}</span><em>${escapeHtml(name)}</em></p>`;
+      return `<tr><td class='c'>${escapeHtml(line.code)}</td><td class='q'>${escapeHtml(line.qty)}</td><td class='n'>${escapeHtml(name)}</td></tr>`;
     })
     .join("");
   return (
@@ -92,15 +92,17 @@ function notinhaHtml(receipt: Notinha) {
       `.code{margin:1mm 0 0;font-size:22px;font-weight:750;letter-spacing:.06em;text-align:center}.when{text-align:center;font-size:11px}` +
       `hr{border:0;border-top:1px solid #141414;margin:3mm 0}.label{margin:0;font-size:10px;letter-spacing:.16em;text-transform:uppercase;text-align:center}` +
       `.client{margin:1.5mm 0 0;font-size:13px;font-weight:700;text-align:center}` +
-      `.item{margin:0 0 2.5mm;font-size:12px;line-height:1.35;text-align:center}` +
-      `.item b{font-size:13px;margin-right:2mm}.item span{margin-right:2mm;white-space:nowrap}` +
-      `.item em{font-style:normal;font-weight:700}</style></head><body>` +
+      `table.items{width:100%;border-collapse:collapse;text-align:left;margin:0}` +
+      `table.items td{vertical-align:top;padding:0 0 2.5mm;font-size:12px;line-height:1.35}` +
+      `table.items td.c{width:14mm;font-size:13px;font-weight:750;white-space:nowrap}` +
+      `table.items td.q{width:14mm;white-space:nowrap}` +
+      `table.items td.n{font-weight:700}</style></head><body>` +
       `<article class='slip'><p class='kicker'>Pedido</p>` +
       (barcode ? `<img class='barcode' alt='' src='${barcode}'>` : "") +
       `<p class='code'>${escapeHtml(code)}</p>` +
       `<p class='when'>${escapeHtml(receipt.issuedAt)}</p><hr>` +
       `<p class='label'>Cliente</p><p class='client'>${escapeHtml(receipt.clientName)}</p><hr>` +
-      items +
+      `<table class='items'>${items}</table>` +
       `</article></body></html>`
   );
 }
