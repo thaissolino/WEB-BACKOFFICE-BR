@@ -89,14 +89,15 @@ export async function printNotinha(receipt: Notinha) {
   page.document.open();
   page.document.write(
     `<!DOCTYPE html><html lang='pt-BR'><head><meta charset='utf-8'><title>Notinha ${escapeHtml(code)}</title>` +
-      `<style>@page{size:80mm auto;margin:4mm}body{margin:0;font-family:Segoe UI,Arial,sans-serif;color:#141414}` +
-      `.slip{width:72mm}.kicker{margin:0;font-size:10px;letter-spacing:.16em;text-transform:uppercase;text-align:center}` +
-      `.barcode{display:block;width:68mm;height:14mm;margin:2mm auto 0;object-fit:fill;-webkit-print-color-adjust:exact;print-color-adjust:exact}` +
+      `<style>@page{size:80mm auto;margin:2mm}body{margin:0;font-family:Segoe UI,Arial,sans-serif;color:#141414}` +
+      `.slip{width:64mm}.kicker{margin:0;font-size:10px;letter-spacing:.16em;text-transform:uppercase;text-align:center}` +
+      `.barcode{display:block;width:60mm;height:14mm;margin:2mm auto 0;object-fit:fill;-webkit-print-color-adjust:exact;print-color-adjust:exact}` +
       `.code{margin:1mm 0 0;font-size:22px;font-weight:750;letter-spacing:.06em;text-align:center}.when{text-align:center;font-size:11px}` +
       `hr{border:0;border-top:1px solid #141414;margin:3mm 0}.label{margin:0;font-size:10px;letter-spacing:.16em;text-transform:uppercase}` +
       `.client{margin:1.5mm 0 0;font-size:13px;font-weight:700}` +
-      `.item{display:flex;gap:2.5mm;align-items:baseline;margin:0 0 2mm;font-size:12px}` +
-      `.item b{font-size:13px}.item span{white-space:nowrap}.item em{font-style:normal;font-weight:700}</style></head><body>` +
+      `.item{margin:0 0 2.5mm;font-size:12px;line-height:1.25}` +
+      `.item b{font-size:13px;margin-right:2.5mm}.item span{white-space:nowrap}` +
+      `.item em{display:block;margin-top:.6mm;font-style:normal;font-weight:700;line-height:1.25;overflow-wrap:anywhere}</style></head><body>` +
       `<article class='slip'><p class='kicker'>Pedido</p>` +
       (barcode ? `<img class='barcode' alt='' src='${barcode}'>` : "") +
       `<p class='code'>${escapeHtml(code)}</p>` +
