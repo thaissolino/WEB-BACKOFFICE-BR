@@ -18,6 +18,8 @@ export default defineConfig(({ mode }) => {
           navigateFallback: "/index.html",
           maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
           globPatterns: ["**/*.{js,css,html,ico,png,svg}"],
+          globIgnores: ["**/notinha-zebra.js", "**/notinha.html", "**/sw-reload.js"],
+          importScripts: ["sw-reload.js"],
           runtimeCaching: [
             {
               urlPattern: ({ request }) => request.destination === "document",
