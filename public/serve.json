@@ -25,6 +25,15 @@
           "value": "\"cache\", \"storage\", \"executionContexts\""
         }
       ]
+    },
+    {
+      "source": "notinha-zebra.js",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-cache"
+        }
+      ]
     }
   ]
 }
