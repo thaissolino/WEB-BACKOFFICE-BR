@@ -1,0 +1,30 @@
+{
+  "headers": [
+    {
+      "source": "sw.js",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-cache"
+        },
+        {
+          "key": "Clear-Site-Data",
+          "value": "\"cache\", \"storage\", \"executionContexts\""
+        }
+      ]
+    },
+    {
+      "source": "service-worker.js",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-cache"
+        },
+        {
+          "key": "Clear-Site-Data",
+          "value": "\"cache\", \"storage\", \"executionContexts\""
+        }
+      ]
+    }
+  ]
+}
