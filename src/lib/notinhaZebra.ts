@@ -95,9 +95,9 @@ export async function printNotinha(receipt: Notinha) {
       `.code{margin:1mm 0 0;font-size:22px;font-weight:750;letter-spacing:.06em;text-align:center}.when{text-align:center;font-size:11px}` +
       `hr{border:0;border-top:1px solid #141414;margin:3mm 0}.label{margin:0;font-size:10px;letter-spacing:.16em;text-transform:uppercase}` +
       `.client{margin:1.5mm 0 0;font-size:13px;font-weight:700}` +
-      `.item{margin:0 0 2.5mm;font-size:12px;line-height:1.25}` +
-      `.item b{font-size:13px;margin-right:2.5mm}.item span{white-space:nowrap}` +
-      `.item em{display:block;margin-top:.6mm;font-style:normal;font-weight:700;line-height:1.25;overflow-wrap:anywhere}</style></head><body>` +
+      `.item{margin:0 0 2.5mm;font-size:12px;line-height:1.35}` +
+      `.item b{font-size:13px;margin-right:2mm}.item span{margin-right:2mm;white-space:nowrap}` +
+      `.item em{font-style:normal;font-weight:700}</style></head><body>` +
       `<article class='slip'><p class='kicker'>Pedido</p>` +
       (barcode ? `<img class='barcode' alt='' src='${barcode}'>` : "") +
       `<p class='code'>${escapeHtml(code)}</p>` +
