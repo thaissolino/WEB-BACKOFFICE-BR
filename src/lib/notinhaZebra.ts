@@ -33,7 +33,7 @@ function loadApi() {
   if (window.NotinhaZebra) return Promise.resolve(window.NotinhaZebra);
   return new Promise<NotinhaApi>((resolve, reject) => {
     const script = document.createElement("script");
-    script.src = "/notinha-zebra.js";
+    script.src = "/notinha-zebra.js?v=20261016";
     script.async = true;
     script.onload = () => {
       if (window.NotinhaZebra) resolve(window.NotinhaZebra);

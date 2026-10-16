@@ -1,12 +1,17 @@
 (function () {
-  function plain(value) {
-    return String(value || "")
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .replace(/[\^~\\]/g, " ")
-      .replace(/\s+/g, " ")
-      .trim();
-  }
+  var PATTERNS = [
+    "212222", "222122", "222221", "121223", "121322", "131222", "122213", "122312", "132212", "221213",
+    "221312", "231212", "112232", "122132", "122231", "113222", "123122", "123221", "223211", "221132",
+    "221231", "213212", "223112", "312131", "311222", "321122", "321221", "312212", "322112", "322211",
+    "212123", "212321", "232121", "111323", "131123", "131321", "112313", "132113", "132311", "211313",
+    "231113", "231311", "112133", "112331", "132131", "113123", "113321", "133121", "313121", "211331",
+    "231131", "213113", "213311", "213131", "311123", "311321", "331121", "312113", "312311", "332111",
+    "314111", "221411", "431111", "111224", "111422", "121124", "121421", "141122", "141221", "112214",
+    "112412", "122114", "122411", "142112", "142211", "241211", "221114", "413111", "241112", "134111",
+    "111242", "121142", "121241", "114212", "124112", "124211", "411212", "421112", "421211", "212141",
+    "214121", "412121", "111143", "111341", "131141", "114113", "114311", "411113", "411311", "113141",
+    "114131", "311141", "411131", "211412", "211214", "211232", "2331112",
+  ];
 
   function escapeHtml(value) {
     return String(value || "").replace(/[&<>"]/g, function (ch) {
@@ -14,59 +19,93 @@
     });
   }
 
+  function barcodePng(value) {
+    var codes = [104];
+    var text = String(value || "");
+    for (var i = 0; i < text.length; i += 1) {
+      var symbol = text.charCodeAt(i) - 32;
+      if (symbol >= 0 && symbol <= 94) codes.push(symbol);
+    }
+    var checksum = codes[0];
+    for (var index = 1; index < codes.length; index += 1) checksum += codes[index] * index;
+    codes.push(checksum % 103, 106);
+
+    var bars = [];
+    var cursor = 0;
+    codes.forEach(function (code) {
+      var pattern = PATTERNS[code] || "";
+      var ink = true;
+      for (var p = 0; p < pattern.length; p += 1) {
+        var width = Number(pattern.charAt(p));
+        if (ink) bars.push({ x: cursor, width: width });
+        cursor += width;
+        ink = !ink;
+      }
+    });
+
+    var scale = 3;
+    var canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, cursor * scale);
+    canvas.height = 46 * scale;
+    var ctx = canvas.getContext("2d");
+    if (!ctx) return "";
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = "#111111";
+    bars.forEach(function (bar) {
+      ctx.fillRect(bar.x * scale, 0, Math.max(1, bar.width * scale), canvas.height);
+    });
+    return canvas.toDataURL("image/png");
+  }
+
   function print(receipt) {
-    const items = (receipt.lines || []).map(function (line) {
+    var code = String(receipt.code || "");
+    var barcode = barcodePng(code);
+    var items = (receipt.lines || []).map(function (line) {
+      var name = String(line.name || "");
+      if (line.detail) name = (name + " " + line.detail).trim();
       return (
-        "<p class='sku'>" + escapeHtml(line.code) + "</p>" +
-        "<p class='name'>" + escapeHtml(line.name) + "</p>" +
-        (line.detail ? "<p class='detail'>" + escapeHtml(line.detail) + "</p>" : "") +
-        "<p class='qty'>" + escapeHtml(line.qty) + "</p>"
+        "<p class='item'><b>" + escapeHtml(line.code) + "</b>" +
+        "<span>" + escapeHtml(line.qty) + "</span>" +
+        "<em>" + escapeHtml(name) + "</em></p>"
       );
     }).join("");
-    const page = window.open("", "notinha");
+    var page = window.open("", "notinha");
     if (!page) throw new Error("O navegador bloqueou a janela da notinha.");
     page.document.open();
     page.document.write(
-      "<!DOCTYPE html><html lang='pt-BR'><head><meta charset='utf-8'><title>Notinha " + escapeHtml(receipt.code) + "</title>" +
+      "<!DOCTYPE html><html lang='pt-BR'><head><meta charset='utf-8'><title>Notinha " + escapeHtml(code) + "</title>" +
       "<style>@page{size:80mm auto;margin:4mm}body{margin:0;font-family:Segoe UI,Arial,sans-serif;color:#141414}" +
       ".slip{width:72mm}.kicker{margin:0;font-size:10px;letter-spacing:.16em;text-transform:uppercase;text-align:center}" +
-      ".code{margin:1mm 0 0;font-size:28px;font-weight:750;text-align:center}.when{text-align:center;font-size:11px}" +
+      ".barcode{display:block;width:68mm;height:14mm;margin:2mm auto 0;object-fit:fill;-webkit-print-color-adjust:exact;print-color-adjust:exact}" +
+      ".code{margin:1mm 0 0;font-size:22px;font-weight:750;letter-spacing:.06em;text-align:center}.when{text-align:center;font-size:11px}" +
       "hr{border:0;border-top:1px solid #141414;margin:3mm 0}.label{margin:0;font-size:10px;letter-spacing:.16em;text-transform:uppercase}" +
-      ".client{margin:1.5mm 0 0;font-size:13px;font-weight:700}.meta,.detail{margin:.5mm 0 0;font-size:11px;color:#4a4a4a}" +
-      ".sku{margin:0;font-weight:700}.name{margin:1mm 0 0;font-size:13px;font-weight:650}.qty{margin:1mm 0 0;font-size:12px}</style></head><body>" +
-      "<article class='slip'><p class='kicker'>Pedido</p><p class='code'>" + escapeHtml(receipt.code) + "</p>" +
+      ".client{margin:1.5mm 0 0;font-size:13px;font-weight:700}" +
+      ".item{display:flex;gap:2.5mm;align-items:baseline;margin:0 0 2mm;font-size:12px}" +
+      ".item b{font-size:13px}.item span{white-space:nowrap}.item em{font-style:normal;font-weight:700}</style></head><body>" +
+      "<article class='slip'><p class='kicker'>Pedido</p>" +
+      (barcode ? "<img class='barcode' alt='' src='" + barcode + "'>" : "") +
+      "<p class='code'>" + escapeHtml(code) + "</p>" +
       "<p class='when'>" + escapeHtml(receipt.issuedAt) + "</p><hr>" +
-      "<p class='label'>Cliente</p><p class='client'>" + escapeHtml(receipt.clientName) + "</p>" +
-      "<p class='meta'>" + escapeHtml(receipt.clientMeta || "") + "</p><hr>" + items +
+      "<p class='label'>Cliente</p><p class='client'>" + escapeHtml(receipt.clientName) + "</p><hr>" +
+      items +
       "</article></body></html>"
     );
     page.document.close();
-    page.focus();
-    page.print();
+    var sent = false;
+    function go() {
+      if (sent || page.closed) return;
+      sent = true;
+      page.focus();
+      page.print();
+    }
+    var img = page.document.querySelector("img.barcode");
+    if (img) {
+      img.onload = go;
+      img.onerror = go;
+    }
+    setTimeout(go, 500);
   }
 
-  function sample() {
-    return {
-      code: "549961",
-      issuedAt: "01/10/2026 · 22:38",
-      seller: "Ateletronicos",
-      clientName: "AT Eletronicos",
-      clientMeta: "176824 · Rio de Janeiro",
-      lines: [
-        {
-          code: "34129",
-          name: "iPhone 18 Pro Max 256GB",
-          detail: "Bordo / vinho",
-          qty: "1 un",
-          amount: "",
-        },
-      ],
-      payment: "",
-      paymentMeta: "",
-      total: "",
-      printedAt: "",
-    };
-  }
-
-  window.NotinhaZebra = { print: print, sample: sample };
+  window.NotinhaZebra = { print: print };
 })();
