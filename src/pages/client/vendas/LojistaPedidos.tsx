@@ -4,6 +4,7 @@ import { ArrowLeft, Ban, Boxes, CircleCheck, ClipboardList, LoaderCircle, Packag
 import { api, parseError } from "../../../services/api";
 import { isOpenStoreCategory, openCategoryRank } from "../cadastros/produtos/categoryModel";
 import { ProductPhoto } from "../cadastros/produtos/GradePhotoThumb";
+import { CategoryCoverImage } from "../cadastros/produtos/categoryCover";
 import PdvShell from "../dashboard/PdvShell";
 import { useClientAuth } from "../../../hooks/clientAuth";
 import "../dashboard/dashboard.css";
@@ -31,6 +32,8 @@ function saleBelowCost(price: number, cost: number) {
 type StoreCategory = {
   id: string;
   name: string;
+  code: number;
+  coverFileId: string | null;
 };
 
 type CartLine = CatalogProduct & { qty: number; imeis?: string[] };
@@ -404,12 +407,14 @@ function Venda() {
     api
       .get("/clients/catalog/product_category", { params: { ativo: "1" } })
       .then(({ data }) => {
-        const items = (data?.items || []) as Array<{ name?: string; payload?: { slug?: string } }>;
+        const items = (data?.items || []) as Array<{ code?: number; name?: string; payload?: { slug?: string; coverFileId?: string } }>;
         setStoreCategories(
           items
             .map((item) => ({
               id: String(item.payload?.slug || item.name || ""),
               name: String(item.name || ""),
+              code: Number(item.code) || 0,
+              coverFileId: item.payload?.coverFileId ? String(item.payload.coverFileId) : null,
             }))
             .filter((item) => item.id && item.name),
         );
@@ -425,7 +430,7 @@ function Venda() {
         setProducts(
           list.map((item) => ({
             id: String(item.id),
-            name: String(item.name || ""),
+            name: String(item.lojaName || "").trim() || String(item.name || ""),
             code: String(item.code || ""),
             price: Number(item.salePrice || 0),
             costPrice: Number(item.costPrice || 0),
@@ -433,7 +438,7 @@ function Venda() {
             categoryId: String(item.categoryId || ""),
             photoFileId: item.photoFileId ? String(item.photoFileId) : null,
             stockQuantity: Number(item.stockQuantity || 0),
-            search: [item.name, item.code, item.category, item.barcode, item.brand, item.model, item.reference, item.description, item.supplierCode, item.supplierName, item.ncm]
+            search: [item.name, item.lojaName, item.code, item.category, item.barcode, item.brand, item.model, item.reference, item.description, item.supplierCode, item.supplierName, item.ncm]
               .filter(Boolean)
               .join(" ")
               .toLowerCase(),
@@ -479,11 +484,11 @@ function Venda() {
     const known = new Set(fromStore.flatMap((item) => [item.id, item.name]));
     const extras = Array.from(usedNames)
       .filter((name) => !known.has(name))
-      .map((name) => ({ id: name, name }));
+      .map((name) => ({ id: name, name, code: 0, coverFileId: null as string | null }));
     const ordered = [...fromStore, ...extras]
       .filter((item) => isOpenStoreCategory(item.id, item.name))
       .sort((a, b) => openCategoryRank(a.id, a.name) - openCategoryRank(b.id, b.name));
-    return [{ id: "Todas", name: "Todas" }, ...ordered];
+    return [{ id: "Todas", name: "Todas", code: 0, coverFileId: null }, ...ordered];
   }, [products, storeCategories]);
 
   const categoryCards = useMemo(() => {
@@ -499,7 +504,7 @@ function Venda() {
         return {
           ...item,
           productId: sample?.id || "",
-          photoFileId: sample?.photoFileId || null,
+          photoFileId: item.coverFileId ? null : sample?.photoFileId || null,
           inStock: inCategory.length,
         };
       })
@@ -779,15 +784,20 @@ function Venda() {
             }
           >
             {categoryCards.map((item) => {
-              const fallbackCover = !item.photoFileId && /ipad/i.test(`${item.id} ${item.name}`) ? "/capa-ipad.jpg" : "";
+              const fallbackCover = !item.coverFileId && !item.photoFileId && /ipad/i.test(`${item.id} ${item.name}`) ? "/capa-ipad.jpg" : "";
+              const hasCover = Boolean(item.coverFileId || item.photoFileId || fallbackCover);
               return (
               <button
                 key={item.id}
                 type="button"
-                className={item.photoFileId || fallbackCover ? "loja-cat-card has-cover" : "loja-cat-card"}
+                className={hasCover ? "loja-cat-card has-cover" : "loja-cat-card"}
                 onClick={() => setCategory(item.id)}
               >
-                {fallbackCover ? (
+                {item.coverFileId && item.code ? (
+                  <span className="loja-photo">
+                    <CategoryCoverImage code={item.code} coverFileId={item.coverFileId} name={item.name} />
+                  </span>
+                ) : fallbackCover ? (
                   <span className="loja-photo">
                     <img src={fallbackCover} alt="" />
                   </span>
@@ -1556,6 +1566,68 @@ function Endereco() {
   );
 }
 
+const CODE128_PATTERNS = [
+  "212222", "222122", "222221", "121223", "121322", "131222", "122213", "122312", "132212", "221213",
+  "221312", "231212", "112232", "122132", "122231", "113222", "123122", "123221", "223211", "221132",
+  "221231", "213212", "223112", "312131", "311222", "321122", "321221", "312212", "322112", "322211",
+  "212123", "212321", "232121", "111323", "131123", "131321", "112313", "132113", "132311", "211313",
+  "231113", "231311", "112133", "112331", "132131", "113123", "113321", "133121", "313121", "211331",
+  "231131", "213113", "213311", "213131", "311123", "311321", "331121", "312113", "312311", "332111",
+  "314111", "221411", "431111", "111224", "111422", "121124", "121421", "141122", "141221", "112214",
+  "112412", "122114", "122411", "142112", "142211", "241211", "221114", "413111", "241112", "134111",
+  "111242", "121142", "121241", "114212", "124112", "124211", "411212", "421112", "421211", "212141",
+  "214121", "412121", "111143", "111341", "131141", "114113", "114311", "411113", "411311", "113141",
+  "114131", "311141", "411131", "211412", "211214", "211232", "2331112",
+];
+
+function code128Bars(value: string) {
+  const codes = [104];
+  for (const char of value) {
+    const symbol = char.charCodeAt(0) - 32;
+    if (symbol >= 0 && symbol <= 94) codes.push(symbol);
+  }
+  let checksum = codes[0];
+  for (let index = 1; index < codes.length; index += 1) checksum += codes[index] * index;
+  codes.push(checksum % 103, 106);
+  const bars: { x: number; width: number }[] = [];
+  let cursor = 0;
+  codes.forEach((code) => {
+    const pattern = CODE128_PATTERNS[code] || "";
+    let ink = true;
+    for (const part of pattern) {
+      const width = Number(part);
+      if (ink) bars.push({ x: cursor, width });
+      cursor += width;
+      ink = !ink;
+    }
+  });
+  return { bars, width: cursor };
+}
+
+function barcodePng(value: string) {
+  const { bars, width } = code128Bars(value);
+  const scale = 3;
+  const height = 46;
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(1, width * scale);
+  canvas.height = height * scale;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return "";
+  ctx.fillStyle = "#fff";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = "#111";
+  bars.forEach((bar) => {
+    ctx.fillRect(bar.x * scale, 0, Math.max(1, bar.width * scale), canvas.height);
+  });
+  return canvas.toDataURL("image/png");
+}
+
+function OrderBarcode({ value }: { value: string }) {
+  const src = useMemo(() => barcodePng(value), [value]);
+  if (!src) return null;
+  return <img className="loja-slip-barcode" src={src} alt={`Código de barras do pedido ${value}`} />;
+}
+
 function Imprimir() {
   const { pathname } = useLocation();
   const { client } = useClientAuth();
@@ -1593,81 +1665,28 @@ function Imprimir() {
   if (!order) return <p className="loja-lede">Carregando pedido…</p>;
 
   const lines = order.lines || [];
-  const gross = lines.reduce((sum, line) => sum + line.price * line.qty, 0);
-  const total = order.total || gross;
-  const qty = lines.reduce((sum, line) => sum + line.qty, 0);
   const code = order.id.slice(0, 8).toUpperCase();
-  const city = shown(order.address?.cidade);
 
   return (
     <section className="loja-print">
       <article className="loja-slip">
-        <header className="loja-slip-top">
-          <span>{when(order.closedAt || order.createdAt)}</span>
-          <strong>{shown(client?.name)}</strong>
-          <span>1/1</span>
-        </header>
-        <h1>PEDIDO</h1>
-
-        <h2>Dados do pedido</h2>
-        <p>Cód. pedido: {code}</p>
-        <p>Emissão: {when(order.createdAt)}</p>
-        <p>Fechamento: {when(order.closedAt)}</p>
-        <p>Identificação: {shown(order.address?.nome || client?.name)}</p>
-
-        <h2>Dados do cliente</h2>
-        <p>Cliente: {shown(order.address?.nome || client?.name)}</p>
-        <p>CPF/CNPJ: {shown(client?.document)}</p>
-        <p>E-mail: {shown(client?.email)}</p>
-        <p>Cidade: {city}</p>
-        <p>Endereço: {addressLine(order.address || {})}</p>
-
-        <h2>Dados dos produtos</h2>
-        <table>
-          <thead>
-            <tr>
-              <th>Cód.</th>
-              <th>Prod.</th>
-              <th>V. unit.</th>
-              <th>Qtd</th>
-              <th>Valor</th>
-              <th>Desc.</th>
-              <th>Total</th>
-            </tr>
-          </thead>
-          <tbody>
-            {lines.map((line) => (
-              <tr key={line.id}>
-                <td>{shown(line.code)}</td>
-                <td>{line.name}</td>
-                <td>{money(line.price)}</td>
-                <td>{line.qty}</td>
-                <td>{money(line.price * line.qty)}</td>
-                <td>{money(0)}</td>
-                <td>{money(line.price * line.qty)}</td>
-              </tr>
-            ))}
-            <tr className="loja-slip-sum">
-              <td colSpan={3}>Totais:</td>
-              <td>{qty}</td>
-              <td>{money(gross)}</td>
-              <td>{money(0)}</td>
-              <td>{money(total)}</td>
-            </tr>
-          </tbody>
-        </table>
-
-        <h2>Totais do pedido</h2>
-        <div className="loja-slip-totals">
-          <p><span>Total sem desconto</span><strong>{money(gross)}</strong></p>
-          <p><span>Total descontos</span><strong>{money(0)}</strong></p>
-          <p><span>Total outras despesas</span><strong>{money(0)}</strong></p>
-          <p><span>Total frete</span><strong>{money(0)}</strong></p>
-          <p><span>Total seguro</span><strong>{money(0)}</strong></p>
-          <p><span>Total itens</span><strong>{qty}</strong></p>
-          <p><span>Total geral</span><strong>{money(total)}</strong></p>
+        <p className="loja-slip-kicker">Pedido</p>
+        <OrderBarcode value={code} />
+        <strong className="loja-slip-code">{code}</strong>
+        <p className="loja-slip-when">{when(order.closedAt || order.createdAt)}</p>
+        <div className="loja-slip-client">
+          <span>Cliente</span>
+          <strong>{shown(order.address?.nome || client?.name)}</strong>
         </div>
-        <p className="loja-slip-obs">Obs: {shown(order.observacao || order.address?.obs)}</p>
+        <ul className="loja-slip-items">
+          {lines.map((line) => (
+            <li key={line.id}>
+              <b>{shown(line.code)}</b>
+              <span>{line.qty} un</span>
+              <em>{line.name}</em>
+            </li>
+          ))}
+        </ul>
       </article>
     </section>
   );
