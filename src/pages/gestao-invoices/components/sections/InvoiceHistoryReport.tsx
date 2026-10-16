@@ -519,20 +519,27 @@ export function InvoiceHistoryReport({
     const { cols, perPage } = labelsPerSheet();
     let slotIndex = 0;
     for (const row of rows) {
-      const grouped = new Map<string, { code: string; name: string }>();
+      const grouped = new Map<string, { code: string; name: string; quantity: number }>();
       row.items.forEach((item) => {
         const code = item.code || "—";
         const name = item.name || "Produto";
-        grouped.set(`${code}::${name}`, { code, name });
+        const key = `${code}::${name}`;
+        const quantity = Math.max(0, Math.round(Number(item.quantity) || 0));
+        const current = grouped.get(key);
+        if (current) current.quantity += quantity;
+        else grouped.set(key, { code, name, quantity });
       });
-      const labels = grouped.size ? Array.from(grouped.values()) : [{ code: "—", name: "Produto" }];
+      const labels = grouped.size ? Array.from(grouped.values()) : [{ code: "—", name: "Produto", quantity: 1 }];
       for (const item of labels) {
-        if (slotIndex > 0 && slotIndex % perPage === 0) doc.addPage("a4", "portrait");
-        const slot = slotIndex % perPage;
-        const x = SHEET_MARGIN + (slot % cols) * (LABEL_W + LABEL_GAP);
-        const y = SHEET_MARGIN + Math.floor(slot / cols) * (LABEL_H + LABEL_GAP);
-        drawEntryLabel(doc as unknown as LabelPdf, item, x, y);
-        slotIndex += 1;
+        const copies = Math.max(1, Math.round(Number(item.quantity) || 0));
+        for (let copy = 0; copy < copies; copy += 1) {
+          if (slotIndex > 0 && slotIndex % perPage === 0) doc.addPage("a4", "portrait");
+          const slot = slotIndex % perPage;
+          const x = SHEET_MARGIN + (slot % cols) * (LABEL_W + LABEL_GAP);
+          const y = SHEET_MARGIN + Math.floor(slot / cols) * (LABEL_H + LABEL_GAP);
+          drawEntryLabel(doc as unknown as LabelPdf, item, x, y);
+          slotIndex += 1;
+        }
       }
     }
     doc.autoPrint();
