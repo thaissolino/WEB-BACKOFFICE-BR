@@ -275,11 +275,11 @@ function drawEntryLabel(doc: LabelPdf, data: { code: string; name: string }, x: 
   const symbolWidth = barcodeModules(barcode) * moduleWidth;
   const barHeight = 11;
 
-  doc.setDrawColor(226, 232, 240);
-  doc.setLineWidth(0.2);
+  doc.setDrawColor(0, 0, 0);
+  doc.setLineWidth(0.3);
   doc.roundedRect(x + 0.6, y + 0.6, width - 1.2, 25, 1.2, 1.2, "S");
 
-  doc.setTextColor(17, 24, 39);
+  doc.setTextColor(0, 0, 0);
   doc.setFont("helvetica", "bold");
   let nameSize = 9.5;
   doc.setFontSize(nameSize);
