@@ -230,7 +230,7 @@ const COLS = [
   { x: 4, w: LABEL_W },
   { x: 54, w: LABEL_W },
 ];
-const ROW_Y = [3.5];
+const ROW_Y = [2];
 
 function code128Symbols(value: string) {
   const digits = value.replace(/\D/g, "");
@@ -270,31 +270,31 @@ function barcodeModules(value: string) {
 function drawEntryLabel(doc: LabelPdf, data: { code: string; name: string }, x: number, y: number, width: number) {
   const barcode = barcodeFromProductCode(data.code);
   const product = (data.name || "Produto").toUpperCase();
-  const maxBar = width - 8;
-  const moduleWidth = Math.min(0.28, maxBar / Math.max(1, barcodeModules(barcode)));
+  const maxBar = width - 6;
+  const moduleWidth = Math.min(0.33, maxBar / Math.max(1, barcodeModules(barcode)));
   const symbolWidth = barcodeModules(barcode) * moduleWidth;
-  const barHeight = 9;
+  const barHeight = 11;
 
   doc.setDrawColor(226, 232, 240);
   doc.setLineWidth(0.2);
-  doc.roundedRect(x + 0.8, y + 0.8, width - 1.6, 21, 1.2, 1.2, "S");
+  doc.roundedRect(x + 0.6, y + 0.6, width - 1.2, 25, 1.2, 1.2, "S");
 
   doc.setTextColor(17, 24, 39);
   doc.setFont("helvetica", "bold");
-  let nameSize = 7;
+  let nameSize = 9.5;
   doc.setFontSize(nameSize);
-  while (nameSize > 5 && doc.getTextWidth(product) > width - 4) {
-    nameSize -= 0.4;
+  while (nameSize > 6 && doc.getTextWidth(product) > width - 4) {
+    nameSize -= 0.5;
     doc.setFontSize(nameSize);
   }
-  doc.text(product, x + width / 2, y + 5, { align: "center" });
+  doc.text(product, x + width / 2, y + 6, { align: "center" });
 
-  const barY = y + 6.4;
+  const barY = y + 8;
   drawCode128(doc, barcode, x + (width - symbolWidth) / 2, barY, barHeight, moduleWidth);
 
-  doc.setFont("courier", "normal");
-  doc.setFontSize(6.5);
-  doc.text(barcode, x + width / 2, y + 18.6, { align: "center" });
+  doc.setFont("courier", "bold");
+  doc.setFontSize(9);
+  doc.text(barcode, x + width / 2, y + 23.6, { align: "center" });
 }
 
 type InvoiceHistoryReportProps = {
@@ -543,10 +543,27 @@ export function InvoiceHistoryReport({
         }
       }
     }
-    doc.autoPrint();
-    const url = doc.output("bloburl");
-    const opened = window.open(url, "_blank");
-    if (!opened) doc.save("etiquetas.pdf");
+    const url = URL.createObjectURL(doc.output("blob"));
+    const frame = document.createElement("iframe");
+    frame.setAttribute("aria-hidden", "true");
+    frame.style.cssText = "position:fixed;right:0;bottom:0;width:1px;height:1px;border:0;opacity:0;pointer-events:none;";
+    frame.onload = () => {
+      window.setTimeout(() => {
+        try {
+          frame.contentWindow?.focus();
+          frame.contentWindow?.print();
+        } catch (error) {
+          console.error("Erro ao imprimir etiquetas:", error);
+          window.open(url, "_blank");
+        }
+      }, 300);
+    };
+    frame.src = url;
+    document.body.appendChild(frame);
+    window.setTimeout(() => {
+      frame.remove();
+      URL.revokeObjectURL(url);
+    }, 10 * 60 * 1000);
     const failed: string[] = [];
     for (const row of rows) {
       const day = row.key.slice(row.key.indexOf("|") + 1);
