@@ -224,13 +224,13 @@ type LabelPdf = {
 };
 
 const PAGE_W = 100;
-const PAGE_H = 60;
+const PAGE_H = 30;
 const LABEL_W = 42;
 const COLS = [
   { x: 4, w: LABEL_W },
   { x: 54, w: LABEL_W },
 ];
-const ROW_Y = [4, 34];
+const ROW_Y = [3.5];
 
 function code128Symbols(value: string) {
   const digits = value.replace(/\D/g, "");
@@ -535,9 +535,9 @@ export function InvoiceHistoryReport({
       for (const item of labels) {
         const copies = Math.max(1, Math.round(Number(item.quantity) || 0));
         for (let copy = 0; copy < copies; copy += 1) {
-          if (slotIndex > 0 && slotIndex % 4 === 0) doc.addPage([PAGE_W, PAGE_H], "landscape");
+          if (slotIndex > 0 && slotIndex % 2 === 0) doc.addPage([PAGE_W, PAGE_H], "landscape");
           const column = COLS[slotIndex % 2];
-          const y = ROW_Y[Math.floor((slotIndex % 4) / 2)];
+          const y = ROW_Y[0];
           drawEntryLabel(doc as unknown as LabelPdf, item, column.x, y, column.w);
           slotIndex += 1;
         }
