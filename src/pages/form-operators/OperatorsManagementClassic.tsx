@@ -133,6 +133,13 @@ export default function OperatorsManagementClassic() {
       description: "Permite gerenciar operadores e suas permissões",
       category: "Segurança",
     },
+    {
+      id: "VENDAS_CONCLUIDAS",
+      name: "Vendas concluídas",
+      icon: "print",
+      description: "Acesso só à tela de vendas concluídas, para imprimir a etiqueta",
+      category: "Vendas",
+    },
   ];
 
   // Agrupar permissões por categoria
@@ -187,6 +194,9 @@ export default function OperatorsManagementClassic() {
       enabled: false,
     },
     GERENCIAR_OPERACOES: {
+      enabled: false,
+    },
+    VENDAS_CONCLUIDAS: {
       enabled: false,
     },
   };
@@ -267,7 +277,10 @@ export default function OperatorsManagementClassic() {
       accessPassword: "", // Resetar senha de acesso ao carregar operador
       status: operator.status.toLocaleLowerCase() as "active" | "inactive" | "pending",
     });
-    setSelectedPermissions(JSON.parse(JSON.stringify(operator.permissions || {})));
+    setSelectedPermissions({
+      ...defaultPermissions,
+      ...JSON.parse(JSON.stringify(operator.permissions || {})),
+    });
   };
 
   // Novo operador

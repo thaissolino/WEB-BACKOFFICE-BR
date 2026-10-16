@@ -469,11 +469,23 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebar }) => {
       case "GERENCIAR_INVOICES":
       case "GERENCIAR_TOKENS":
       case "GERENCIAR_BOLETOS":
+      case "VENDAS_CONCLUIDAS":
         return perms?.[key]?.enabled === true;
       default:
         return false;
     }
   };
+
+  const printOnly =
+    user?.role !== "MASTER" &&
+    user?.role !== "ADMIN" &&
+    canShowTab("VENDAS_CONCLUIDAS") &&
+    !canShowTab("GERENCIAR_INVOICES") &&
+    !canShowTab("GERENCIAR_OPERADORES") &&
+    !canShowTab("CRIAR_USUARIO") &&
+    !canShowTab("GERENCIAR_GRUPOS") &&
+    !canShowTab("GERENCIAR_USUARIOS") &&
+    !canShowTab("GERENCIAR_TOKENS");
 
   return (
     <Box
@@ -537,7 +549,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebar }) => {
           )}
 
           <Box paddingLeft={isCollapsed ? undefined : "10%"}>
-            {
+            {!printOnly && (
               <Item
                 title="HOME"
                 to="/backoffice"
@@ -545,7 +557,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebar }) => {
                 selected={selected}
                 setSelected={setSelected}
               />
-            }
+            )}
 
             {(user?.role === "MASTER" || user?.role === "ADMIN") && (
               <>
@@ -655,7 +667,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebar }) => {
                 <Item title="ITENS DAS VENDAS" to="/gestao/relatorios/itens-vendas" icon={<AssessmentOutlinedIcon />} selected={selected} setSelected={setSelected} />
               </LegacySubMenu>
             )}
-            {(user?.role === "MASTER" || user?.role === "ADMIN" || canShowTab("GERENCIAR_INVOICES")) && (
+            {(user?.role === "MASTER" || user?.role === "ADMIN" || canShowTab("GERENCIAR_INVOICES") || canShowTab("VENDAS_CONCLUIDAS")) && (
               <Item
                 title="Vendas concluídas"
                 to="/vendas-concluidas"

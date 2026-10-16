@@ -196,6 +196,7 @@ export function useBackofficeNavItems() {
       case "GERENCIAR_OPERADORES":
       case "GERENCIAR_INVOICES":
       case "GERENCIAR_TOKENS":
+      case "VENDAS_CONCLUIDAS":
         return permissions?.[key]?.enabled === true;
       default:
         return false;
@@ -208,11 +209,21 @@ export function useBackofficeNavItems() {
       ? { id: "cadastro-operadores", label: "Operadores", to: "/operators-management" }
       : null;
 
-  const items: BackofficeNavItem[] = [
-    { id: "home", label: "HOME", to: "/backoffice" },
-  ];
+  const printOnly =
+    !isGestor &&
+    canShowTab("VENDAS_CONCLUIDAS") &&
+    !canShowTab("GERENCIAR_INVOICES") &&
+    !canShowTab("GERENCIAR_OPERADORES") &&
+    !canShowTab("CRIAR_USUARIO") &&
+    !canShowTab("GERENCIAR_GRUPOS") &&
+    !canShowTab("GERENCIAR_USUARIOS") &&
+    !canShowTab("GERENCIAR_TOKENS");
 
-  if (isGestor) {
+  const items: BackofficeNavItem[] = printOnly
+    ? [{ id: "vendas-concluidas", label: "Vendas concluídas", to: "/vendas-concluidas" }]
+    : [{ id: "home", label: "HOME", to: "/backoffice" }];
+
+  if (isGestor && !printOnly) {
     items.push(
       { id: "gestao-cadastro", label: "Cadastro", to: "/gestao/cadastro", group: "Gestão", children: cadastroChildren(true, operadoresChild) },
       { id: "gestao-compras", label: "Compras", to: "/gestao/compras", group: "Gestão", children: COMPRAS_CHILDREN },
@@ -222,7 +233,7 @@ export function useBackofficeNavItems() {
     );
   }
 
-  if (!isGestor && canShowTab("GERENCIAR_INVOICES")) {
+  if (!printOnly && !isGestor && canShowTab("GERENCIAR_INVOICES")) {
     items.push({ id: "gestao-cadastro", label: "Cadastro", to: "/gestao/cadastro", children: cadastroChildren(false, operadoresChild) });
     items.push({ id: "gestao-compras", label: "Compras", to: "/gestao/compras", children: COMPRAS_CHILDREN });
     items.push(MOVIMENTACOES_ITEM);
@@ -234,14 +245,16 @@ export function useBackofficeNavItems() {
   if (isGestor) {
     loja.push({ id: "gerenciar-lojistas", label: "Gerenciar lojistas", to: "/gerenciar-lojistas" });
   }
-  if (isGestor || canShowTab("GERENCIAR_INVOICES")) {
+  if (!printOnly && (isGestor || canShowTab("GERENCIAR_INVOICES") || canShowTab("VENDAS_CONCLUIDAS"))) {
     loja.push({ id: "vendas-concluidas", label: "Vendas concluídas", to: "/vendas-concluidas" });
+  }
+  if (!printOnly && (isGestor || canShowTab("GERENCIAR_INVOICES"))) {
     loja.push({ id: "etiquetas-entrada", label: "Etiquetas da entrada", to: "/etiquetas-entrada" });
   }
   if (loja[0]) loja[0].moduleStart = true;
   items.push(...loja);
 
-  if (operadoresChild && !items.some((item) => item.id === "gestao-cadastro")) {
+  if (!printOnly && operadoresChild && !items.some((item) => item.id === "gestao-cadastro")) {
     items.push({ id: "gestao-cadastro", label: "Cadastro", to: "/gestao/cadastro", children: [operadoresChild] });
   }
 

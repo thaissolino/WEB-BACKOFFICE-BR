@@ -44,6 +44,9 @@ export type PermissionType = {
   GERENCIAR_OPERACOES: {
     enabled: boolean;
   };
+  VENDAS_CONCLUIDAS?: {
+    enabled: boolean;
+  };
 };
 
 export type PermissionKey =

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Box,
   CssBaseline,
@@ -8,9 +8,39 @@ import {
 import { ColorModeContext, useMode } from "../../../theme";
 import Topbar from "../../../pages/global/Topbar";
 import Sidebar from "../../../pages/global/Sidebar";
-import { Outlet, useLocation } from "react-router-dom";
+import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { useUiModeStore } from "../../../store/uiModeStore";
+import { PermissionType, usePermissionStore } from "../../../store/permissionsStore";
 import { PremiumChrome } from "./PremiumChrome";
+
+function printOnlyAccount(user: { role?: string } | null, permissions: PermissionType | null) {
+  if (!user || user.role === "MASTER" || user.role === "ADMIN" || user.role === "ADMIN_BAG") return false;
+  if (!permissions?.VENDAS_CONCLUIDAS?.enabled) return false;
+  const others = [
+    "CRIAR_USUARIO",
+    "GERENCIAR_GRUPOS",
+    "GERENCIAR_USUARIOS",
+    "GERENCIAR_OPERADORES",
+    "GERENCIAR_PLANILHAS",
+    "GERENCIAR_INVOICES",
+    "GERENCIAR_TOKENS",
+    "GERENCIAR_BOLETOS",
+    "GERENCIAR_OPERACOES",
+  ];
+  const flags = permissions as Record<string, { enabled?: boolean } | undefined>;
+  return !others.some((key) => flags?.[key]?.enabled);
+}
+
+function PrintOnlyGate() {
+  const location = useLocation();
+  const { permissions, user, getPermissions } = usePermissionStore();
+  useEffect(() => {
+    getPermissions();
+  }, [getPermissions]);
+  if (!printOnlyAccount(user, permissions)) return null;
+  if (location.pathname === "/vendas-concluidas") return null;
+  return <Navigate to="/vendas-concluidas" replace />;
+}
 
 export function Layout() {
   const [theme, colorMode] = useMode() as [any, any];
@@ -26,6 +56,7 @@ export function Layout() {
       <ColorModeContext.Provider value={colorMode}>
         <ThemeProvider theme={theme}>
           <CssBaseline />
+          <PrintOnlyGate />
           <PremiumChrome />
         </ThemeProvider>
       </ColorModeContext.Provider>
@@ -45,6 +76,7 @@ export function Layout() {
             overflow: "hidden",
           }}
         >
+          <PrintOnlyGate />
           {!isMobile && <Sidebar isSidebar={isSidebar} />}
           <Box
             className="content"
