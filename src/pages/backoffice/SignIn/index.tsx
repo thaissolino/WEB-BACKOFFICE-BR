@@ -1,6 +1,7 @@
 ﻿import { FormEvent, useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuthBackoffice } from "../../../hooks/authBackoffice";
+import { isPrintOnlyAccount } from "../../../store/permissionsStore";
 import { AuthSplitLayout } from "../../auth-split/AuthSplitLayout";
 import "./admin-signin.css";
 
@@ -82,7 +83,9 @@ export function SignIn() {
       setLoading(true);
       setErrorMessage("");
       await onSignIn({ email: emailLower, password });
-      setTimeout(() => navigate("/backoffice"), 0);
+      const saved = JSON.parse(localStorage.getItem("@backoffice:user") || "{}");
+      const next = isPrintOnlyAccount(saved) ? "/vendas-concluidas" : "/backoffice";
+      setTimeout(() => navigate(next), 0);
     } catch (err: any) {
       setErrorMessage(err?.message || "Não foi possível entrar. Confira o e-mail e a senha.");
     } finally {

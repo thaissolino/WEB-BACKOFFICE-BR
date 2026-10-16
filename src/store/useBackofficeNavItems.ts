@@ -181,6 +181,7 @@ export const LEGACY_GROUP_LABEL = "Black / Mensageria (legado)";
 export function useBackofficeNavItems() {
   const { user, onLogout } = useAuthBackoffice();
   const { getPermissions, permissions } = usePermissionStore();
+  const activePermissions = permissions || user?.permissions;
   const location = useLocation();
 
   useEffect(() => {
@@ -197,7 +198,7 @@ export function useBackofficeNavItems() {
       case "GERENCIAR_INVOICES":
       case "GERENCIAR_TOKENS":
       case "VENDAS_CONCLUIDAS":
-        return permissions?.[key]?.enabled === true;
+        return activePermissions?.[key]?.enabled === true;
       default:
         return false;
     }
