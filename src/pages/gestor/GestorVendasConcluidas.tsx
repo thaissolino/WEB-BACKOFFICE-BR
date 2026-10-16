@@ -243,6 +243,7 @@ export default function GestorVendasConcluidas() {
   const [error, setError] = useState("");
   const [zebraNotice, setZebraNotice] = useState("");
   const imeiRef = useRef<HTMLInputElement>(null);
+  const resumeImei = useRef(false);
   const searchRef = useRef(search);
   searchRef.current = search;
 
@@ -338,6 +339,17 @@ export default function GestorVendasConcluidas() {
   useEffect(() => {
     if (conferenceId) imeiRef.current?.focus();
   }, [conferenceId]);
+
+  useEffect(() => {
+    if (acting || !resumeImei.current) return;
+    resumeImei.current = false;
+    const timer = window.setTimeout(() => {
+      const field = imeiRef.current;
+      if (!field || field.disabled) return;
+      field.focus();
+    }, 40);
+    return () => window.clearTimeout(timer);
+  }, [acting]);
 
   useEffect(() => {
     if (!conferenceId) return;
@@ -477,7 +489,7 @@ export default function GestorVendasConcluidas() {
       beep(false);
     } finally {
       setActing(false);
-      if (action === "scan" || action === "imei" || action === "reset") imeiRef.current?.focus();
+      if (action === "scan" || action === "imei" || action === "reset") resumeImei.current = true;
     }
   }
 
