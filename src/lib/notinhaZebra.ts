@@ -75,7 +75,7 @@ function barcodePng(value: string) {
   return canvas.toDataURL("image/png");
 }
 
-export async function printNotinha(receipt: Notinha) {
+function notinhaHtml(receipt: Notinha) {
   const code = String(receipt.code || "");
   const barcode = barcodePng(code);
   const items = (receipt.lines || [])
@@ -84,10 +84,7 @@ export async function printNotinha(receipt: Notinha) {
       return `<p class='item'><b>${escapeHtml(line.code)}</b><span>${escapeHtml(line.qty)}</span><em>${escapeHtml(name)}</em></p>`;
     })
     .join("");
-  const page = window.open("", "notinha");
-  if (!page) throw new Error("O navegador bloqueou a janela da notinha.");
-  page.document.open();
-  page.document.write(
+  return (
     `<!DOCTYPE html><html lang='pt-BR'><head><meta charset='utf-8'><title>Notinha ${escapeHtml(code)}</title>` +
       `<style>@page{size:80mm auto;margin:2mm}body{margin:0;font-family:Segoe UI,Arial,sans-serif;color:#141414}` +
       `.slip{width:64mm}.kicker{margin:0;font-size:10px;letter-spacing:.16em;text-transform:uppercase;text-align:center}` +
@@ -104,20 +101,50 @@ export async function printNotinha(receipt: Notinha) {
       `<p class='when'>${escapeHtml(receipt.issuedAt)}</p><hr>` +
       `<p class='label'>Cliente</p><p class='client'>${escapeHtml(receipt.clientName)}</p><hr>` +
       items +
-      `</article></body></html>`,
+      `</article></body></html>`
   );
-  page.document.close();
-  const img = page.document.querySelector("img.barcode");
-  let sent = false;
-  const go = () => {
-    if (sent || page.closed) return;
-    sent = true;
-    page.focus();
-    page.print();
-  };
-  if (img) {
-    img.addEventListener("load", go);
-    img.addEventListener("error", go);
+}
+
+function writeAndPrint(page: Window, html: string) {
+  return new Promise<void>((resolve) => {
+    let sent = false;
+    const go = () => {
+      if (sent || page.closed) return;
+      sent = true;
+      page.focus();
+      page.print();
+    };
+    page.document.open();
+    page.document.write(html);
+    page.document.close();
+    page.addEventListener("afterprint", () => resolve(), { once: true });
+    window.setTimeout(resolve, 20000);
+    const img = page.document.querySelector("img.barcode");
+    if (img) {
+      img.addEventListener("load", go);
+      img.addEventListener("error", go);
+    }
+    window.setTimeout(go, 500);
+  });
+}
+
+export function printNotinha(receipt: Notinha, mode: "popup" | "auto" = "popup") {
+  const html = notinhaHtml(receipt);
+  if (mode === "auto") {
+    const frame = document.createElement("iframe");
+    frame.setAttribute("aria-hidden", "true");
+    frame.style.cssText = "position:fixed;left:-120mm;top:0;width:80mm;height:120mm;border:0";
+    document.body.appendChild(frame);
+    const page = frame.contentWindow;
+    if (!page) {
+      frame.remove();
+      return Promise.reject(new Error("Não foi para a impressora."));
+    }
+    return writeAndPrint(page, html).finally(() => {
+      window.setTimeout(() => frame.remove(), 1500);
+    });
   }
-  window.setTimeout(go, 500);
+  const page = window.open("", "notinha");
+  if (!page) return Promise.reject(new Error("O navegador bloqueou a janela da notinha."));
+  return writeAndPrint(page, html);
 }

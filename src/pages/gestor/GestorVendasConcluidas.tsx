@@ -80,6 +80,23 @@ function orderCode(id: string) {
   return id.slice(0, 8).toUpperCase();
 }
 
+function notinhaOf(order: ClosedSale) {
+  return {
+    code: orderCode(order.id),
+    issuedAt: when(order.closedAt || order.createdAt),
+    seller: "Black Rabbit",
+    clientName: order.client?.name || order.address?.nome || "Cliente",
+    lines: order.lines.map((line) => ({
+      code: line.code || "",
+      name: line.name || "",
+      qty: `${line.qty} un`,
+      amount: money(Number(line.price || 0) * Number(line.qty || 0)),
+    })),
+    total: "",
+    printedAt: "",
+  };
+}
+
 function readsOf(order: ClosedSale, line: Line) {
   const code = (line.code || "").trim().toUpperCase();
   return (order.conference?.reads || []).filter((read) => (read.code || "").trim().toUpperCase() === code).length;
@@ -226,6 +243,8 @@ export default function GestorVendasConcluidas() {
   const [error, setError] = useState("");
   const [zebraNotice, setZebraNotice] = useState("");
   const imeiRef = useRef<HTMLInputElement>(null);
+  const searchRef = useRef(search);
+  searchRef.current = search;
 
   useEffect(() => {
     if (!selectedId) return;
@@ -263,6 +282,47 @@ export default function GestorVendasConcluidas() {
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    const seen = new Set<string>();
+    let armed = false;
+    let stop = false;
+    let chain = Promise.resolve();
+
+    async function watch() {
+      try {
+        const { data } = await api.get("/backoffice/vendas-concluidas");
+        const next = (data?.orders || []) as ClosedSale[];
+        if (stop) return;
+        if (!armed) {
+          next.forEach((order) => seen.add(order.id));
+          armed = true;
+          return;
+        }
+        const fresh = next
+          .filter((order) => !order.estornada && !seen.has(order.id))
+          .sort((a, b) => new Date(a.closedAt || a.createdAt).getTime() - new Date(b.closedAt || b.createdAt).getTime());
+        fresh.forEach((order) => seen.add(order.id));
+        if (!searchRef.current.trim() && fresh.length) setOrders(next);
+        fresh.forEach((order) => {
+          chain = chain.then(() =>
+            printNotinha(notinhaOf(order), "auto").catch((err: Error) => {
+              setZebraNotice(err.message || "Não foi para a impressora.");
+            }),
+          );
+        });
+      } catch {
+        /* tenta de novo no próximo ciclo */
+      }
+    }
+
+    const timer = window.setInterval(watch, 8000);
+    void watch();
+    return () => {
+      stop = true;
+      window.clearInterval(timer);
+    };
   }, []);
 
   function handleSearch(event: FormEvent) {
@@ -494,7 +554,7 @@ export default function GestorVendasConcluidas() {
   return (
     <GestaoShell
       title="Vendas concluídas"
-      subtitle="Pedidos fechados pelos lojistas. Use o endereço e os produtos para despachar."
+      subtitle="Pedidos fechados pelos lojistas. A etiqueta sai sozinha nesta tela quando um pedido novo entra."
       badge="Despacho"
     >
       {concludedNotice ? (
@@ -900,21 +960,7 @@ export default function GestorVendasConcluidas() {
                 style={{ color: "#ffffff", backgroundColor: "#111111" }}
                 onClick={() => {
                   setZebraNotice("");
-                  printNotinha({
-                    code: orderCode(order.id),
-                    issuedAt: when(order.closedAt || order.createdAt),
-                    seller: "Black Rabbit",
-                    clientName: order.client?.name || "Cliente",
-                    clientMeta: [order.client?.username, order.address?.cidade].filter(Boolean).join(" · "),
-                    lines: order.lines.map((line) => ({
-                      code: line.code || "",
-                      name: line.name || "",
-                      qty: `${line.qty} un`,
-                      amount: money(Number(line.price || 0) * Number(line.qty || 0)),
-                    })),
-                    total: "",
-                    printedAt: "",
-                  }).catch((err: Error) => setZebraNotice(err.message || "Não foi para a impressora."));
+                  printNotinha(notinhaOf(order)).catch((err: Error) => setZebraNotice(err.message || "Não foi para a impressora."));
                 }}
               >
                 Imprimir notinha
