@@ -361,7 +361,8 @@
 .pdv-chrome:not([data-theme="light"]) .gestao-page input:not([type="checkbox"]):not([type="radio"]),
 .pdv-chrome:not([data-theme="light"]) .gestao-page select,
 .pdv-chrome:not([data-theme="light"]) .gestao-page textarea,
-.pdv-chrome:not([data-theme="light"]) .gestao-page .pdv-prod-select-trigger {
+.pdv-chrome:not([data-theme="light"]) .gestao-page .pdv-prod-select-trigger,
+.pdv-chrome:not([data-theme="light"]) .gestao-page .pdv-lote-pick-btn {
   background: #2a2119 !important;
   color: #f5f1ea !important;
   -webkit-text-fill-color: #f5f1ea !important;
@@ -655,37 +656,141 @@
 }
 
 /* Cadastro de produtos: título e valor na mesma borda da coluna. */
+.gestao-page table.gestao-prod-table,
 .pdv-chrome .gestao-page table.gestao-prod-table {
   width: 100%;
   border-collapse: collapse;
-  table-layout: fixed;
+  table-layout: auto;
 }
 
-.pdv-chrome .gestao-page table.gestao-prod-table col.gestao-prod-check { width: 44px; }
-.pdv-chrome .gestao-page table.gestao-prod-table col.gestao-prod-foto { width: 76px; }
-.pdv-chrome .gestao-page table.gestao-prod-table col.gestao-prod-code { width: 88px; }
-.pdv-chrome .gestao-page table.gestao-prod-table col.gestao-prod-money { width: 138px; }
-.pdv-chrome .gestao-page table.gestao-prod-table col.gestao-prod-qty { width: 108px; }
-.pdv-chrome .gestao-page table.gestao-prod-table col.gestao-prod-actions { width: 148px; }
-
+.gestao-page table.gestao-prod-table th,
+.gestao-page table.gestao-prod-table td,
 .pdv-chrome .gestao-page table.gestao-prod-table th,
-.pdv-chrome .gestao-page table.gestao-prod-table td {
+.pdv-chrome .gestao-page table.gestao-prod-table td,
+.pdv-chrome .gestao-page table.gestao-prod-table .text-gray-500,
+.pdv-chrome .gestao-page table.gestao-prod-table .text-gray-600,
+.pdv-chrome .gestao-page table.gestao-prod-table .text-gray-700,
+.pdv-chrome .gestao-page table.gestao-prod-table .text-gray-800,
+.pdv-chrome .gestao-page table.gestao-prod-table .text-gray-900 {
   padding: 12px;
   vertical-align: middle;
   text-align: left;
+  color: #1a1511 !important;
+  font-weight: 600;
 }
 
+.gestao-page table.gestao-prod-table thead th,
 .pdv-chrome .gestao-page table.gestao-prod-table thead th {
   white-space: nowrap;
-  letter-spacing: 0.02em;
+  letter-spacing: 0;
+  text-align: left;
 }
 
+.gestao-page table.gestao-prod-table th.num,
+.gestao-page table.gestao-prod-table td.num,
+.gestao-page table.gestao-prod-table th.act,
+.gestao-page table.gestao-prod-table td.act,
+.gestao-page table.gestao-prod-table th.gestao-prod-photo,
+.gestao-page table.gestao-prod-table td.gestao-prod-photo,
 .pdv-chrome .gestao-page table.gestao-prod-table th.num,
 .pdv-chrome .gestao-page table.gestao-prod-table td.num,
 .pdv-chrome .gestao-page table.gestao-prod-table th.act,
-.pdv-chrome .gestao-page table.gestao-prod-table td.act {
-  text-align: right;
+.pdv-chrome .gestao-page table.gestao-prod-table td.act,
+.pdv-chrome .gestao-page table.gestao-prod-table th.gestao-prod-photo,
+.pdv-chrome .gestao-page table.gestao-prod-table td.gestao-prod-photo {
+  text-align: center;
+}
+
+.gestao-page table.gestao-prod-table th.num,
+.pdv-chrome .gestao-page table.gestao-prod-table th.num {
+  min-width: 7.5rem;
+  white-space: normal;
+}
+
+.gestao-page table.gestao-prod-table td.num,
+.pdv-chrome .gestao-page table.gestao-prod-table td.num {
   white-space: nowrap;
+}
+
+.gestao-page table.gestao-prod-table td.gestao-prod-name,
+.pdv-chrome .gestao-page table.gestao-prod-table td.gestao-prod-name {
+  text-align: left;
+  white-space: normal;
+}
+
+.gestao-page table.gestao-prod-table .gestao-prod-money-title,
+.pdv-chrome .gestao-page table.gestao-prod-table .gestao-prod-money-title,
+.gestao-page table.gestao-prod-table .gestao-prod-money,
+.pdv-chrome .gestao-page table.gestao-prod-table .gestao-prod-money {
+  width: calc(1.85em + 0.35rem + var(--money-ch, 9ch));
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.gestao-page table.gestao-prod-table .gestao-prod-sale,
+.pdv-chrome .gestao-page table.gestao-prod-table .gestao-prod-sale {
+  --money-ch: var(--sale-ch, 9ch);
+}
+
+.gestao-page table.gestao-prod-table .gestao-prod-cost,
+.pdv-chrome .gestao-page table.gestao-prod-table .gestao-prod-cost {
+  --money-ch: var(--cost-ch, 9ch);
+}
+
+.gestao-page table.gestao-prod-table .gestao-prod-money-title,
+.pdv-chrome .gestao-page table.gestao-prod-table .gestao-prod-money-title {
+  display: block;
+  width: max-content;
+  min-width: calc(1.85em + 0.35rem + var(--money-ch, 9ch));
+  text-align: center;
+  white-space: nowrap;
+}
+
+.gestao-page table.gestao-prod-table th.gestao-prod-sale .gestao-prod-money-title,
+.pdv-chrome .gestao-page table.gestao-prod-table th.gestao-prod-sale .gestao-prod-money-title {
+  text-align: left;
+  transform: translateX(-0.85rem);
+}
+
+.gestao-page table.gestao-prod-table .gestao-prod-money,
+.pdv-chrome .gestao-page table.gestao-prod-table .gestao-prod-money {
+  display: grid;
+  grid-template-columns: auto var(--money-ch, 9ch);
+  column-gap: 0.35rem;
+  align-items: baseline;
+  justify-content: start;
+  text-align: left;
+  font-variant-numeric: tabular-nums;
+}
+
+.gestao-page table.gestao-prod-table .gestao-prod-money > *,
+.pdv-chrome .gestao-page table.gestao-prod-table .gestao-prod-money > * {
+  text-align: left;
+  justify-self: start;
+}
+
+.gestao-page table.gestao-prod-table .gestao-prod-rs,
+.pdv-chrome .gestao-page table.gestao-prod-table .gestao-prod-rs {
+  text-align: left;
+  font-weight: 600;
+}
+
+.gestao-page table.gestao-prod-table .gestao-prod-edit,
+.pdv-chrome .gestao-page table.gestao-prod-table .gestao-prod-edit {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid #b7aa98;
+  border-radius: 12px;
+  background: #fff;
+  padding: 4px 8px;
+  text-align: left;
+  color: #1a1511;
+}
+
+.gestao-page table.gestao-prod-table .gestao-prod-edit:focus,
+.pdv-chrome .gestao-page table.gestao-prod-table .gestao-prod-edit:focus {
+  outline: none;
+  border-color: #1a1511;
 }
 
 .pdv-chrome .gestao-page table.gestao-prod-table th.gestao-prod-check,
@@ -711,6 +816,8 @@
 .pdv-chrome[data-theme="light"] .gestao-page input:not([type="checkbox"]):not([type="radio"]),
 .pdv-chrome[data-theme="light"] .gestao-page select,
 .pdv-chrome[data-theme="light"] .gestao-page textarea,
+.pdv-chrome[data-theme="light"] .gestao-page .pdv-prod-select-trigger,
+.pdv-chrome[data-theme="light"] .gestao-page .pdv-lote-pick-btn,
 .pdv-chrome[data-theme="light"] .gestao-page button.rounded,
 .pdv-chrome[data-theme="light"] .gestao-page button.rounded-md,
 .pdv-chrome[data-theme="light"] .gestao-page button.rounded-lg,
@@ -719,10 +826,20 @@
   border-radius: 16px;
 }
 
+.gestao-page button.gvc-stat,
+.gestao-page div.gvc-stat,
+.pdv-chrome[data-theme="light"] .gestao-page button.gvc-stat,
+.pdv-chrome:not([data-theme="light"]) .gestao-page button.gvc-stat,
+.pdv-chrome .gestao-page div.gvc-stat {
+  border-radius: 22px !important;
+}
+
 /* Campo liberado fica branco. O bege de painel parecia campo bloqueado. */
 .pdv-chrome[data-theme="light"] .gestao-page input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="hidden"]):not(:disabled):not([readonly]),
 .pdv-chrome[data-theme="light"] .gestao-page select:not(:disabled),
 .pdv-chrome[data-theme="light"] .gestao-page textarea:not(:disabled):not([readonly]),
+.pdv-chrome[data-theme="light"] .gestao-page .pdv-prod-select-trigger,
+.pdv-chrome[data-theme="light"] .gestao-page .pdv-lote-pick-btn,
 .pdv-chrome[data-theme="light"] .gestao-page div.bg-white.cursor-pointer {
   background-color: #fff !important;
   color: #1c1814 !important;
@@ -736,6 +853,45 @@
   background-color: #fff;
   border-color: #1c1814;
   outline: none;
+}
+
+.pdv-chrome[data-theme="light"] .gestao-page .pdv-prod-overlay {
+  border-radius: 16px;
+  overflow: hidden;
+  border-color: #ddd4c6;
+  background: #fff;
+}
+
+.pdv-chrome[data-theme="light"] .gestao-page .pdv-prod-overlay-search {
+  border-radius: 12px;
+  border-color: #8a8378;
+}
+
+.pdv-chrome[data-theme="light"] .gestao-page .pdv-prod-overlay-search input {
+  border: 0 !important;
+  border-radius: 0 !important;
+  min-height: 30px;
+  background: transparent !important;
+  box-shadow: none;
+}
+
+.pdv-chrome[data-theme="light"] .gestao-page .pdv-prod-check {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  text-align: left;
+}
+
+.pdv-chrome[data-theme="light"] .gestao-page .pdv-prod-check input[type="checkbox"] {
+  width: 16px !important;
+  height: 16px !important;
+  min-height: 16px !important;
+  flex: 0 0 16px;
+  margin: 0;
+  padding: 0 !important;
+  border-radius: 4px !important;
 }
 
 .pdv-chrome[data-theme="light"] .gestao-page input:disabled,
@@ -1079,6 +1235,46 @@ button.iv-imprimir:disabled {
   font-weight: 700;
 }
 
+.gestao-page button.pdv-jump {
+  position: fixed;
+  right: 14px;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 1px solid #c5d0dc;
+  border-radius: 999px;
+  background: #eef3f8 !important;
+  background-color: #eef3f8 !important;
+  color: #1565c0 !important;
+  -webkit-text-fill-color: #1565c0 !important;
+  box-shadow: 0 2px 8px rgba(26, 21, 17, 0.14);
+  cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 160ms ease;
+}
+
+.gestao-page button.pdv-jump.is-on {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.gestao-page button.pdv-jump.is-soft {
+  opacity: 0.32;
+  pointer-events: auto;
+}
+
+.gestao-page button.pdv-jump-up {
+  bottom: 16px;
+}
+
+.gestao-page button.pdv-jump svg {
+  color: #1565c0 !important;
+}
+
 .iv-vazio {
   padding: 28px 14px !important;
   text-align: center !important;
@@ -1097,4 +1293,206 @@ button.iv-imprimir:disabled {
   .iv-filtros label:nth-child(2n) {
     border-right: 0;
   }
+}
+
+.gestao-page:has(.pdv-lojistas-page),
+.pdv-chrome .gestao-page:has(.pdv-lojistas-page) {
+  background: #f4f1ea !important;
+  color: #1a1511;
+}
+
+.gestao-page:has(.pdv-lojistas-page) .gestao-page__header h1,
+.pdv-chrome .gestao-page:has(.pdv-lojistas-page) .gestao-page__header h1 {
+  color: #1a1511 !important;
+}
+
+.gestao-page:has(.pdv-lojistas-page) .gestao-page__header p,
+.pdv-chrome .gestao-page:has(.pdv-lojistas-page) .gestao-page__header p {
+  color: #4a433c !important;
+}
+
+.gestao-page:has(.pdv-lojistas-page) .gestao-page__badge,
+.pdv-chrome .gestao-page:has(.pdv-lojistas-page) .gestao-page__badge {
+  border-radius: 999px !important;
+  border: 1px solid #ddd4c6 !important;
+  background: #fffdf8 !important;
+  color: #1a1511 !important;
+}
+
+.pdv-lojistas-page {
+  color: #1a1511;
+}
+
+.pdv-loj-card,
+.pdv-chrome .gestao-page .pdv-loj-card {
+  border: 1px solid #ddd4c6 !important;
+  border-radius: 22px !important;
+  background: #fffdf8 !important;
+  padding: 20px;
+  color: #1a1511 !important;
+}
+
+.pdv-loj-row,
+.pdv-chrome .gestao-page .pdv-loj-row {
+  border: 1px solid #ddd4c6 !important;
+  border-radius: 18px !important;
+  background: #fff !important;
+  padding: 14px;
+}
+
+.pdv-loj-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #1a1511;
+}
+
+.pdv-lojistas-page input:not([type="checkbox"]),
+.pdv-lojistas-page select,
+.pdv-chrome .gestao-page .pdv-lojistas-page input:not([type="checkbox"]),
+.pdv-chrome .gestao-page .pdv-lojistas-page select,
+.pdv-chrome[data-theme="light"] .gestao-page .pdv-lojistas-page input:not([type="checkbox"]),
+.pdv-chrome[data-theme="light"] .gestao-page .pdv-lojistas-page select {
+  min-height: 40px;
+  border: 1px solid #b7aa98 !important;
+  border-radius: 16px !important;
+  background: #fff !important;
+  color: #1a1511 !important;
+  box-shadow: none;
+}
+
+.pdv-lojistas-page input:focus,
+.pdv-lojistas-page select:focus {
+  outline: none;
+  border-color: #1a1511 !important;
+}
+
+.pdv-loj-scroll,
+.pdv-chrome .gestao-page .pdv-loj-scroll {
+  display: flex;
+  max-height: 10rem;
+  flex-direction: column;
+  gap: 4px;
+  overflow: auto;
+  border: 1px solid #ddd4c6 !important;
+  border-radius: 16px !important;
+  background: #fff !important;
+  padding: 8px 12px;
+}
+
+.pdv-loj-note,
+.pdv-loj-secret,
+.pdv-loj-alert,
+.pdv-chrome .gestao-page .pdv-loj-note,
+.pdv-chrome .gestao-page .pdv-loj-secret,
+.pdv-chrome .gestao-page .pdv-loj-alert {
+  border-radius: 16px !important;
+}
+
+.pdv-loj-note,
+.pdv-chrome .gestao-page .pdv-loj-note {
+  margin-top: 16px;
+  border: 1px solid #ddd4c6 !important;
+  background: #f4f1ea !important;
+  padding: 10px 12px;
+  color: #1a1511 !important;
+  font-size: 0.9rem;
+}
+
+.pdv-loj-alert,
+.pdv-chrome .gestao-page .pdv-loj-alert {
+  margin-bottom: 16px;
+  border: 1px solid #e7c1b4 !important;
+  background: #fffdf8 !important;
+  padding: 12px 14px;
+  color: #8b3d12 !important;
+}
+
+.pdv-loj-secret,
+.pdv-chrome .gestao-page .pdv-loj-secret {
+  margin: 12px 0;
+  border: 1px solid #ddd4c6 !important;
+  background: #f4f1ea !important;
+  padding: 12px 16px;
+  text-align: center;
+  font-family: ui-monospace, monospace;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #1a1511 !important;
+}
+
+.pdv-loj-chip,
+.pdv-chrome .gestao-page .pdv-loj-chip {
+  border: 1px solid #ddd4c6 !important;
+  border-radius: 999px !important;
+  background: #f4f1ea !important;
+  padding: 4px 10px;
+  font-size: 0.75rem;
+  color: #1a1511 !important;
+}
+
+.pdv-loj-hint {
+  margin-bottom: 8px;
+  color: #4a433c;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.pdv-lojistas-page button.pdv-loj-btn,
+.pdv-chrome .gestao-page .pdv-lojistas-page button.pdv-loj-btn,
+.pdv-chrome[data-theme="light"] .gestao-page .pdv-lojistas-page button.pdv-loj-btn,
+.pdv-chrome:not([data-theme="light"]) .gestao-page .pdv-lojistas-page button.pdv-loj-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 0 14px;
+  border: 1px solid #b7aa98 !important;
+  border-radius: 999px !important;
+  background: #fffdf8 !important;
+  color: #1a1511 !important;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.pdv-lojistas-page button.pdv-loj-btn-ink,
+.pdv-chrome .gestao-page .pdv-lojistas-page button.pdv-loj-btn-ink,
+.pdv-chrome[data-theme="light"] .gestao-page .pdv-lojistas-page button.pdv-loj-btn-ink,
+.pdv-chrome:not([data-theme="light"]) .gestao-page .pdv-lojistas-page button.pdv-loj-btn-ink {
+  border-color: #1a1511 !important;
+  background: #1a1511 !important;
+  color: #fffdf8 !important;
+}
+
+.pdv-lojistas-page button.pdv-loj-btn-danger,
+.pdv-chrome .gestao-page .pdv-lojistas-page button.pdv-loj-btn-danger {
+  border-color: #e7c1b4 !important;
+  background: #fffdf8 !important;
+  color: #8b3d12 !important;
+}
+
+.pdv-lojistas-page button.pdv-loj-btn-icon,
+.pdv-chrome .gestao-page .pdv-lojistas-page button.pdv-loj-btn-icon {
+  width: 36px;
+  height: 36px;
+  justify-content: center;
+  padding: 0;
+}
+
+.pdv-lojistas-page button.pdv-loj-btn:disabled {
+  opacity: 0.6;
+}
+
+.pdv-loj-modal,
+.pdv-chrome .gestao-page .pdv-loj-modal {
+  width: 100%;
+  max-width: 28rem;
+  border: 1px solid #ddd4c6 !important;
+  border-radius: 22px !important;
+  background: #fffdf8 !important;
+  padding: 24px;
+  color: #1a1511 !important;
+  box-shadow: 0 16px 40px rgba(26, 21, 17, 0.16);
 }

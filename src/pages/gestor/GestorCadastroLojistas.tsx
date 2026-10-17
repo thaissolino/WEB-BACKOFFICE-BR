@@ -18,9 +18,13 @@ type Lojista = {
   phone: string;
   username: string;
   mustChangePassword: boolean;
+  priceTableId: string | null;
+  priceTableName: string;
   createdAt: string | null;
   stores: LojistaStore[];
 };
+
+type PriceTable = { id: string; name: string; isDefault: boolean };
 
 function formatCpfCnpj(value: string) {
   const d = (value || "").replace(/\D/g, "").slice(0, 14);
@@ -57,7 +61,8 @@ export default function GestorCadastroLojistas() {
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
-  const [form, setForm] = useState({ name: "", document: "", email: "", phone: "" });
+  const [tables, setTables] = useState<PriceTable[]>([]);
+  const [form, setForm] = useState({ name: "", document: "", email: "", phone: "", priceTableId: "" });
   const [selectedStoreIds, setSelectedStoreIds] = useState<string[]>([]);
   const [created, setCreated] = useState<{
     lojista: Lojista | null;
@@ -73,7 +78,16 @@ export default function GestorCadastroLojistas() {
   async function load() {
     setIsLoading(true);
     try {
-      const { data } = await api.get("/backoffice/lojistas");
+      const [{ data }, tablesRes] = await Promise.all([
+        api.get("/backoffice/lojistas"),
+        api.get("/backoffice/price-tables"),
+      ]);
+      const loaded = (tablesRes.data.tables || []) as PriceTable[];
+      setTables(loaded);
+      setForm((current) => ({
+        ...current,
+        priceTableId: current.priceTableId || loaded.find((item) => item.isDefault)?.id || loaded[0]?.id || "",
+      }));
       setLojistas(data.lojistas || []);
       setAvailableStores(data.availableStores || []);
       setError("");
@@ -106,20 +120,42 @@ export default function GestorCadastroLojistas() {
         email: form.email.trim(),
         phone: form.phone.trim() || undefined,
         storeIds: selectedStoreIds.length > 0 ? selectedStoreIds : undefined,
+        priceTableId: form.priceTableId || undefined,
       });
       setCreated({
         lojista: data.lojista,
         generatedPassword: data.generatedPassword,
         emailSent: Boolean(data.emailSent),
       });
-      setForm({ name: "", document: "", email: "", phone: "" });
-      setSelectedStoreIds([]);
+      setForm({ name: "", document: "", email: "", phone: "", priceTableId: tables.find((item) => item.isDefault)?.id || "" });
       await load();
     } catch (err) {
       const parsed = parseError(err);
       setError(parsed.friend || parsed.message || "Não foi possível cadastrar o lojista.");
     } finally {
       setIsSubmitting(false);
+    }
+  }
+
+  async function changeTable(id: string, priceTableId: string) {
+    setError("");
+    try {
+      await api.put(`/backoffice/lojistas/${id}/price-table`, { priceTableId });
+      const table = tables.find((item) => item.id === priceTableId);
+      setLojistas((current) =>
+        current.map((item) =>
+          item.id === id
+            ? {
+                ...item,
+                priceTableId: table?.isDefault ? null : priceTableId,
+                priceTableName: table?.name || "Padrão",
+              }
+            : item,
+        ),
+      );
+    } catch (err) {
+      const parsed = parseError(err);
+      setError(parsed.friend || parsed.message || "Não foi possível trocar a tabela.");
     }
   }
 
@@ -178,329 +214,324 @@ export default function GestorCadastroLojistas() {
     }
   }
 
+
   return (
     <GestaoShell
       title="Cadastrar lojista"
       subtitle="Conta de acesso do lojista ao PDV. Senha gerada automaticamente, enviada por e-mail e trocada no primeiro acesso."
       badge="Fluxo: 1 lojista → várias lojas"
     >
-      {error ? (
-        <div className="mb-4 rounded border border-red-300 bg-red-50 px-4 py-3 text-red-700" role="alert">
-          {error}
-        </div>
-      ) : null}
-
-      <div className="grid gap-6 lg:grid-cols-2">
-        {/* Formulário */}
-        <form className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm" onSubmit={handleSubmit}>
-          <h2 className="mb-4 flex items-center gap-2 text-lg font-bold text-gray-800">
-            <UserRound size={20} className="text-blue-600" aria-hidden />
-            Novo lojista
-          </h2>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <label className="block text-sm font-medium text-gray-700 sm:col-span-2">
-              Nome *
-              <input
-                className="mt-1 w-full rounded border border-gray-300 px-3 py-2"
-                value={form.name}
-                onChange={(event) => setForm({ ...form, name: event.target.value })}
-                required
-                minLength={2}
-              />
-            </label>
-            <label className="block text-sm font-medium text-gray-700">
-              CPF/CNPJ *
-              <input
-                className="mt-1 w-full rounded border border-gray-300 px-3 py-2"
-                value={form.document}
-                onChange={(event) => setForm({ ...form, document: formatCpfCnpj(event.target.value) })}
-                inputMode="numeric"
-                required
-              />
-            </label>
-            <label className="block text-sm font-medium text-gray-700">
-              Telefone
-              <input
-                className="mt-1 w-full rounded border border-gray-300 px-3 py-2"
-                value={form.phone}
-                onChange={(event) => setForm({ ...form, phone: formatPhone(event.target.value) })}
-                inputMode="tel"
-              />
-            </label>
-            <label className="block text-sm font-medium text-gray-700 sm:col-span-2">
-              E-mail *
-              <input
-                className="mt-1 w-full rounded border border-gray-300 px-3 py-2"
-                type="email"
-                value={form.email}
-                onChange={(event) => setForm({ ...form, email: event.target.value })}
-                required
-              />
-            </label>
+      <div className="pdv-lojistas-page">
+        {error ? (
+          <div className="pdv-loj-alert" role="alert">
+            {error}
           </div>
+        ) : null}
 
-          <div className="mt-4">
-            <p className="text-sm font-medium text-gray-700">
-              Lojas para vincular agora (opcional)
-            </p>
-            <p className="mb-2 text-xs text-gray-500">
-              Só aparecem lojas ainda sem lojista. Dá para vincular mais lojas depois.
-            </p>
-            {availableStores.length === 0 ? (
-              <p className="text-sm text-gray-500">Nenhuma loja disponível para vínculo.</p>
+        <div className="grid gap-6 lg:grid-cols-2">
+          <form className="pdv-loj-card" onSubmit={handleSubmit}>
+            <h2 className="mb-4 flex items-center gap-2 text-lg font-bold">
+              <UserRound size={18} aria-hidden />
+              Novo lojista
+            </h2>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <label className="pdv-loj-field sm:col-span-2">
+                Nome *
+                <input
+                  className="mt-1 w-full px-3"
+                  value={form.name}
+                  onChange={(event) => setForm({ ...form, name: event.target.value })}
+                  required
+                  minLength={2}
+                />
+              </label>
+              <label className="pdv-loj-field">
+                CPF/CNPJ *
+                <input
+                  className="mt-1 w-full px-3"
+                  value={form.document}
+                  onChange={(event) => setForm({ ...form, document: formatCpfCnpj(event.target.value) })}
+                  inputMode="numeric"
+                  required
+                />
+              </label>
+              <label className="pdv-loj-field">
+                Telefone
+                <input
+                  className="mt-1 w-full px-3"
+                  value={form.phone}
+                  onChange={(event) => setForm({ ...form, phone: formatPhone(event.target.value) })}
+                  inputMode="tel"
+                />
+              </label>
+              <label className="pdv-loj-field sm:col-span-2">
+                Tabela de preço
+                <select
+                  className="mt-1 w-full px-3"
+                  value={form.priceTableId}
+                  onChange={(event) => setForm({ ...form, priceTableId: event.target.value })}
+                >
+                  {tables.map((table) => (
+                    <option key={table.id} value={table.id}>{table.name}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="pdv-loj-field sm:col-span-2">
+                E-mail *
+                <input
+                  className="mt-1 w-full px-3"
+                  type="email"
+                  value={form.email}
+                  onChange={(event) => setForm({ ...form, email: event.target.value })}
+                  required
+                />
+              </label>
+            </div>
+
+            <div className="mt-4">
+              <p className="text-sm font-semibold">Lojas para vincular agora (opcional)</p>
+              <p className="pdv-loj-hint">
+                Só aparecem lojas ainda sem lojista. Dá para vincular mais lojas depois.
+              </p>
+              {availableStores.length === 0 ? (
+                <p className="pdv-loj-hint">Nenhuma loja disponível para vínculo.</p>
+              ) : (
+                <div className="pdv-loj-scroll">
+                  {availableStores.map((store) => (
+                    <label key={store.id} className="flex items-center gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={selectedStoreIds.includes(store.id)}
+                        onChange={() => toggleStore(store.id)}
+                      />
+                      {store.storeCode ? `${store.storeCode} — ` : ""}
+                      {store.name}
+                    </label>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="pdv-loj-note">
+              A senha é gerada automaticamente e enviada para o e-mail informado, junto com o
+              link do painel. No primeiro acesso o lojista precisa trocar a senha.
+            </div>
+
+            <button className="pdv-loj-btn pdv-loj-btn-ink mt-4" type="submit" disabled={isSubmitting}>
+              {isSubmitting ? <Loader2 size={16} className="animate-spin" aria-hidden /> : <Plus size={16} aria-hidden />}
+              Cadastrar lojista
+            </button>
+          </form>
+
+          <section className="pdv-loj-card">
+            <h2 className="mb-4 flex items-center gap-2 text-lg font-bold">
+              <StoreIcon size={18} aria-hidden />
+              Lojistas e suas lojas
+            </h2>
+            {isLoading ? (
+              <p className="flex items-center gap-2">
+                <Loader2 size={16} className="animate-spin" aria-hidden /> Carregando...
+              </p>
+            ) : lojistas.length === 0 ? (
+              <p>Nenhum lojista cadastrado ainda.</p>
             ) : (
-              <div className="flex max-h-40 flex-col gap-1 overflow-auto rounded border border-gray-200 p-2">
+              <ul className="flex flex-col gap-3">
+                {lojistas.map((lojista) => (
+                  <li key={lojista.id} className="pdv-loj-row">
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <div>
+                        <p className="font-semibold">{lojista.name}</p>
+                        <p className="text-sm">
+                          {lojista.email}
+                          {lojista.phone ? ` · ${lojista.phone}` : ""}
+                        </p>
+                        <p className="pdv-loj-hint">
+                          Doc.: {formatCpfCnpj(lojista.document)}
+                          {lojista.mustChangePassword ? " · aguardando 1º acesso" : ""}
+                        </p>
+                        <label className="pdv-loj-field mt-2">
+                          Tabela de preço
+                          <select
+                            className="mt-1 w-full max-w-xs px-3"
+                            value={lojista.priceTableId || tables.find((item) => item.isDefault)?.id || ""}
+                            onChange={(event) => changeTable(lojista.id, event.target.value)}
+                          >
+                            {tables.map((table) => (
+                              <option key={table.id} value={table.id}>{table.name}</option>
+                            ))}
+                          </select>
+                        </label>
+                      </div>
+                      <div className="flex flex-wrap gap-1">
+                        <button
+                          className="pdv-loj-btn"
+                          type="button"
+                          onClick={() => setLinking({ lojista, storeIds: [] })}
+                          disabled={availableStores.length === 0}
+                          title={availableStores.length === 0 ? "Nenhuma loja disponível" : "Vincular lojas"}
+                        >
+                          + Vincular loja
+                        </button>
+                        <button
+                          className="pdv-loj-btn"
+                          type="button"
+                          onClick={() => handleResend(lojista)}
+                          disabled={resendingId === lojista.id}
+                          title="Gerar outra senha provisória e enviar por e-mail"
+                        >
+                          {resendingId === lojista.id ? <Loader2 size={12} className="animate-spin" aria-hidden /> : <Mail size={12} aria-hidden />}
+                          Reenviar senha
+                        </button>
+                        <button
+                          className="pdv-loj-btn pdv-loj-btn-danger"
+                          type="button"
+                          onClick={() => setDeleting(lojista)}
+                          title="Excluir lojista"
+                        >
+                          <Trash2 size={12} aria-hidden />
+                          Excluir
+                        </button>
+                      </div>
+                    </div>
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      {lojista.stores.length === 0 ? (
+                        <span className="pdv-loj-hint">Sem lojas vinculadas.</span>
+                      ) : (
+                        lojista.stores.map((store) => (
+                          <span key={store.id} className="pdv-loj-chip">
+                            {store.storeCode ? `${store.storeCode} — ` : ""}
+                            {store.name}
+                          </span>
+                        ))
+                      )}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        </div>
+
+        {created ? (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+            role="dialog"
+            aria-labelledby="lojista-created-title"
+          >
+            <div className="pdv-loj-modal">
+              <h2 id="lojista-created-title" className="mb-2 text-lg font-bold">
+                {created.resent ? "Senha reenviada" : "Lojista cadastrado"}
+              </h2>
+              <p className="text-sm">
+                {created.emailSent
+                  ? "A senha provisória foi enviada por e-mail. Guarde uma cópia se precisar:"
+                  : "Não foi possível enviar o e-mail automaticamente. Repasse a senha provisória ao lojista:"}
+              </p>
+              <p className="pdv-loj-secret">{created.generatedPassword}</p>
+              <p className="pdv-loj-hint">No próximo acesso ao PDV será exigida a troca da senha.</p>
+              <div className="mt-4 flex justify-end">
+                <button className="pdv-loj-btn pdv-loj-btn-ink" type="button" onClick={() => setCreated(null)}>
+                  Entendi
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        {deleting ? (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+            role="dialog"
+            aria-labelledby="lojista-delete-title"
+          >
+            <div className="pdv-loj-modal">
+              <h2 id="lojista-delete-title" className="mb-2 text-lg font-bold">
+                Excluir lojista
+              </h2>
+              <p className="text-sm">
+                Excluir <strong>{deleting.name}</strong> ({deleting.email})? A conta de login do
+                PDV será removida definitivamente.
+              </p>
+              {deleting.stores.length > 0 ? (
+                <p className="pdv-loj-note mt-2">
+                  As {deleting.stores.length} loja(s) vinculada(s) não serão apagadas — ficarão sem
+                  lojista e disponíveis para novo vínculo.
+                </p>
+              ) : null}
+              <div className="mt-4 flex justify-end gap-2">
+                <button className="pdv-loj-btn" type="button" onClick={() => setDeleting(null)} disabled={isDeleting}>
+                  Cancelar
+                </button>
+                <button
+                  className="pdv-loj-btn pdv-loj-btn-danger"
+                  type="button"
+                  onClick={handleDeleteLojista}
+                  disabled={isDeleting}
+                >
+                  {isDeleting ? <Loader2 size={16} className="animate-spin" aria-hidden /> : <Trash2 size={16} aria-hidden />}
+                  Excluir lojista
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        {linking ? (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+            role="dialog"
+            aria-labelledby="lojista-link-title"
+          >
+            <div className="pdv-loj-modal">
+              <div className="mb-2 flex items-center justify-between">
+                <h2 id="lojista-link-title" className="text-lg font-bold">
+                  Vincular lojas — {linking.lojista.name}
+                </h2>
+                <button className="pdv-loj-btn pdv-loj-btn-icon" type="button" aria-label="Fechar" onClick={() => setLinking(null)}>
+                  <X size={16} aria-hidden />
+                </button>
+              </div>
+              <div className="pdv-loj-scroll">
                 {availableStores.map((store) => (
-                  <label key={store.id} className="flex items-center gap-2 text-sm text-gray-700">
+                  <label key={store.id} className="flex items-center gap-2 text-sm">
                     <input
                       type="checkbox"
-                      checked={selectedStoreIds.includes(store.id)}
-                      onChange={() => toggleStore(store.id)}
+                      checked={linking.storeIds.includes(store.id)}
+                      onChange={() =>
+                        setLinking((current) =>
+                          current
+                            ? {
+                                ...current,
+                                storeIds: current.storeIds.includes(store.id)
+                                  ? current.storeIds.filter((id) => id !== store.id)
+                                  : [...current.storeIds, store.id],
+                              }
+                            : current,
+                        )
+                      }
                     />
                     {store.storeCode ? `${store.storeCode} — ` : ""}
                     {store.name}
                   </label>
                 ))}
               </div>
-            )}
+              <div className="mt-4 flex justify-end gap-2">
+                <button className="pdv-loj-btn" type="button" onClick={() => setLinking(null)}>
+                  Cancelar
+                </button>
+                <button
+                  className="pdv-loj-btn pdv-loj-btn-ink"
+                  type="button"
+                  onClick={handleLinkStores}
+                  disabled={isSubmitting || linking.storeIds.length === 0}
+                >
+                  Vincular
+                </button>
+              </div>
+            </div>
           </div>
-
-          <div className="mt-4 rounded border border-blue-100 bg-blue-50 px-3 py-2 text-sm text-blue-800">
-            <Mail size={14} className="mr-1 inline" aria-hidden />
-            A senha é gerada automaticamente e enviada para o e-mail informado, junto com o
-            link do painel. No primeiro acesso o lojista precisa trocar a senha.
-          </div>
-
-          <button
-            className="mt-4 flex items-center gap-2 rounded bg-blue-600 px-4 py-2 font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
-            type="submit"
-            disabled={isSubmitting}
-          >
-            {isSubmitting ? <Loader2 size={16} className="animate-spin" aria-hidden /> : <Plus size={16} aria-hidden />}
-            Cadastrar lojista
-          </button>
-        </form>
-
-        {/* Lista */}
-        <section className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
-          <h2 className="mb-4 flex items-center gap-2 text-lg font-bold text-gray-800">
-            <StoreIcon size={20} className="text-blue-600" aria-hidden />
-            Lojistas e suas lojas
-          </h2>
-          {isLoading ? (
-            <p className="flex items-center gap-2 text-gray-500">
-              <Loader2 size={16} className="animate-spin" aria-hidden /> Carregando...
-            </p>
-          ) : lojistas.length === 0 ? (
-            <p className="text-gray-500">Nenhum lojista cadastrado ainda.</p>
-          ) : (
-            <ul className="flex flex-col gap-3">
-              {lojistas.map((lojista) => (
-                <li key={lojista.id} className="rounded border border-gray-200 p-3">
-                  <div className="flex flex-wrap items-start justify-between gap-2">
-                    <div>
-                      <p className="font-semibold text-gray-800">{lojista.name}</p>
-                      <p className="text-sm text-gray-600">
-                        {lojista.email}
-                        {lojista.phone ? ` · ${lojista.phone}` : ""}
-                      </p>
-                      <p className="text-xs text-gray-500">
-                        Doc.: {formatCpfCnpj(lojista.document)}
-                        {lojista.mustChangePassword ? " · aguardando 1º acesso" : ""}
-                      </p>
-                    </div>
-                    <div className="flex gap-1">
-                      <button
-                        className="rounded border border-gray-300 px-2 py-1 text-xs font-semibold text-gray-700 hover:bg-gray-50"
-                        type="button"
-                        onClick={() => setLinking({ lojista, storeIds: [] })}
-                        disabled={availableStores.length === 0}
-                        title={availableStores.length === 0 ? "Nenhuma loja disponível" : "Vincular lojas"}
-                      >
-                        + Vincular loja
-                      </button>
-                      <button
-                        className="flex items-center gap-1 rounded border border-gray-300 px-2 py-1 text-xs font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-60"
-                        type="button"
-                        onClick={() => handleResend(lojista)}
-                        disabled={resendingId === lojista.id}
-                        title="Gerar outra senha provisória e enviar por e-mail"
-                      >
-                        {resendingId === lojista.id ? <Loader2 size={12} className="animate-spin" aria-hidden /> : <Mail size={12} aria-hidden />}
-                        Reenviar senha
-                      </button>
-                      <button
-                        className="flex items-center gap-1 rounded border border-red-300 px-2 py-1 text-xs font-semibold text-red-600 hover:bg-red-50"
-                        type="button"
-                        onClick={() => setDeleting(lojista)}
-                        title="Excluir lojista"
-                      >
-                        <Trash2 size={12} aria-hidden />
-                        Excluir
-                      </button>
-                    </div>
-                  </div>
-                  <div className="mt-2 flex flex-wrap gap-1">
-                    {lojista.stores.length === 0 ? (
-                      <span className="text-xs text-gray-500">Sem lojas vinculadas.</span>
-                    ) : (
-                      lojista.stores.map((store) => (
-                        <span
-                          key={store.id}
-                          className="rounded-full border border-gray-200 bg-gray-50 px-2 py-0.5 text-xs text-gray-700"
-                        >
-                          {store.storeCode ? `${store.storeCode} — ` : ""}
-                          {store.name}
-                        </span>
-                      ))
-                    )}
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
+        ) : null}
       </div>
-
-      {/* Modal: senha gerada */}
-      {created ? (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
-          role="dialog"
-          aria-labelledby="lojista-created-title"
-        >
-          <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
-            <h2 id="lojista-created-title" className="mb-2 text-lg font-bold text-gray-800">
-              {created.resent ? "Senha reenviada" : "Lojista cadastrado"}
-            </h2>
-            <p className="text-sm text-gray-600">
-              {created.emailSent
-                ? "A senha provisória foi enviada por e-mail. Guarde uma cópia se precisar:"
-                : "Não foi possível enviar o e-mail automaticamente. Repasse a senha provisória ao lojista:"}
-            </p>
-            <p className="my-3 rounded border border-gray-200 bg-gray-50 px-4 py-3 text-center font-mono text-xl font-bold text-gray-900">
-              {created.generatedPassword}
-            </p>
-            <p className="text-xs text-gray-500">
-              No próximo acesso ao PDV será exigida a troca da senha.
-            </p>
-            <div className="mt-4 flex justify-end">
-              <button
-                className="rounded bg-blue-600 px-4 py-2 font-semibold text-white hover:bg-blue-700"
-                type="button"
-                onClick={() => setCreated(null)}
-              >
-                Entendi
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
-
-      {/* Modal: confirmar exclusão de lojista */}
-      {deleting ? (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
-          role="dialog"
-          aria-labelledby="lojista-delete-title"
-        >
-          <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
-            <h2 id="lojista-delete-title" className="mb-2 text-lg font-bold text-gray-800">
-              Excluir lojista
-            </h2>
-            <p className="text-sm text-gray-600">
-              Excluir <strong>{deleting.name}</strong> ({deleting.email})? A conta de login do
-              PDV será removida definitivamente.
-            </p>
-            {deleting.stores.length > 0 ? (
-              <p className="mt-2 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-                As {deleting.stores.length} loja(s) vinculada(s) não serão apagadas — ficarão sem
-                lojista e disponíveis para novo vínculo.
-              </p>
-            ) : null}
-            <div className="mt-4 flex justify-end gap-2">
-              <button
-                className="rounded border border-gray-300 px-4 py-2 font-semibold text-gray-700 hover:bg-gray-50"
-                type="button"
-                onClick={() => setDeleting(null)}
-                disabled={isDeleting}
-              >
-                Cancelar
-              </button>
-              <button
-                className="flex items-center gap-2 rounded bg-red-600 px-4 py-2 font-semibold text-white hover:bg-red-700 disabled:opacity-60"
-                type="button"
-                onClick={handleDeleteLojista}
-                disabled={isDeleting}
-              >
-                {isDeleting ? <Loader2 size={16} className="animate-spin" aria-hidden /> : <Trash2 size={16} aria-hidden />}
-                Excluir lojista
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
-
-      {/* Modal: vincular lojas */}
-      {linking ? (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
-          role="dialog"
-          aria-labelledby="lojista-link-title"
-        >
-          <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
-            <div className="mb-2 flex items-center justify-between">
-              <h2 id="lojista-link-title" className="text-lg font-bold text-gray-800">
-                Vincular lojas — {linking.lojista.name}
-              </h2>
-              <button type="button" aria-label="Fechar" onClick={() => setLinking(null)}>
-                <X size={18} aria-hidden />
-              </button>
-            </div>
-            <div className="flex max-h-56 flex-col gap-1 overflow-auto rounded border border-gray-200 p-2">
-              {availableStores.map((store) => (
-                <label key={store.id} className="flex items-center gap-2 text-sm text-gray-700">
-                  <input
-                    type="checkbox"
-                    checked={linking.storeIds.includes(store.id)}
-                    onChange={() =>
-                      setLinking((current) =>
-                        current
-                          ? {
-                              ...current,
-                              storeIds: current.storeIds.includes(store.id)
-                                ? current.storeIds.filter((id) => id !== store.id)
-                                : [...current.storeIds, store.id],
-                            }
-                          : current,
-                      )
-                    }
-                  />
-                  {store.storeCode ? `${store.storeCode} — ` : ""}
-                  {store.name}
-                </label>
-              ))}
-            </div>
-            <div className="mt-4 flex justify-end gap-2">
-              <button
-                className="rounded border border-gray-300 px-4 py-2 font-semibold text-gray-700 hover:bg-gray-50"
-                type="button"
-                onClick={() => setLinking(null)}
-              >
-                Cancelar
-              </button>
-              <button
-                className="rounded bg-blue-600 px-4 py-2 font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
-                type="button"
-                onClick={handleLinkStores}
-                disabled={isSubmitting || linking.storeIds.length === 0}
-              >
-                Vincular
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
     </GestaoShell>
   );
 }

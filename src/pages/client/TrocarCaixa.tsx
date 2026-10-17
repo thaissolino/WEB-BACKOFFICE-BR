@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { Check, ChevronDown, Search } from "lucide-react";
 import { useClientAuth } from "../../hooks/clientAuth";
@@ -239,20 +239,6 @@ function TrocarCaixaBoard() {
           <CaixaCombo value={picked} options={names} onChange={setPicked} />
         </div>
 
-        <div className="pdv-caixa-row">
-          <label htmlFor="pdv-caixa-novo">NOVO CAIXA</label>
-          <input
-            id="pdv-caixa-novo"
-            value={novo}
-            onChange={(event) => setNovo(event.target.value)}
-            autoComplete="off"
-            placeholder="Nome do caixa"
-          />
-          <button className="pdv-wm-btn" type="button" disabled={creating || !novo.trim()} onClick={onNovoCaixa}>
-            Criar caixa
-          </button>
-        </div>
-
         <div className="pdv-caixa-actions">
           <PdvTip label="Gerencia os caixas sem abrir a tela de PDV." rich>
             <button className="pdv-wm-btn" type="button" onClick={onSelecionarCaixa}>
@@ -267,6 +253,53 @@ function TrocarCaixaBoard() {
             </button>
           </PdvTip>
         </div>
+
+        <section className="pdv-caixa-store" aria-labelledby="pdv-caixa-store-title">
+          <h2 id="pdv-caixa-store-title">Caixas da loja</h2>
+          <form
+            className="pdv-caixa-create"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void onNovoCaixa();
+            }}
+          >
+            <input
+              id="pdv-caixa-novo"
+              value={novo}
+              onChange={(event) => setNovo(event.target.value)}
+              autoComplete="off"
+              placeholder="Nome do caixa"
+              aria-label="Nome do caixa"
+            />
+            <button className="pdv-wm-btn" type="submit" disabled={creating || !novo.trim()}>
+              {creating ? "Criando..." : "Criar"}
+            </button>
+          </form>
+          <div className="pdv-caixa-store-list">
+            <table>
+              <thead>
+                <tr>
+                  <th>Cód.</th>
+                  <th>Nome</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.length === 0 ? (
+                  <tr>
+                    <td colSpan={2}>Nenhum caixa nesta loja.</td>
+                  </tr>
+                ) : (
+                  rows.map((item) => (
+                    <tr key={item.code}>
+                      <td>{item.code}</td>
+                      <td>{item.name}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </section>
 
         {error ? (
           <p className="pdv-caixa-notice" role="alert">

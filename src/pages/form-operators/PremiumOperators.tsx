@@ -83,7 +83,6 @@ export default function PremiumOperators() {
     { id: "GERENCIAR_OPERACOES", name: "Gerenciar Operações", description: "Operação completa", category: "Operações" },
     { id: "GERENCIAR_PLANILHAS", name: "Gerenciar Planilhas", description: "Planilhas e importação", category: "Documentos" },
     { id: "GERENCIAR_OPERADORES", name: "Gerenciar Operadores", description: "Operadores e permissões", category: "Segurança" },
-    { id: "VENDAS_CONCLUIDAS", name: "Vendas concluídas", description: "Acesso só à tela de vendas concluídas, para imprimir a etiqueta", category: "Vendas" },
   ];
 
   async function loadOperatorsFromDB() {
@@ -116,10 +115,7 @@ export default function PremiumOperators() {
       id: operator.id, name: operator.name, email: operator.email, password: "", confirmPassword: "", accessPassword: "",
       status: operator.status.toLocaleLowerCase() as "active" | "inactive" | "pending",
     });
-    setSelectedPermissions({
-      ...defaultPermissions,
-      ...JSON.parse(JSON.stringify(operator.permissions || {})),
-    });
+    setSelectedPermissions(JSON.parse(JSON.stringify(operator.permissions || defaultPermissions)));
   }
 
   function newOperator() {

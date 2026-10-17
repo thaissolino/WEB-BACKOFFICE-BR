@@ -222,3 +222,43 @@
   border: 1px solid #1c1814 !important;
   opacity: 1 !important;
 }
+
+button.pdv-jump {
+  position: fixed;
+  right: 14px;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 1px solid #c5d0dc;
+  border-radius: 999px;
+  background: #eef3f8 !important;
+  background-color: #eef3f8 !important;
+  color: #1565c0 !important;
+  -webkit-text-fill-color: #1565c0 !important;
+  box-shadow: 0 2px 8px rgba(26, 21, 17, 0.14);
+  cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 160ms ease;
+}
+
+button.pdv-jump.is-on {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+button.pdv-jump.is-soft {
+  opacity: 0.32;
+  pointer-events: auto;
+}
+
+button.pdv-jump-up {
+  bottom: 16px;
+}
+
+button.pdv-jump svg {
+  color: #1565c0 !important;
+}

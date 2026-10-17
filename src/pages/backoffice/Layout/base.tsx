@@ -13,6 +13,7 @@ import { useUiModeStore } from "../../../store/uiModeStore";
 import { isPrintOnlyAccount, usePermissionStore } from "../../../store/permissionsStore";
 import { useAuthBackoffice } from "../../../hooks/authBackoffice";
 import { PremiumChrome } from "./PremiumChrome";
+import { PageJumps } from "../../client/dashboard/PageJumps";
 
 function PrintOnlyGate() {
   const location = useLocation();
@@ -76,6 +77,7 @@ export function Layout() {
           >
             {!hideTopbar && <Topbar setIsSidebar={setIsSidebar} />}
             <Outlet />
+            <PageJumps />
           </Box>
         </Box>
       </ThemeProvider>

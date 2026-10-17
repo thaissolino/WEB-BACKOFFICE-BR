@@ -1,4 +1,4 @@
-﻿import { FormEvent, useEffect, useRef, useState } from "react"
+import { FormEvent, useEffect, useRef, useState } from "react"
 import { Navigate, useNavigate } from "react-router-dom"
 import {
   ArrowLeft,
@@ -18,7 +18,7 @@ import {
 import { useClientAuth } from "../../hooks/clientAuth"
 import PdvShell, { PdvLoading } from "./dashboard/PdvShell"
 import { api, parseError } from "../../services/api"
-import { formatMoneyBr, formatMoneyRs, parseMoneyBr, type PdvProduct } from "./cadastros/produtos/types"
+import { formatMoneyBr, formatMoneyRs, lojaProductName, parseMoneyBr, productSalePrice, type PdvProduct } from "./cadastros/produtos/types"
 import { listLojaCaixas } from "./cadastros/financeiro/caixaApi"
 import { listCatalog } from "./cadastros/catalog/catalogApi"
 import { CAIXA_STORAGE_KEY } from "./dashboard/mockData"
@@ -283,7 +283,7 @@ function PdvBoard() {
       const inCart = existing?.qty || 0
       const available = Math.max(0, Math.floor(lojaStock) - blocked - inCart)
       if (available < 1) {
-        setStockAlert(`Sem estoque livre para "${product.name}". O estoque já está reservado em vendas em aberto.`)
+        setStockAlert(`Sem estoque livre para "${lojaProductName(product)}". O estoque já está reservado em vendas em aberto.`)
         return current
       }
       if (existing) {
@@ -299,9 +299,9 @@ function PdvBoard() {
           id: product.id,
           code: product.code || product.barcode,
           reference: product.reference || "—",
-          name: product.name,
+          name: lojaProductName(product),
           qty: 1,
-          price: product.lojaSalePrice || 0,
+          price: productSalePrice(product),
           discount: 0,
           stock: available - 1,
           lojaStock,
@@ -336,7 +336,7 @@ function PdvBoard() {
       document.getElementById("cx-produto")?.focus()
       return
     }
-    const exact = hits.find((item) => item.code.toLowerCase() === q || item.barcode.toLowerCase() === q || item.name.toLowerCase() === q)
+    const exact = hits.find((item) => item.code.toLowerCase() === q || item.barcode.toLowerCase() === q || item.name.toLowerCase() === q || (item.lojaName || "").toLowerCase() === q)
     if (exact) {
       addProduct(exact)
       return
@@ -756,10 +756,10 @@ function PdvBoard() {
               <li key={product.id}>
                 <button type="button" className="cx-hit-main" onClick={() => addProduct(product)}>
                   <b>{product.code}</b>
-                  <span>{product.name}</span>
-                  <em>{formatMoneyRs(product.lojaSalePrice || 0)}</em>
+                  <span>{lojaProductName(product)}</span>
+                  <em>{formatMoneyRs(productSalePrice(product))}</em>
                 </button>
-                <button type="button" className="cx-hit-add" aria-label={`Adicionar ${product.name}`} onClick={() => addProduct(product)}>
+                <button type="button" className="cx-hit-add" aria-label={`Adicionar ${lojaProductName(product)}`} onClick={() => addProduct(product)}>
                   <Plus size={14} />
                 </button>
               </li>

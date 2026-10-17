@@ -17,6 +17,7 @@ export type ProductCategory = {
   defaultDiscountValue: string;
   active: boolean;
   storePick?: boolean;
+  coverFileId: string | null;
 };
 
 export type FlatOption = {
@@ -52,6 +53,7 @@ export function categoryFromCatalog(item: CatalogItem): ProductCategory {
     defaultDiscountValue: String(payload.defaultDiscountValue ?? ""),
     active: item.active,
     storePick: asBool(payload.storePick),
+    coverFileId: String(payload.coverFileId || "") || null,
   };
 }
 
@@ -98,9 +100,24 @@ export function toFlatOptions(rows: ProductCategory[]): FlatOption[] {
   }));
 }
 
+let cachedCategories: ProductCategory[] | null = null
+let loadingCategories: Promise<ProductCategory[]> | null = null
+
 export async function loadProductCategories(ativo?: boolean) {
-  const items = await listCatalog("product_category", ativo);
-  return items.map(categoryFromCatalog);
+  if (ativo !== false && cachedCategories) return cachedCategories
+  if (ativo !== false && loadingCategories) return loadingCategories
+  const request = listCatalog("product_category", ativo)
+    .then((items) => items.map(categoryFromCatalog))
+    .then((rows) => {
+      if (ativo !== false) cachedCategories = rows
+      return rows
+    })
+    .catch((error) => {
+      if (ativo !== false) loadingCategories = null
+      throw error
+    })
+  if (ativo !== false) loadingCategories = request
+  return request
 }
 
 export function categoryPaths(pathname: string) {

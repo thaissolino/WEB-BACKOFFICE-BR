@@ -34,6 +34,7 @@ const PRODUTOS_CHILD: BackofficeNavChild = {
   to: "/gestao/cadastro?aba=products",
   children: [
     { id: "cadastro-produtos-listar", label: "Listar", to: "/gestao/cadastro?aba=products" },
+    { id: "cadastro-produtos-lote", label: "Gerenciar Lote", to: "/gestao/cadastro/produtos/lotes" },
     {
       id: "cadastro-produtos-categoria",
       label: "Categoria",
@@ -62,6 +63,12 @@ const OUTROS_CHILD: BackofficeNavChild = {
   id: "cadastro-outros",
   label: "Outros",
   to: "/gestao/cadastro?aba=others",
+};
+
+const TABELA_PRECO_CHILD: BackofficeNavChild = {
+  id: "cadastro-tabela-preco",
+  label: "Tabela de preços",
+  to: "/gestao/cadastro/tabelas-preco",
 };
 
 const FINANCEIRO_CHILD: BackofficeNavChild = {
@@ -99,6 +106,7 @@ function cadastroChildren(includeLojistas: boolean, operadores: BackofficeNavChi
     FINANCEIRO_CHILD,
     FRETEIROS_CHILD,
     OUTROS_CHILD,
+    TABELA_PRECO_CHILD,
   ];
 }
 

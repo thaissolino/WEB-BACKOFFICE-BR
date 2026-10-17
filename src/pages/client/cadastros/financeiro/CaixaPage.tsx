@@ -153,7 +153,7 @@ export default function CaixaPage() {
 
   return (
     <CadastroFrame>
-      <section className="pdv-cad-page" aria-labelledby="pdv-caixa-cad">
+      <section className="pdv-cad-page pdv-fin-caixa" aria-labelledby="pdv-caixa-cad">
         <div className="pdv-cad-sheet pdv-cad-sheet-wide">
           <h1 id="pdv-caixa-cad">CAIXAS DA LOJA</h1>
           {error ? <p className="pdv-prod-status" role="alert">{error}</p> : null}
@@ -262,7 +262,7 @@ export default function CaixaPage() {
       {gear ? (
         <div className="pdv-caixa-confirm" onClick={() => { if (!gearSaving) setGear(null) }}>
           <div
-            className="pdv-caixa-confirm-card pdv-gear-card"
+            className="pdv-caixa-confirm-card pdv-gear-card pdv-fin-caixa"
             role="dialog"
             aria-modal="true"
             aria-labelledby="pdv-caixa-gear-title"

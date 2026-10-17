@@ -1338,6 +1338,12 @@
   gap: 12px;
 }
 
+.pdv-prod-config-head {
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-start;
+}
+
 .pdv-prod-cad-head h1,
 .pdv-prod-page h1 {
   margin: 0 0 10px;
@@ -1371,39 +1377,114 @@
 .pdv-prod-edit {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  gap: 6px;
+  justify-content: flex-end;
+  gap: 4px;
+  min-height: 34px;
+  padding: 0 10px;
+  border: 1px solid #8a8378;
+  border-radius: 12px;
+  background: #f3efe6;
+  cursor: default;
+}
+
+.pdv-prod-edit.is-open {
+  background: #fff;
+  cursor: text;
 }
 
 .pdv-prod-edit-symbol {
   flex: none;
   font-weight: 700;
-  color: inherit;
+  color: #1c1814;
 }
 
 .pdv-prod-edit-input {
-  width: 6.2rem;
+  width: 5.2rem;
   min-height: 32px;
-  padding: 0 8px;
-  border: 1px solid transparent;
-  border-radius: 6px;
-  background: transparent;
-  color: inherit;
+  padding: 0;
+  border: 0 !important;
+  border-radius: 0;
+  background: transparent !important;
+  background-color: transparent !important;
+  color: #1c1814;
+  -webkit-text-fill-color: #1c1814;
   font: inherit;
   font-weight: 700;
   text-align: right;
+  cursor: inherit;
+}
+
+.pdv-prod-edit-input[readonly] {
+  cursor: default;
 }
 
 .pdv-prod-edit-input:hover,
-.pdv-prod-edit-input:focus {
-  border-color: #c5d7ee;
-  background: #fff;
+.pdv-prod-edit-input:focus,
+.pdv-root .pdv-prod-edit-input:focus-visible {
+  border: 0;
+  background: transparent;
   outline: none;
 }
 
-.pdv-prod-edit-mark {
+.pdv-prod-edit:focus-within {
+  border-color: #8a8378;
+  outline: none;
+}
+
+.pdv-prod-edit-line {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+}
+
+.pdv-prod-edit-x,
+.pdv-prod-edit-save {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
   flex: none;
-  color: #1565c0;
+}
+
+.pdv-root[data-surface="cream"] .pdv-main button.pdv-prod-edit-x[type="button"] {
+  width: 22px;
+  height: 22px;
+  min-height: 0;
+  padding: 0;
+  border: 0 !important;
+  border-radius: 6px;
+  background: transparent !important;
+  background-color: transparent !important;
+  box-shadow: none;
+  color: #e53935 !important;
+  -webkit-text-fill-color: #e53935 !important;
+}
+
+.pdv-root[data-surface="cream"] .pdv-main button.pdv-prod-edit-save[type="button"] {
+  width: 22px;
+  height: 22px;
+  min-height: 0;
+  padding: 0;
+  border: 0 !important;
+  border-radius: 6px;
+  background: transparent !important;
+  background-color: transparent !important;
+  box-shadow: none;
+  color: #2e7d32 !important;
+  -webkit-text-fill-color: #2e7d32 !important;
+}
+
+.pdv-root[data-surface="cream"] .pdv-main button.pdv-prod-edit-x[type="button"]:hover,
+.pdv-root[data-surface="cream"] .pdv-main button.pdv-prod-edit-save[type="button"]:hover {
+  background: #f3f0ea !important;
+  background-color: #f3f0ea !important;
 }
 
 .pdv-prod-tabs {
@@ -1484,6 +1565,15 @@
   font-weight: 500;
 }
 
+.pdv-prod-row input.pdv-prod-nome-lock,
+.pdv-prod-row input.pdv-prod-nome-lock:disabled {
+  background: #f3f0ea;
+  color: #1a1511;
+  -webkit-text-fill-color: #1a1511;
+  cursor: not-allowed;
+  opacity: 1;
+}
+
 .pdv-prod-row textarea,
 .pdv-prod-modal-form textarea {
   min-height: 88px;
@@ -1494,9 +1584,29 @@
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;
+  align-items: center;
   gap: 8px;
   margin-top: 16px;
   margin-bottom: 22px;
+}
+
+.pdv-prod-stock-flag {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-right: auto;
+  min-height: 38px;
+  color: #1a1511;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.pdv-prod-stock-flag input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: #1a1511;
+  cursor: pointer;
 }
 
 .pdv-prod-btn {
@@ -1725,6 +1835,27 @@
   cursor: pointer;
 }
 
+.pdv-prod-page .pdv-cad-table tbody tr[data-pick],
+.pdv-prod-page .pdv-cad-table tbody tr[data-pick]:hover,
+.pdv-prod-page .pdv-cad-table tbody tr[data-pick]:hover > td {
+  cursor: default;
+}
+
+.pdv-prod-page .pdv-cad-table tbody tr:nth-child(odd) {
+  background: #fffdf8;
+}
+
+.pdv-prod-page .pdv-cad-table tbody tr:nth-child(even) {
+  background: #f4f1ea;
+}
+
+.pdv-prod-page .pdv-cad-table tbody tr:hover,
+.pdv-prod-page .pdv-cad-table tbody tr:hover > td,
+.pdv-prod-page .pdv-cad-table tbody tr:nth-child(even):hover,
+.pdv-prod-page .pdv-cad-table tbody tr:nth-child(even):hover > td {
+  background: #b3e5fc;
+}
+
 .pdv-prod-grade-photo {
   display: grid;
   place-items: center;
@@ -1746,6 +1877,50 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
+}
+
+.pdv-prod-name-copy {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  min-width: 0;
+}
+
+.pdv-prod-linked {
+  margin: 0;
+  color: #4a433c;
+  font-size: 0.72rem;
+  font-weight: 500;
+  line-height: 1.2;
+}
+
+.pdv-root .pdv-prod-page button.pdv-prod-name-link[type="button"] {
+  display: inline;
+  padding: 0;
+  border: 0 !important;
+  border-radius: 0;
+  background: transparent !important;
+  background-color: transparent !important;
+  color: #1c1814 !important;
+  -webkit-text-fill-color: #1c1814 !important;
+  font: inherit;
+  font-weight: 700;
+  line-height: inherit;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.pdv-root .pdv-prod-page button.pdv-prod-name-link[type="button"]:hover,
+.pdv-root .pdv-prod-page button.pdv-prod-name-link[type="button"]:focus-visible {
+  text-decoration: underline;
+  text-decoration-color: #1c1814;
+  background: transparent !important;
+  background-color: transparent !important;
+  color: #1c1814 !important;
+  -webkit-text-fill-color: #1c1814 !important;
+  outline: none;
 }
 
 .pdv-prod-name .pdv-prod-grade-photo,
@@ -1930,6 +2105,16 @@
   gap: 8px;
   text-align: left;
   cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  overflow: hidden;
+}
+
+.pdv-prod-select-trigger > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .pdv-prod-select-trigger[data-invalid="true"] {
@@ -1944,7 +2129,9 @@
   right: 0;
   min-width: 16rem;
   background: #fff;
-  border: 1px solid #8a8378;
+  border: 1px solid #ddd4c6;
+  border-radius: 16px;
+  overflow: hidden;
   box-shadow: 0 8px 18px rgba(28, 24, 20, 0.16);
 }
 
@@ -1952,9 +2139,10 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  margin: 6px;
-  padding: 0 6px;
-  border: 1px solid #90caf9;
+  margin: 8px;
+  padding: 0 6px 0 8px;
+  border: 1px solid #b7aa98;
+  border-radius: 12px;
   background: #fff;
 }
 
@@ -1962,10 +2150,23 @@
   min-height: 30px;
   padding: 0;
   border: 0;
+  border-radius: 0;
+  outline: none;
+  box-shadow: none;
   font-size: 0.9rem;
 }
 
-.pdv-prod-overlay-search button {
+.pdv-prod-overlay-search input:focus {
+  outline: none;
+  border: 0;
+  box-shadow: none;
+}
+
+.pdv-prod-overlay-search:focus-within {
+  border-color: #1a1511;
+}
+
+.pdv-prod-overlay-search button.pdv-prod-overlay-clear {
   display: grid;
   place-items: center;
   width: 20px;
@@ -1975,6 +2176,20 @@
   border-radius: 999px;
   background: #1a1511;
   color: #fff !important;
+  cursor: pointer;
+}
+
+.pdv-prod-overlay-search button.pdv-prod-overlay-swap {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: #1a1511;
   cursor: pointer;
 }
 
@@ -2010,6 +2225,16 @@
   background: #5dade2;
   color: #fff !important;
   -webkit-text-fill-color: #fff !important;
+  outline: none;
+}
+
+.pdv-prod-overlay .pdv-prod-opt:hover,
+.pdv-prod-overlay .pdv-prod-check:hover,
+.pdv-prod-overlay .pdv-prod-opt:focus-visible,
+.pdv-prod-overlay .pdv-prod-opt[data-active="true"] {
+  background: #f4f1ea;
+  color: #1a1511 !important;
+  -webkit-text-fill-color: #1a1511 !important;
   outline: none;
 }
 
@@ -2779,6 +3004,23 @@
   background-color: #1565c0 !important;
   color: #fff !important;
   -webkit-text-fill-color: #fff !important;
+}
+
+.pdv-root[data-surface="cream"] .pdv-main .pdv-prod-overlay .pdv-prod-opt:hover,
+.pdv-root[data-surface="cream"] .pdv-main .pdv-prod-overlay .pdv-prod-check:hover,
+.pdv-root[data-surface="cream"] .pdv-main .pdv-prod-overlay .pdv-prod-opt:focus-visible,
+.pdv-root[data-surface="cream"] .pdv-main .pdv-prod-overlay .pdv-prod-opt[data-active="true"] {
+  background: #f4f1ea !important;
+  background-color: #f4f1ea !important;
+  color: #1a1511 !important;
+  -webkit-text-fill-color: #1a1511 !important;
+}
+
+.pdv-root[data-surface="cream"] .pdv-main .pdv-prod-overlay-search button.pdv-prod-overlay-swap {
+  background: transparent !important;
+  background-color: transparent !important;
+  color: #1a1511 !important;
+  -webkit-text-fill-color: #1a1511 !important;
 }
 
 .pdv-root[data-surface="cream"] .pdv-main .pdv-cad-btn-green svg,
@@ -5161,3 +5403,838 @@
     color: #000;
   }
 }
+
+.pdv-cat-page .pdv-cad-sheet {
+  border-radius: 22px;
+  background: #f7f4ef;
+  border: 1px solid #e6dfd4;
+}
+
+.pdv-cat-page .pdv-cad-btn {
+  border-radius: 999px;
+}
+
+.pdv-cat-page .pdv-cad-filters input,
+.pdv-cat-page .pdv-cad-form input,
+.pdv-cat-page .pdv-cad-form textarea,
+.pdv-cat-page .pdv-cad-form select {
+  border-radius: 12px;
+  background: #fff;
+}
+
+.pdv-cat-cover {
+  position: relative;
+  display: block;
+  width: 96px;
+  height: 54px;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #fff;
+  border: 1px dashed #c8bfb2;
+  cursor: pointer;
+}
+
+.pdv-cat-cover-lg {
+  width: 196px;
+  height: 110px;
+}
+
+.pdv-cat-cover input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.pdv-cat-cover-preview {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  color: #6f675e;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.pdv-cat-cover-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: center;
+  display: block;
+}
+
+.pdv-cat-form-cover {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.pdv-cat-page button.pdv-cad-btn,
+.pdv-cat-page button.pdv-cad-btn[type="button"],
+.pdv-cat-page button.pdv-cad-btn[type="submit"] {
+  background: #fff !important;
+  background-color: #fff !important;
+  color: #1c1814 !important;
+  -webkit-text-fill-color: #1c1814 !important;
+  border-color: #c5c5c5 !important;
+}
+
+.pdv-cat-page button.pdv-cad-btn-green,
+.pdv-cat-page button.pdv-cad-btn-green[type="button"],
+.pdv-cat-page button.pdv-cad-btn-green[type="submit"] {
+  background: #43a047 !important;
+  background-color: #43a047 !important;
+  border-color: #2e7d32 !important;
+  color: #fff !important;
+  -webkit-text-fill-color: #fff !important;
+}
+
+.pdv-cat-page button.pdv-cad-btn-blue,
+.pdv-cat-page button.pdv-cad-btn-blue[type="button"],
+.pdv-cat-page button.pdv-cad-btn-blue[type="submit"] {
+  background: #42a5f5 !important;
+  background-color: #42a5f5 !important;
+  border-color: #1e88e5 !important;
+  color: #fff !important;
+  -webkit-text-fill-color: #fff !important;
+}
+
+.pdv-cat-page button.pdv-cad-btn-red,
+.pdv-cat-page button.pdv-cad-btn-red[type="button"],
+.pdv-cat-page button.pdv-cad-btn-red[type="submit"] {
+  background: #e57373 !important;
+  background-color: #e57373 !important;
+  border-color: #d32f2f !important;
+  color: #fff !important;
+  -webkit-text-fill-color: #fff !important;
+}
+
+.pdv-cat-page button.pdv-cad-btn-green svg,
+.pdv-cat-page button.pdv-cad-btn-blue svg,
+.pdv-cat-page button.pdv-cad-btn-red svg {
+  color: #fff !important;
+}
+
+/* Configuração do produto: mesmo padrão arredondado da categoria. */
+.pdv-prod-page.pdv-cat-page .pdv-prod-tabs {
+  gap: 8px;
+  border-bottom: 0;
+}
+
+.pdv-prod-page.pdv-cat-page .pdv-prod-tab {
+  border: 1px solid #c5c5c5;
+  border-radius: 999px;
+}
+
+.pdv-prod-page.pdv-cat-page .pdv-prod-row input,
+.pdv-prod-page.pdv-cat-page .pdv-prod-row select,
+.pdv-prod-page.pdv-cat-page .pdv-prod-row textarea,
+.pdv-prod-page.pdv-cat-page .pdv-prod-list-grid input:not([type="checkbox"]):not([type="radio"]),
+.pdv-prod-page.pdv-cat-page .pdv-prod-list-grid select,
+.pdv-prod-page.pdv-cat-page .pdv-prod-select-trigger,
+.pdv-prod-page.pdv-cat-page .pdv-prod-suffix input,
+.pdv-prod-page.pdv-cat-page .pdv-prod-overlay,
+.pdv-prod-page.pdv-cat-page .pdv-prod-overlay-search,
+.pdv-prod-page.pdv-cat-page .pdv-prod-catalog-menu {
+  border-radius: 12px;
+}
+
+.pdv-prod-page.pdv-cat-page .pdv-prod-grade-box,
+.pdv-prod-page.pdv-cat-page .pdv-prod-block,
+.pdv-prod-page.pdv-cat-page .pdv-prod-grade-panel {
+  border-radius: 18px;
+  overflow: visible;
+}
+
+.pdv-prod-page.pdv-cat-page .pdv-prod-photo-ph,
+.pdv-prod-page.pdv-cat-page .pdv-prod-photo-preview-img {
+  border-radius: 18px;
+  overflow: hidden;
+}
+
+.pdv-prod-page.pdv-cat-page .pdv-prod-collapse,
+.pdv-prod-page.pdv-cat-page .pdv-prod-block > h2,
+.pdv-prod-page.pdv-cat-page .pdv-prod-grade-panel h2 {
+  border-radius: 17px 17px 0 0;
+}
+
+.pdv-prod-page.pdv-cat-page .pdv-prod-collapse[aria-expanded="false"] {
+  border-radius: 17px;
+}
+.pdv-prod-page.pdv-cat-page .pdv-prod-file-action {
+  border-radius: 999px;
+}
+
+.pdv-root[data-surface="cream"] .pdv-prod-page.pdv-cat-page .pdv-prod-tab[aria-selected="true"] {
+  background: #1e3a5f !important;
+  background-color: #1e3a5f !important;
+  border-color: #1e3a5f !important;
+  color: #fff !important;
+  -webkit-text-fill-color: #fff !important;
+}
+
+.pdv-root[data-surface="cream"] .pdv-prod-page.pdv-cat-page .pdv-prod-tab[aria-selected="true"] svg {
+  color: #fff !important;
+}
+
+.pdv-prod-config .pdv-prod-official-name {
+  display: inline-block;
+  margin: 0 0 12px;
+  padding: 8px 16px;
+  border: 1px solid #ddd4c6;
+  border-radius: 12px;
+  background: #f7f4ef;
+  color: #1a1511;
+  font-size: 1.85rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  line-height: 1.15;
+  text-transform: uppercase;
+}
+
+.pdv-prod-config-head .pdv-voltar {
+  margin: 0 0 12px;
+}
+
+.pdv-prod-config .pdv-prod-box {
+  border: 1px solid #d5d5d5;
+  border-radius: 6px;
+  background: #fff;
+  overflow: visible;
+}
+
+.pdv-prod-config .pdv-prod-box .pdv-prod-tabs {
+  gap: 0;
+  margin: 0;
+  padding: 0 8px;
+  border-bottom: 1px solid #d5d5d5;
+  background: #f3f3f3;
+  border-radius: 5px 5px 0 0;
+}
+
+.pdv-prod-config.pdv-prod-page.pdv-cat-page .pdv-prod-tab {
+  min-height: 38px;
+  margin: 6px 2px 0;
+  border: 1px solid transparent;
+  border-bottom: 0;
+  border-radius: 6px 6px 0 0;
+  background: transparent;
+  color: #4a4a4a;
+}
+
+.pdv-root[data-surface="cream"] .pdv-prod-config.pdv-prod-page.pdv-cat-page .pdv-prod-tab[aria-selected="true"],
+.pdv-root[data-surface="cream"] .pdv-main .pdv-prod-config .pdv-prod-tab[aria-selected="true"]:hover,
+.pdv-root[data-surface="cream"] .pdv-main .pdv-prod-config .pdv-prod-tab[aria-selected="true"]:focus-visible {
+  background: #fff !important;
+  background-color: #fff !important;
+  border-color: #d5d5d5 !important;
+  color: #2a2a2a !important;
+  -webkit-text-fill-color: #2a2a2a !important;
+  position: relative;
+  top: 1px;
+}
+
+.pdv-root[data-surface="cream"] .pdv-prod-config.pdv-prod-page.pdv-cat-page .pdv-prod-tab[aria-selected="true"] svg {
+  color: #2a2a2a !important;
+}
+
+.pdv-prod-config .pdv-prod-box .pdv-prod-cad-form {
+  padding: 16px 16px 8px;
+  background: #fff;
+  border-radius: 0 0 6px 6px;
+}
+
+.pdv-cli-page .pdv-cad-sheet {
+  background: #fffdf8;
+  border: 1px solid #ddd4c6;
+  border-radius: 28px;
+  padding: 22px 22px 24px;
+}
+
+.pdv-cli-page h1 {
+  color: #1a1511;
+}
+
+.pdv-cli-page .pdv-cad-btn {
+  border-radius: 999px;
+  padding: 0 16px;
+}
+
+.pdv-cli-page .pdv-cad-filters {
+  padding: 16px;
+  border: 1px solid #ddd4c6;
+  border-radius: 22px;
+  background: #f4f1ea;
+}
+
+.pdv-cli-page .pdv-cad-filters input,
+.pdv-cli-page .pdv-cad-filters select,
+.pdv-cli-page .pdv-cad-ms-trigger,
+.pdv-cli-page .pdv-cad-ms-list {
+  border-radius: 12px;
+  background: #fffdf8;
+  border-color: #8a8378;
+}
+
+.pdv-cli-page .pdv-cad-table-wrap {
+  border: 1px solid #ddd4c6;
+  border-radius: 22px;
+  background: #fffdf8;
+}
+
+.pdv-cli-page .pdv-cad-table th {
+  background: #f4f1ea;
+  color: #1a1511;
+}
+
+.pdv-cli-page .pdv-cad-table tbody tr:nth-child(odd) {
+  background: #fffdf8;
+}
+
+.pdv-cli-page .pdv-cad-table tbody tr:nth-child(even) {
+  background: #f4f1ea;
+}
+
+.pdv-cli-page .pdv-cad-table tbody tr:hover {
+  background: #b3e5fc;
+}
+
+.pdv-cli-page .pdv-cad-icon-btn {
+  border-radius: 999px;
+  background: #f4f1ea;
+  color: #1a1511 !important;
+}
+
+.pdv-cad-manage-card {
+  overflow: hidden;
+  background: #fffdf8;
+  border: 1px solid #ddd4c6;
+  border-radius: 22px;
+}
+
+.pdv-cad-manage-head {
+  background: #f4f1ea;
+  border-bottom-color: #ddd4c6;
+}
+
+.pdv-cad-manage-close {
+  border-radius: 999px;
+  background: #fffdf8;
+}
+
+.pdv-cad-manage-list button {
+  width: calc(100% - 16px);
+  margin: 0 8px;
+  border-radius: 12px;
+}
+
+.pdv-fin-caixa .pdv-cad-sheet {
+  background: #fffdf8;
+  border: 1px solid #ddd4c6;
+  border-radius: 28px;
+  padding: 22px 22px 24px;
+}
+
+.pdv-fin-caixa h1 {
+  color: #1a1511;
+}
+
+.pdv-fin-caixa .pdv-cad-btn,
+.pdv-fin-caixa .pdv-prod-toggle {
+  border-radius: 999px;
+}
+
+.pdv-fin-caixa .pdv-cad-caixa-new {
+  justify-content: flex-start;
+  margin-bottom: 8px;
+  padding: 14px;
+  border: 1px solid #ddd4c6;
+  border-radius: 22px;
+  background: #f4f1ea;
+}
+
+.pdv-fin-caixa .pdv-cad-caixa-new input,
+.pdv-fin-caixa .pdv-cad-table select,
+.pdv-fin-caixa .pdv-gear-grid input:not([type="checkbox"]):not([type="radio"]) {
+  min-height: 40px;
+  padding: 0 12px;
+  border: 1px solid #8a8378;
+  border-radius: 12px;
+  background: #fffdf8;
+  color: #1a1511;
+  font: inherit;
+  font-weight: 600;
+}
+
+.pdv-fin-caixa .pdv-cad-table-wrap {
+  border: 1px solid #ddd4c6;
+  border-radius: 22px;
+  background: #fffdf8;
+}
+
+.pdv-fin-caixa .pdv-cad-table th {
+  background: #f4f1ea;
+  color: #1a1511;
+}
+
+.pdv-fin-caixa .pdv-cad-table tbody tr:nth-child(odd) {
+  background: #fffdf8;
+}
+
+.pdv-fin-caixa .pdv-cad-table tbody tr:nth-child(even) {
+  background: #f4f1ea;
+}
+
+.pdv-fin-caixa .pdv-cad-table tbody tr:hover {
+  background: #b3e5fc;
+}
+
+.pdv-fin-caixa .pdv-cad-icon-btn {
+  border-radius: 999px;
+  background: #f4f1ea;
+  color: #1a1511 !important;
+}
+
+.pdv-lote-page .pdv-cad-sheet {
+  border: 1px solid #ddd4c6;
+  border-radius: 28px;
+  background: #fffdf8;
+  padding: 22px;
+}
+
+.pdv-lote-page h1 {
+  color: #1a1511;
+  letter-spacing: -0.03em;
+}
+
+.pdv-lote-filters {
+  margin: 0 0 16px;
+  padding: 16px;
+  border: 1px solid #ddd4c6;
+  border-radius: 22px;
+  background: #f4f1ea;
+}
+
+.pdv-lote-page .pdv-prod-list-grid input:not([type="checkbox"]):not([type="radio"]),
+.pdv-lote-page .pdv-prod-select-trigger,
+.pdv-lote-page .pdv-prod-more input,
+.pdv-lote-page .pdv-prod-more select,
+.pdv-lote-page .pdv-cad-ms-trigger,
+.pdv-lote-page .pdv-lote-pick-btn {
+  min-height: 40px;
+  max-height: 40px;
+  border: 1px solid #b7aa98;
+  border-radius: 16px;
+  background: #fff;
+  color: #1c1814;
+}
+
+.pdv-root[data-surface="cream"] .pdv-main .pdv-lote-page button.pdv-prod-select-trigger,
+.pdv-root .pdv-lote-page .pdv-lote-pick-btn,
+.pdv-lote-page .pdv-lote-pick-btn {
+  appearance: none;
+  -webkit-appearance: none;
+  min-height: 40px;
+  padding: 0 12px;
+  border: 1px solid #b7aa98;
+  border-radius: 16px;
+  background: #fff !important;
+  background-color: #fff !important;
+  color: #1c1814 !important;
+  -webkit-text-fill-color: #1c1814 !important;
+  box-shadow: none;
+  overflow: hidden;
+}
+
+.pdv-lote-page .pdv-prod-toolbar {
+  margin-bottom: 0;
+}
+
+.pdv-lote-filters label,
+.pdv-lote-actions label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  margin: 0;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #1a1511;
+}
+
+.pdv-lote-filters .pdv-prod-check,
+.pdv-lote-actions .pdv-prod-check,
+.pdv-prod-list-grid .pdv-prod-check,
+.pdv-prod-overlay .pdv-prod-check {
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  width: 100%;
+  min-height: 34px;
+  padding: 0 12px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-align: left;
+}
+
+.pdv-prod-overlay .pdv-prod-check input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  min-height: 16px;
+  flex: 0 0 16px;
+  margin: 0;
+  padding: 0;
+}
+
+.pdv-lote-page .pdv-prod-overlay {
+  border-radius: 16px;
+  overflow: hidden;
+  border-color: #ddd4c6;
+}
+
+.pdv-lote-page .pdv-prod-overlay-search input {
+  width: auto;
+  min-height: 30px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 0;
+}
+
+.pdv-lote-page input:not([type="checkbox"]),
+.pdv-lote-page select,
+.pdv-lote-page .pdv-lote-pick-btn {
+  width: 100%;
+  min-height: 40px;
+  border: 1px solid #b7aa98;
+  border-radius: 16px;
+  background: #fff;
+  color: #1c1814;
+  padding: 0 12px;
+  font: inherit;
+  font-weight: 500;
+}
+
+.pdv-lote-page input:not([type="checkbox"]):focus,
+.pdv-lote-page select:focus {
+  outline: none;
+  border-color: #1a1511;
+}
+
+.pdv-lote-money {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 40px;
+  border: 1px solid #b7aa98;
+  border-radius: 16px;
+  background: #fff;
+  overflow: hidden;
+}
+
+.pdv-lote-money > span {
+  flex: 0 0 auto;
+  padding-left: 12px;
+  color: #1c1814;
+  font-weight: 700;
+  text-align: left;
+}
+
+.pdv-lote-page .pdv-lote-money input,
+.pdv-root .pdv-lote-page .pdv-lote-money input,
+.pdv-chrome[data-theme="light"] .gestao-page .pdv-lote-money input {
+  width: 100%;
+  min-height: 38px;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  background-color: transparent !important;
+  box-shadow: none !important;
+  padding: 0 12px 0 4px;
+  text-align: left;
+}
+
+.pdv-lote-go {
+  display: flex;
+  align-items: flex-end;
+}
+
+.pdv-lote-page .pdv-lote-actions button.pdv-cad-btn,
+.pdv-root .pdv-lote-page button.pdv-cad-btn,
+.pdv-root[data-surface="cream"] .pdv-main .pdv-lote-page button.pdv-cad-btn[type="button"],
+.pdv-root[data-surface="cream"] .pdv-main .pdv-lote-page button.pdv-cad-btn[type="submit"],
+.gestao-page .pdv-lote-page .pdv-lote-actions button.pdv-cad-btn {
+  width: auto;
+  min-height: 40px;
+  padding: 0 18px;
+  border: 1px solid #1a1511;
+  border-radius: 999px;
+  background: #fffdf8 !important;
+  background-color: #fffdf8 !important;
+  color: #1a1511 !important;
+  -webkit-text-fill-color: #1a1511 !important;
+  box-shadow: none;
+}
+
+.pdv-root .pdv-lote-page .pdv-lote-go button.pdv-cad-btn,
+.pdv-root[data-surface="cream"] .pdv-main .pdv-lote-page .pdv-lote-go button.pdv-cad-btn[type="submit"] {
+  background: #1a1511 !important;
+  background-color: #1a1511 !important;
+  color: #fffdf8 !important;
+  -webkit-text-fill-color: #fffdf8 !important;
+}
+
+.pdv-lote-page .pdv-cad-btn:hover {
+  background: #f4f1ea !important;
+}
+
+.pdv-lote-page .pdv-lote-go .pdv-cad-btn:hover {
+  background: #3a332c !important;
+}
+
+.pdv-lote-page .pdv-cad-table-wrap {
+  border: 1px solid #ddd4c6;
+  border-radius: 22px;
+  background: #fffdf8;
+  overflow: auto;
+}
+
+.pdv-lote-page .pdv-cad-table th,
+.pdv-lote-page .pdv-cad-table td {
+  text-align: left;
+  vertical-align: middle;
+  color: #1a1511;
+  font-weight: 600;
+}
+
+.pdv-lote-page .pdv-cad-table th.pdv-lote-mid,
+.pdv-lote-page .pdv-cad-table td.pdv-lote-mid,
+.pdv-lote-page .pdv-cad-table th.pdv-lote-price,
+.pdv-lote-page .pdv-cad-table td.pdv-lote-price {
+  text-align: center;
+  min-width: 7.5rem;
+}
+
+.pdv-lote-page .pdv-cad-table th.pdv-lote-price {
+  white-space: normal;
+}
+
+.pdv-lote-page .pdv-cad-table td.pdv-lote-price {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.pdv-lote-page .pdv-cad-table .pdv-lote-price-title,
+.pdv-lote-page .pdv-cad-table .pdv-lote-price-line {
+  width: calc(1.85em + 0.35rem + var(--money-ch, 9ch));
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.pdv-lote-page .pdv-cad-table .pdv-lote-sale {
+  --money-ch: var(--sale-ch, 9ch);
+}
+
+.pdv-lote-page .pdv-cad-table .pdv-lote-cost {
+  --money-ch: var(--cost-ch, 9ch);
+}
+
+.pdv-lote-page .pdv-cad-table .pdv-lote-price-title {
+  display: block;
+  width: max-content;
+  min-width: calc(1.85em + 0.35rem + var(--money-ch, 9ch));
+  text-align: center;
+  white-space: nowrap;
+}
+
+.pdv-lote-page .pdv-cad-table th.pdv-lote-sale .pdv-lote-price-title {
+  text-align: left;
+  transform: translateX(-0.85rem);
+}
+
+.pdv-lote-page .pdv-cad-table .pdv-lote-price-line {
+  display: grid;
+  grid-template-columns: auto var(--money-ch, 9ch);
+  column-gap: 0.35rem;
+  align-items: baseline;
+  justify-content: start;
+  text-align: left;
+}
+
+.pdv-lote-page .pdv-cad-table .pdv-lote-price-line > * {
+  text-align: left;
+  justify-self: start;
+}
+
+.pdv-lote-page .pdv-cad-table .pdv-lote-rs {
+  text-align: left;
+  font-weight: 600;
+}
+
+.pdv-qty-filter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.pdv-lote-page .pdv-qty-filter select {
+  width: 5.6rem;
+  flex: 0 0 5.6rem;
+}
+
+.pdv-lote-page .pdv-qty-filter input {
+  width: auto;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.pdv-lote-page .pdv-cad-table th {
+  background: #f4f1ea;
+  color: #1a1511;
+}
+
+.pdv-lote-page .pdv-cad-table tbody tr:nth-child(odd) {
+  background: #fffdf8;
+}
+
+.pdv-lote-page .pdv-cad-table tbody tr:nth-child(even) {
+  background: #f4f1ea;
+}
+
+.pdv-lote-page .pdv-cad-table tbody tr:hover {
+  background: #b3e5fc;
+}
+
+.pdv-lote-page .pdv-cad-table tbody tr.pdv-lote-group,
+.pdv-lote-page .pdv-cad-table tbody tr.pdv-lote-group:hover,
+.pdv-lote-page .pdv-lote-group td,
+.pdv-chrome .gestao-page .pdv-lote-page .pdv-cad-table tbody tr.pdv-lote-group,
+.pdv-chrome .gestao-page .pdv-lote-page .pdv-cad-table tbody tr.pdv-lote-group:hover,
+.pdv-chrome .gestao-page .pdv-lote-page .pdv-lote-group td {
+  width: auto;
+  height: 14px;
+  padding: 0;
+  background: #fff !important;
+  background-color: #fff !important;
+  font-weight: 700;
+  color: #1a1511;
+  text-align: center !important;
+}
+
+.pdv-lote-page .pdv-cad-table th:last-child,
+.pdv-lote-page .pdv-cad-table td:last-child {
+  width: 52px;
+  text-align: center;
+}
+
+.pdv-lote-page .pdv-cad-table input[type="checkbox"] {
+  accent-color: #1a1511;
+}
+
+.pdv-lote-note,
+.pdv-lote-picked {
+  margin: 8px 0 0;
+  color: #4a433c;
+}
+
+.pdv-lote-actions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.pdv-lote-actions article {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+  border: 1px solid #ddd4c6;
+  border-radius: 22px;
+  background: #f4f1ea;
+}
+
+.pdv-lote-actions article:has(.pdv-lote-pick[data-open="true"]) {
+  position: relative;
+  z-index: 6;
+}
+
+.pdv-lote-pick {
+  position: relative;
+}
+
+.pdv-lote-page .pdv-lote-pick-btn,
+.pdv-root .pdv-lote-page .pdv-lote-pick-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  min-height: 40px;
+  padding: 0 12px;
+  border: 1px solid #b7aa98;
+  border-radius: 16px;
+  background: #fff !important;
+  background-color: #fff !important;
+  color: #1c1814;
+  -webkit-text-fill-color: #1c1814;
+  font: inherit;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+}
+
+.pdv-lote-pick-list {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  margin: 0;
+  padding: 6px;
+  list-style: none;
+  border: 1px solid #ddd4c6;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 12px 28px rgba(26, 21, 17, 0.12);
+  max-height: 240px;
+  overflow: auto;
+}
+
+.pdv-lote-pick-list button {
+  width: 100%;
+  min-height: 36px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: #1a1511;
+  font: inherit;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+.pdv-lote-pick-list button[aria-selected="true"],
+.pdv-lote-pick-list button:hover {
+  background: #f4f1ea;
+}
+
+.pdv-lote-actions h2 {
+  margin: 0;
+  font-size: 0.95rem;
+  color: #1a1511;
+}
+
+.pdv-lote-picked {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+

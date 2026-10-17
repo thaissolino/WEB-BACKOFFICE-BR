@@ -1,5 +1,5 @@
-import { FormEvent, ReactNode, useEffect, useId, useState } from "react";
-import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import { FocusEvent, FormEvent, ReactNode, useEffect, useId, useRef, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   AlertTriangle,
   AlignJustify,
@@ -27,6 +27,7 @@ import {
 import { createCatalog, listCatalog } from "../catalog/catalogApi";
 import { loadProductCategories, toFlatOptions, type FlatOption } from "./categoryModel";
 import { PRODUCT_GENDERS, PRODUCT_ORIGINS, PRODUCT_UNITS } from "./productOptions";
+import { CLIENT_PRODUCT_OPEN_KEY } from "./productFilters";
 import { formatMoneyBr, formatMoneyRs, parseMoneyBr, type PdvProduct } from "./types";
 import type { PdvSupplier } from "../fornecedores/types";
 
@@ -190,6 +191,7 @@ function PhotoSlot({
 const EMPTY_FORM = {
   categorias: [] as string[],
   nome: "",
+  nomeLoja: "",
   ncm: "",
   marca: "Sem Marca",
   colecao: "SEM COLEÇÃO",
@@ -220,11 +222,48 @@ const EMPTY_FORM = {
   profundidade: "0,00",
 };
 
+function productBody(current: typeof EMPTY_FORM, categories: FlatOption[], fallbackCategory = "") {
+  const categoryId = current.categorias[0] || "";
+  const category =
+    categories.find((item) => item.id === categoryId)?.label ?? (fallbackCategory || categoryId);
+  return {
+    name: current.nome.trim(),
+    lojaName:
+      current.nomeLoja.trim() === current.nome.trim() ? "" : current.nomeLoja.trim(),
+    description: current.descricao.trim(),
+    weightAverage: parseMoneyBr(current.peso),
+    lojaCostAverage: parseMoneyBr(current.custoMedio),
+    barcode: current.codBarra.trim(),
+    ncm: current.ncm.trim(),
+    brand: current.marca,
+    collection: current.colecao,
+    gender: current.genero,
+    unit: current.unidade,
+    reference: current.referencia.trim(),
+    model: current.modelo.trim(),
+    categoryId,
+    category,
+    lojaSalePrice: parseMoneyBr(current.precoVenda),
+    lojaCostPrice: parseMoneyBr(current.precoCusto),
+    lojaStock: parseMoneyBr(current.estoque),
+    supplierCode: current.codProdForn.trim(),
+    supplierName: current.fornecedor,
+    origin: current.origem,
+    composition: current.composicao.trim(),
+    warranty: current.garantia.trim(),
+    validity: current.validade.trim(),
+    height: parseMoneyBr(current.altura),
+    width: parseMoneyBr(current.largura),
+    depth: parseMoneyBr(current.profundidade),
+  };
+}
+
 function formFromProduct(product: PdvProduct) {
   return {
     ...EMPTY_FORM,
     categorias: product.categoryId ? [product.categoryId] : [],
     nome: product.name || "",
+    nomeLoja: (product.lojaName || "").trim() || product.name || "",
     ncm: product.ncm || "",
     marca: product.brand || EMPTY_FORM.marca,
     colecao: product.collection || EMPTY_FORM.colecao,
@@ -251,28 +290,49 @@ function formFromProduct(product: PdvProduct) {
   };
 }
 
+function openedProduct(id: string): PdvProduct | null {
+  if (!id) return null;
+  try {
+    const raw = sessionStorage.getItem(CLIENT_PRODUCT_OPEN_KEY);
+    if (!raw) return null;
+    const product = JSON.parse(raw) as PdvProduct;
+    return product.id === id ? product : null;
+  } catch {
+    return null;
+  }
+}
+
+function categorySeed(product: PdvProduct | null): FlatOption[] {
+  if (!product?.categoryId) return [];
+  return [{ id: product.categoryId, label: product.category || product.categoryId, depth: 0 }];
+}
+
 export default function CadastrarProduto() {
   const navigate = useNavigate();
-  const location = useLocation();
   const [params] = useSearchParams();
   const editingId = params.get("id") || "";
-  const [lockedName, setLockedName] = useState("");
-  const [askCopy, setAskCopy] = useState(false);
-  const [savedFlash, setSavedFlash] = useState(false);
+  const opened = useState(() => openedProduct(editingId))[0];
   const [tab, setTab] = useState<CadTab>("gerais");
-  const [form, setForm] = useState(EMPTY_FORM);
+  const [form, setForm] = useState(() => (opened ? formFromProduct(opened) : EMPTY_FORM));
+  const formRef = useRef(form);
+  const categoriesRef = useRef<FlatOption[]>([]);
+  const savedKey = useRef("");
+  const loadedForm = useRef<typeof EMPTY_FORM | null>(null);
+  const categoryNameRef = useRef(opened?.category || "");
+  const saving = useRef(false);
+  const pendingSave = useRef(false);
+  const photoRef = useRef<File | null>(null);
+  const sentPhoto = useRef<File | null>(null);
   const [, setBrands] = useState<string[]>([]);
   const [, setCollections] = useState<string[]>([]);
   const [, setGenders] = useState(PRODUCT_GENDERS);
   const [, setUnits] = useState(PRODUCT_UNITS);
-  const [categories, setCategories] = useState<FlatOption[]>([]);
+  const [categories, setCategories] = useState<FlatOption[]>(() => categorySeed(opened));
   const [suppliers, setSuppliers] = useState<string[]>([]);
   const [quick, setQuick] = useState<QuickKind>(null);
   const [status, setStatus] = useState("");
-  const [busy, setBusy] = useState(false);
   const [photo1, setPhoto1] = useState<File | null>(null);
   const [photo2, setPhoto2] = useState<File | null>(null);
-  const [copyPhotoFrom, setCopyPhotoFrom] = useState<{ photoFileId?: string | null; photoPath?: string | null } | null>(null);
   const [balanca, setBalanca] = useState({
     disponivel: false,
     codInterno: true,
@@ -286,16 +346,12 @@ export default function CadastrarProduto() {
   // const unId = useId();
   const fornId = useId();
   const origemId = useId();
+  categoriesRef.current = categories;
+  formRef.current = form;
 
   useEffect(() => {
-    const next = (location.state || null) as { duplicate?: typeof EMPTY_FORM; fromName?: string } | null;
-    if (!next?.duplicate || !next.fromName || editingId) return;
-    setForm(next.duplicate);
-    setLockedName(next.fromName);
-    setAskCopy(false);
-    setStatus("");
-    setSavedFlash(false);
-  }, [editingId, location.key, location.state]);
+    if (!editingId) navigate("/client/produtos", { replace: true });
+  }, [editingId, navigate]);
 
   useEffect(() => {
     if (!editingId) return;
@@ -303,16 +359,31 @@ export default function CadastrarProduto() {
       .get(`/clients/products/${editingId}`)
       .then(({ data }) => {
         const product = data.product as PdvProduct | undefined;
-        if (product) {
-          setForm(formFromProduct(product));
-          setCopyPhotoFrom({ photoFileId: product.photoFileId, photoPath: product.photoPath });
-        }
+        if (!product) return;
+        const next = formFromProduct(product);
+        formRef.current = next;
+        loadedForm.current = next;
+        categoryNameRef.current = product.category || "";
+        savedKey.current = JSON.stringify(productBody(next, categoriesRef.current, categoryNameRef.current));
+        setCategories((current) => {
+          const seed = categorySeed(product);
+          if (!seed.length || current.some((item) => item.id === seed[0].id)) return current;
+          return [...seed, ...current];
+        });
+        setForm(next);
       })
       .catch((err) => {
         const parsed = parseError(err);
         setStatus(parsed.friend || parsed.message || "Não foi possível abrir o produto.");
       });
   }, [editingId]);
+
+  useEffect(() => {
+    const loaded = loadedForm.current;
+    if (!loaded) return;
+    if (JSON.stringify(formRef.current) !== JSON.stringify(loaded)) return;
+    savedKey.current = JSON.stringify(productBody(loaded, categories, categoryNameRef.current));
+  }, [categories]);
 
   useEffect(() => {
     listCatalog("brand", true)
@@ -322,7 +393,15 @@ export default function CadastrarProduto() {
       .then((rows) => setCollections(rows.map((item) => item.name)))
       .catch(() => setCollections([]));
     loadProductCategories(true)
-      .then((rows) => setCategories(toFlatOptions(rows)))
+      .then((rows) =>
+        setCategories((current) => {
+          const next = toFlatOptions(rows);
+          const selected = formRef.current.categorias[0];
+          if (!selected || next.some((item) => item.id === selected)) return next;
+          const known = current.find((item) => item.id === selected);
+          return known ? [known, ...next] : next;
+        }),
+      )
       .catch(() => setCategories([]));
     api
       .get("/clients/suppliers", { params: { ativo: "1" } })
@@ -334,137 +413,95 @@ export default function CadastrarProduto() {
   }, []);
 
   function patch<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
-    setForm((current) => ({ ...current, [key]: value }));
+    const next = { ...formRef.current, [key]: value };
+    formRef.current = next;
+    setForm(next);
   }
 
-  async function onSubmit(event: FormEvent, mode: "ok" | "atualizar" | "novo" | "etiqueta") {
-    event.preventDefault();
-    if (form.categorias.length === 0) {
+  async function saveIfDirty() {
+    if (!editingId || !savedKey.current) return;
+    const current = formRef.current;
+    if (current.categorias.length === 0) {
       setStatus("Selecione uma categoria.");
       return;
     }
-    if (!form.nome.trim()) {
-      setStatus("Informe o nome do produto.");
+    if (!current.nome.trim()) {
+      setStatus("O nome do produto vem do backoffice.");
       return;
     }
-    if (!editingId && lockedName && form.nome.trim().toLowerCase() === lockedName.trim().toLowerCase()) {
-      setStatus("Esse produto já está cadastrado. Troque o nome para concluir a cópia.");
+    const body = productBody(current, categoriesRef.current, categoryNameRef.current);
+    const key = JSON.stringify(body);
+    const photo = photoRef.current;
+    const photoPending = Boolean(photo && photo !== sentPhoto.current);
+    if (key === savedKey.current && !photoPending) return;
+    if (saving.current) {
+      pendingSave.current = true;
       return;
     }
-
-    const categoryId = form.categorias[0];
-    const category =
-      categories.find((item) => item.id === categoryId)?.label ?? categoryId;
-
-    setBusy(true);
-    setStatus("");
-    const body = {
-        name: form.nome.trim(),
-        description: form.descricao.trim() || form.nome.trim(),
-        weightAverage: parseMoneyBr(form.peso),
-        lojaCostAverage: parseMoneyBr(form.custoMedio),
-        barcode: form.codBarra.trim(),
-        ncm: form.ncm.trim(),
-        brand: form.marca,
-        collection: form.colecao,
-        gender: form.genero,
-        unit: form.unidade,
-        reference: form.referencia.trim(),
-        model: form.modelo.trim(),
-        categoryId,
-        category,
-        lojaSalePrice: parseMoneyBr(form.precoVenda),
-        lojaCostPrice: parseMoneyBr(form.precoCusto),
-        lojaStock: parseMoneyBr(form.estoque),
-        supplierCode: form.codProdForn.trim(),
-        supplierName: form.fornecedor,
-        origin: form.origem,
-        composition: form.composicao.trim(),
-        warranty: form.garantia.trim(),
-        validity: form.validade.trim(),
-        height: parseMoneyBr(form.altura),
-        width: parseMoneyBr(form.largura),
-        depth: parseMoneyBr(form.profundidade),
-    };
+    saving.current = true;
     try {
-      const { data } = editingId
-        ? await api.put(`/clients/products/${editingId}`, body)
-        : await api.post("/clients/products", body);
-      const productId = (editingId || data?.product?.id) as string | undefined;
-      if (productId && photo1) {
-        const body = new FormData();
-        body.append("file", photo1);
-        await api.post(`/clients/products/${productId}/photo`, body);
-      } else if (productId && !editingId && copyPhotoFrom?.photoFileId && copyPhotoFrom?.photoPath) {
-        await api.put(`/clients/products/${productId}`, {
-          ...body,
-          photoFileId: copyPhotoFrom.photoFileId,
-          photoPath: copyPhotoFrom.photoPath,
-        });
+      if (key !== savedKey.current) {
+        await api.put(`/clients/products/${editingId}`, body);
+        savedKey.current = key;
       }
-      if (editingId) {
-        setStatus("Produto atualizado.");
-      } else if (lockedName) {
-        setLockedName("");
-        setSavedFlash(true);
-        setStatus("");
-        window.setTimeout(() => setSavedFlash(false), 4000);
-        if (data?.product?.id) {
-          navigate("/client/produtos", { replace: true });
-        }
-      } else {
-        setStatus(
-          mode === "novo"
-            ? "Produto cadastrado. Formulário liberado para novo cadastro."
-            : mode === "etiqueta"
-              ? "Produto cadastrado. Impressão de etiqueta não foi disparada."
-              : "Produto cadastrado.",
-        );
+      if (photo && photo !== sentPhoto.current) {
+        const fileBody = new FormData();
+        fileBody.append("file", photo);
+        await api.post(`/clients/products/${editingId}/photo`, fileBody);
+        sentPhoto.current = photo;
       }
-      if (mode === "novo") {
-        setForm(EMPTY_FORM);
-        setPhoto1(null);
-        setPhoto2(null);
-        setBalanca({ disponivel: false, codInterno: true, codProduto: "" });
-      }
+      setStatus("");
     } catch (err) {
       const parsed = parseError(err);
-      if (parsed.code === "PRODUCT_NAME_EXISTS") {
-        setStatus("Já existe um produto com esse nome. Troque o nome para cadastrar.");
-      } else {
-        setStatus(parsed.friend || parsed.message || "Não foi possível cadastrar o produto.");
-      }
+      setStatus(parsed.friend || parsed.message || "Não foi possível salvar o produto.");
     } finally {
-      setBusy(false);
+      saving.current = false;
+      if (pendingSave.current) {
+        pendingSave.current = false;
+        void saveIfDirty();
+      }
     }
   }
 
+  function choose<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
+    patch(key, value);
+    void saveIfDirty();
+  }
+
+  function onSubmit(event: FormEvent) {
+    event.preventDefault();
+    void saveIfDirty();
+  }
+
+  function onFormBlur(event: FocusEvent<HTMLFormElement>) {
+    const next = event.relatedTarget;
+    if (next instanceof Node && event.target instanceof Node && event.target.contains(next)) return;
+    void saveIfDirty();
+  }
+
+  if (!editingId) return null;
+
   return (
     <CadastroShell>
-      <section className="pdv-cad-page pdv-prod-page" aria-labelledby="pdv-prod-cad-title">
+      <section className="pdv-cad-page pdv-prod-page pdv-cat-page pdv-prod-config" aria-labelledby="pdv-prod-cad-title">
         <div className="pdv-cad-sheet pdv-prod-sheet">
-          {lockedName && !editingId ? (
-            <p className="pdv-prod-dup-banner" role="status">
-              Produto duplicado — altere o nome para salvar. O nome &quot;{lockedName}&quot; já está cadastrado.
-            </p>
-          ) : null}
-          {savedFlash ? <p className="pdv-prod-saved-bar" role="status">Salvo</p> : null}
-          <div className="pdv-prod-cad-head">
-            <h1 id="pdv-prod-cad-title">{editingId ? "ALTERAR PRODUTO" : "CADASTRO DE PRODUTO"}</h1>
-            <div className="pdv-prod-cad-actions">
-              <button
-                className="pdv-cad-btn pdv-cad-btn-back pdv-voltar"
-                type="button"
-                onClick={() => navigate("/client/produtos")}
-              >
-                Voltar
-              </button>
-              <button className="pdv-cad-btn pdv-cad-btn-green" type="submit" form="pdv-prod-cad-form" disabled={busy}>
-                {busy ? "Salvando…" : editingId ? "Salvar" : "Cadastrar"}
-              </button>
-            </div>
+          <div className="pdv-prod-cad-head pdv-prod-config-head">
+            <h1 id="pdv-prod-cad-title" className="pdv-prod-official-name">
+              {form.nome}
+            </h1>
+            <button
+              className="pdv-cad-btn pdv-cad-btn-back pdv-voltar"
+              type="button"
+              onClick={() => {
+                void saveIfDirty();
+                navigate("/client/produtos", { state: { returnedProductId: editingId } });
+              }}
+            >
+              Voltar
+            </button>
           </div>
 
+          <div className="pdv-prod-box">
           <div className="pdv-prod-tabs" role="tablist" aria-label="Cadastro de produto">
             <button
               className="pdv-prod-tab"
@@ -492,7 +529,21 @@ export default function CadastrarProduto() {
           <form
             id="pdv-prod-cad-form"
             className="pdv-prod-cad-form"
-            onSubmit={(event) => onSubmit(event, "ok")}
+            onSubmit={onSubmit}
+            onBlur={onFormBlur}
+            onChange={(event) => {
+              const target = event.target;
+              if (target instanceof HTMLSelectElement) {
+                void saveIfDirty();
+                return;
+              }
+              if (
+                target instanceof HTMLInputElement &&
+                (target.type === "radio" || target.type === "checkbox")
+              ) {
+                void saveIfDirty();
+              }
+            }}
           >
           {tab === "grade" ? (
             <div className="pdv-prod-grade-tab">
@@ -519,7 +570,7 @@ export default function CadastrarProduto() {
                 >
                   <CategorySelect
                     selected={form.categorias}
-                    onChange={(categorias) => patch("categorias", categorias)}
+                    onChange={(categorias) => choose("categorias", categorias)}
                     required
                     labelledBy={catId}
                     placeholder="Selecione"
@@ -528,23 +579,14 @@ export default function CadastrarProduto() {
                 </PlusField>
 
                 <div className="pdv-prod-row">
-                  <label htmlFor="pdv-prod-nome">Nome</label>
-                  <div>
-                    <input
-                      id="pdv-prod-nome"
-                      value={form.nome}
-                      maxLength={200}
-                      onChange={(event) => patch("nome", event.target.value)}
-                      onBlur={() => {
-                        if (!lockedName || editingId || busy) return;
-                        if (!form.nome.trim() || form.nome.trim().toLowerCase() === lockedName.trim().toLowerCase()) return;
-                        if (!form.categorias.length) return;
-                        void onSubmit({ preventDefault() {} } as FormEvent, "ok");
-                      }}
-                      autoComplete="off"
-                    />
-                    <p className="pdv-prod-count">{form.nome.length} / 200 Caracteres.</p>
-                  </div>
+                  <label htmlFor="pdv-prod-nome-loja">Nome na loja</label>
+                  <input
+                    id="pdv-prod-nome-loja"
+                    value={form.nomeLoja}
+                    maxLength={200}
+                    onChange={(event) => patch("nomeLoja", event.target.value)}
+                    autoComplete="off"
+                  />
                 </div>
 
                 <div className="pdv-prod-row">
@@ -561,7 +603,7 @@ export default function CadastrarProduto() {
                 <PlusField labelId={marcaId} label="Marca" addLabel="Cadastrar Marca" onAdd={() => setQuick("marca")}>
                   <SearchableSelect
                     value={form.marca}
-                    onChange={(marca) => patch("marca", marca || "Sem Marca")}
+                    onChange={(marca) => choose("marca", marca || "Sem Marca")}
                     options={brands}
                     labelledBy={marcaId}
                   />
@@ -575,7 +617,7 @@ export default function CadastrarProduto() {
                 >
                   <SearchableSelect
                     value={form.colecao}
-                    onChange={(colecao) => patch("colecao", colecao || "SEM COLEÇÃO")}
+                    onChange={(colecao) => choose("colecao", colecao || "SEM COLEÇÃO")}
                     options={collections}
                     labelledBy={colId}
                   />
@@ -584,7 +626,7 @@ export default function CadastrarProduto() {
                 <PlusField labelId={genId} label="Gênero" addLabel="Cadastrar Gênero" onAdd={() => setQuick("genero")}>
                   <SearchableSelect
                     value={form.genero}
-                    onChange={(genero) => patch("genero", genero || "SEM GÊNERO")}
+                    onChange={(genero) => choose("genero", genero || "SEM GÊNERO")}
                     options={genders}
                     labelledBy={genId}
                   />
@@ -598,7 +640,7 @@ export default function CadastrarProduto() {
                 >
                   <SearchableSelect
                     value={form.unidade}
-                    onChange={(unidade) => patch("unidade", unidade || "UN - UNIDADE")}
+                    onChange={(unidade) => choose("unidade", unidade || "UN - UNIDADE")}
                     options={units}
                     labelledBy={unId}
                   />
@@ -626,7 +668,7 @@ export default function CadastrarProduto() {
                     name="preco-uni"
                     value={form.precoUniversal}
                     options={["Sim", "Não"]}
-                    onChange={(precoUniversal) => patch("precoUniversal", precoUniversal)}
+                    onChange={(precoUniversal) => choose("precoUniversal", precoUniversal)}
                   />
                 </div>
 
@@ -639,7 +681,7 @@ export default function CadastrarProduto() {
                     name="vale"
                     value={form.valePresente}
                     options={["Sim", "Não"]}
-                    onChange={(valePresente) => patch("valePresente", valePresente)}
+                    onChange={(valePresente) => choose("valePresente", valePresente)}
                   />
                 </div>
 
@@ -651,8 +693,8 @@ export default function CadastrarProduto() {
                   <Radios
                     name="gerar-ref"
                     value={form.gerarRef}
-                    options={["Sim", "Não", "Em branco"]}
-                    onChange={(gerarRef) => patch("gerarRef", gerarRef)}
+                    options={["Sim", "Não"]}
+                    onChange={(gerarRef) => choose("gerarRef", gerarRef)}
                   />
                 </div>
 
@@ -665,7 +707,7 @@ export default function CadastrarProduto() {
                     name="barra-grade"
                     value={form.aplicarBarra}
                     options={["Sim", "Não"]}
-                    onChange={(aplicarBarra) => patch("aplicarBarra", aplicarBarra)}
+                    onChange={(aplicarBarra) => choose("aplicarBarra", aplicarBarra)}
                   />
                 </div>
               </section>
@@ -742,7 +784,7 @@ export default function CadastrarProduto() {
                       <span id={fornId}>Fornecedor</span>
                       <SearchableSelect
                         value={form.fornecedor}
-                        onChange={(fornecedor) => patch("fornecedor", fornecedor)}
+                        onChange={(fornecedor) => choose("fornecedor", fornecedor)}
                         options={suppliers}
                         emptyLabel="Nenhum selecionado"
                         labelledBy={fornId}
@@ -778,7 +820,15 @@ export default function CadastrarProduto() {
                   </Block>
                   <Collapsed title="Foto Principal" icon={<Camera size={16} aria-hidden="true" />}>
                     <div className="pdv-prod-photo-slots">
-                      <PhotoSlot id="pdv-prod-img1" file={photo1} onChange={setPhoto1} />
+                      <PhotoSlot
+                        id="pdv-prod-img1"
+                        file={photo1}
+                        onChange={(file) => {
+                          photoRef.current = file;
+                          setPhoto1(file);
+                          void saveIfDirty();
+                        }}
+                      />
                       <PhotoSlot id="pdv-prod-img2" file={photo2} onChange={setPhoto2} />
                     </div>
                   </Collapsed>
@@ -790,7 +840,7 @@ export default function CadastrarProduto() {
                       <span id={origemId}>Origem</span>
                       <SearchableSelect
                         value={form.origem}
-                        onChange={(origem) => patch("origem", origem || "BRASIL")}
+                        onChange={(origem) => choose("origem", origem || "BRASIL")}
                         options={PRODUCT_ORIGINS}
                         labelledBy={origemId}
                       />
@@ -924,76 +974,10 @@ export default function CadastrarProduto() {
                   {status}
                 </p>
               ) : null}
-
-              <div className="pdv-prod-cad-go">
-                <button className="pdv-cad-btn pdv-cad-btn-green" type="submit" disabled={busy}>
-                  <Plus size={16} strokeWidth={2.6} aria-hidden="true" />
-                  {busy ? "Salvando…" : editingId ? "Salvar" : "Cadastrar"}
-                </button>
-                <button
-                  className="pdv-cad-btn pdv-cad-btn-green"
-                  type="button"
-                  disabled={busy}
-                  onClick={(event) => onSubmit(event, "atualizar")}
-                >
-                  <Plus size={16} strokeWidth={2.6} aria-hidden="true" />
-                  Cadastrar e Atualizar
-                </button>
-                <button
-                  className="pdv-cad-btn pdv-cad-btn-green"
-                  type="button"
-                  disabled={busy}
-                  onClick={(event) => onSubmit(event, "novo")}
-                >
-                  <Plus size={16} strokeWidth={2.6} aria-hidden="true" />
-                  Cadastrar e realizar Novo Cadastro
-                </button>
-                <button
-                  className="pdv-cad-btn pdv-cad-btn-green"
-                  type="button"
-                  disabled={busy}
-                  onClick={(event) => onSubmit(event, "etiqueta")}
-                >
-                  <Plus size={16} strokeWidth={2.6} aria-hidden="true" />
-                  Cadastrar e Imprimir Etiqueta
-                </button>
-                <button
-                  className="pdv-cad-btn"
-                  type="button"
-                  disabled={busy || !editingId}
-                  onClick={() => setAskCopy(true)}
-                >
-                  Duplicar produto
-                </button>
-              </div>
             </form>
-        </div>
-      </section>
-      {askCopy ? (
-        <div className="pdv-caixa-confirm" onClick={() => setAskCopy(false)}>
-          <div className="pdv-caixa-confirm-card" role="dialog" aria-modal="true" aria-labelledby="pdv-dup-title" onClick={(event) => event.stopPropagation()}>
-            <h2 id="pdv-dup-title">Duplicar este produto?</h2>
-            <p>Depois da cópia é preciso trocar o nome. Sem isso o cadastro não conclui.</p>
-            <div className="pdv-caixa-confirm-actions">
-              <button className="pdv-cad-btn" type="button" onClick={() => setAskCopy(false)}>Cancelar</button>
-              <button
-                className="pdv-cad-btn"
-                type="button"
-                onClick={() => navigate("/client/produtos/cadastrar", { state: { duplicate: { ...form, estoque: "0" }, fromName: form.nome, copyPhotoFrom } })}
-              >
-                Sem estoque
-              </button>
-              <button
-                className="pdv-cad-btn pdv-cad-btn-green"
-                type="button"
-                onClick={() => navigate("/client/produtos/cadastrar", { state: { duplicate: form, fromName: form.nome, copyPhotoFrom } })}
-              >
-                Com estoque
-              </button>
-            </div>
           </div>
         </div>
-      ) : null}
+      </section>
 
       <CadastrarMarcaModal
         open={quick === "marca"}
@@ -1002,6 +986,7 @@ export default function CadastrarProduto() {
           void createCatalog("brand", { name }).catch(() => undefined);
           setBrands((current) => (current.includes(name) ? current : [...current, name]));
           patch("marca", name);
+          void saveIfDirty();
         }}
       />
       <CadastrarColecaoModal
@@ -1011,6 +996,7 @@ export default function CadastrarProduto() {
           void createCatalog("collection", { name }).catch(() => undefined);
           setCollections((current) => (current.includes(name) ? current : [...current, name]));
           patch("colecao", name);
+          void saveIfDirty();
         }}
       />
       <CadastrarGeneroModal
@@ -1019,6 +1005,7 @@ export default function CadastrarProduto() {
         onCreated={(name) => {
           setGenders((current) => (current.includes(name) ? current : [...current, name]));
           patch("genero", name);
+          void saveIfDirty();
         }}
       />
       <CadastrarUnidadeModal
@@ -1027,6 +1014,7 @@ export default function CadastrarProduto() {
         onCreated={(name) => {
           setUnits((current) => (current.includes(name) ? current : [...current, name]));
           patch("unidade", name);
+          void saveIfDirty();
         }}
       />
     </CadastroShell>

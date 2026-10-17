@@ -1,9 +1,10 @@
 import { ChangeEvent, FormEvent, Fragment, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ChevronRight, ImagePlus, Plus, RefreshCw, Search, X } from "lucide-react";
+import { ChevronRight, ImagePlus, RefreshCw, Search, X } from "lucide-react";
 import { api, parseError } from "../../../../services/api";
 import CadastroShell from "../CadastroShell";
 import { formatMoneyBr, parseMoneyBr, type PdvProduct, type PdvProductCategory } from "./types";
+import { useProductPhotoUrl } from "./GradePhotoThumb";
 
 export default function AlterarEstoque() {
   const { categoryId } = useParams();
@@ -151,7 +152,6 @@ function EstoqueProdutos({ categoryId }: { categoryId: string }) {
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState("");
   const [photoBusy, setPhotoBusy] = useState(false);
-  const [photoRemoteSrc, setPhotoRemoteSrc] = useState("");
   const [toast, setToast] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
@@ -201,30 +201,8 @@ function EstoqueProdutos({ categoryId }: { categoryId: string }) {
     return () => URL.revokeObjectURL(url);
   }, [photoFile]);
 
-  useEffect(() => {
-    let revoked = false;
-    let objectUrl = "";
-    setPhotoRemoteSrc("");
-    if (!photoProductId || photoFile) return;
-    const product = rows.find((item) => item.id === photoProductId);
-    if (!product?.photoFileId) return;
-
-    api
-      .get(`/clients/products/${photoProductId}/photo`, { responseType: "blob" })
-      .then((response) => {
-        if (revoked) return;
-        objectUrl = URL.createObjectURL(response.data);
-        setPhotoRemoteSrc(objectUrl);
-      })
-      .catch(() => {
-        if (!revoked) setPhotoRemoteSrc("");
-      });
-
-    return () => {
-      revoked = true;
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
-    };
-  }, [photoProductId, photoFile, rows]);
+  const remotePhotoId = photoFile ? "" : rows.find((item) => item.id === photoProductId)?.photoFileId;
+  const photoRemoteSrc = useProductPhotoUrl(remotePhotoId);
 
   const visible = useMemo(() => {
     const qCode = applied.code.trim();
@@ -314,14 +292,6 @@ function EstoqueProdutos({ categoryId }: { categoryId: string }) {
               onClick={() => navigate("/client/produtos/estoque")}
             >
               Voltar
-            </button>
-            <button
-              className="pdv-cad-btn pdv-cad-btn-green"
-              type="button"
-              onClick={() => navigate("/client/produtos/cadastrar")}
-            >
-              <Plus size={16} strokeWidth={2.4} aria-hidden="true" />
-              Cadastrar
             </button>
           </div>
           <p className="pdv-cad-kicker">{categoryName}</p>

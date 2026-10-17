@@ -176,7 +176,7 @@
 
 .pdv-brand {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 8px;
   min-width: 0;
   justify-self: start;
@@ -189,45 +189,117 @@
   align-items: center;
   justify-content: center;
   flex: 0 0 auto;
-  width: 11.75rem;
-  height: 2.75rem;
-  min-width: 11.75rem;
-  min-height: 2.75rem;
-  padding: 0;
+  width: auto;
+  height: 3.75rem;
+  min-width: 3.75rem;
+  max-width: 18rem;
+  min-height: 3.75rem;
+  padding: 4px 8px;
   overflow: hidden;
   gap: 0;
-  border: 1px solid #1e3a5f;
+  border: 1px solid #ddd4c6;
   border-radius: 8px;
-  background: #1e3a5f !important;
-  background-color: #1e3a5f !important;
-  color: #fff !important;
-  -webkit-text-fill-color: #fff !important;
+  background: #fff !important;
+  background-color: #fff !important;
+  color: #1a1511 !important;
+  -webkit-text-fill-color: #1a1511 !important;
 }
 
 .pdv-root .pdv-header button.pdv-store-logo[type="button"][data-has-logo="true"] {
-  background: #1a1511 !important;
-  background-color: #1a1511 !important;
-  border-color: #1a1511;
+  width: 15rem;
+  height: 7.25rem;
+  min-width: 15rem;
+  max-width: 15rem;
+  min-height: 7.25rem;
+  padding: 8px 10px;
+  border-radius: 18px;
+  background: #fff !important;
+  background-color: #fff !important;
+  border-color: #ddd4c6;
 }
 
 .pdv-root .pdv-header button.pdv-store-logo[type="button"] img,
 .pdv-root .pdv-header button.pdv-store-logo[type="button"] .pdv-store-logo-img {
-  position: absolute;
-  inset: 0;
+  position: static;
   display: block;
-  width: 100% !important;
-  height: 100% !important;
-  max-width: none !important;
-  max-height: none !important;
+  width: auto !important;
+  height: auto !important;
+  max-width: calc(15rem - 20px) !important;
+  max-height: calc(7.25rem - 16px) !important;
   margin: 0;
   padding: 0;
-  object-fit: cover !important;
+  object-fit: contain !important;
   object-position: center center;
   background: transparent !important;
   background-color: transparent !important;
   border: 0;
   border-radius: 0;
   pointer-events: none;
+}
+
+.pdv-logo-wrap {
+  position: relative;
+  display: inline-flex;
+  flex: 0 0 auto;
+}
+
+.pdv-root .pdv-header button.pdv-logo-edit[type="button"] {
+  position: absolute;
+  left: 50%;
+  bottom: 8px;
+  z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: max-content;
+  min-height: 0;
+  padding: 3px 8px;
+  border: 1px solid #1a1511;
+  border-radius: 3px;
+  background: #fff !important;
+  background-color: #fff !important;
+  color: #1a1511 !important;
+  -webkit-text-fill-color: #1a1511 !important;
+  box-shadow: 0 1px 2px rgba(26, 21, 17, 0.28);
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
+  transform: translateX(-50%);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.pdv-root .pdv-header .pdv-logo-wrap:hover button.pdv-logo-edit[type="button"],
+.pdv-root .pdv-header .pdv-logo-wrap:focus-within button.pdv-logo-edit[type="button"] {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.pdv-root .pdv-header button.pdv-logo-add[type="button"] {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 1.7rem;
+  height: 1.7rem;
+  min-width: 1.7rem;
+  min-height: 1.7rem;
+  padding: 0;
+  border: 1px solid #1e3a5f;
+  border-radius: 0.85rem;
+  background: #fff !important;
+  background-color: #fff !important;
+  color: #1e3a5f !important;
+  -webkit-text-fill-color: #1e3a5f !important;
+}
+
+.pdv-root .pdv-header button.pdv-logo-add[type="button"]:hover,
+.pdv-root .pdv-header button.pdv-logo-add[type="button"]:focus-visible {
+  background: #1e3a5f !important;
+  background-color: #1e3a5f !important;
+  color: #fff !important;
+  -webkit-text-fill-color: #fff !important;
 }
 
 .pdv-root .pdv-header button.pdv-store-logo[type="button"] .pdv-store-logo-text {
@@ -268,8 +340,8 @@
   filter: brightness(1.05);
 }
 
-.pdv-tip:has(button.pdv-store-logo[data-has-logo="true"]) > .pdv-tip-bubble {
-  display: none;
+.pdv-root[data-layout="premium"] .pdv-header button.pdv-logo-add[type="button"] {
+  border-radius: 0.85rem;
 }
 
 .pdv-search {
@@ -335,6 +407,59 @@
 .pdv-search-input {
   width: 100%;
   padding-left: 34px;
+}
+
+.pdv-search-results {
+  position: absolute;
+  z-index: 40;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  padding: 6px;
+  background: var(--sheet);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  box-shadow: 0 12px 32px rgba(26, 21, 17, 0.08);
+  max-height: 320px;
+  overflow: auto;
+}
+
+.pdv-search-results ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pdv-search-hit {
+  display: grid;
+  width: 100%;
+  gap: 2px;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.pdv-search-hit strong {
+  font-weight: 700;
+}
+
+.pdv-search-hit small {
+  color: var(--ink-soft);
+  font-size: 0.75rem;
+}
+
+.pdv-search-hit:hover {
+  background: var(--paper);
+}
+
+.pdv-search-empty {
+  margin: 0;
+  padding: 10px;
+  color: var(--ink-soft);
+  font-size: 0.9rem;
 }
 
 .pdv-icons {
@@ -1970,6 +2095,46 @@
   overflow: auto;
 }
 
+.pdv-root button.pdv-jump {
+  position: fixed;
+  right: 14px;
+  z-index: 35;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 1px solid #c5d0dc;
+  border-radius: 999px;
+  background: #eef3f8 !important;
+  background-color: #eef3f8 !important;
+  color: #1565c0 !important;
+  -webkit-text-fill-color: #1565c0 !important;
+  box-shadow: 0 2px 8px rgba(26, 21, 17, 0.14);
+  cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 160ms ease;
+}
+
+.pdv-root button.pdv-jump.is-on {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.pdv-root button.pdv-jump.is-soft {
+  opacity: 0.32;
+  pointer-events: auto;
+}
+
+.pdv-root button.pdv-jump-up {
+  bottom: 16px;
+}
+
+.pdv-root button.pdv-jump svg {
+  color: #1565c0 !important;
+}
+
 .pdv-caixa-page {
   display: flex;
   flex-direction: column;
@@ -1979,10 +2144,10 @@
 }
 
 .pdv-caixa-sheet {
-  background: #fff;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  padding: 16px 18px 20px;
+  background: #fffdf8;
+  border: 1px solid #ddd4c6;
+  border-radius: 28px;
+  padding: 22px 22px 24px;
   overflow: visible;
   isolation: isolate;
 }
@@ -2007,6 +2172,7 @@
 .pdv-caixa-head h1 {
   font-size: 1.28rem;
   line-height: 1.2;
+  color: #1a1511;
 }
 
 .pdv-caixa-kicker {
@@ -2029,10 +2195,26 @@
 .pdv-caixa-row > label {
   flex: 0 0 auto;
   margin: 0;
+  color: #1a1511;
   font-size: 0.78rem;
   font-weight: 800;
   letter-spacing: 0.05em;
   white-space: nowrap;
+}
+
+.pdv-caixa-row > input {
+  flex: 1 1 16rem;
+  max-width: 36rem;
+  min-width: min(100%, 16rem);
+  min-height: 42px;
+  padding: 0 12px;
+  border: 1px solid #8a8378;
+  border-radius: 12px;
+  background: #fffdf8;
+  color: #1a1511;
+  font: inherit;
+  font-size: 0.95rem;
+  font-weight: 600;
 }
 
 .pdv-caixa-combo {
@@ -2048,18 +2230,22 @@
   z-index: 40;
 }
 
+.pdv-caixa-row:has(.pdv-caixa-combo[data-open="true"]) {
+  z-index: 40;
+}
+
 .pdv-caixa-trigger {
   display: inline-flex;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
   width: 100%;
-  min-height: 40px;
-  padding: 0 10px 0 12px;
+  min-height: 42px;
+  padding: 0 12px;
   border: 1px solid #8a8378;
-  border-radius: 2px;
-  background: #fff !important;
-  background-color: #fff !important;
+  border-radius: 12px;
+  background: #fffdf8 !important;
+  background-color: #fffdf8 !important;
   color: #111 !important;
   -webkit-text-fill-color: #111 !important;
   font: inherit;
@@ -2076,14 +2262,17 @@
 
 .pdv-caixa-panel-list {
   position: absolute;
-  top: calc(100% + 2px);
+  top: calc(100% + 6px);
   left: 0;
   z-index: 40;
   width: 100%;
   min-width: 16rem;
-  background: #fff;
-  border: 1px solid #8a8378;
-  box-shadow: 0 6px 16px rgba(28, 24, 20, 0.16);
+  padding: 6px 0;
+  background: #fffdf8;
+  border: 1px solid #ddd4c6;
+  border-radius: 16px;
+  box-shadow: 0 12px 32px rgba(26, 21, 17, 0.08);
+  overflow: hidden;
 }
 
 .pdv-caixa-filter {
@@ -2091,9 +2280,10 @@
   align-items: center;
   gap: 8px;
   margin: 6px;
-  padding: 0 8px;
-  border: 1px solid #c5c5c5;
-  background: #fff;
+  padding: 0 10px;
+  border: 1px solid #ddd4c6;
+  border-radius: 12px;
+  background: #f4f1ea;
   position: relative;
   z-index: 1;
 }
@@ -2134,15 +2324,16 @@
 .pdv-caixa-option {
   display: flex;
   align-items: center;
-  width: 100%;
-  min-height: 34px;
+  width: calc(100% - 12px);
+  min-height: 36px;
+  margin: 0 6px;
   padding: 0 12px;
   border: 0;
-  border-radius: 0;
-  background: #fff !important;
-  background-color: #fff !important;
-  color: #111 !important;
-  -webkit-text-fill-color: #111 !important;
+  border-radius: 10px;
+  background: transparent !important;
+  background-color: transparent !important;
+  color: #1a1511 !important;
+  -webkit-text-fill-color: #1a1511 !important;
   font: inherit;
   font-size: 0.92rem;
   font-weight: 600;
@@ -2156,10 +2347,10 @@
 .pdv-root[data-surface="cream"] .pdv-main button.pdv-caixa-option:hover,
 .pdv-root[data-surface="cream"] .pdv-main button.pdv-caixa-option:focus-visible,
 .pdv-root[data-surface="cream"] .pdv-main button.pdv-caixa-option[aria-selected="true"] {
-  background: #1d6fd8 !important;
-  background-color: #1d6fd8 !important;
-  color: #fff !important;
-  -webkit-text-fill-color: #fff !important;
+  background: #f4f1ea !important;
+  background-color: #f4f1ea !important;
+  color: #1a1511 !important;
+  -webkit-text-fill-color: #1a1511 !important;
   outline: none;
 }
 
@@ -2183,17 +2374,28 @@
   justify-content: center;
   gap: 8px;
   min-height: 40px;
-  padding: 0 14px;
-  border: 1px solid #2a241e;
+  padding: 0 16px;
+  border: 1px solid #c5c5c5;
   border-radius: 3px;
-  background: #ececec !important;
-  background-color: #ececec !important;
-  color: #111 !important;
-  -webkit-text-fill-color: #111 !important;
+  background: #fff !important;
+  background-color: #fff !important;
+  color: #1a1511 !important;
+  -webkit-text-fill-color: #1a1511 !important;
   font: inherit;
   font-size: 0.92rem;
   font-weight: 700;
   cursor: pointer;
+}
+
+.pdv-caixa-page .pdv-wm-btn {
+  border-radius: 999px;
+}
+
+.pdv-caixa-page .pdv-wm-btn:hover,
+.pdv-caixa-page .pdv-wm-btn:focus-visible {
+  background: #f4f1ea !important;
+  background-color: #f4f1ea !important;
+  outline: none;
 }
 
 .pdv-wm-btn svg {
@@ -2205,14 +2407,91 @@
   background: #e0e0e0;
 }
 
+.pdv-caixa-store {
+  margin-top: 18px;
+  padding: 16px;
+  border: 1px solid #ddd4c6;
+  border-radius: 22px;
+  background: #f4f1ea;
+}
+
+.pdv-caixa-store h2 {
+  margin: 0 0 12px;
+  color: #1a1511;
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.pdv-caixa-create {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.pdv-caixa-create input {
+  flex: 1 1 12rem;
+  min-width: min(100%, 12rem);
+  min-height: 42px;
+  padding: 0 12px;
+  border: 1px solid #8a8378;
+  border-radius: 12px;
+  background: #fffdf8;
+  color: #1a1511;
+  font: inherit;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.pdv-caixa-store-list {
+  overflow: auto;
+  border: 1px solid #ddd4c6;
+  border-radius: 16px;
+  background: #fffdf8;
+}
+
+.pdv-caixa-store-list table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.92rem;
+}
+
+.pdv-caixa-store-list th,
+.pdv-caixa-store-list td {
+  padding: 8px 12px;
+  border-bottom: 1px solid #ece6db;
+  text-align: left;
+}
+
+.pdv-caixa-store-list th {
+  background: #f4f1ea;
+  color: #1a1511;
+  font-weight: 700;
+}
+
+.pdv-caixa-store-list tbody tr:nth-child(even) {
+  background: #f4f1ea;
+}
+
+.pdv-caixa-store-list tbody tr:hover {
+  background: #b3e5fc;
+}
+
 .pdv-caixa-notice {
   margin: 12px 0 0;
   font-weight: 600;
 }
 
 .pdv-caixa-foot {
+  align-self: flex-start;
   margin: 0;
-  padding: 4px 2px 0;
+  padding: 8px 14px;
+  border: 1px solid #ddd4c6;
+  border-radius: 999px;
+  background: #fffdf8;
+  color: #1a1511;
   font-size: 0.95rem;
 }
 
@@ -2529,7 +2808,23 @@
 }
 
 .pdv-root[data-layout="premium"] .pdv-header button.pdv-store-logo[type="button"] {
-  border-radius: 0.85rem;
+  border-radius: 18px;
+}
+
+@media (max-width: 719px) {
+  .pdv-root .pdv-header button.pdv-store-logo[type="button"][data-has-logo="true"] {
+    width: 11rem;
+    min-width: 11rem;
+    max-width: 11rem;
+    height: 5.5rem;
+    min-height: 5.5rem;
+  }
+
+  .pdv-root .pdv-header button.pdv-store-logo[type="button"][data-has-logo="true"] img,
+  .pdv-root .pdv-header button.pdv-store-logo[type="button"][data-has-logo="true"] .pdv-store-logo-img {
+    max-width: calc(11rem - 20px) !important;
+    max-height: calc(5.5rem - 16px) !important;
+  }
 }
 
 .pdv-root[data-layout="premium"] .pdv-header {

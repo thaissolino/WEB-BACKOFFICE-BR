@@ -1,12 +1,12 @@
-import { createContext, FormEvent, ReactNode, useContext, useEffect, useRef, useState } from "react";
+import { createContext, FormEvent, ReactNode, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
   ChevronDown,
   Headphones,
   Home,
-  ImagePlus,
   LogOut,
+  Image,
   Menu,
   Search,
   Settings,
@@ -14,8 +14,9 @@ import {
   UserRound,
 } from "lucide-react";
 import { useClientAuth } from "../../../hooks/clientAuth";
+import { PageJumps } from "./PageJumps";
 import { api } from "../../../services/api";
-import { usePdvLayoutMode, type PdvLayoutMode } from "../../../store/pdvLayoutMode";
+import { usePdvLayoutMode } from "../../../store/pdvLayoutMode";
 import { CAIXA_STORAGE_KEY, NENHUM_CAIXA, STORE_STORAGE_KEY, toStoreOption, type StoreOption } from "./mockData";
 import MenuBar from "./MenuBar";
 import ClassicDrawer from "./ClassicDrawer";
@@ -29,6 +30,7 @@ import {
   normalizePdvUiConfig,
   type PdvUiConfig,
 } from "./pdvUiConfig";
+import { openMenuHref, searchMenus } from "./menuData";
 import "./dashboard.css";
 import "./dashboard-classic.css";
 import "./pdv-modals.css";
@@ -73,33 +75,6 @@ export function PdvLoading() {
 function readStoredStoreId() {
   if (typeof sessionStorage === "undefined") return "";
   return sessionStorage.getItem(STORE_STORAGE_KEY) || "";
-}
-
-/** Toggle TEMPORÁRIO de layout (Clássico/Premium) — remover ao definir o layout final. */
-function LayoutModeToggle() {
-  const mode = usePdvLayoutMode((state) => state.mode);
-  const setMode = usePdvLayoutMode((state) => state.setMode);
-
-  const options: { value: PdvLayoutMode; label: string }[] = [
-    { value: "classic", label: "Clássico" },
-    { value: "premium", label: "Premium" },
-  ];
-
-  return (
-    <div className="pdv-layout-toggle" role="group" aria-label="Estilo do painel">
-      {options.map((option) => (
-        <button
-          key={option.value}
-          type="button"
-          aria-pressed={mode === option.value}
-          title={`Usar layout ${option.label}`}
-          onClick={() => setMode(option.value)}
-        >
-          {option.label}
-        </button>
-      ))}
-    </div>
-  );
 }
 
 function StoreCluster({
@@ -185,6 +160,8 @@ function StoreCluster({
   );
 }
 
+export { PageJumps } from "./PageJumps";
+
 export default function PdvShell({
   children,
   onClosePanels,
@@ -204,6 +181,9 @@ export default function PdvShell({
   const navigate = useNavigate();
   const location = useLocation();
   const [query, setQuery] = useState("");
+  const [searchOpen, setSearchOpen] = useState(false);
+  const searchRef = useRef<HTMLFormElement>(null);
+  const menuHits = useMemo(() => searchMenus(query), [query]);
   const [storeId, setStoreId] = useState(readStoredStoreId);
   const [stores, setStores] = useState<StoreOption[]>([]);
   const [pendingStoreId, setPendingStoreId] = useState<string | null>(null);
@@ -354,9 +334,39 @@ export default function PdvShell({
     window.scrollTo(0, 0);
   }
 
+  function onLogoClick() {
+    setQuery("");
+    closePanels();
+    onHome?.();
+    if (location.pathname !== "/client/dashboard") {
+      navigate("/client/dashboard");
+      return;
+    }
+    window.location.reload();
+  }
+
   function onSearch(event: FormEvent) {
     event.preventDefault();
+    const first = menuHits[0];
+    if (!first) return;
+    setQuery("");
+    setSearchOpen(false);
+    openMenuHref(first.href, navigate);
   }
+
+  function openMenuHit(href: string) {
+    setQuery("");
+    setSearchOpen(false);
+    openMenuHref(href, navigate);
+  }
+
+  useEffect(() => {
+    function onPointer(event: MouseEvent) {
+      if (!searchRef.current?.contains(event.target as Node)) setSearchOpen(false);
+    }
+    document.addEventListener("mousedown", onPointer);
+    return () => document.removeEventListener("mousedown", onPointer);
+  }, []);
 
   function requestStoreChange(nextId: string) {
     if (nextId === storeId) return;
@@ -421,24 +431,29 @@ export default function PdvShell({
                 </button>
               </PdvTip>
             ) : null}
-            <PdvTip label="Página inicial">
+            <div className="pdv-logo-wrap">
               <button
                 className="pdv-store-logo"
                 type="button"
-                aria-label="Voltar à página inicial"
+                aria-label={onDashboard ? "Recarregar painel" : "Voltar ao painel"}
                 data-has-logo={logoSrc ? "true" : undefined}
-                onClick={handleHome}
+                onClick={onLogoClick}
               >
-                {logoSrc ? (
-                  <img className="pdv-store-logo-img" src={logoSrc} alt="" />
-                ) : (
-                  <ImagePlus size={20} strokeWidth={2.2} aria-hidden="true" />
-                )}
-                <span className="pdv-store-logo-text" aria-hidden={logoSrc ? true : undefined}>
-                  Logo da loja
-                </span>
+                {logoSrc ? <img className="pdv-store-logo-img" src={logoSrc} alt="" /> : null}
               </button>
-            </PdvTip>
+              <button
+                className="pdv-logo-edit"
+                type="button"
+                aria-label="Alterar logo da loja"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setChromeModal("logo");
+                }}
+              >
+                <Image size={14} strokeWidth={2.2} aria-hidden="true" />
+                Alterar logo da loja
+              </button>
+            </div>
             {isClassic ? (
               <StoreCluster
                 stores={stores}
@@ -447,14 +462,10 @@ export default function PdvShell({
                 onHome={handleHome}
                 home={false}
               />
-            ) : (
-              <button className="pdv-catalog" type="button" onClick={() => navigate("/client/produtos")}>
-                CATÁLOGO DE PRODUTOS
-              </button>
-            )}
+            ) : null}
           </div>
 
-          <form className="pdv-search" onSubmit={onSearch} role="search">
+          <form className="pdv-search" onSubmit={onSearch} role="search" ref={searchRef}>
             <div className="pdv-search-head">
               <label htmlFor="pdv-q">Pesquisa de Menu</label>
               <kbd className="pdv-search-kbd">F1</kbd>
@@ -465,12 +476,36 @@ export default function PdvShell({
                 id="pdv-q"
                 className="pdv-search-input"
                 value={query}
-                onChange={(event) => setQuery(event.target.value)}
+                onChange={(event) => {
+                  setQuery(event.target.value);
+                  setSearchOpen(true);
+                }}
+                onFocus={() => setSearchOpen(true)}
                 type="search"
                 autoComplete="off"
                 aria-keyshortcuts="F1"
+                aria-expanded={searchOpen && query.trim() ? true : undefined}
+                aria-controls="pdv-menu-results"
                 placeholder={isClassic ? "Pesquisar no menu (F1)" : undefined}
               />
+              {searchOpen && query.trim() ? (
+                <div className="pdv-search-results" id="pdv-menu-results">
+                  {menuHits.length === 0 ? (
+                    <p className="pdv-search-empty">Nada encontrado no menu.</p>
+                  ) : (
+                    <ul>
+                      {menuHits.map((hit) => (
+                        <li key={hit.id}>
+                          <button type="button" className="pdv-search-hit" onClick={() => openMenuHit(hit.href)}>
+                            <strong>{hit.label}</strong>
+                            {hit.trail ? <small>{hit.trail}</small> : null}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              ) : null}
             </div>
           </form>
 
@@ -481,7 +516,6 @@ export default function PdvShell({
                 Voltar
               </button>
             )}
-            <LayoutModeToggle />
             <PdvTip label="Voltar ao painel">
               <button
                 className="pdv-ico pdv-ico-home"
@@ -590,6 +624,7 @@ export default function PdvShell({
         >
           {children}
         </main>
+        <PageJumps />
 
         <ClassicDrawer
           open={isClassic && drawerOpen}

@@ -4,7 +4,8 @@ import { Folder } from "lucide-react";
 import CadastroShell from "../CadastroShell";
 import "../cadastros.css";
 import { createCatalog, getCatalog, updateCatalog } from "../catalog/catalogApi";
-import { parseError } from "../../../../services/api";
+import { api, parseError } from "../../../../services/api";
+import { CategoryCoverThumb } from "./categoryCover";
 import { categoryFromCatalog, categoryPaths, slugifyCategory, type ProductCategory } from "./categoryModel";
 import { CATEGORY_TYPE_OPTIONS, GRADE_OPTIONS } from "./productOptions";
 
@@ -33,6 +34,8 @@ export default function CadastrarCategoria() {
   const [editing, setEditing] = useState<ProductCategory | null>(null);
   const [parent, setParent] = useState<ProductCategory | null>(null);
   const [form, setForm] = useState(EMPTY);
+  const [coverFile, setCoverFile] = useState<File | null>(null);
+  const [coverPreview, setCoverPreview] = useState("");
   const [status, setStatus] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -101,17 +104,20 @@ export default function CadastrarCategoria() {
     };
     setSaving(true);
     try {
-      if (editing) {
-        await updateCatalog("product_category", editing.code, {
+      const saved = editing
+        ? await updateCatalog("product_category", editing.code, {
           name: form.name.trim(),
           payload,
           active: editing.active,
-        });
-      } else {
-        await createCatalog("product_category", {
+        })
+        : await createCatalog("product_category", {
           name: form.name.trim(),
           payload,
         });
+      if (coverFile && saved?.code) {
+        const body = new FormData();
+        body.append("file", coverFile);
+        await api.post(`/clients/catalog/product_category/${saved.code}/cover`, body);
       }
       navigate(paths.list);
     } catch (err) {
@@ -122,7 +128,7 @@ export default function CadastrarCategoria() {
   }
 
   const page = (
-      <section className="pdv-cad-page" aria-labelledby="pdv-cat-form-title">
+      <section className="pdv-cad-page pdv-cat-page" aria-labelledby="pdv-cat-form-title">
         <div className="pdv-cad-sheet">
           <h1 id="pdv-cat-form-title">{title}</h1>
           <button
@@ -151,6 +157,32 @@ export default function CadastrarCategoria() {
                 autoComplete="off"
                 required
               />
+            </div>
+
+            <div className="pdv-cad-form-row pdv-cad-form-row-top">
+              <span className="pdv-cad-form-label">Foto da capa</span>
+              <div className="pdv-cat-form-cover">
+                <label className="pdv-cat-cover pdv-cat-cover-lg">
+                  {coverPreview ? (
+                    <span className="pdv-cat-cover-preview">
+                      <img src={coverPreview} alt="" />
+                    </span>
+                  ) : (
+                    <CategoryCoverThumb code={editing?.code || 0} coverFileId={editing?.coverFileId || null} empty="Escolher foto" />
+                  )}
+                  <input
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp,image/gif"
+                    aria-label="Foto da capa da categoria"
+                    onChange={(event) => {
+                      const file = event.target.files?.[0] || null;
+                      setCoverFile(file);
+                      setCoverPreview(file ? URL.createObjectURL(file) : "");
+                    }}
+                  />
+                </label>
+                <p className="pdv-cad-hint">Essa foto aparece na capa da categoria para o cliente.</p>
+              </div>
             </div>
 
             <div className="pdv-cad-form-row pdv-cad-form-row-top">

@@ -3,8 +3,10 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { Eraser, Eye, FolderPlus, Pencil, Plus, Search, X } from "lucide-react";
 import CadastroShell from "../CadastroShell";
 import "../cadastros.css";
+import "../../../gestor/gestao-pages.css";
 import { listCatalog, updateCatalog } from "../catalog/catalogApi";
-import { parseError } from "../../../../services/api";
+import { api, parseError } from "../../../../services/api";
+import { CategoryCoverThumb } from "./categoryCover";
 import {
   categoryDepth,
   categoryFromCatalog,
@@ -17,7 +19,7 @@ export default function ListarCategorias({ inactive = false }: { inactive?: bool
   const navigate = useNavigate();
   const location = useLocation();
   const paths = categoryPaths(location.pathname);
-  const isInactive = inactive || location.pathname.endsWith("/inativas");
+  const [showInactive, setShowInactive] = useState(inactive || location.pathname.endsWith("/inativas"));
   const [draft, setDraft] = useState({ code: "", name: "" });
   const [applied, setApplied] = useState(draft);
   const [selected, setSelected] = useState<Record<string, boolean>>({});
@@ -42,7 +44,7 @@ export default function ListarCategorias({ inactive = false }: { inactive?: bool
   }, []);
 
   const rows = useMemo(() => {
-    const base = all.filter((item) => item.active === !isInactive);
+    const base = all.filter((item) => item.active === !showInactive);
     const code = applied.code.replace(/\D/g, "");
     const name = applied.name.trim().toLowerCase();
     const filtered = base.filter((item) => {
@@ -51,7 +53,7 @@ export default function ListarCategorias({ inactive = false }: { inactive?: bool
       return true;
     });
     return sortCategoryTree(filtered);
-  }, [all, applied, isInactive]);
+  }, [all, applied, showInactive]);
 
   const allSelected = rows.length > 0 && rows.every((item) => selected[item.id]);
 
@@ -68,6 +70,20 @@ export default function ListarCategorias({ inactive = false }: { inactive?: bool
     setSelected(next);
   }
 
+  async function onCover(item: ProductCategory, file: File | undefined) {
+    if (!file) return;
+    const body = new FormData();
+    body.append("file", file);
+    try {
+      const { data } = await api.post(`/clients/catalog/product_category/${item.code}/cover`, body);
+      const coverFileId = String(data?.coverFileId || "");
+      setAll((current) => current.map((row) => (row.code === item.code ? { ...row, coverFileId } : row)));
+      setToast("Foto da capa salva.");
+    } catch (err) {
+      setError(parseError(err).friend || "Não foi possível enviar a foto.");
+    }
+  }
+
   async function toggleSelectedActive() {
     const picked = rows.filter((item) => selected[item.id]);
     if (!picked.length) {
@@ -76,10 +92,10 @@ export default function ListarCategorias({ inactive = false }: { inactive?: bool
     }
     try {
       await Promise.all(
-        picked.map((item) => updateCatalog("product_category", item.code, { active: isInactive })),
+        picked.map((item) => updateCatalog("product_category", item.code, { active: showInactive })),
       );
       setSelected({});
-      setToast(isInactive ? "Categorias ativadas." : "Categorias inativadas.");
+      setToast(showInactive ? "Categorias ativadas." : "Categorias inativadas.");
       load();
     } catch (err) {
       setError(parseError(err).friend || "Não foi possível atualizar.");
@@ -87,11 +103,21 @@ export default function ListarCategorias({ inactive = false }: { inactive?: bool
   }
 
   const page = (
-      <section className="pdv-cad-page" aria-labelledby="pdv-cat-title">
+      <section className="pdv-cad-page pdv-cat-page" aria-labelledby="pdv-cat-title">
         <div className="pdv-cad-sheet">
           <h1 id="pdv-cat-title">CATEGORIAS</h1>
           {error ? <p className="pdv-cad-error">{error}</p> : null}
           <div className="pdv-cad-actions">
+            <button
+              className="pdv-cad-btn pdv-cad-btn-ghost"
+              type="button"
+              onClick={() => {
+                setShowInactive((current) => !current);
+                setSelected({});
+              }}
+            >
+              {showInactive ? "Mostrar ativas" : "Mostrar inativas"}
+            </button>
             <button
               className="pdv-cad-btn pdv-cad-btn-green"
               type="button"
@@ -107,23 +133,6 @@ export default function ListarCategorias({ inactive = false }: { inactive?: bool
             >
               Reajuste
             </button>
-            {isInactive ? (
-              <button
-                className="pdv-cad-btn pdv-cad-btn-green"
-                type="button"
-                onClick={() => navigate(paths.list)}
-              >
-                Categorias Ativas
-              </button>
-            ) : (
-              <button
-                className="pdv-cad-btn pdv-cad-btn-red"
-                type="button"
-                onClick={() => navigate(paths.inactive)}
-              >
-                Categorias Inativas
-              </button>
-            )}
           </div>
 
           <form className="pdv-cad-filters pdv-cad-filters-cat" onSubmit={onFilter}>
@@ -164,10 +173,11 @@ export default function ListarCategorias({ inactive = false }: { inactive?: bool
             </div>
           </form>
 
-          <div className="pdv-cad-table-wrap">
+          <div className="pdv-cad-table-wrap iv-linhas">
             <table className="pdv-cad-table">
               <thead>
                 <tr>
+                  <th>Capa</th>
                   <th>Cod. Categoria</th>
                   <th>Categoria</th>
                   <th>Grade</th>
@@ -190,6 +200,21 @@ export default function ListarCategorias({ inactive = false }: { inactive?: bool
                   const depth = categoryDepth(item, all);
                   return (
                     <tr key={item.id}>
+                      <td>
+                        <label className="pdv-cat-cover">
+                          <CategoryCoverThumb code={item.code} coverFileId={item.coverFileId} />
+                          <input
+                            type="file"
+                            accept="image/png,image/jpeg,image/webp,image/gif"
+                            aria-label={`Foto da capa de ${item.name}`}
+                            onChange={(event) => {
+                              const file = event.target.files?.[0];
+                              event.target.value = "";
+                              void onCover(item, file);
+                            }}
+                          />
+                        </label>
+                      </td>
                       <td>{item.code}</td>
                       <td>
                         <span className="pdv-cad-tree-name" style={{ paddingLeft: depth * 16 }}>
@@ -252,7 +277,7 @@ export default function ListarCategorias({ inactive = false }: { inactive?: bool
           <div className="pdv-cad-toolbar">
             <button className="pdv-cad-btn pdv-cad-btn-red" type="button" onClick={() => void toggleSelectedActive()}>
               <X size={16} strokeWidth={2.4} aria-hidden="true" />
-              {isInactive ? "Ativar" : "Inativar"}
+              {showInactive ? "Ativar" : "Inativar"}
             </button>
           </div>
           <p className="pdv-sr" aria-live="polite">

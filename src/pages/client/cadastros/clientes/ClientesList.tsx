@@ -133,7 +133,7 @@ export default function ClientesList({ inactive = false }: { inactive?: boolean 
 
   return (
     <CadastroShell>
-      <section className="pdv-cad-page" aria-labelledby="pdv-cad-clientes-title">
+      <section className="pdv-cad-page pdv-cli-page" aria-labelledby="pdv-cad-clientes-title">
         <div className="pdv-cad-sheet">
           <h1 id="pdv-cad-clientes-title">CLIENTES</h1>
           <div className="pdv-cad-actions">

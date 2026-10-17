@@ -70,6 +70,7 @@ import GestorCadastroProdutos from "../pages/stores/GestorCadastroProdutos";
 import GestorCadastroFornecedores from "../pages/gestor/GestorCadastroFornecedores";
 import GestorCadastroFreteiros from "../pages/gestor/GestorCadastroFreteiros";
 import GestorCadastroLojistas from "../pages/gestor/GestorCadastroLojistas";
+import TabelasPreco from "../pages/gestor/TabelasPreco";
 import GestorCadastroPlanos from "../pages/gestor/GestorCadastroPlanos";
 import GestorEstoqueAtacado from "../pages/gestor/GestorEstoqueAtacado";
 import GestorVendasConcluidas from "../pages/gestor/GestorVendasConcluidas";
@@ -290,11 +291,13 @@ export function Router() {
           <Route path="create-form-room" element={<FormRoom />} />
           <Route path="create-form-user" element={<FormUser />} />
           <Route path="cambioPage" element={<CambioPage />} />
+          <Route path="gestao/cadastro/tabelas-preco" element={<TabelasPreco />} />
           <Route path="gestao/cadastro" element={<InvocesManagement area="cadastro" />} />
           <Route path="gestao/cadastro/categorias/inativas" element={<ListarCategorias inactive />} />
           <Route path="gestao/cadastro/categorias/cadastrar" element={<CadastrarCategoria />} />
           <Route path="gestao/cadastro/categorias/reajuste" element={<ReajusteCategoria />} />
           <Route path="gestao/cadastro/categorias" element={<ListarCategorias />} />
+          <Route path="gestao/cadastro/produtos/lotes" element={<LotePage />} />
           <Route path="gestao/cadastro/financeiro/formas-pagamento/cadastrar" element={<FormaPagamentoForm />} />
           <Route path="gestao/cadastro/financeiro/formas-pagamento/inativos" element={<PayList inactive />} />
           <Route path="gestao/cadastro/financeiro/formas-pagamento" element={<PayList />} />

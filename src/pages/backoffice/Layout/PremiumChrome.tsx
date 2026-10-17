@@ -25,6 +25,7 @@ import { ModesPopover } from "../../../components/ui-mode/ModesPopover";
 import { LEGACY_GROUP_LABEL, useBackofficeNavItems, type BackofficeNavChild } from "../../../store/useBackofficeNavItems";
 import { api } from "../../../services/api";
 import "./premium-chrome.css";
+import { PageJumps } from "../../client/dashboard/PageJumps";
 
 const NAV_ICONS: Record<string, LucideIcon> = {
   "gestao-cadastro": FilePenLine,
@@ -283,6 +284,7 @@ export function PremiumChrome() {
             </div>
           </header>
           <Outlet />
+          <PageJumps />
         </div>
       </div>
 

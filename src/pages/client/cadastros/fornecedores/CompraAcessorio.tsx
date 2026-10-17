@@ -99,9 +99,6 @@ export default function CompraAcessorio() {
               <Plus size={14} aria-hidden="true" /> Cadastrar Categoria
             </button>
             <button className="pdv-cad-btn pdv-cad-btn-ghost" type="button">
-              <Plus size={14} aria-hidden="true" /> Cadastrar Produto
-            </button>
-            <button className="pdv-cad-btn pdv-cad-btn-ghost" type="button">
               <Check size={14} aria-hidden="true" /> Vincular XML
             </button>
             <button className="pdv-cad-btn pdv-cad-btn-ghost" type="button">

@@ -592,13 +592,13 @@ export default function GestorVendasConcluidas() {
             key={key}
             type="button"
             onClick={() => setLane(key)}
-            className={`rounded-lg border px-4 py-3 text-left ${tone} ${lane === key ? "ring-2 ring-blue-600" : ""}`}
+            className={`gvc-stat rounded-lg border px-4 py-3 text-left ${tone} ${lane === key ? "ring-2 ring-blue-600" : ""}`}
           >
             <p className="text-xs font-semibold uppercase tracking-wide">{label}</p>
             <p className="mt-1 text-2xl font-bold">{count}</p>
           </button>
         ))}
-        <div className="rounded-lg border border-blue-100 bg-blue-50 px-4 py-3">
+        <div className="gvc-stat rounded-lg border border-blue-100 bg-blue-50 px-4 py-3">
           <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">Valor desta lista</p>
           <p className="mt-1 text-2xl font-bold text-blue-900">{money(total)}</p>
         </div>

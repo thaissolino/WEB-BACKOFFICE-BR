@@ -6,6 +6,7 @@ import { FormRow, RadioSimNao } from "../catalog/FormBits"
 import { createCatalog } from "../catalog/catalogApi"
 import { parseError, api } from "../../../../services/api"
 import CatalogList from "../catalog/CatalogList"
+import GerenciarLote from "./GerenciarLote"
 
 function Page({ title, children }: { title: string; children?: ReactNode }) {
   return (
@@ -437,64 +438,7 @@ export function SetorForm() {
 }
 
 export function LotePage() {
-  const [draft, setDraft] = useState({ busca: "Cód do Produto, Produto", nome: "", categoria: "Todas", ativo: "Todos" })
-  const [rows, setRows] = useState<{ id: string; name: string; code: string }[]>([])
-
-  function onSearch(event: FormEvent) {
-    event.preventDefault()
-    api.get("/clients/products", { params: { q: draft.nome } })
-      .then(({ data }) => setRows(((data.products || data.items || []) as Array<{ id: string; name: string; code: string }>).slice(0, 50)))
-      .catch(() => setRows([]))
-  }
-
-  return (
-    <Page title="PESQUISAR PRODUTO PARA APLICAR">
-      <form className="pdv-cad-filters" onSubmit={onSearch}>
-        <label>Código da Grade<input autoComplete="off" /></label>
-        <label>Código do Produto<input autoComplete="off" /></label>
-        <label>Código da Referência<input autoComplete="off" /></label>
-        <label>Código de Barra<input autoComplete="off" /></label>
-        <label>
-          Nome do Produto
-          <input value={draft.nome} onChange={(event) => setDraft({ ...draft, nome: event.target.value })} autoComplete="off" />
-        </label>
-        <label>Pesquisa<select defaultValue="Inicia com"><option>Inicia com</option><option>Exatamente</option><option>Qualquer</option><option>Final</option></select></label>
-        <label>Modelo<input autoComplete="off" /></label>
-        <label>
-          Produto Ativo
-          <select value={draft.ativo} onChange={(event) => setDraft({ ...draft, ativo: event.target.value })}>
-            <option>Todos</option><option>Sim</option><option>Não</option>
-          </select>
-        </label>
-        <label>
-          Categoria
-          <select value={draft.categoria} onChange={(event) => setDraft({ ...draft, categoria: event.target.value })}>
-            <option>Todas</option>
-            <option>Nenhum selecionado</option>
-          </select>
-        </label>
-        <label>Tamanho<select defaultValue="Todos"><option>Todos</option></select></label>
-        <label>Cor<select defaultValue="Todas"><option>Todas</option></select></label>
-        <label>Marca<select defaultValue="Todas"><option>Todas</option></select></label>
-        <label>Gênero<select defaultValue="Todos"><option>Todos</option></select></label>
-        <label>Coleção<select defaultValue="Todas"><option>Todas</option></select></label>
-        <label>Localização<input autoComplete="off" /></label>
-        <div className="pdv-cad-filters-go">
-          <button className="pdv-cad-btn pdv-cad-btn-blue" type="submit">Pesquisa</button>
-        </div>
-      </form>
-      <div className="pdv-cad-table-wrap">
-        <table className="pdv-cad-table">
-          <thead><tr><th>Cod. Produto</th><th>Cod. Loja</th><th>Situação</th></tr></thead>
-          <tbody>
-            {rows.map((row) => (
-              <tr key={row.id}><td>{row.code}</td><td>{row.name}</td><td>—</td></tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </Page>
-  )
+  return <GerenciarLote />
 }
 
 export function TrayDownloadPage() {

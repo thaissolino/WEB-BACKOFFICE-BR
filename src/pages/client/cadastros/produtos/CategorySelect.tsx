@@ -33,12 +33,21 @@ export default function CategorySelect({
 
   useDismissable(open, () => setOpen(false), wrapRef);
 
-  const closedLabel =
-    selected.length === 0
-      ? placeholder
-      : selected
-          .map((id) => options.find((item) => item.id === id)?.label ?? id)
-          .join(", ");
+  const optionIds = options.map((item) => item.id).filter(Boolean)
+  const allSelected = optionIds.length > 0 && optionIds.every((id) => selected.includes(id))
+  const closedLabel = selected.length === 0
+    ? placeholder
+    : allSelected
+      ? "Todos"
+      : selected.map((id) => options.find((item) => item.id === id)?.label ?? id).join(", ")
+
+  function reverseSelection() {
+    onChange(optionIds.filter((id) => !selected.includes(id)))
+  }
+
+  function selectAll() {
+    onChange(allSelected ? [] : optionIds)
+  }
 
   function toggle(id: string) {
     if (!multiple) {
@@ -72,7 +81,13 @@ export default function CategorySelect({
           <OverlaySearch
             value={query}
             onChange={setQuery}
-            extra={<ArrowLeftRight size={14} strokeWidth={2.2} aria-hidden="true" />}
+            extra={
+              multiple ? (
+                <button className="pdv-prod-overlay-swap" type="button" aria-label="Inverter seleção" onClick={reverseSelection}>
+                  <ArrowLeftRight size={14} strokeWidth={2.2} aria-hidden="true" />
+                </button>
+              ) : null
+            }
           />
           <ul
             className="pdv-prod-opt-list"
@@ -83,11 +98,7 @@ export default function CategorySelect({
             <li>
               {multiple ? (
                 <label className="pdv-prod-check">
-                  <input
-                    type="checkbox"
-                    checked={false}
-                    onChange={() => onChange([])}
-                  />
+                  <input type="checkbox" checked={allSelected} onChange={selectAll} />
                   Selecione
                 </label>
               ) : (

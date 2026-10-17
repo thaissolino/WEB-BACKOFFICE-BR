@@ -196,9 +196,6 @@ export default function OperatorsManagementClassic() {
     GERENCIAR_OPERACOES: {
       enabled: false,
     },
-    VENDAS_CONCLUIDAS: {
-      enabled: false,
-    },
   };
 
   const [currentOperator, setCurrentOperator] = useState<Operator | null>(null);
@@ -277,10 +274,7 @@ export default function OperatorsManagementClassic() {
       accessPassword: "", // Resetar senha de acesso ao carregar operador
       status: operator.status.toLocaleLowerCase() as "active" | "inactive" | "pending",
     });
-    setSelectedPermissions({
-      ...defaultPermissions,
-      ...JSON.parse(JSON.stringify(operator.permissions || {})),
-    });
+    setSelectedPermissions(JSON.parse(JSON.stringify(operator.permissions || {})));
   };
 
   // Novo operador

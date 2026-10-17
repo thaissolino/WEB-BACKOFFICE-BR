@@ -24,6 +24,43 @@ export function showsSubmenuArrow(item: PdvMenuItem) {
   return Boolean(item.hasSubmenu || hasKnownChildren(item));
 }
 
+export function menuWordsMatch(query: string, text: string) {
+  const words = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  if (!words.length) return true;
+  const hay = text.toLowerCase();
+  return words.every((word) => hay.includes(word));
+}
+
+export type MenuSearchHit = {
+  id: string;
+  label: string;
+  trail: string;
+  href: string;
+};
+
+export function searchMenus(query: string): MenuSearchHit[] {
+  const words = query.trim();
+  if (!words) return [];
+  const hits: MenuSearchHit[] = [];
+  function walk(items: PdvMenuItem[], trail: string[], hidden: boolean) {
+    for (const item of items) {
+      const skip = hidden || item.mvpHidden;
+      const nextTrail = skip ? trail : [...trail, item.label];
+      if (!skip && item.href && menuWordsMatch(words, nextTrail.join(" "))) {
+        hits.push({
+          id: item.id,
+          label: item.label,
+          trail: nextTrail.slice(0, -1).join(" · "),
+          href: item.href,
+        });
+      }
+      if (item.children?.length) walk(item.children, nextTrail, skip);
+    }
+  }
+  for (const root of PDV_MENUS) walk(root.items, [root.label], false);
+  return hits.slice(0, 12);
+}
+
 export function openMenuHref(href: string, navigate: (to: string) => void) {
   const path = href.split("?")[0];
   if (path === window.location.pathname) {
@@ -80,7 +117,6 @@ export const PDV_MENUS: PdvMenuRoot[] = [
         hasSubmenu: true,
         children: [
           { id: "produtos-listar", label: "Listar Produtos", href: "/client/produtos" },
-          { id: "produtos-cadastrar", label: "Cadastrar Produtos", href: "/client/produtos/cadastrar" },
           { id: "produtos-alterar-estoque", label: "Alterar Estoque", href: "/client/produtos/estoque" },
           {
             id: "produtos-categoria",

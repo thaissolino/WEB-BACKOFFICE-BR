@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { ArrowLeft, Ban, Boxes, CircleCheck, ClipboardList, LoaderCircle, PackageX, PartyPopper, ScanLine, Search, ShoppingBag, ShoppingCart, Trash2, Truck, Wallet, X } from "lucide-react";
 import { api, parseError } from "../../../services/api";
 import { isOpenStoreCategory, openCategoryRank } from "../cadastros/produtos/categoryModel";
+import { productSalePrice } from "../cadastros/produtos/types";
 import { ProductPhoto } from "../cadastros/produtos/GradePhotoThumb";
 import { CategoryCoverImage } from "../cadastros/produtos/categoryCover";
 import PdvShell from "../dashboard/PdvShell";
@@ -432,7 +433,7 @@ function Venda() {
             id: String(item.id),
             name: String(item.lojaName || "").trim() || String(item.name || ""),
             code: String(item.code || ""),
-            price: Number(item.salePrice || 0),
+            price: productSalePrice(item as { tableSalePrice?: number; lojaSalePrice?: number; salePrice?: number }),
             costPrice: Number(item.costPrice || 0),
             category: String(item.category || ""),
             categoryId: String(item.categoryId || ""),
@@ -703,7 +704,6 @@ function Venda() {
               {lines.length === 0 ? <p className="loja-lede">Nenhum item no carrinho.</p> : null}
               {lines.map((line) => {
                 const stock = Math.max(0, Math.floor(Number(line.stockQuantity) || line.qty));
-                const left = Math.max(0, stock - line.qty);
                 return (
                   <article key={line.id} className="loja-cart-row">
                     <ProductPhoto productId={line.id} photoFileId={line.photoFileId} name={line.name} />
@@ -723,7 +723,6 @@ function Venda() {
                           +
                         </button>
                       </div>
-                      <small>{left > 0 ? `+${left} disponíveis` : "Quantidade no limite do estoque"}</small>
                     </div>
                     {line.price > 0 ? <span className="loja-money">{money(line.price * line.qty)}</span> : <span />}
                     <button type="button" className="loja-cart-remove" aria-label={`Remover ${line.name}`} onClick={() => setQty(line.id, 0)}>
@@ -1045,7 +1044,18 @@ function when(value?: string | null) {
   if (!value) return "—";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "—";
-  return date.toLocaleString("pt-BR");
+  return date.toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" });
+}
+
+function ledgerDay(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Sem data";
+  return new Intl.DateTimeFormat("pt-BR", {
+    timeZone: "America/Sao_Paulo",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }).format(date);
 }
 
 function addressLine(address: Address) {
@@ -1316,7 +1326,7 @@ function Financeiro() {
       })),
     ].sort((a, b) => new Date(a.at).getTime() - new Date(b.at).getTime());
     events.forEach((event) => {
-      const date = new Date(event.at).toLocaleDateString("pt-BR");
+      const date = ledgerDay(event.at);
       balance += event.amount;
       const rows = byDate.get(date) || [];
       rows.push({ label: event.label, amount: event.amount, balance, orderId: event.orderId });
@@ -1341,31 +1351,40 @@ function Financeiro() {
       <h1 className="loja-title">Financeiro</h1>
       <p className="loja-lede">Conta desta loja com o atacado. Pedido fechado entra como débito. Estorno e pagamento lançado no caixa entram como crédito.</p>
       {groups.dates.length === 0 ? <p>Nenhum movimento nesta conta.</p> : null}
-      {groups.dates.map(([date, rows], index) => (
-        <div key={date} className="loja-ledger-day">
-          <h2>{date}</h2>
-          {index === 0 ? (
-            <>
-              <p className="loja-ledger-open">
-                <span>Saldo anterior</span>
-                <strong>{signedMoney(0)}</strong>
-              </p>
-              <h2>{date}</h2>
-            </>
-          ) : null}
-          {rows.map((row) => (
-            <p key={`${row.orderId}-${row.label}`} className="loja-ledger-row">
-              {row.orderId ? (
-                <button type="button" onClick={() => setOpenId(row.orderId)}>{row.label}</button>
-              ) : (
-                <span>{row.label}</span>
-              )}
-              <span className={row.amount < 0 ? "neg" : "pos"}>{signedMoney(row.amount)}</span>
-              <strong className={row.balance < 0 ? "neg" : "pos"}>{signedMoney(row.balance)}</strong>
+      {groups.dates.length > 0 ? (
+        <p className="loja-ledger-open">
+          <span>Saldo anterior</span>
+          <strong>{signedMoney(0)}</strong>
+        </p>
+      ) : null}
+      {groups.dates.map(([date, rows]) => {
+        const dayBalance = rows[rows.length - 1]?.balance || 0;
+        return (
+          <div key={date} className="loja-ledger-day">
+            <h2>{date}</h2>
+            <p className="loja-ledger-head">
+              <span>Movimento</span>
+              <span>Valor</span>
+              <span>Saldo</span>
             </p>
-          ))}
-        </div>
-      ))}
+            {rows.map((row) => (
+              <p key={`${row.orderId}-${row.label}`} className="loja-ledger-row">
+                {row.orderId ? (
+                  <button type="button" onClick={() => setOpenId(row.orderId)}>{row.label}</button>
+                ) : (
+                  <span>{row.label}</span>
+                )}
+                <span className={row.amount < 0 ? "neg" : "pos"}>{signedMoney(row.amount)}</span>
+                <strong className={row.balance < 0 ? "neg" : "pos"}>{signedMoney(row.balance)}</strong>
+              </p>
+            ))}
+            <p className="loja-ledger-close">
+              <span>Saldo do dia</span>
+              <strong className={dayBalance < 0 ? "neg" : "pos"}>{signedMoney(dayBalance)}</strong>
+            </p>
+          </div>
+        );
+      })}
       {groups.dates.length > 0 ? (
         <p className={`loja-ledger-final ${groups.balance < 0 ? "neg" : "pos"}`}>{signedMoney(groups.balance)}</p>
       ) : null}

@@ -68,7 +68,7 @@ export function ModesPopover({ variant = "classic" }: { variant?: "classic" | "p
             display: "flex",
             flexDirection: "column",
             p: 0,
-            bgcolor: "#1a1714",
+            bgcolor: "#fffdf8",
           },
         }}
       >

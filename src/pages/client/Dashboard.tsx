@@ -1,4 +1,4 @@
-﻿import { ReactNode, useMemo, useRef, useState } from "react";
+import { ReactNode, useMemo, useRef, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import {
   Activity,
@@ -93,9 +93,10 @@ function calendarCells(now = new Date()) {
 const ZERO_MONEY = { total: "R$ 0,00", today: "0,00", week: "0,00", month: "0,00" };
 
 function matches(query: string, title: string) {
-  const q = query.trim().toLowerCase();
-  if (!q) return true;
-  return title.toLowerCase().includes(q);
+  const words = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  if (!words.length) return true;
+  const hay = title.toLowerCase();
+  return words.every((word) => hay.includes(word));
 }
 
 function Module({
@@ -322,9 +323,9 @@ function DashboardBoard({ client }: { client: ClientUser }) {
   const showCertificate = isDashboardVisible(uiConfig, "certificate-alert");
 
   const shortcuts = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return DASHBOARD_SHORTCUTS;
-    return DASHBOARD_SHORTCUTS.filter((item) => item.label.toLowerCase().includes(q));
+    const words = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
+    if (!words.length) return DASHBOARD_SHORTCUTS;
+    return DASHBOARD_SHORTCUTS.filter((item) => words.every((word) => item.label.toLowerCase().includes(word)));
   }, [query]);
 
   const layoutMode = usePdvLayoutMode((state) => state.mode);

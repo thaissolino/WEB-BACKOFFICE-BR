@@ -1,11 +1,12 @@
-import { FormEvent, useState, useEffect, useRef } from "react";
-import { Plus, Ban, RotateCcw, Boxes, Loader2, Settings, Copy } from "lucide-react";
+import { CSSProperties, FormEvent, useState, useEffect, useRef } from "react";
+import { Plus, Ban, RotateCcw, Boxes, Loader2, Settings, Copy, X } from "lucide-react";
 import Swal from "sweetalert2";
 import { api } from "../../../../services/api";
 import { sameProductCode } from "../utils/productBarcode";
 import { useNotification } from "../../../../hooks/notification";
 import { useActionLoading } from "../../context/ActionLoadingContext";
 import "../../../client/cadastros/cadastros.css";
+import { scrollPageToTop } from "../../../client/dashboard/PageJumps";
 import { createCatalog } from "../../../client/cadastros/catalog/catalogApi";
 import { isOpenStoreCategory, loadProductCategories, openCategoryRank, slugifyCategory, toFlatOptions, type FlatOption } from "../../../client/cadastros/produtos/categoryModel";
 import {
@@ -18,6 +19,8 @@ import {
   type ProductFacets,
   type ProductFilters,
 } from "../../../client/cadastros/produtos/productFilters";
+import { useProductPhotoUrl } from "../../../client/cadastros/produtos/GradePhotoThumb";
+import { formatMoneyBr, moneyWidthCh, parseMoneyBr } from "../../../client/cadastros/produtos/types";
 
 export interface Product {
   id: string;
@@ -44,6 +47,65 @@ export interface Product {
 }
 
 type ProductColumn = "code" | "category" | "photo" | "name" | "sale" | "cost" | "stock" | "weight";
+
+type TablePriceRow = {
+  id: string;
+  name: string;
+  slug: string;
+  isDefault: boolean;
+  price: number | null;
+};
+
+function parseMoneyDraft(raw: string) {
+  const text = raw.trim();
+  if (!text) return null;
+  const value = parseMoneyBr(text);
+  return Number.isFinite(value) && value >= 0 ? value : null;
+}
+
+function maskModalMoney(raw: string, previous: string) {
+  let digits = raw.replace(/\D/g, "").slice(0, 12);
+  const prevDigits = previous.replace(/\D/g, "");
+  const deleting = raw.length < previous.length;
+  if (deleting && digits.replace(/0/g, "") === "") return "";
+  if (deleting && (digits === prevDigits || formatMoneyBr(Number(digits || "0") / 100) === previous)) {
+    digits = prevDigits.slice(0, -1);
+  }
+  if (!digits) return "";
+  return formatMoneyBr(Number(digits) / 100);
+}
+
+function MoneyInput({
+  value,
+  onChange,
+  placeholder,
+  disabled,
+}: {
+  value: string;
+  onChange: (next: string) => void;
+  placeholder: string;
+  disabled?: boolean;
+}) {
+  return (
+    <div className="flex items-center rounded-xl border border-gray-200 bg-white focus-within:border-blue-300 focus-within:ring-2 focus-within:ring-blue-400">
+      <span className="pl-3 font-semibold text-gray-800">R$</span>
+      <input
+        type="text"
+        inputMode="numeric"
+        placeholder={placeholder}
+        value={value}
+        disabled={disabled}
+        onChange={(event) => {
+          const input = event.currentTarget;
+          const next = maskModalMoney(event.target.value, value);
+          onChange(next);
+          requestAnimationFrame(() => input.setSelectionRange(next.length, next.length));
+        }}
+        className="w-full border-0 bg-transparent p-3 outline-none"
+      />
+    </div>
+  );
+}
 
 const PRODUCT_COLUMNS: { id: ProductColumn; label: string; numeric?: boolean }[] = [
   { id: "code", label: "Cód" },
@@ -84,7 +146,6 @@ function fieldOptions(rows: Product[], key: keyof Product) {
 }
 
 function ProductThumb({
-  productId,
   photoFileId,
   onFile,
   disabled,
@@ -96,59 +157,23 @@ function ProductThumb({
   disabled?: boolean;
   large?: boolean;
 }) {
-  const [src, setSrc] = useState("");
+  const src = useProductPhotoUrl(photoFileId);
   const box = large ? "h-28 w-28" : "h-14 w-14";
-
-  const [node, setNode] = useState<HTMLLabelElement | null>(null);
-
-  useEffect(() => {
-    if (!photoFileId) {
-      setSrc("");
-      return;
-    }
-    if (!node) return;
-    let url = "";
-    let cancelled = false;
-    const io = new IntersectionObserver((entries) => {
-      if (!entries.some((entry) => entry.isIntersecting)) return;
-      io.disconnect();
-      api
-        .get(`/clients/products/${productId}/photo`, { responseType: "blob" })
-        .then(({ data }) => {
-          if (cancelled || !(data instanceof Blob) || data.size < 16) return;
-          url = URL.createObjectURL(data);
-          setSrc(url);
-        })
-        .catch(() => {
-          if (!cancelled) setSrc("");
-        });
-    }, { rootMargin: "120px" });
-    io.observe(node);
-    return () => {
-      cancelled = true;
-      io.disconnect();
-      if (url) URL.revokeObjectURL(url);
-    };
-  }, [productId, photoFileId, node]);
 
   return (
     <label
-      ref={setNode}
       className={`relative inline-flex shrink-0 cursor-pointer ${box}`}
       title={photoFileId ? "Clique para trocar a foto" : "Clique para adicionar a foto"}
     >
       {src ? (
-        <img src={src} alt="" className={`${box} rounded-lg border border-gray-200 object-cover`} />
+        <img src={src} alt="" decoding="async" className={`${box} rounded-lg border border-gray-200 object-cover`} />
       ) : (
         <span
           className={`flex ${box} items-center justify-center rounded-lg border border-dashed border-gray-300 bg-gray-50 text-[11px] text-gray-400`}
         >
-          Sem foto
+          {photoFileId ? "" : "Sem foto"}
         </span>
       )}
-      <span className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-blue-600 text-white shadow ring-2 ring-white">
-        <Plus size={14} aria-hidden />
-      </span>
       <input
         type="file"
         accept="image/png,image/jpeg,image/webp,image/gif"
@@ -179,6 +204,9 @@ export function ProductsTab() {
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [sortBy, setSortBy] = useState<"name" | "code">("name");
+  const [tablePrices, setTablePrices] = useState<TablePriceRow[]>([]);
+  const [tableDrafts, setTableDrafts] = useState<Record<string, string>>({});
+  const [costDraft, setCostDraft] = useState("");
   const [draft, setDraft] = useState<ProductFilters>(EMPTY_PRODUCT_FILTERS);
   const [applied, setApplied] = useState<ProductFilters>(EMPTY_PRODUCT_FILTERS);
   const [searched, setSearched] = useState(false);
@@ -205,7 +233,8 @@ export function ProductsTab() {
   const inactiveRef = useRef(showInactive);
   inactiveRef.current = showInactive;
 
-  const fetchData = async (filters: ProductFilters, nextPage: number) => {
+  const fetchData = async (filters: ProductFilters, nextPage: number, scrollTop = false) => {
+    if (scrollTop) scrollPageToTop();
     setIsLoading(true);
     setPage(nextPage);
     try {
@@ -224,6 +253,7 @@ export function ProductsTab() {
       setTotal(0);
     } finally {
       setIsLoading(false);
+      if (scrollTop) requestAnimationFrame(() => scrollPageToTop());
     }
   };
 
@@ -281,12 +311,33 @@ export function ProductsTab() {
     runSearch(last);
   }
 
+  const loadTablePrices = async (product: Product | null) => {
+    setCostDraft(product && Number(product.costPrice) ? formatMoneyBr(Number(product.costPrice)) : "");
+    try {
+      const { data } = product?.id
+        ? await api.get(`/clients/products/${product.id}/table-prices`)
+        : await api.get("/clients/price-tables");
+      const tables = ((data.tables || []) as TablePriceRow[]).map((table) => ({ ...table, price: table.price ?? null }));
+      setTablePrices(tables);
+      const drafts: Record<string, string> = {};
+      for (const table of tables) {
+        const value = table.price != null ? table.price : table.isDefault ? Number(product?.salePrice) || null : null;
+        drafts[table.id] = value == null ? "" : formatMoneyBr(Number(value) || 0);
+      }
+      setTableDrafts(drafts);
+    } catch {
+      setTablePrices([]);
+      setTableDrafts({});
+    }
+  };
+
   const handleEdit = (product: Product) => {
     setDuplicateAsk(false);
     setNewCategoryOpen(false);
     setNewCategoryName("");
     setCurrentProduct(product);
     setShowModal(true);
+    void loadTablePrices(product);
   };
 
   const createCategory = async () => {
@@ -385,6 +436,91 @@ export function ProductsTab() {
         customClass: {
           confirmButton:
             "!bg-blue-600 !text-white hover:!bg-blue-700 px-5 py-2.5 rounded-md font-semibold shadow-sm",
+        },
+      });
+    });
+  };
+
+  const applyAverageCost = async () => {
+    if (isActionLoading || selectedProducts.length === 0) return;
+    const chosen = allProducts.filter((product) => selectedProducts.includes(product.id));
+    if (!chosen.length) return;
+    const money = (value: number) => value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+    const qtyOf = (product: Product) => Math.max(0, Number(product.stockQuantity) || 0);
+    const costOf = (product: Product) => Math.max(0, Number(product.costPrice) || 0);
+    const priced = chosen.filter((product) => costOf(product) > 0 && qtyOf(product) > 0);
+    const totalQty = priced.reduce((sum, product) => sum + qtyOf(product), 0);
+    const totalValue = priced.reduce((sum, product) => sum + qtyOf(product) * costOf(product), 0);
+    const preview = priced.length > 1 && totalQty > 0 ? totalValue / totalQty : 0;
+    const skipped = chosen.length - priced.length;
+    const lines = priced
+      .slice(0, 6)
+      .map((product) => `${product.name}: ${qtyOf(product)} un. a ${money(costOf(product))}`)
+      .join("<br>");
+    const more = priced.length > 6 ? `<br>e mais ${priced.length - 6} produto(s)` : "";
+    const leftOut = skipped
+      ? `<br><br>${skipped} marcado(s) com preço ou estoque zero ficam de fora e não mudam.`
+      : "";
+    const together =
+      chosen.length > 1
+        ? priced.length > 1
+          ? `<br><br>A média pelo estoque fica ${money(preview)} e entra só nos produtos acima.`
+          : "<br><br>Precisa de pelo menos dois produtos com preço de compra e estoque maiores que zero."
+        : "<br><br>Usa as entradas pagas deste produto.";
+    const result = await Swal.fire({
+      title: "Calcular custo médio?",
+      html: `${lines}${more}${together}${leftOut}`,
+      icon: "question",
+      showCancelButton: true,
+      buttonsStyling: false,
+      customClass: {
+        confirmButton: "!bg-blue-600 !text-white hover:!bg-blue-700 px-5 py-2.5 rounded-md font-semibold shadow-sm mr-2",
+        cancelButton: "!bg-gray-500 !text-white hover:!bg-gray-600 px-5 py-2.5 rounded-md font-semibold shadow-sm",
+      },
+      confirmButtonText: "Calcular",
+      cancelButtonText: "Cancelar",
+    });
+    if (!result.isConfirmed) return;
+    if (chosen.length > 1 && priced.length < 2) return;
+
+    await executeAction(async () => {
+      const included = chosen.length > 1 ? priced : chosen;
+      const before = new Map(included.map((product) => [product.id, Number(product.costPrice) || 0]));
+      const { data } = await api.post("/clients/products/average-cost", {
+        ids: included.map((product) => product.id),
+      });
+      const updated = (data.products || []) as Product[];
+      setAllProducts((prev) =>
+        prev.map((product) => {
+          const next = updated.find((item) => item.id === product.id);
+          return next ? { ...product, costPrice: Number(next.costPrice) || 0 } : product;
+        }),
+      );
+      setSelectedProducts([]);
+      const changed = updated.filter(
+        (product) => Math.abs((Number(product.costPrice) || 0) - (before.get(product.id) || 0)) >= 0.01,
+      );
+      const average = Number(data.average) || 0;
+      setOpenNotification({
+        type: "success",
+        title: "Custo médio",
+        notification:
+          chosen.length > 1 && average > 0
+            ? `Preço de compra atualizado para ${money(average)} em ${changed.length} produto(s). Zerados ficaram de fora.`
+            : changed.length
+              ? `${changed.length} produto(s) tiveram o custo médio atualizado.`
+              : "Nenhum produto mudou.",
+      });
+    }, "applyAverageCost").catch((error) => {
+      console.error("Erro ao aplicar custo médio:", error);
+      Swal.fire({
+        icon: "error",
+        title: "Erro!",
+        text: "Não foi possível calcular o custo médio.",
+        confirmButtonText: "OK",
+        buttonsStyling: false,
+        customClass: {
+          confirmButton: "!bg-blue-600 !text-white hover:!bg-blue-700 px-5 py-2.5 rounded-md font-semibold shadow-sm",
         },
       });
     });
@@ -490,12 +626,24 @@ export function ProductsTab() {
         const categoryId = currentProduct.categoryId || "";
         const category = categoryOptions.find((item) => item.id === categoryId)?.label || "";
         const { data: updated } = await api.patch(`/invoice/product/${currentProduct.id}`, currentProduct);
+        const padrao = tablePrices.find((table) => table.isDefault);
+        const salePrice = padrao ? parseMoneyDraft(tableDrafts[padrao.id] || "") : null;
+        const nextCost = parseMoneyDraft(costDraft) ?? 0;
+        const costChanged = Math.abs(nextCost - (Number(currentProduct.costPrice) || 0)) >= 0.01;
         await api.put(`/clients/products/${currentProduct.id}`, {
           name: currentProduct.name,
           ...(currentProduct.code ? { code: String(currentProduct.code) } : {}),
           categoryId,
           category,
           priceweightAverage: Number(currentProduct.priceweightAverage) || 0,
+          ...(costChanged ? { costPrice: nextCost } : {}),
+          ...(salePrice != null ? { salePrice } : {}),
+        });
+        await api.put(`/clients/products/${currentProduct.id}/table-prices`, {
+          prices: tablePrices.map((table) => ({
+            priceTableId: table.id,
+            price: parseMoneyDraft(tableDrafts[table.id] || ""),
+          })),
         });
         setAllProducts((prev) =>
           prev.map((p) => (p.id === currentProduct.id ? { ...p, ...updated, ...currentProduct, categoryId, category } : p))
@@ -508,6 +656,22 @@ export function ProductsTab() {
       } else {
         const { data: created } = await api.post("/invoice/product", currentProduct);
         createdProduct = created;
+        if (created?.id) {
+          const padrao = tablePrices.find((table) => table.isDefault);
+          const salePrice = padrao ? parseMoneyDraft(tableDrafts[padrao.id] || "") : null;
+          await api.put(`/clients/products/${created.id}`, {
+            name: currentProduct.name,
+            ...(currentProduct.code ? { code: String(currentProduct.code) } : {}),
+            costPrice: parseMoneyDraft(costDraft) ?? 0,
+            ...(salePrice != null ? { salePrice } : {}),
+          });
+          await api.put(`/clients/products/${created.id}/table-prices`, {
+            prices: tablePrices.map((table) => ({
+              priceTableId: table.id,
+              price: parseMoneyDraft(tableDrafts[table.id] || ""),
+            })),
+          });
+        }
         setAllProducts((prev) => {
           if (prev.some((p) => p.id === created.id)) return prev;
           return [...prev, created];
@@ -777,6 +941,15 @@ export function ProductsTab() {
               {showInactive ? "Ativar" : "Inativar"} selecionados ({selectedProducts.length})
             </button>
           )}
+          {selectedProducts.length > 0 && (
+            <button
+              onClick={() => void applyAverageCost()}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl flex items-center shadow-sm"
+              disabled={isActionLoading}
+            >
+              Custo médio
+            </button>
+          )}
           <label className="flex items-center gap-2 text-sm font-medium text-gray-700 select-none">
             <input
               type="checkbox"
@@ -821,6 +994,7 @@ export function ProductsTab() {
                 description: "",
               });
               setShowModal(true);
+              void loadTablePrices(null);
 
               // Buscar do backend o próximo código levando em conta TODOS os produtos
               // (inclusive inativos / fora da página atual). Isso evita colisão.
@@ -839,9 +1013,9 @@ export function ProductsTab() {
               }
             }}
             className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-xl flex items-center shadow-sm"
-            disabled={isLoading || isActionLoading}
+            disabled={isActionLoading}
           >
-            {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2" size={16} />}
+            <Plus className="mr-2" size={16} />
             Novo Produto
           </button>
         </div>
@@ -853,7 +1027,35 @@ export function ProductsTab() {
         </div>
       ) : searched ? (
         <div className="overflow-x-auto rounded-2xl border border-gray-100 shadow-sm">
-          <table className="gestao-prod-table min-w-full divide-y divide-gray-100">
+          <table
+            className="gestao-prod-table min-w-full divide-y divide-gray-100"
+            style={{
+              "--sale-ch": `${moneyWidthCh(products.map((product) => product.salePrice))}ch`,
+              "--cost-ch": `${moneyWidthCh(products.map((product) => product.costPrice))}ch`,
+            } as CSSProperties}
+          >
+            <colgroup>
+              <col className="gestao-prod-check" />
+              {columns.map((id) => (
+                <col
+                  key={id}
+                  className={
+                    id === "code"
+                      ? "gestao-prod-code"
+                      : id === "category"
+                        ? "gestao-prod-cat"
+                        : id === "photo"
+                          ? "gestao-prod-foto"
+                          : id === "sale" || id === "cost"
+                            ? "gestao-prod-money"
+                            : id === "stock" || id === "weight"
+                              ? "gestao-prod-qty"
+                              : "gestao-prod-name"
+                  }
+                />
+              ))}
+              <col className="gestao-prod-actions" />
+            </colgroup>
             <thead className="bg-gray-100">
               <tr>
                 <th className="gestao-prod-check">
@@ -872,7 +1074,7 @@ export function ProductsTab() {
                       key={id}
                       draggable
                       title="Segure e arraste para mudar a posição"
-                      className={`${column.numeric ? "num" : ""} cursor-grab select-none ${active ? "bg-blue-100 opacity-60" : ""}`}
+                      className={`${column.numeric ? "num" : ""} ${id === "sale" ? "gestao-prod-sale" : ""} ${id === "cost" ? "gestao-prod-cost" : ""} ${id === "photo" ? "gestao-prod-photo" : ""} cursor-grab select-none ${active ? "bg-blue-100 opacity-60" : ""}`}
                       onDragStart={(event) => {
                         draggingColumnRef.current = id;
                         setDraggingColumn(id);
@@ -896,7 +1098,11 @@ export function ProductsTab() {
                         setDraggingColumn(null);
                       }}
                     >
-                      {column.label}
+                      {id === "sale" || id === "cost" ? (
+                        <span className="gestao-prod-money-title">{column.label}</span>
+                      ) : (
+                        column.label
+                      )}
                     </th>
                   );
                 })}
@@ -915,43 +1121,52 @@ export function ProductsTab() {
               ) : (
                 products.map((product) => {
                   const money = (value: number) =>
-                    (value || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+                    (Number(value) || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
                   const editable = (
                     field: "sale" | "cost" | "stock" | "weight",
                     text: string,
                     label: string,
                   ) => {
                     const editing = editingCell?.id === product.id && editingCell.field === field;
+                    const priced = field === "sale" || field === "cost";
+                    const fieldInput = (
+                      <input
+                        autoFocus
+                        type="text"
+                        inputMode="decimal"
+                        value={editingValue}
+                        onChange={(event) => {
+                          const value = event.target.value.replace(",", ".");
+                          if (/^\d*\.?\d{0,2}$/.test(value) || value === "") setEditingValue(value);
+                        }}
+                        onBlur={() => commitCellEdit(product)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter") {
+                            event.preventDefault();
+                            commitCellEdit(product);
+                          }
+                          if (event.key === "Escape") {
+                            event.preventDefault();
+                            cancelCellEdit();
+                          }
+                        }}
+                        className="gestao-prod-edit"
+                      />
+                    );
                     return (
                       <td
                         key={field}
-                        className="num text-sm text-gray-500"
+                        className={`num text-sm ${field === "sale" ? "gestao-prod-sale" : ""} ${field === "cost" ? "gestao-prod-cost" : ""}`}
                         onDoubleClick={() => startCellEdit(product, field)}
                         title={`Clique duas vezes para editar o ${label}`}
                       >
-                        {editing ? (
-                          <input
-                            autoFocus
-                            type="text"
-                            inputMode="decimal"
-                            value={editingValue}
-                            onChange={(event) => {
-                              const value = event.target.value.replace(",", ".");
-                              if (/^\d*\.?\d{0,2}$/.test(value) || value === "") setEditingValue(value);
-                            }}
-                            onBlur={() => commitCellEdit(product)}
-                            onKeyDown={(event) => {
-                              if (event.key === "Enter") {
-                                event.preventDefault();
-                                commitCellEdit(product);
-                              }
-                              if (event.key === "Escape") {
-                                event.preventDefault();
-                                cancelCellEdit();
-                              }
-                            }}
-                            className="ml-auto w-24 rounded-lg border border-blue-400 px-2 py-1 text-right focus:outline-none focus:ring-2 focus:ring-blue-400"
-                          />
+                        {priced ? (
+                          <span className="gestao-prod-money">
+                            <span className="gestao-prod-rs">R$</span>
+                            {editing ? fieldInput : <span className="cursor-text">{text}</span>}
+                          </span>
+                        ) : editing ? (
+                          fieldInput
                         ) : (
                           <span className="cursor-text">{text}</span>
                         )}
@@ -970,17 +1185,17 @@ export function ProductsTab() {
                       </td>
                       {columns.map((id) => {
                         if (id === "code") {
-                          return <td key={id} className="text-sm text-gray-500">{product.code}</td>;
+                          return <td key={id} className="text-sm">{product.code}</td>;
                         }
                         if (id === "category") {
                           const label = product.category
                             || categoryOptions.find((item) => item.id === product.categoryId)?.label
                             || "—";
-                          return <td key={id} className="text-sm text-gray-500">{label}</td>;
+                          return <td key={id} className="text-sm">{label}</td>;
                         }
                         if (id === "photo") {
                           return (
-                            <td key={id}>
+                            <td key={id} className="gestao-prod-photo">
                               <ProductThumb
                                 productId={product.id}
                                 photoFileId={product.photoFileId}
@@ -991,7 +1206,7 @@ export function ProductsTab() {
                           );
                         }
                         if (id === "name") {
-                          return <td key={id} className="gestao-prod-name text-sm font-medium text-gray-900">{product.name}</td>;
+                          return <td key={id} className="gestao-prod-name text-sm">{product.name}</td>;
                         }
                         if (id === "sale") return editable("sale", money(product.salePrice || 0), "preço de venda");
                         if (id === "cost") return editable("cost", money(product.costPrice || 0), "preço de compra");
@@ -1003,7 +1218,7 @@ export function ProductsTab() {
                         );
                       })}
                       <td className="act text-sm font-medium">
-                        <div className="flex flex-wrap justify-end gap-2">
+                        <div className="flex flex-wrap justify-center gap-2">
                           <button
                             type="button"
                             onClick={() => handleEdit(product)}
@@ -1048,7 +1263,7 @@ export function ProductsTab() {
                 className="pdv-prod-btn"
                 type="button"
                 disabled={page <= 1}
-                onClick={() => void fetchData(applied, page - 1)}
+                onClick={() => void fetchData(applied, page - 1, true)}
               >
                 Anterior
               </button>
@@ -1056,7 +1271,7 @@ export function ProductsTab() {
                 className="pdv-prod-btn"
                 type="button"
                 disabled={page >= pageCount}
-                onClick={() => void fetchData(applied, page + 1)}
+                onClick={() => void fetchData(applied, page + 1, true)}
               >
                 Próxima
               </button>
@@ -1070,8 +1285,18 @@ export function ProductsTab() {
           onClick={() => setShowModal(false)}
           className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 backdrop-blur-sm"
         >
-          <div onClick={(e) => e.stopPropagation()} className="bg-white p-6 rounded-2xl w-full max-w-md shadow-xl border border-gray-100">
-            <h3 className="text-lg font-medium mb-4">{currentProduct.id ? "Editar Produto" : "Novo Produto"}</h3>
+          <div onClick={(e) => e.stopPropagation()} className="bg-white p-6 rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-xl border border-gray-100">
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <h3 className="text-lg font-medium">{currentProduct.id ? "Editar Produto" : "Novo Produto"}</h3>
+              <button
+                type="button"
+                aria-label="Fechar"
+                onClick={() => setShowModal(false)}
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-gray-500 hover:bg-gray-100"
+              >
+                <X size={18} aria-hidden />
+              </button>
+            </div>
             <div className="space-y-4">
               {currentProduct.id ? (
                 <div>
@@ -1196,21 +1421,16 @@ export function ProductsTab() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Preço ($)</label>
-                  <input
-                    type="text"
-                    placeholder="0.00"
-                    inputMode="decimal"
-                    value={currentProduct.priceweightAverage === 0 ? "" : String(currentProduct.priceweightAverage)}
-                    onChange={(e) => {
-                      const value = e.target.value.replace(",", "."); // permite , ou .
-                      if (/^\d*\.?\d{0,2}$/.test(value) || value === "") {
-                        setCurrentProduct({
-                          ...currentProduct,
-                          priceweightAverage: value === "" ? 0 : parseFloat(value),
-                        });
-                      }
-                    }}
-                    className="w-full border border-gray-200 rounded-xl p-3 focus:ring-2 focus:ring-blue-400 focus:border-blue-300"
+                  <MoneyInput
+                    placeholder="0,00"
+                    value={currentProduct.priceweightAverage ? formatMoneyBr(currentProduct.priceweightAverage) : ""}
+                    onChange={(next) =>
+                      setCurrentProduct({
+                        ...currentProduct,
+                        priceweightAverage: next ? parseMoneyBr(next) : 0,
+                      })
+                    }
+                    disabled={isActionLoading}
                   />
                 </div>
                 <div>
@@ -1233,6 +1453,38 @@ export function ProductsTab() {
                   />
                 </div>
               </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Preço de custo</label>
+                <MoneyInput
+                  placeholder="0,00"
+                  value={costDraft}
+                  onChange={setCostDraft}
+                  disabled={isActionLoading}
+                />
+              </div>
+              {[...tablePrices]
+                .sort((a, b) => {
+                  if (a.isDefault !== b.isDefault) return a.isDefault ? -1 : 1;
+                  if (a.slug === "lojas") return -1;
+                  if (b.slug === "lojas") return 1;
+                  return a.name.localeCompare(b.name, "pt-BR");
+                })
+                .map((table) => (
+                  <div key={table.id}>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      {table.isDefault ? "Preço padrão" : table.slug === "lojas" ? "Preço lojas" : `Preço ${table.name}`}
+                    </label>
+                    <MoneyInput
+                      placeholder={table.isDefault ? "0,00" : "Usa o padrão"}
+                      value={tableDrafts[table.id] || ""}
+                      onChange={(next) => setTableDrafts((current) => ({ ...current, [table.id]: next }))}
+                      disabled={isActionLoading}
+                    />
+                    {table.isDefault ? null : (
+                      <p className="mt-1 text-xs text-gray-500">Vazio usa o preço padrão. Vale só para o cliente desta tabela.</p>
+                    )}
+                  </div>
+                ))}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Descrição</label>
                 <textarea

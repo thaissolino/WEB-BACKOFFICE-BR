@@ -1,14 +1,19 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { useNavigate, useSearchParams } from "react-router-dom";
-import { Ban, Pencil, Plus, Settings, X } from "lucide-react";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import { Ban, Save, Settings, X } from "lucide-react";
 import { api, parseError } from "../../../../services/api";
+import { scrollPageToTop } from "../../dashboard/PageJumps";
 import CadastroShell from "../CadastroShell";
 // import EstoqueGradeModal from "./EstoqueGradeModal";
-import GradePhotoThumb, { cachedProductPhoto } from "./GradePhotoThumb";
+import GradePhotoThumb, { useProductPhotoUrl } from "./GradePhotoThumb";
 import { loadProductCategories, toFlatOptions, type FlatOption } from "./categoryModel";
 import {
   CLIENT_PRODUCT_FILTER_KEY,
+  CLIENT_PRODUCT_LIST_PAGE_KEY,
+  CLIENT_PRODUCT_OPEN_KEY,
+  CLIENT_PRODUCT_RETURN_CODE_KEY,
+  CLIENT_PRODUCT_RETURN_ID_KEY,
   EMPTY_PRODUCT_FILTERS,
   PRODUCT_PAGE_SIZE,
   ProductFilterForm,
@@ -17,7 +22,7 @@ import {
   type ProductFacets,
   type ProductFilters,
 } from "./productFilters";
-import { formatMoneyBr, parseMoneyBr, type PdvProduct } from "./types";
+import { formatMoneyBr, lojaProductTitle, parseMoneyBr, type PdvProduct } from "./types";
 
 type ProdutoTab = "produto" | "grade" | "kits" | "grade-beta";
 
@@ -46,6 +51,11 @@ export default function ListarProdutos() {
   );
 }
 
+function maskFixedMoney(raw: string) {
+  const digits = raw.replace(/\D/g, "").slice(0, 12);
+  return formatMoneyBr(Number(digits || "0") / 100);
+}
+
 function EditableAmount({
   value,
   money,
@@ -57,49 +67,184 @@ function EditableAmount({
   label: string;
   onSave: (next: number) => Promise<void>;
 }) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const pendingFocus = useRef(false);
   const [draft, setDraft] = useState<string | null>(null);
   const text = money ? formatMoneyBr(value) : String(value).replace(".", ",");
+  const shown = draft ?? text;
+  const open = draft !== null;
+
+  useEffect(() => {
+    if (!pendingFocus.current || !open) return;
+    pendingFocus.current = false;
+    const input = inputRef.current;
+    input?.focus();
+    input?.select();
+  }, [open]);
+
+  function close() {
+    pendingFocus.current = false;
+    setDraft(null);
+    inputRef.current?.blur();
+  }
+
+  function openEdit() {
+    pendingFocus.current = true;
+    setDraft(text);
+  }
+
+  function commit() {
+    const next = parseMoneyBr(shown);
+    close();
+    if (next === value) return;
+    void onSave(next);
+  }
+
   return (
-    <label className="pdv-prod-edit" onClick={(event) => event.stopPropagation()}>
-      {money ? <span className="pdv-prod-edit-symbol">R$</span> : null}
-      <input
-        className="pdv-prod-edit-input"
-        aria-label={label}
-        inputMode="decimal"
-        value={draft ?? text}
-        onFocus={() => setDraft(text)}
-        onChange={(event) => setDraft(event.target.value)}
-        onBlur={(event) => {
-          const next = parseMoneyBr(event.currentTarget.value);
-          setDraft(null);
-          if (next === value) return;
-          void onSave(next);
-        }}
-        onKeyDown={(event) => {
-          if (event.key !== "Enter") return;
-          event.preventDefault();
-          event.currentTarget.blur();
-        }}
-      />
-      <Pencil className="pdv-prod-edit-mark" size={14} strokeWidth={2.2} aria-hidden />
-    </label>
+    <span className="pdv-prod-edit-line" onClick={(event) => event.stopPropagation()}>
+      <label className={`pdv-prod-edit${open ? " is-open" : ""}`}>
+        {money ? <span className="pdv-prod-edit-symbol">R$</span> : null}
+        <input
+          ref={inputRef}
+          className="pdv-prod-edit-input"
+          aria-label={label}
+          inputMode="decimal"
+          readOnly={!open}
+          value={shown}
+          onMouseDown={(event) => {
+            if (!open) event.preventDefault();
+          }}
+          onDoubleClick={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            if (!open) openEdit();
+          }}
+          onFocus={(event) => {
+            if (!open) return;
+            const input = event.currentTarget;
+            requestAnimationFrame(() => input.select());
+          }}
+          onMouseUp={(event) => {
+            if (!open) return;
+            event.preventDefault();
+            event.currentTarget.select();
+          }}
+          onChange={(event) => {
+            if (!money) {
+              setDraft(event.target.value);
+              return;
+            }
+            const next = maskFixedMoney(event.target.value);
+            setDraft(next);
+            const input = event.currentTarget;
+            requestAnimationFrame(() => input.setSelectionRange(next.length, next.length));
+          }}
+          onBlur={() => setDraft(null)}
+          onKeyDown={(event) => {
+            if (event.key === "Escape") {
+              event.preventDefault();
+              close();
+              return;
+            }
+            if (event.key !== "Enter") return;
+            event.preventDefault();
+            commit();
+          }}
+        />
+      </label>
+      {draft !== null ? (
+        <>
+          <button
+            type="button"
+            className="pdv-prod-edit-x"
+            aria-label={`Cancelar ${label}`}
+            title="Cancelar"
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={close}
+          >
+            <X size={16} strokeWidth={2.6} aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            className="pdv-prod-edit-save"
+            aria-label={`Salvar ${label}`}
+            title="Salvar"
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={commit}
+          >
+            <Save size={16} strokeWidth={2.2} aria-hidden="true" />
+          </button>
+        </>
+      ) : null}
+    </span>
   );
+}
+
+function rememberProductList(filters: ProductFilters, nextPage: number) {
+  sessionStorage.setItem(CLIENT_PRODUCT_FILTER_KEY, JSON.stringify(filters));
+  sessionStorage.setItem(CLIENT_PRODUCT_LIST_PAGE_KEY, String(nextPage));
+}
+
+function readReturnProduct() {
+  const id = sessionStorage.getItem(CLIENT_PRODUCT_RETURN_ID_KEY) || "";
+  const code = sessionStorage.getItem(CLIENT_PRODUCT_RETURN_CODE_KEY) || "";
+  let product: PdvProduct | null = null;
+  try {
+    const raw = sessionStorage.getItem(CLIENT_PRODUCT_OPEN_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw) as PdvProduct;
+      if (parsed?.id && (!id || parsed.id === id)) product = parsed;
+    }
+  } catch {
+    product = null;
+  }
+  return { id: id || product?.id || "", code: code || product?.code || "", product };
+}
+
+function clearReturnProduct() {
+  sessionStorage.removeItem(CLIENT_PRODUCT_RETURN_CODE_KEY);
+  sessionStorage.removeItem(CLIENT_PRODUCT_RETURN_ID_KEY);
+  sessionStorage.removeItem(CLIENT_PRODUCT_OPEN_KEY);
+}
+
+let heldReturn: { id: string; code: string; product: PdvProduct | null } | null = null;
+let heldReturnReady = false;
+
+function takeReturnedProduct(fromBack: boolean, stateId: string) {
+  const empty = { id: "", code: "", product: null as PdvProduct | null };
+  if (!fromBack) {
+    clearReturnProduct();
+    heldReturn = null;
+    heldReturnReady = false;
+    return empty;
+  }
+  if (heldReturnReady && heldReturn) return heldReturn;
+  heldReturnReady = true;
+  const data = readReturnProduct();
+  clearReturnProduct();
+  const id = data.id || stateId;
+  const product = data.product && (!id || data.product.id === id) ? data.product : null;
+  heldReturn = { id, code: data.code || product?.code || "", product };
+  return heldReturn.id ? heldReturn : empty;
 }
 
 function ProdutosBoard() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const backState = location.state as { returnedProductId?: string } | null;
   const [params, setParams] = useSearchParams();
   const [tab, setTab] = useState<ProdutoTab>(() => tabFromSearch(params.get("tipo")));
+  const [returned] = useState(() => takeReturnedProduct(Boolean(backState?.returnedProductId), backState?.returnedProductId || ""));
   const [draft, setDraft] = useState<ProductFilters>(EMPTY_PRODUCT_FILTERS);
   const [applied, setApplied] = useState<ProductFilters>(EMPTY_PRODUCT_FILTERS);
-  const [rows, setRows] = useState<PdvProduct[]>([]);
+  const [rows, setRows] = useState<PdvProduct[]>(() => (returned.product ? [returned.product] : []));
   const [page, setPage] = useState(1);
-  const [total, setTotal] = useState(0);
+  const [total, setTotal] = useState(() => (returned.product ? 1 : 0));
   const [facets, setFacets] = useState<ProductFacets>({ brands: [], collections: [], genders: [], suppliers: [] });
-  const [loading, setLoading] = useState(false);
-  const [searched, setSearched] = useState(false);
+  const [loading, setLoading] = useState(Boolean(returned.id) && !returned.product);
+  const [searched, setSearched] = useState(Boolean(returned.id));
   const [error, setError] = useState("");
-  const [selectedId, setSelectedId] = useState(params.get("cod") || "");
+  const [selectedId, setSelectedId] = useState(() => (returned.id ? "" : params.get("cod") || ""));
   // const [estoqueProduct, setEstoqueProduct] = useState<PdvProduct | null>(null);
   const [photoProduct, setPhotoProduct] = useState<PdvProduct | null>(null);
   const [categoryOptions, setCategoryOptions] = useState<FlatOption[]>([]);
@@ -124,7 +269,9 @@ function ProdutosBoard() {
     setParams(nextParams, { replace: true });
   }
 
-  function load(nextPage: number, filters: ProductFilters) {
+  function load(nextPage: number, filters: ProductFilters, remember = true, scrollTop = false) {
+    if (scrollTop) scrollPageToTop();
+    if (remember) rememberProductList(filters, nextPage);
     setLoading(true);
     setPage(nextPage);
     api
@@ -141,8 +288,40 @@ function ProdutosBoard() {
         setRows([]);
         setTotal(0);
       })
-      .finally(() => setLoading(false));
+      .finally(() => {
+        setLoading(false);
+        if (scrollTop) requestAnimationFrame(() => scrollPageToTop());
+      });
   }
+
+  useEffect(() => {
+    if (!returned.id) return;
+    if (params.get("cod")) {
+      const next = new URLSearchParams(params);
+      next.delete("cod");
+      setParams(next, { replace: true });
+    }
+    if (!returned.product) setLoading(true);
+    api
+      .get(`/clients/products/${returned.id}`)
+      .then(({ data }) => {
+        const product = data.product as PdvProduct;
+        if (!product?.id) return;
+        setRows([product]);
+        setTotal(1);
+        setPage(1);
+        setSearched(true);
+        setError("");
+      })
+      .catch((err) => {
+        if (returned.product) return;
+        const parsed = parseError(err);
+        setError(parsed.friend || parsed.message || "Não foi possível carregar o produto.");
+        setRows([]);
+        setTotal(0);
+      })
+      .finally(() => setLoading(false));
+  }, []);
 
   useEffect(() => {
     loadProductCategories(true)
@@ -164,13 +343,17 @@ function ProdutosBoard() {
 
   function onSearch(event: FormEvent) {
     event.preventDefault();
-    sessionStorage.setItem(CLIENT_PRODUCT_FILTER_KEY, JSON.stringify(draft));
+    sessionStorage.removeItem(CLIENT_PRODUCT_RETURN_CODE_KEY);
+    sessionStorage.removeItem(CLIENT_PRODUCT_RETURN_ID_KEY);
     setApplied(draft);
     setSearched(true);
     load(1, draft);
   }
 
   function onClear() {
+    sessionStorage.removeItem(CLIENT_PRODUCT_LIST_PAGE_KEY);
+    sessionStorage.removeItem(CLIENT_PRODUCT_RETURN_CODE_KEY);
+    sessionStorage.removeItem(CLIENT_PRODUCT_RETURN_ID_KEY);
     setDraft(EMPTY_PRODUCT_FILTERS);
     setApplied(EMPTY_PRODUCT_FILTERS);
     setSearched(false);
@@ -189,15 +372,15 @@ function ProdutosBoard() {
   }
 
   async function saveAmount(item: PdvProduct, field: "sale" | "cost" | "stock", next: number) {
+    const key = field === "stock" ? "lojaStock" : field === "sale" ? "lojaSalePrice" : "lojaCostAverage";
+    const previous = Number(item[key]) || 0;
+    setRows((current) => current.map((row) => (row.id === item.id ? { ...row, [key]: next } : row)));
     try {
-      const { data } =
-        field === "stock"
-          ? await api.patch(`/clients/products/${item.id}/stock`, { stockQuantity: next })
-          : await api.put(`/clients/products/${item.id}`, field === "sale" ? { lojaSalePrice: next } : { lojaCostAverage: next });
-      const product = data.product as PdvProduct;
-      setRows((current) => current.map((row) => (row.id === item.id ? { ...row, ...product } : row)));
+      if (field === "stock") await api.patch(`/clients/products/${item.id}/stock`, { stockQuantity: next });
+      else await api.put(`/clients/products/${item.id}`, field === "sale" ? { lojaSalePrice: next } : { lojaCostAverage: next });
       setError("");
     } catch (err) {
+      setRows((current) => current.map((row) => (row.id === item.id ? { ...row, [key]: previous } : row)));
       const parsed = parseError(err);
       setError(parsed.friend || parsed.message || "Não foi possível salvar.");
     }
@@ -215,6 +398,15 @@ function ProdutosBoard() {
     }
   }
 
+  function openProduct(item: PdvProduct) {
+    heldReturn = null;
+    heldReturnReady = false;
+    sessionStorage.setItem(CLIENT_PRODUCT_RETURN_CODE_KEY, item.code);
+    sessionStorage.setItem(CLIENT_PRODUCT_RETURN_ID_KEY, item.id);
+    sessionStorage.setItem(CLIENT_PRODUCT_OPEN_KEY, JSON.stringify(item));
+    navigate(`/client/produtos/cadastrar?id=${item.id}`);
+  }
+
   function selectProduct(item: PdvProduct) {
     setSelectedId(item.id);
     const nextParams = new URLSearchParams(params);
@@ -228,59 +420,10 @@ function ProdutosBoard() {
 
   return (
     <>
-      <section className="pdv-cad-page pdv-prod-page" aria-labelledby="pdv-prod-list-title">
+      <section className="pdv-cad-page pdv-prod-page pdv-cat-page" aria-labelledby="pdv-prod-list-title">
         <div className="pdv-cad-sheet pdv-prod-sheet">
           <div className="pdv-prod-cad-head">
             <h1 id="pdv-prod-list-title">LISTAR PRODUTO</h1>
-            <button
-              className="pdv-cad-btn pdv-cad-btn-green"
-              type="button"
-              onClick={() => navigate("/client/produtos/cadastrar")}
-            >
-              <Plus size={16} strokeWidth={2.4} aria-hidden="true" />
-              Cadastrar
-            </button>
-          </div>
-
-          <div className="pdv-prod-tabs" role="tablist" aria-label="Listar produto">
-            <button
-              className="pdv-prod-tab"
-              type="button"
-              role="tab"
-              aria-selected={tab === "produto"}
-              onClick={() => setTabAndUrl("produto")}
-            >
-              Produto
-            </button>
-            {/*
-            <button
-              className="pdv-prod-tab"
-              type="button"
-              role="tab"
-              aria-selected={tab === "grade"}
-              onClick={() => setTabAndUrl("grade")}
-            >
-              Grade
-            </button>
-            <button
-              className="pdv-prod-tab"
-              type="button"
-              role="tab"
-              aria-selected={tab === "kits"}
-              onClick={() => setTabAndUrl("kits")}
-            >
-              Kit's
-            </button>
-            <button
-              className="pdv-prod-tab"
-              type="button"
-              role="tab"
-              aria-selected={tab === "grade-beta"}
-              onClick={() => setTabAndUrl("grade-beta")}
-            >
-              Grade(Beta)
-            </button>
-            */}
           </div>
 
           {showForm ? (
@@ -291,6 +434,7 @@ function ProdutosBoard() {
               onClear={onClear}
               onLastFilter={onLastFilter}
               categoryOptions={categoryOptions}
+              showInStock
               brands={brands}
               collections={collections}
               genders={genders}
@@ -320,7 +464,9 @@ function ProdutosBoard() {
                       </tr>
                     </thead>
                     <tbody>
-                      {visible.map((item) => (
+                      {visible.map((item) => {
+                        const title = lojaProductTitle(item);
+                        return (
                         <tr
                           key={item.id}
                           data-pick="true"
@@ -334,18 +480,32 @@ function ProdutosBoard() {
                                 <GradePhotoThumb
                                   productId={item.id}
                                   photoFileId={item.photoFileId}
-                                  name={item.name}
+                                  name={title.main}
                                   onOpen={() => setPhotoProduct(item)}
                                 />
                               ) : null}
-                              <span>{item.name}</span>
+                              <span className="pdv-prod-name-copy">
+                                <button
+                                  type="button"
+                                  className="pdv-prod-name-link"
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    openProduct(item);
+                                  }}
+                                >
+                                  {title.main}
+                                </button>
+                                {title.linked ? (
+                                  <span className="pdv-prod-linked">Vinculado: {title.linked}</span>
+                                ) : null}
+                              </span>
                             </span>
                           </td>
                           <td>{item.category || categoryLabel(item.categoryId, categoryOptions) || "—"}</td>
                           <td className="pdv-prod-edit-cell">
                             <EditableAmount
                               value={Number(item.lojaStock) || 0}
-                              label={`Estoque de ${item.name}`}
+                              label={`Estoque de ${title.main}`}
                               onSave={(next) => saveAmount(item, "stock", next)}
                             />
                           </td>
@@ -353,7 +513,7 @@ function ProdutosBoard() {
                             <EditableAmount
                               money
                               value={Number(item.lojaSalePrice) || 0}
-                              label={`Preço de venda de ${item.name}`}
+                              label={`Preço de venda de ${title.main}`}
                               onSave={(next) => saveAmount(item, "sale", next)}
                             />
                           </td>
@@ -361,7 +521,7 @@ function ProdutosBoard() {
                             <EditableAmount
                               money
                               value={Number(item.lojaCostAverage) || 0}
-                              label={`Custo médio de ${item.name}`}
+                              label={`Custo médio de ${title.main}`}
                               onSave={(next) => saveAmount(item, "cost", next)}
                             />
                           </td>
@@ -371,10 +531,10 @@ function ProdutosBoard() {
                                 type="button"
                                 className="pdv-prod-gear"
                                 title="Abrir produto"
-                                aria-label={`Abrir ${item.name}`}
+                                aria-label={`Abrir ${title.main}`}
                                 onClick={(event) => {
                                   event.stopPropagation();
-                                  navigate(`/client/produtos/cadastrar?id=${item.id}`);
+                                  openProduct(item);
                                 }}
                               >
                                 <Settings size={16} aria-hidden="true" />
@@ -393,7 +553,8 @@ function ProdutosBoard() {
                             </div>
                           </td>
                         </tr>
-                      ))}
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
@@ -508,7 +669,7 @@ function ProdutosBoard() {
                 className="pdv-prod-btn"
                 type="button"
                 disabled={page <= 1 || loading}
-                onClick={() => load(page - 1, applied)}
+                onClick={() => load(page - 1, applied, true, true)}
               >
                 Anterior
               </button>
@@ -516,7 +677,7 @@ function ProdutosBoard() {
                 className="pdv-prod-btn"
                 type="button"
                 disabled={page >= pageCount || loading}
-                onClick={() => load(page + 1, applied)}
+                onClick={() => load(page + 1, applied, true, true)}
               >
                 Próxima
               </button>
@@ -537,25 +698,7 @@ function ProdutosBoard() {
 }
 
 function PhotoPreview({ product, onClose }: { product: PdvProduct; onClose: () => void }) {
-  const [src, setSrc] = useState(() => cachedProductPhoto(product.id));
-
-  useEffect(() => {
-    if (!product.photoFileId || cachedProductPhoto(product.id)) return;
-    let url = "";
-    let cancelled = false;
-    api
-      .get(`/clients/products/${product.id}/photo`, { responseType: "blob" })
-      .then(({ data }) => {
-        if (cancelled || !(data instanceof Blob)) return;
-        url = URL.createObjectURL(data);
-        setSrc(url);
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-      if (url && url !== cachedProductPhoto(product.id)) URL.revokeObjectURL(url);
-    };
-  }, [product.id, product.photoFileId]);
+  const src = useProductPhotoUrl(product.photoFileId);
 
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
