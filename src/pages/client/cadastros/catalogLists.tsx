@@ -227,14 +227,17 @@ export function PayList({ inactive = false }: { inactive?: boolean }) {
   )
 }
 export function PlanList({ inactive = false }: { inactive?: boolean }) {
-  const { pathname } = useLocation()
+  const { pathname, search } = useLocation()
   const navigate = useNavigate()
-  const base = pathname.startsWith("/gestao/") ? "/gestao/cadastro/financeiro/plano-conta" : "/client/financeiro/plano-conta"
+  const gestao = pathname.startsWith("/gestao/")
+  const base = gestao ? "/gestao/cadastro/financeiro/plano-conta" : "/client/financeiro/plano-conta"
+  const showAll = new URLSearchParams(search).get("todos") === "1"
   return (
     <CatalogList
+      layout={gestao ? "gestao" : "pdv"}
       config={{
         ...PLAN_LIST,
-        title: inactive ? "CENTRO DE CUSTO INATIVOS" : PLAN_LIST.title,
+        title: gestao ? "Plano de Conta" : inactive ? "CENTRO DE CUSTO INATIVOS" : PLAN_LIST.title,
         listPath: base,
         cadastrarPath: `${base}/cadastrar`,
         inativosPath: `${base}/inativos`,
@@ -248,8 +251,12 @@ export function PlanList({ inactive = false }: { inactive?: boolean }) {
           { key: "atualizar", label: "Atualizar", from: "action" },
         ],
         extraActions: (
-          <button className="pdv-cad-btn pdv-cad-btn-blue" type="button" onClick={() => navigate(`${base}?todos=1`)}>
-            Centro de Custo Todos
+          <button
+            className={gestao ? "rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-800" : "pdv-cad-btn pdv-cad-btn-blue"}
+            type="button"
+            onClick={() => navigate(showAll ? base : `${base}?todos=1`)}
+          >
+            {showAll ? "Só ativos" : "Todos"}
           </button>
         ),
       }}

@@ -357,7 +357,7 @@ export default function ClientesList({ inactive = false }: { inactive?: boolean 
                         className="pdv-cad-icon-btn"
                         type="button"
                         aria-label={`Atualizar ${item.name}`}
-                        onClick={() => setToast("atualizado")}
+                        onClick={() => navigate(`/client/clientes/${item.code}/atualizar`)}
                       >
                         <RefreshCw size={16} strokeWidth={2.2} aria-hidden="true" />
                       </button>

@@ -9,7 +9,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-
 
 function LojaBoard() {
   const navigate = useNavigate();
-  const { storeId, storeName, openStoreLogo } = usePdvSession();
+  const { storeId, storeName } = usePdvSession();
   const [resolvedId, setResolvedId] = useState<string | null>(UUID.test(storeId) ? storeId : null);
   const [error, setError] = useState("");
 
@@ -65,16 +65,6 @@ function LojaBoard() {
     <StoreLojaForm
       storeId={resolvedId}
       apiBase="/clients/stores"
-      extraActions={
-        <>
-          <button className="loja-btn" type="button" onClick={openStoreLogo}>
-            Trocar logo
-          </button>
-          <button className="loja-btn" type="button" onClick={() => navigate("/client/dashboard")}>
-            Dashboard
-          </button>
-        </>
-      }
       backTo="/client/dashboard"
     />
   );

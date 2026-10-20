@@ -12,11 +12,11 @@
 
 .loja-page {
   --loja-ink: #1a1a1a;
-  --loja-muted: #5c5c5c;
-  --loja-line: #d0d4d8;
-  --loja-paper: #eceff1;
-  --loja-sheet: #ffffff;
-  --loja-head: #eceff1;
+  --loja-muted: #5c5348;
+  --loja-line: #ddd4c6;
+  --loja-paper: transparent;
+  --loja-sheet: #fffdf8;
+  --loja-head: #f6f1e8;
   --loja-peach: #f3e6d8;
   --loja-peach-ink: #6b3f1f;
   --loja-blue: #1e88e5;
@@ -29,12 +29,19 @@
   --loja-yellow-line: #ffe082;
   --loja-tap: 44px;
   color: var(--loja-ink);
-  background: var(--loja-paper);
-  padding: 16px 18px 28px;
-  min-height: 100%;
-  font-family: "Segoe UI", "Plus Jakarta Sans", sans-serif;
+  background: transparent;
+  padding: 0 0 28px;
+  min-height: 0;
+  font-family: inherit;
   font-size: 15px;
   line-height: 1.4;
+}
+
+.loja-sheet {
+  background: var(--loja-sheet);
+  border: 1px solid var(--loja-line);
+  border-radius: 28px;
+  padding: 22px 22px 18px;
 }
 
 .loja-page *,
@@ -69,9 +76,9 @@
 .loja-store-select {
   min-height: var(--loja-tap);
   min-width: min(280px, 100%);
-  padding: 8px 12px;
+  padding: 8px 14px;
   border: 1px solid var(--loja-line);
-  border-radius: 4px;
+  border-radius: 999px;
   background: #fff;
   color: var(--loja-ink);
   font: inherit;
@@ -81,30 +88,35 @@
 .loja-tabs {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
-  margin: 0 0 14px;
+  gap: 8px;
+  margin: 0 0 16px;
   padding: 0;
   list-style: none;
-  border-bottom: 1px solid var(--loja-line);
+  border-bottom: 0;
 }
 
-.loja-tabs button {
-  min-height: var(--loja-tap);
-  padding: 8px 14px;
-  border: 1px solid transparent;
-  border-bottom: 0;
-  border-radius: 4px 4px 0 0;
-  background: transparent;
-  color: var(--loja-ink);
+.loja-page .loja-tabs button,
+.pdv-root[data-surface="cream"] .pdv-main .loja-page .loja-tabs button {
+  min-height: 40px;
+  padding: 8px 16px;
+  border: 1px solid var(--loja-line);
+  border-radius: 999px;
+  background: #fff !important;
+  background-color: #fff !important;
+  color: #1c140c !important;
+  -webkit-text-fill-color: #1c140c !important;
   font: inherit;
-  font-weight: 600;
+  font-weight: 700;
   cursor: pointer;
 }
 
-.loja-tabs button[aria-selected="true"] {
-  background: #fff;
-  border-color: var(--loja-line);
-  box-shadow: 0 1px 0 #fff;
+.loja-page .loja-tabs button[aria-selected="true"],
+.pdv-root[data-surface="cream"] .pdv-main .loja-page .loja-tabs button[aria-selected="true"] {
+  background: #1c140c !important;
+  background-color: #1c140c !important;
+  border-color: #1c140c;
+  color: #fffdf8 !important;
+  -webkit-text-fill-color: #fffdf8 !important;
 }
 
 .loja-tabs button:focus-visible,
@@ -116,11 +128,16 @@
   outline-offset: 2px;
 }
 
-.loja-panel {
-  background: var(--loja-sheet);
+.loja-page .loja-panel {
+  background: #fff;
   border: 1px solid var(--loja-line);
-  border-radius: 4px;
+  border-radius: 22px;
   margin-bottom: 14px;
+  padding: 0;
+  height: auto;
+  min-height: 0;
+  max-height: none;
+  overflow: hidden;
 }
 
 .loja-panel-head {
@@ -148,32 +165,39 @@
   padding: 14px 16px 16px;
 }
 
-.loja-grid {
+.loja-page .loja-grid {
   display: grid;
-  gap: 10px 16px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-rows: none;
+  gap: 14px 16px;
+  width: auto;
+  height: auto;
+  min-height: 0;
+  max-height: none;
+  margin-top: 0;
 }
 
 .loja-field {
-  display: grid;
-  grid-template-columns: minmax(9rem, 15rem) 1fr;
-  gap: 8px 12px;
-  align-items: center;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
 }
 
 .loja-field > span,
 .loja-field > label {
   font-weight: 700;
-  text-align: right;
+  text-align: left;
 }
 
-.loja-field input,
-.loja-field select,
-.loja-field textarea {
+.loja-page .loja-field input,
+.loja-page .loja-field select,
+.loja-page .loja-field textarea {
   width: 100%;
-  min-height: 40px;
-  padding: 8px 10px;
+  min-height: 42px;
+  padding: 8px 14px;
   border: 1px solid var(--loja-line);
-  border-radius: 3px;
+  border-radius: 14px;
   background: #fff;
   color: var(--loja-ink);
   font: inherit;
@@ -199,51 +223,77 @@
   padding: 12px 14px;
   background: var(--loja-yellow);
   border: 1px solid var(--loja-yellow-line);
+  border-radius: 16px;
   color: var(--loja-yellow-ink);
   font-weight: 600;
 }
 
 .loja-two-col {
   display: grid;
-  grid-template-columns: 1.2fr 0.8fr;
+  grid-template-columns: minmax(0, 1.15fr) minmax(280px, 0.85fr);
   gap: 14px;
   align-items: start;
 }
 
 .loja-save {
   display: flex;
-  justify-content: center;
-  margin: 18px 0 8px;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  position: sticky;
+  bottom: 0;
+  z-index: 3;
+  margin: 12px 0 0;
+  padding: 12px 0 4px;
+  background: var(--loja-sheet);
 }
 
-.loja-btn {
+.loja-save .loja-status {
+  margin: 0;
+  font-weight: 700;
+}
+
+.loja-page .loja-btn,
+.pdv-root[data-surface="cream"] .pdv-main .loja-page button.loja-btn {
   min-height: var(--loja-tap);
-  padding: 8px 16px;
+  padding: 8px 18px;
   border: 1px solid var(--loja-line);
-  border-radius: 4px;
-  background: #fff;
-  color: var(--loja-ink);
+  border-radius: 999px;
+  background: #fff !important;
+  background-color: #fff !important;
+  color: #1c140c !important;
+  -webkit-text-fill-color: #1c140c !important;
   font: inherit;
   font-weight: 700;
   cursor: pointer;
 }
 
-.loja-btn-green {
-  background: var(--loja-green);
-  border-color: #2e7d32;
-  color: var(--loja-green-ink);
+.loja-page .loja-btn-green,
+.pdv-root[data-surface="cream"] .pdv-main .loja-page button.loja-btn.loja-btn-green {
+  background: #2e7d32 !important;
+  background-color: #2e7d32 !important;
+  border-color: #2e7d32 !important;
+  color: #fff !important;
+  -webkit-text-fill-color: #fff !important;
 }
 
-.loja-btn-blue {
-  background: var(--loja-blue);
-  border-color: #1565c0;
-  color: #fff;
+.loja-page .loja-btn-blue,
+.pdv-root[data-surface="cream"] .pdv-main .loja-page button.loja-btn.loja-btn-blue {
+  background: #1e88e5 !important;
+  background-color: #1e88e5 !important;
+  border-color: #1565c0 !important;
+  color: #fff !important;
+  -webkit-text-fill-color: #fff !important;
 }
 
-.loja-btn-orange {
-  background: var(--loja-orange);
-  border-color: #ef6c00;
-  color: #fff;
+.loja-page .loja-btn-orange,
+.pdv-root[data-surface="cream"] .pdv-main .loja-page button.loja-btn.loja-btn-orange {
+  background: #fb8c00 !important;
+  background-color: #fb8c00 !important;
+  border-color: #ef6c00 !important;
+  color: #fff !important;
+  -webkit-text-fill-color: #fff !important;
 }
 
 .loja-btn-row {
@@ -255,7 +305,7 @@
 .loja-simnao {
   display: inline-flex;
   border: 1px solid var(--loja-line);
-  border-radius: 3px;
+  border-radius: 999px;
   overflow: hidden;
 }
 
@@ -271,13 +321,20 @@
   cursor: pointer;
 }
 
-.loja-simnao button[aria-pressed="true"] {
-  background: var(--loja-blue);
-  color: #fff;
+.loja-page .loja-simnao button[aria-pressed="true"],
+.pdv-root[data-surface="cream"] .pdv-main .loja-page .loja-simnao button[aria-pressed="true"] {
+  background: #1e88e5 !important;
+  background-color: #1e88e5 !important;
+  color: #fff !important;
+  -webkit-text-fill-color: #fff !important;
 }
 
-.loja-simnao button[data-off="true"][aria-pressed="true"] {
-  background: #90a4ae;
+.loja-page .loja-simnao button[data-off="true"][aria-pressed="true"],
+.pdv-root[data-surface="cream"] .pdv-main .loja-page .loja-simnao button[data-off="true"][aria-pressed="true"] {
+  background: #90a4ae !important;
+  background-color: #90a4ae !important;
+  color: #fff !important;
+  -webkit-text-fill-color: #fff !important;
 }
 
 .loja-table-wrap {
@@ -306,26 +363,32 @@
   background: #fafbfc;
 }
 
-.loja-accordion {
+.loja-page .loja-accordion {
   border: 1px solid var(--loja-line);
-  border-bottom: 0;
+  border-radius: 18px;
   background: #fff;
+  margin-bottom: 8px;
+  overflow: hidden;
 }
 
-.loja-accordion:last-of-type {
+.loja-page .loja-accordion:last-of-type {
   border-bottom: 1px solid var(--loja-line);
 }
 
-.loja-accordion > button {
+.loja-page .loja-accordion > button,
+.pdv-root[data-surface="cream"] .pdv-main .loja-page .loja-accordion > button {
   display: flex;
   align-items: center;
   gap: 10px;
   width: 100%;
   min-height: var(--loja-tap);
-  padding: 10px 14px;
+  padding: 10px 16px;
   border: 0;
-  background: #f7f9fa;
-  color: var(--loja-ink);
+  border-radius: 0;
+  background: #f6f1e8 !important;
+  background-color: #f6f1e8 !important;
+  color: #1c140c !important;
+  -webkit-text-fill-color: #1c140c !important;
   font: inherit;
   font-weight: 700;
   text-align: left;
@@ -377,9 +440,9 @@
 }
 
 .loja-status {
-  margin: 0;
-  padding: 10px 12px;
-  border-radius: 4px;
+  margin: 0 0 12px;
+  padding: 10px 14px;
+  border-radius: 14px;
 }
 
 .loja-status[data-tone="ok"] {
@@ -505,6 +568,7 @@
 
 @media (max-width: 900px) {
   .loja-two-col,
+  .loja-page .loja-grid,
   .loja-field,
   .loja-field-split {
     grid-template-columns: 1fr;

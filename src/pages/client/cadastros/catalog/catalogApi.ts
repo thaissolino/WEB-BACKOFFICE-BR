@@ -74,6 +74,22 @@ export function payloadStr(item: CatalogItem, key: string) {
   return String(value)
 }
 
+export function clientIdDoLojista() {
+  try {
+    const raw = localStorage.getItem("@client:user")
+    return raw ? String(JSON.parse(raw).id || "") : ""
+  } catch {
+    return ""
+  }
+}
+
+/** Despesa ou receita lançada nesta loja. O que veio do backoffice ou de outra loja não entra. */
+export function lancamentoDaLoja(item: CatalogItem, clientId = clientIdDoLojista()) {
+  const origem = String(item.payload.origem || "")
+  const dono = String(item.payload.clientId || "")
+  return origem !== "backoffice" && dono !== "" && dono === clientId
+}
+
 export function formatCadDate(iso: string) {
   if (!iso) return ""
   const date = new Date(iso)

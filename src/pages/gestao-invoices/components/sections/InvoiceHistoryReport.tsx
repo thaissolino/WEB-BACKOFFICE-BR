@@ -13,6 +13,7 @@ import {
   SupplierCurrency,
 } from "../utils/invoiceCurrency";
 import { barcodeFromProductCode } from "../utils/productBarcode";
+import { formatMoneyBr, parseMoneyBr } from "../../../client/cadastros/produtos/types";
 
 export type exchange = {
   id: string;
@@ -342,6 +343,8 @@ export function InvoiceHistoryReport({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [products, setProducts] = useState<Product[]>([]);
+  const [saleDrafts, setSaleDrafts] = useState<Record<string, { sale: string; lojas: string }>>({});
+  const [priceTableIds, setPriceTableIds] = useState({ padrao: "", lojas: "" });
   const [selectedInvoice, setSelectedInvoiceRaw] = useState<InvoiceData | null>(null);
 
   // Imutabilidade da % do freteiro: ao selecionar uma nota, aplica o snapshot
@@ -398,6 +401,90 @@ export function InvoiceHistoryReport({
   useEffect(() => {
     setCurrentPage(0);
   }, [printTable]);
+
+  useEffect(() => {
+    if (!selectedInvoice) {
+      setSaleDrafts({});
+      return;
+    }
+    const ids = [
+      ...new Set(
+        selectedInvoice.products
+          .filter((item) => item.analising && item.quantityAnalizer > 0)
+          .map((item) => item.productId)
+      ),
+    ];
+    if (!ids.length) return;
+    let cancel = false;
+    Promise.all([
+      api.get("/clients/price-tables"),
+      api.get("/clients/price-tables/grid", { params: { ids: ids.join(",") } }),
+    ])
+      .then(([tablesRes, gridRes]) => {
+        if (cancel) return;
+        const tables = (tablesRes.data?.tables || []) as Array<{
+          id: string;
+          slug: string;
+          name: string;
+          isDefault: boolean;
+        }>;
+        const padrao = tables.find((table) => table.isDefault || table.slug === "padrao");
+        const lojas = tables.find((table) => table.slug === "lojas" || table.name.toLowerCase() === "lojas");
+        setPriceTableIds({ padrao: padrao?.id || "", lojas: lojas?.id || "" });
+        const lojasPrices: Record<string, number> = {};
+        for (const row of (gridRes.data?.prices || []) as Array<{
+          productId: string;
+          priceTableId: string;
+          price: number;
+        }>) {
+          if (lojas && row.priceTableId === lojas.id) lojasPrices[row.productId] = Number(row.price) || 0;
+        }
+        const next: Record<string, { sale: string; lojas: string }> = {};
+        for (const id of ids) {
+          const product = products.find((item) => item.id === id);
+          next[id] = {
+            sale: formatMoneyBr(Number(product?.salePrice) || 0),
+            lojas: formatMoneyBr(lojasPrices[id] || 0),
+          };
+        }
+        setSaleDrafts(next);
+      })
+      .catch((error) => {
+        console.error("Erro ao carregar preços de venda:", error);
+      });
+    return () => {
+      cancel = true;
+    };
+    // só ao abrir a nota: não recarrega enquanto a pessoa edita o preço
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedInvoice?.id]);
+
+  async function gravarPrecosDaAnalise(productIds: string[]) {
+    const unique = [...new Set(productIds.filter(Boolean))];
+    if (!unique.length || (!priceTableIds.padrao && !priceTableIds.lojas)) return;
+    await Promise.all(
+      unique.map(async (productId) => {
+        const draft = saleDrafts[productId];
+        if (!draft) return;
+        const prices: Array<{ priceTableId: string; price: number | null }> = [];
+        if (priceTableIds.padrao) {
+          prices.push({ priceTableId: priceTableIds.padrao, price: parseMoneyBr(draft.sale) });
+        }
+        if (priceTableIds.lojas) {
+          prices.push({ priceTableId: priceTableIds.lojas, price: parseMoneyBr(draft.lojas) });
+        }
+        if (!prices.length) return;
+        await api.put(`/clients/products/${productId}/table-prices`, { prices });
+      })
+    );
+    setProducts((current) =>
+      current.map((product) => {
+        const draft = saleDrafts[product.id];
+        if (!draft || !unique.includes(product.id)) return product;
+        return { ...product, salePrice: parseMoneyBr(draft.sale) };
+      })
+    );
+  }
 
   useEffect(() => {
     if (!isModalOpen || !etiquetaList) return;
@@ -1449,6 +1536,12 @@ export function InvoiceHistoryReport({
                       <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                         {isBrlSupplier ? `Total (${moneySymbol})` : "Total ($)"}
                       </th>
+                      <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Venda sugerida (R$)
+                      </th>
+                      <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Tabela lojas (R$)
+                      </th>
                       {isEditMode && (
                         <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Ações
@@ -1526,6 +1619,49 @@ export function InvoiceHistoryReport({
                               });
                             })()}
                           </td>
+                          <td className="px-2 py-2 text-sm text-right">
+                            {isEditMode ? (
+                              <input
+                                className="w-28 rounded border border-gray-300 px-2 py-1 text-right text-sm"
+                                inputMode="decimal"
+                                aria-label="Venda sugerida"
+                                value={saleDrafts[product.productId]?.sale ?? ""}
+                                onChange={(event) =>
+                                  setSaleDrafts((current) => ({
+                                    ...current,
+                                    [product.productId]: {
+                                      sale: event.target.value,
+                                      lojas: current[product.productId]?.lojas ?? "",
+                                    },
+                                  }))
+                                }
+                              />
+                            ) : (
+                              saleDrafts[product.productId]?.sale ||
+                              formatMoneyBr(Number(products.find((item) => item.id === product.productId)?.salePrice) || 0)
+                            )}
+                          </td>
+                          <td className="px-2 py-2 text-sm text-right">
+                            {isEditMode ? (
+                              <input
+                                className="w-28 rounded border border-gray-300 px-2 py-1 text-right text-sm"
+                                inputMode="decimal"
+                                aria-label="Tabela lojas"
+                                value={saleDrafts[product.productId]?.lojas ?? ""}
+                                onChange={(event) =>
+                                  setSaleDrafts((current) => ({
+                                    ...current,
+                                    [product.productId]: {
+                                      sale: current[product.productId]?.sale ?? "",
+                                      lojas: event.target.value,
+                                    },
+                                  }))
+                                }
+                              />
+                            ) : (
+                              saleDrafts[product.productId]?.lojas || "0,00"
+                            )}
+                          </td>
                           {isEditMode && (
                             <td className="px-4 py-2 text-sm text-right">
                               <div className="flex justify-end items-center">
@@ -1599,6 +1735,8 @@ export function InvoiceHistoryReport({
                           return total.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
                         })()}
                       </td>
+                      <td className="px-4 py-2 text-sm text-right text-gray-800">—</td>
+                      <td className="px-4 py-2 text-sm text-right text-gray-800">—</td>
                       {isEditMode && (
                         <td className="px-4 py-2 text-sm text-right">
                           <button
@@ -1608,6 +1746,22 @@ export function InvoiceHistoryReport({
                               const productsToReceive = selectedInvoice.products.filter(
                                 (item) => item.analising && !item.received
                               );
+                              try {
+                                await gravarPrecosDaAnalise(productsToReceive.map((item) => item.productId));
+                              } catch (error) {
+                                console.error("Erro ao gravar preço de venda:", error);
+                                Swal.fire({
+                                  icon: "error",
+                                  title: "Preço de venda",
+                                  text: "Não foi possível gravar a venda sugerida e a tabela lojas. A entrada não foi finalizada.",
+                                  confirmButtonText: "Ok",
+                                  buttonsStyling: false,
+                                  customClass: {
+                                    confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
+                                  },
+                                });
+                                return;
+                              }
 
                               const today = new Date().toISOString();
                               let anyDuplicate = false;

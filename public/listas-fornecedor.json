@@ -1,0 +1,3101 @@
+{
+  "atualizadoEm": "2026-10-20T13:50:41.032Z",
+  "listas": [
+    {
+      "lugar": "Fire cell LN235",
+      "quando": "20/10/2026, 10:45:27",
+      "blocos": [
+        {
+          "secao": "lacrados",
+          "modelo": "IPHONE 18 PRO MAX 2TB E-SIM americano",
+          "itens": [
+            {
+              "cor": "bordô",
+              "preco": 19650
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "IPHONE 18 PRO MAX 1TB E-SIM americano",
+          "itens": [
+            {
+              "cor": "bordô",
+              "preco": null
+            },
+            {
+              "cor": "glacier",
+              "preco": 13600
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "IPHONE 18 PRO MAX 512GB E-SIM americano",
+          "itens": [
+            {
+              "cor": "bordô",
+              "preco": 10550
+            },
+            {
+              "cor": "glacier",
+              "preco": 10190
+            },
+            {
+              "cor": "preto",
+              "preco": 10100
+            },
+            {
+              "cor": "prata",
+              "preco": null
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "IPHONE 18 PRO MAX 256GB E-SIM americano",
+          "itens": [
+            {
+              "cor": "bordô",
+              "preco": 9250
+            },
+            {
+              "cor": "glacier",
+              "preco": 9350
+            },
+            {
+              "cor": "preto",
+              "preco": 8800
+            },
+            {
+              "cor": "prata",
+              "preco": 8650
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "IPHONE 18 PRO 512GB E-SIM americano",
+          "itens": [
+            {
+              "cor": "bordô",
+              "preco": 9450
+            },
+            {
+              "cor": "glacier",
+              "preco": 9350
+            },
+            {
+              "cor": "preto",
+              "preco": 9350
+            },
+            {
+              "cor": "prata",
+              "preco": 9350
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "IPHONE 18 PRO 256GB E-SIM americano",
+          "itens": [
+            {
+              "cor": "bordô",
+              "preco": 7650
+            },
+            {
+              "cor": "glacier",
+              "preco": 7400
+            },
+            {
+              "cor": "preto",
+              "preco": 7400
+            },
+            {
+              "cor": "prata",
+              "preco": 7350
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "IPHONE 17 PRO MAX 2TB E-SIM americano",
+          "itens": [
+            {
+              "cor": "laranja",
+              "preco": 11700
+            },
+            {
+              "cor": "azul",
+              "preco": null
+            },
+            {
+              "cor": "prata",
+              "preco": null
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "IPHONE 17 PRO MAX 1TB E-SIM americano",
+          "itens": [
+            {
+              "cor": "laranja",
+              "preco": null
+            },
+            {
+              "cor": "azul",
+              "preco": null
+            },
+            {
+              "cor": "prata",
+              "preco": null
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "IPHONE 17 PRO MAX 512GB E-SIM americano",
+          "itens": [
+            {
+              "cor": "laranja",
+              "preco": 8450
+            },
+            {
+              "cor": "azul",
+              "preco": 8450
+            },
+            {
+              "cor": "branco",
+              "preco": 8550
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "IPHONE 17 PRO MAX 256GB E-SIM (ANATEL chipi fisico)",
+          "itens": [
+            {
+              "cor": "laranja",
+              "preco": null
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "IPHONE 17 PRO MAX 256GB E-SIM",
+          "itens": [
+            {
+              "cor": "laranja",
+              "preco": 6750
+            },
+            {
+              "cor": "azul",
+              "preco": 6800
+            },
+            {
+              "cor": "branco",
+              "preco": 6930
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "IPHONE 17 PRO 256GB E-SIM",
+          "itens": [
+            {
+              "cor": "azul",
+              "preco": 6450
+            },
+            {
+              "cor": "branco",
+              "preco": 6450
+            },
+            {
+              "cor": "laranja",
+              "preco": 6300
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "IPHONE 17 PRO 512GB E-SIM AMERICANO",
+          "itens": [
+            {
+              "cor": "azul",
+              "preco": null
+            },
+            {
+              "cor": "branco",
+              "preco": null
+            },
+            {
+              "cor": "laranja",
+              "preco": null
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "IPHONE 17 PRO 1tb E-SIM americano",
+          "itens": [
+            {
+              "cor": "branco",
+              "preco": null
+            },
+            {
+              "cor": "laranja",
+              "preco": null
+            },
+            {
+              "cor": "azul",
+              "preco": null
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "IPHONE 17 AIR 256GB E-SIM",
+          "itens": [
+            {
+              "cor": "branco",
+              "preco": null
+            },
+            {
+              "cor": "dourado",
+              "preco": null
+            },
+            {
+              "cor": "azul",
+              "preco": null
+            },
+            {
+              "cor": "preto",
+              "preco": null
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "IPHONE 17E 256GB E-SIM indiano",
+          "itens": [
+            {
+              "cor": "branco",
+              "preco": null
+            },
+            {
+              "cor": "preto",
+              "preco": null
+            },
+            {
+              "cor": "rosa",
+              "preco": null
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "IPHONE 17 512GB",
+          "itens": [
+            {
+              "cor": "branco",
+              "preco": null
+            },
+            {
+              "cor": "roxo",
+              "preco": null
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "IPHONE 17 256GB",
+          "itens": [
+            {
+              "cor": "verde",
+              "preco": 5000
+            },
+            {
+              "cor": "azul",
+              "preco": 5050
+            },
+            {
+              "cor": "preto",
+              "preco": 5180
+            },
+            {
+              "cor": "branco",
+              "preco": 5180
+            },
+            {
+              "cor": "roxo",
+              "preco": 5180
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "IPHONE 17 256GB indiano (chipi física + chipi virtual )",
+          "itens": [
+            {
+              "cor": "verde",
+              "preco": null
+            },
+            {
+              "cor": "azul",
+              "preco": null
+            },
+            {
+              "cor": "preto",
+              "preco": null
+            },
+            {
+              "cor": "branco",
+              "preco": null
+            },
+            {
+              "cor": "roxo",
+              "preco": null
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "IPHONE 16 PRO MAX 512GB",
+          "itens": [
+            {
+              "cor": "deserto",
+              "preco": null
+            },
+            {
+              "cor": "titânio natural",
+              "preco": null
+            },
+            {
+              "cor": "preto",
+              "preco": null
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "IPHONE 16 PRO MAX 256G",
+          "itens": [
+            {
+              "cor": "lla",
+              "preco": null
+            },
+            {
+              "cor": "deserto",
+              "preco": null
+            },
+            {
+              "cor": "titânio natural",
+              "preco": null
+            },
+            {
+              "cor": "preto",
+              "preco": null
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "IPHONE 16 PRO 128GB",
+          "itens": [
+            {
+              "cor": "lla",
+              "preco": null
+            },
+            {
+              "cor": "deserto",
+              "preco": null
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "IPHONE 16 PRO 512GB",
+          "itens": [
+            {
+              "cor": "branco",
+              "preco": null
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "IPHONE 16 PRO 1TB",
+          "itens": [
+            {
+              "cor": "branco",
+              "preco": null
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "IPHONE 16 PLUS 128GB INDIANO",
+          "itens": [
+            {
+              "cor": "preto",
+              "preco": null
+            },
+            {
+              "cor": "azul",
+              "preco": null
+            },
+            {
+              "cor": "rosa",
+              "preco": null
+            },
+            {
+              "cor": "branco",
+              "preco": null
+            },
+            {
+              "cor": "verde",
+              "preco": null
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "IPHONE 16 PLUS 256GB INDIANO",
+          "itens": [
+            {
+              "cor": "preto",
+              "preco": null
+            },
+            {
+              "cor": "verde",
+              "preco": null
+            },
+            {
+              "cor": "azul",
+              "preco": null
+            },
+            {
+              "cor": "rosa",
+              "preco": null
+            },
+            {
+              "cor": "branco",
+              "preco": null
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "IPHONE 16 256GB INDIANO",
+          "itens": [
+            {
+              "cor": "branco",
+              "preco": null
+            },
+            {
+              "cor": "preto",
+              "preco": null
+            },
+            {
+              "cor": "azul",
+              "preco": null
+            },
+            {
+              "cor": "verde",
+              "preco": null
+            },
+            {
+              "cor": "rosa",
+              "preco": null
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "IPHONE 16 128GB",
+          "itens": [
+            {
+              "cor": "azul",
+              "preco": 3970
+            },
+            {
+              "cor": "verde",
+              "preco": 3970
+            },
+            {
+              "cor": "preto",
+              "preco": 4080
+            },
+            {
+              "cor": "branco",
+              "preco": 4090
+            },
+            {
+              "cor": "rosa",
+              "preco": null
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "IPHONE 16E 128GB",
+          "itens": [
+            {
+              "cor": "branco",
+              "preco": null
+            },
+            {
+              "cor": "preto",
+              "preco": null
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "IPHONE 15 plus 256GB",
+          "itens": [
+            {
+              "cor": "rosa",
+              "preco": null
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "IPHONE 15 256GB INDIANO",
+          "itens": [
+            {
+              "cor": "preto",
+              "preco": null
+            },
+            {
+              "cor": "azul",
+              "preco": null
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "IPHONE 15 128GB INDIANO",
+          "itens": [
+            {
+              "cor": "preto",
+              "preco": 3590
+            },
+            {
+              "cor": "azul",
+              "preco": null
+            },
+            {
+              "cor": "rosa",
+              "preco": null
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "IPHONE 14 128GB INDIANO",
+          "itens": [
+            {
+              "cor": "preto",
+              "preco": null
+            },
+            {
+              "cor": "azul",
+              "preco": null
+            },
+            {
+              "cor": "branco",
+              "preco": null
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "IPHONE 13 128GB INDIANO",
+          "itens": [
+            {
+              "cor": "branco",
+              "preco": null
+            },
+            {
+              "cor": "preto",
+              "preco": null
+            }
+          ]
+        },
+        {
+          "secao": "cpo",
+          "modelo": "IPHONE 16 PRO MAX 512GB CPO",
+          "itens": [
+            {
+              "cor": "preto",
+              "preco": null
+            },
+            {
+              "cor": "branco",
+              "preco": null
+            },
+            {
+              "cor": "titânio natural",
+              "preco": null
+            },
+            {
+              "cor": "deserto",
+              "preco": null
+            }
+          ]
+        },
+        {
+          "secao": "cpo",
+          "modelo": "IPHONE 16 PRO MAX 256GB CPO",
+          "itens": [
+            {
+              "cor": "preto",
+              "preco": null
+            },
+            {
+              "cor": "branco",
+              "preco": null
+            },
+            {
+              "cor": "deserto",
+              "preco": null
+            },
+            {
+              "cor": "titânio natural",
+              "preco": null
+            }
+          ]
+        },
+        {
+          "secao": "cpo",
+          "modelo": "IPHONE 16 PRO 256GB CPO",
+          "itens": [
+            {
+              "cor": "preto",
+              "preco": null
+            },
+            {
+              "cor": "titânio natural",
+              "preco": null
+            },
+            {
+              "cor": "deserto",
+              "preco": null
+            },
+            {
+              "cor": "branco",
+              "preco": null
+            }
+          ]
+        },
+        {
+          "secao": "cpo",
+          "modelo": "IPHONE 16 PRO 128GB CPO",
+          "itens": [
+            {
+              "cor": "preto",
+              "preco": 4620
+            },
+            {
+              "cor": "titânio natural",
+              "preco": 4720
+            },
+            {
+              "cor": "deserto",
+              "preco": 4800
+            },
+            {
+              "cor": "branco",
+              "preco": null
+            }
+          ]
+        },
+        {
+          "secao": "cpo",
+          "modelo": "IPHONE 16E 128GB CPO",
+          "itens": [
+            {
+              "cor": "preto",
+              "preco": 2920
+            },
+            {
+              "cor": "branco",
+              "preco": 2920
+            }
+          ]
+        },
+        {
+          "secao": "cpo",
+          "modelo": "IPHONE 16 128GB CPO",
+          "itens": [
+            {
+              "cor": "preto",
+              "preco": null
+            },
+            {
+              "cor": "azul",
+              "preco": null
+            },
+            {
+              "cor": "rosa",
+              "preco": null
+            }
+          ]
+        },
+        {
+          "secao": "cpo",
+          "modelo": "IPHONE 16 256GB CPO",
+          "itens": [
+            {
+              "cor": "preto",
+              "preco": null
+            },
+            {
+              "cor": "azul",
+              "preco": null
+            },
+            {
+              "cor": "rosa",
+              "preco": null
+            },
+            {
+              "cor": "branco",
+              "preco": null
+            }
+          ]
+        },
+        {
+          "secao": "cpo",
+          "modelo": "IPHONE 15 PRO MAX 512GB CPO",
+          "itens": [
+            {
+              "cor": "azul",
+              "preco": null
+            },
+            {
+              "cor": "titânio natural",
+              "preco": null
+            },
+            {
+              "cor": "preto",
+              "preco": null
+            },
+            {
+              "cor": "branco",
+              "preco": null
+            }
+          ]
+        },
+        {
+          "secao": "cpo",
+          "modelo": "IPHONE 15 PRO MAX 256GB CPO",
+          "itens": [
+            {
+              "cor": "azul",
+              "preco": null
+            },
+            {
+              "cor": "titânio natural",
+              "preco": null
+            },
+            {
+              "cor": "preto",
+              "preco": null
+            },
+            {
+              "cor": "branco",
+              "preco": null
+            }
+          ]
+        },
+        {
+          "secao": "cpo",
+          "modelo": "IPHONE 15 PRO 256GB CPO",
+          "itens": [
+            {
+              "cor": "preto",
+              "preco": null
+            },
+            {
+              "cor": "titânio natural",
+              "preco": null
+            },
+            {
+              "cor": "branco",
+              "preco": null
+            },
+            {
+              "cor": "azul",
+              "preco": null
+            }
+          ]
+        },
+        {
+          "secao": "cpo",
+          "modelo": "IPHONE 15 PRO 128GB CPO",
+          "itens": [
+            {
+              "cor": "preto",
+              "preco": null
+            },
+            {
+              "cor": "branco",
+              "preco": null
+            },
+            {
+              "cor": "azul",
+              "preco": null
+            },
+            {
+              "cor": "titânio natural",
+              "preco": null
+            }
+          ]
+        },
+        {
+          "secao": "cpo",
+          "modelo": "IPHONE 14 PRO 256GB CPO",
+          "itens": [
+            {
+              "cor": "branco",
+              "preco": null
+            },
+            {
+              "cor": "dourado",
+              "preco": null
+            },
+            {
+              "cor": "roxo",
+              "preco": null
+            },
+            {
+              "cor": "preto",
+              "preco": null
+            }
+          ]
+        },
+        {
+          "secao": "cpo",
+          "modelo": "IPHONE 14 PRO 128GB CPO",
+          "itens": [
+            {
+              "cor": "branco",
+              "preco": null
+            },
+            {
+              "cor": "dourado",
+              "preco": null
+            },
+            {
+              "cor": "roxo",
+              "preco": null
+            },
+            {
+              "cor": "preto",
+              "preco": null
+            }
+          ]
+        },
+        {
+          "secao": "cpo",
+          "modelo": "IPHONE 14 PRO MAX 128GB CPO",
+          "itens": [
+            {
+              "cor": "branco",
+              "preco": null
+            },
+            {
+              "cor": "preto",
+              "preco": null
+            },
+            {
+              "cor": "dourado",
+              "preco": null
+            },
+            {
+              "cor": "roxo",
+              "preco": null
+            }
+          ]
+        },
+        {
+          "secao": "cpo",
+          "modelo": "IPHONE 14 PRO MAX 256GB CPO",
+          "itens": [
+            {
+              "cor": "branco",
+              "preco": null
+            },
+            {
+              "cor": "preto",
+              "preco": null
+            },
+            {
+              "cor": "dourado",
+              "preco": null
+            },
+            {
+              "cor": "roxo",
+              "preco": null
+            }
+          ]
+        },
+        {
+          "secao": "cpo",
+          "modelo": "IPHONE 14 256GB CPO",
+          "itens": [
+            {
+              "cor": "preto",
+              "preco": null
+            },
+            {
+              "cor": "roxo",
+              "preco": null
+            },
+            {
+              "cor": "branco",
+              "preco": null
+            }
+          ]
+        },
+        {
+          "secao": "cpo",
+          "modelo": "IPHONE 13 PRO MAX 128GB CPO",
+          "itens": [
+            {
+              "cor": "branco",
+              "preco": null
+            },
+            {
+              "cor": "dourado",
+              "preco": null
+            },
+            {
+              "cor": "preto",
+              "preco": null
+            }
+          ]
+        },
+        {
+          "secao": "cpo",
+          "modelo": "IPHONE 13pro 256GB CPO",
+          "itens": [
+            {
+              "cor": "preto",
+              "preco": null
+            },
+            {
+              "cor": "branco",
+              "preco": null
+            },
+            {
+              "cor": "dourado",
+              "preco": null
+            }
+          ]
+        },
+        {
+          "secao": "cpo",
+          "modelo": "IPHONE 13pro 128GB CPO",
+          "itens": [
+            {
+              "cor": "preto",
+              "preco": null
+            },
+            {
+              "cor": "branco",
+              "preco": null
+            },
+            {
+              "cor": "azul",
+              "preco": null
+            },
+            {
+              "cor": "dourado",
+              "preco": null
+            }
+          ]
+        },
+        {
+          "secao": "cpo",
+          "modelo": "IPHONE 13 512GB CPO",
+          "itens": [
+            {
+              "cor": "preto",
+              "preco": 3150
+            },
+            {
+              "cor": "branco",
+              "preco": null
+            }
+          ]
+        },
+        {
+          "secao": "cpo",
+          "modelo": "IPHONE 13 256GB CPO",
+          "itens": [
+            {
+              "cor": "preto",
+              "preco": null
+            },
+            {
+              "cor": "branco",
+              "preco": null
+            }
+          ]
+        },
+        {
+          "secao": "cpo",
+          "modelo": "IPHONE 13 128GB CPO",
+          "itens": [
+            {
+              "cor": "preto",
+              "preco": null
+            },
+            {
+              "cor": "branco",
+              "preco": null
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "MACBOOK NEO A18 PRO 8GB / 256GB 13”",
+          "itens": [
+            {
+              "cor": "prata",
+              "preco": null
+            },
+            {
+              "cor": "blush",
+              "preco": 4650
+            },
+            {
+              "cor": "indigo",
+              "preco": 4659
+            },
+            {
+              "cor": "citrus",
+              "preco": 4550
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "MACBOOK NEO A18 PRO 8GB / 512GB 13”",
+          "itens": [
+            {
+              "cor": "prata",
+              "preco": null
+            },
+            {
+              "cor": "indigo",
+              "preco": 5500
+            },
+            {
+              "cor": "blush",
+              "preco": 5500
+            },
+            {
+              "cor": "citrus",
+              "preco": 5500
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "MACBOOK AIR M5 16GB / 512GB 15”",
+          "itens": [
+            {
+              "cor": "meia-noite",
+              "preco": null
+            },
+            {
+              "cor": "prata",
+              "preco": null
+            },
+            {
+              "cor": "azul",
+              "preco": null
+            },
+            {
+              "cor": "branco",
+              "preco": null
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "MACBOOK AIR M5 16GB / 512GB 13”",
+          "itens": [
+            {
+              "cor": "meia-noite",
+              "preco": 7600
+            },
+            {
+              "cor": "prata",
+              "preco": 7600
+            },
+            {
+              "cor": "azul",
+              "preco": 7550
+            },
+            {
+              "cor": "branco",
+              "preco": 7550
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "MACBOOK PRO M5 16GB / 512GB 14”",
+          "itens": [
+            {
+              "cor": "preto",
+              "preco": null
+            },
+            {
+              "cor": "prata",
+              "preco": null
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "MACBOOK PRO M5 16GB / 1TB 14”",
+          "itens": [
+            {
+              "cor": "preto",
+              "preco": 11850
+            },
+            {
+              "cor": "prata",
+              "preco": 11850
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "MACBOOK PRO M5 24GB / 1TB 14”",
+          "itens": [
+            {
+              "cor": "preto",
+              "preco": null
+            },
+            {
+              "cor": "prata",
+              "preco": null
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "MACBOOK PRO M5 PRO 24GB / 2TB 14”",
+          "itens": [
+            {
+              "cor": "prata",
+              "preco": 18300
+            },
+            {
+              "cor": "space gray",
+              "preco": 18600
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "MACBOOK PRO M5 PRO 24GB / 1TB 14”",
+          "itens": [
+            {
+              "cor": "prata",
+              "preco": 15300
+            },
+            {
+              "cor": "space gray",
+              "preco": null
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "MACBOOk PRO M5 MAX 36GB / 2TB 14”",
+          "itens": [
+            {
+              "cor": "prata",
+              "preco": null
+            },
+            {
+              "cor": "meia-noite",
+              "preco": null
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "MACBOOK AIR M4 24GB / 512GB 15”",
+          "itens": [
+            {
+              "cor": "sky",
+              "preco": null
+            },
+            {
+              "cor": "branco",
+              "preco": null
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "MACBOOK AIR M4 24GB / 512GB 13”",
+          "itens": [
+            {
+              "cor": "meia-noite",
+              "preco": null
+            },
+            {
+              "cor": "sky",
+              "preco": null
+            },
+            {
+              "cor": "prata",
+              "preco": null
+            },
+            {
+              "cor": "branco",
+              "preco": null
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "MACBOOK AIR M4 16GB / 256GB 13”",
+          "itens": [
+            {
+              "cor": "meia-noite",
+              "preco": null
+            },
+            {
+              "cor": "sky",
+              "preco": null
+            },
+            {
+              "cor": "prata",
+              "preco": null
+            },
+            {
+              "cor": "branco",
+              "preco": null
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "MACBOOK AIR M4 16GB / 512GB 15”",
+          "itens": [
+            {
+              "cor": "sky",
+              "preco": null
+            },
+            {
+              "cor": "meia-noite",
+              "preco": null
+            },
+            {
+              "cor": "prata",
+              "preco": null
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "MACBOOK AIR M4 16GB / 256GB 15”",
+          "itens": [
+            {
+              "cor": "prata",
+              "preco": null
+            },
+            {
+              "cor": "meia-noite",
+              "preco": null
+            },
+            {
+              "cor": "branco",
+              "preco": null
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "MACBOOK AIR M4 16GB / 512GB 13”",
+          "itens": [
+            {
+              "cor": "sky",
+              "preco": null
+            },
+            {
+              "cor": "meia-noite",
+              "preco": null
+            },
+            {
+              "cor": "prata",
+              "preco": null
+            },
+            {
+              "cor": "branco",
+              "preco": null
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "MACBOOK PRO M4 PRO 24GB / 512 14”",
+          "itens": [
+            {
+              "cor": "preto",
+              "preco": null
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "MACBOOK PRO M4 16GB / 1TB 14”",
+          "itens": [
+            {
+              "cor": "preto",
+              "preco": null
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "MACBOOK AIR M2 16GB / 256GB 13”",
+          "itens": [
+            {
+              "cor": "preto",
+              "preco": null
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "MACBOOK AIR M2 8GB / 512GB 13”",
+          "itens": [
+            {
+              "cor": "prata",
+              "preco": null
+            },
+            {
+              "cor": "branco",
+              "preco": null
+            },
+            {
+              "cor": "meia-noite",
+              "preco": null
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "MACBOOK AIR M1 8GB / 256GB 13”",
+          "itens": [
+            {
+              "cor": "prata",
+              "preco": null
+            },
+            {
+              "cor": "space gray",
+              "preco": null
+            },
+            {
+              "cor": "mac mini",
+              "preco": null
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "IPAD PRO M5 256GB 11”",
+          "itens": [
+            {
+              "cor": "space",
+              "preco": 6900
+            },
+            {
+              "cor": "prata",
+              "preco": 6900
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "IPAD PRO M5 256GB 13”",
+          "itens": [
+            {
+              "cor": "space",
+              "preco": 8150
+            },
+            {
+              "cor": "prata",
+              "preco": null
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "IPAD AIR M4 128GB 13”",
+          "itens": [
+            {
+              "cor": "space gray",
+              "preco": null
+            },
+            {
+              "cor": "branco",
+              "preco": null
+            },
+            {
+              "cor": "azul",
+              "preco": null
+            },
+            {
+              "cor": "roxo",
+              "preco": null
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "IPAD AIR M4 256GB 13”",
+          "itens": [
+            {
+              "cor": "space gray",
+              "preco": null
+            },
+            {
+              "cor": "branco",
+              "preco": null
+            },
+            {
+              "cor": "azul",
+              "preco": null
+            },
+            {
+              "cor": "roxo",
+              "preco": null
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "IPAD AIR M4 128GB 11”",
+          "itens": [
+            {
+              "cor": "space gray",
+              "preco": 4550
+            },
+            {
+              "cor": "branco",
+              "preco": 4650
+            },
+            {
+              "cor": "azul",
+              "preco": 4500
+            },
+            {
+              "cor": "roxo",
+              "preco": 4450
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "IPAD AIR M4 256GB 11”",
+          "itens": [
+            {
+              "cor": "space gray",
+              "preco": null
+            },
+            {
+              "cor": "branco",
+              "preco": null
+            },
+            {
+              "cor": "azul",
+              "preco": null
+            },
+            {
+              "cor": "roxo",
+              "preco": null
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "IPAD AIR M3 128GB 11”",
+          "itens": [
+            {
+              "cor": "space gray",
+              "preco": null
+            },
+            {
+              "cor": "branco",
+              "preco": null
+            },
+            {
+              "cor": "azul",
+              "preco": null
+            },
+            {
+              "cor": "roxo",
+              "preco": null
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "IPAD AIR M3 256GB 11”",
+          "itens": [
+            {
+              "cor": "space gray",
+              "preco": null
+            },
+            {
+              "cor": "branco",
+              "preco": null
+            },
+            {
+              "cor": "azul",
+              "preco": null
+            },
+            {
+              "cor": "roxo",
+              "preco": null
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "IPAD AIR M3 128GB 13”",
+          "itens": [
+            {
+              "cor": "branco",
+              "preco": null
+            },
+            {
+              "cor": "azul",
+              "preco": null
+            },
+            {
+              "cor": "roxo",
+              "preco": null
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "IPAD AIR M3 256GB 13”",
+          "itens": [
+            {
+              "cor": "space gray",
+              "preco": null
+            },
+            {
+              "cor": "azul",
+              "preco": null
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "IPAD 11 WIFI 128GB",
+          "itens": [
+            {
+              "cor": "branco",
+              "preco": 2750
+            },
+            {
+              "cor": "azul",
+              "preco": 2750
+            },
+            {
+              "cor": "rosa",
+              "preco": 2750
+            },
+            {
+              "cor": "amarelo",
+              "preco": null
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "IPAD 11 WIFI 256GB",
+          "itens": [
+            {
+              "cor": "prata",
+              "preco": null
+            },
+            {
+              "cor": "rosa",
+              "preco": null
+            },
+            {
+              "cor": "azul",
+              "preco": null
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "IPAD 11 WIFI 512GB",
+          "itens": [
+            {
+              "cor": "azul",
+              "preco": null
+            },
+            {
+              "cor": "rosa",
+              "preco": null
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "IPAD MINI 7 A17 128GB",
+          "itens": [
+            {
+              "cor": "branco",
+              "preco": null
+            },
+            {
+              "cor": "space gray",
+              "preco": null
+            },
+            {
+              "cor": "roxo",
+              "preco": null
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "AIRPODS MAX 2",
+          "itens": [
+            {
+              "cor": "azul",
+              "preco": 3300
+            },
+            {
+              "cor": "meia-noite",
+              "preco": null
+            },
+            {
+              "cor": "roxo",
+              "preco": 3300
+            },
+            {
+              "cor": "laranja",
+              "preco": 3300
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "MAGIC MOUSE 3 USB-C",
+          "itens": [
+            {
+              "cor": "branco",
+              "preco": null
+            },
+            {
+              "cor": "preto",
+              "preco": null
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "MAGIC KEYBOARD IPAD PRO 12,9 ️ MAGIC KEYBOARD NUMÉRICO TOUCH ID",
+          "itens": [
+            {
+              "cor": "inch geracao",
+              "preco": null
+            },
+            {
+              "cor": "preto",
+              "preco": null
+            },
+            {
+              "cor": "magic keyboard",
+              "preco": null
+            },
+            {
+              "cor": "branco",
+              "preco": null
+            },
+            {
+              "cor": "preto",
+              "preco": null
+            },
+            {
+              "cor": "magic keyboard touch",
+              "preco": null
+            },
+            {
+              "cor": "branco",
+              "preco": null
+            },
+            {
+              "cor": "branco",
+              "preco": null
+            },
+            {
+              "cor": "airtag",
+              "preco": null
+            },
+            {
+              "cor": "airtag",
+              "preco": null
+            },
+            {
+              "cor": "apple pencil pro",
+              "preco": null
+            },
+            {
+              "cor": "apple pencil usb",
+              "preco": null
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "lugar": "Ny-cell Sthe",
+      "quando": "20/10/2026, 10:10:01",
+      "blocos": [
+        {
+          "secao": "cpo",
+          "modelo": "IPHONE 16E 128GB *CPO* (E-SIM)",
+          "itens": [
+            {
+              "cor": "preto",
+              "preco": 2850
+            },
+            {
+              "cor": "branco",
+              "preco": 2850
+            }
+          ]
+        },
+        {
+          "secao": "cpo",
+          "modelo": "IPHONE 16E 256GB *CPO**(E-SIM)*",
+          "itens": [
+            {
+              "cor": "preto",
+              "preco": 3550
+            }
+          ]
+        },
+        {
+          "secao": "cpo",
+          "modelo": "IPHONE 16 128GB *CPO* *(E-SIM)*",
+          "itens": [
+            {
+              "cor": "rosa",
+              "preco": 3900
+            }
+          ]
+        },
+        {
+          "secao": "cpo",
+          "modelo": "IPHONE 16 PRO 128GB *CPO*",
+          "itens": [
+            {
+              "cor": "sim",
+              "preco": 4650
+            },
+            {
+              "cor": "titânio natural",
+              "preco": 4650
+            }
+          ]
+        },
+        {
+          "secao": "cpo",
+          "modelo": "IPHONE 16 PRO MAX 256GB *CPO*",
+          "itens": [
+            {
+              "cor": "sim",
+              "preco": 6300
+            },
+            {
+              "cor": "deserto",
+              "preco": 6300
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "IPHONE 16 128GB (E-SIM+CHIP)",
+          "itens": [
+            {
+              "cor": "branco",
+              "preco": 4100
+            },
+            {
+              "cor": "preto",
+              "preco": 4050
+            },
+            {
+              "cor": "teal",
+              "preco": 4000
+            },
+            {
+              "cor": "rosa",
+              "preco": 4170
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "IPHONE 16 128GB (E-SIM+CHIP)",
+          "itens": [
+            {
+              "cor": "ultramarino",
+              "preco": 4000
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "IPHONE 17 AIR 256GB (E-SIM)",
+          "itens": [
+            {
+              "cor": "preto",
+              "preco": 5250
+            },
+            {
+              "cor": "azul",
+              "preco": 5250
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "IPHONE 17 256GB (E-SIM)",
+          "itens": [
+            {
+              "cor": "preto",
+              "preco": 5200
+            },
+            {
+              "cor": "sage",
+              "preco": 5050
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "IPHONE 17 PRO 256GB (E-SIM)",
+          "itens": [
+            {
+              "cor": "azul",
+              "preco": 6400
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "IPHONE 17 PRO MAX 256GB (E-SIM)",
+          "itens": [
+            {
+              "cor": "laranja",
+              "preco": 6700
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "IPHONE 17 PRO MAX 1TB (E-SIM)",
+          "itens": [
+            {
+              "cor": "laranja",
+              "preco": 9650
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "IPHONE 18 PRO MAX 256GB (E-SIM)",
+          "itens": [
+            {
+              "cor": "preto",
+              "preco": 8600
+            },
+            {
+              "cor": "prata",
+              "preco": 8600
+            },
+            {
+              "cor": "glacier",
+              "preco": 9300
+            },
+            {
+              "cor": "bordô",
+              "preco": 9200
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "IPHONE 18 PRO MAX 512GB (E-SIM)",
+          "itens": [
+            {
+              "cor": "prata",
+              "preco": 10200
+            },
+            {
+              "cor": "glacier",
+              "preco": 10200
+            },
+            {
+              "cor": "bordô",
+              "preco": 10500
+            },
+            {
+              "cor": "preto",
+              "preco": 10050
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "APPLE WATCH *ULTRA 3 49MM* NATURAL",
+          "itens": [
+            {
+              "cor": "titânio natural",
+              "preco": 4900
+            },
+            {
+              "cor": "pluseira milanesa",
+              "preco": 4900
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "IPAD AIR *M3* 13” 128GB *WI-FI*",
+          "itens": [
+            {
+              "cor": "space gray",
+              "preco": 4550
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "IPAD PRO *M5* 11” 256GB *WI-FI*",
+          "itens": [
+            {
+              "cor": "preto",
+              "preco": 6750
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "IPAD PRO *M5* 13” 256GB *WI-FI*",
+          "itens": [
+            {
+              "cor": "preto",
+              "preco": 7500
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "IPAD PRO *M5* 13” 512GB *WI-FI*",
+          "itens": [
+            {
+              "cor": "prata",
+              "preco": 8800
+            },
+            {
+              "cor": "preto",
+              "preco": 8800
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "IPAD PRO *M5* 13” 1TB *WI-FI*",
+          "itens": [
+            {
+              "cor": "prata",
+              "preco": 10100
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "IPAD PRO *M5* 13” 1TB",
+          "itens": [
+            {
+              "cor": "cell nano text",
+              "preco": 11100
+            },
+            {
+              "cor": "prata",
+              "preco": 11100
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "IPAD PRO *M5* 13” 2TB",
+          "itens": [
+            {
+              "cor": "cell",
+              "preco": 11650
+            },
+            {
+              "cor": "prata",
+              "preco": 11650
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "MACBOOK AIR M5 CHIP 13” 16GB 512GB",
+          "itens": [
+            {
+              "cor": "branco",
+              "preco": 7600
+            },
+            {
+              "cor": "sky",
+              "preco": 7600
+            },
+            {
+              "cor": "prata",
+              "preco": 7600
+            },
+            {
+              "cor": "midinigth",
+              "preco": 7600
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "MACBOOK NEO 13” 8GB 512GB",
+          "itens": [
+            {
+              "cor": "indico",
+              "preco": 5150
+            },
+            {
+              "cor": "citrus",
+              "preco": 4900
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "AIRPODS 5",
+          "itens": [
+            {
+              "cor": "wireless charging case",
+              "preco": 1120
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "AIRPODS MAX 2  FONTE TIPO C ORIGINAL CHINA  FONTE TIPO C PRIMEIRA LINHA  CABO TIPO C/C ORIGINAL CHINA  CABO TIPO C ORIGINAL CHINA",
+          "itens": [
+            {
+              "cor": "roxo",
+              "preco": 2800
+            },
+            {
+              "cor": "branco",
+              "preco": 2800
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "lugar": "Tm Natach 2",
+      "quando": "20/10/2026, 10:10:12",
+      "blocos": [
+        {
+          "secao": "lacrados",
+          "modelo": "IPHONE 18 PRO MAX 256GB *ESIM AMERICANO*",
+          "itens": [
+            {
+              "cor": "glacier",
+              "preco": 9300
+            },
+            {
+              "cor": "bordô",
+              "preco": 9150
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "IPHONE 18 PRO MAX 256GB *ESIM JAPONÊS*",
+          "itens": [
+            {
+              "cor": "glacier",
+              "preco": 9150
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "IPHONE 18 PRO 512GB *ESIM AMERICANO*",
+          "itens": [
+            {
+              "cor": "bordô",
+              "preco": 8950
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "IPHONE 18 PRO 256GB *ESIM AMERICANO*",
+          "itens": [
+            {
+              "cor": "bordô",
+              "preco": 7550
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "IPHONE 17 PRO MAX 256GB *ESIM AMERICANO*",
+          "itens": [
+            {
+              "cor": "branco",
+              "preco": 6900
+            },
+            {
+              "cor": "azul",
+              "preco": 6750
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "IPHONE 17 PRO MAX 256GB *ESIM JAPONÊS*",
+          "itens": [
+            {
+              "cor": "branco",
+              "preco": 6850
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "IPHONE 17 PRO 256GB *ESIM AMERICANO*",
+          "itens": [
+            {
+              "cor": "laranja",
+              "preco": 6250
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "IPHONE 17 PRO 256GB *ESIM JAPONÊS*",
+          "itens": [
+            {
+              "cor": "branco",
+              "preco": 6400
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "IPHONE 17 E 256GB *INDIANO 1CHIP FISICO 1VIRTUAL*",
+          "itens": [
+            {
+              "cor": "rosa",
+              "preco": 3550
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "IPHONE 17 256GB *INDIANO 1CHIP FISICO 1VIRTUAL*",
+          "itens": [
+            {
+              "cor": "branco",
+              "preco": 5150
+            },
+            {
+              "cor": "roxo",
+              "preco": 5150
+            },
+            {
+              "cor": "preto",
+              "preco": 5150
+            },
+            {
+              "cor": "azul",
+              "preco": 5050
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "IPHONE 16 128GB *INDIANO 1CHIP FISICO 1VIRTUAL*",
+          "itens": [
+            {
+              "cor": "branco",
+              "preco": 4100
+            },
+            {
+              "cor": "preto",
+              "preco": 4000
+            },
+            {
+              "cor": "azul",
+              "preco": 3950
+            },
+            {
+              "cor": "verde",
+              "preco": 3900
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "IPHONE 15 PLUS 256GB",
+          "itens": [
+            {
+              "cor": "rosa",
+              "preco": 4100
+            }
+          ]
+        },
+        {
+          "secao": "cpo",
+          "modelo": "IPHONE 16 PRO 128GB *CPO*",
+          "itens": [
+            {
+              "cor": "preto",
+              "preco": 4600
+            }
+          ]
+        },
+        {
+          "secao": "cpo",
+          "modelo": "IPHONE 16E 128GB *CPO*",
+          "itens": [
+            {
+              "cor": "branco",
+              "preco": 2900
+            },
+            {
+              "cor": "preto",
+              "preco": 2850
+            }
+          ]
+        },
+        {
+          "secao": "cpo",
+          "modelo": "IPHONE 16 128GB *CPO*",
+          "itens": [
+            {
+              "cor": "rosa",
+              "preco": 3850
+            }
+          ]
+        },
+        {
+          "secao": "cpo",
+          "modelo": "IPHONE 13 512GB *CPO* ️SERIE S12 46MM GPS M/L *PULSEIRA SILICONE* ️SERIE S11 46MM GPS M/L *PULSEIRA SILICONE*",
+          "itens": [
+            {
+              "cor": "preto",
+              "preco": 3100
+            },
+            {
+              "cor": "preto",
+              "preco": 2900
+            },
+            {
+              "cor": "preto",
+              "preco": 2150
+            },
+            {
+              "cor": "space gray",
+              "preco": 2150
+            },
+            {
+              "cor": "branco",
+              "preco": 2150
+            },
+            {
+              "cor": "rosa",
+              "preco": 2100
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "IPAD PRO M5 256GB *11INCH WIFI*",
+          "itens": [
+            {
+              "cor": "preto",
+              "preco": 6750
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "IPAD AIR M4 128GB *11INCH WIFI*",
+          "itens": [
+            {
+              "cor": "space gray",
+              "preco": 4400
+            },
+            {
+              "cor": "roxo",
+              "preco": 4350
+            },
+            {
+              "cor": "azul",
+              "preco": 4350
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "IPAD MINI 128GB *A17 PRO WIFI*",
+          "itens": [
+            {
+              "cor": "space gray",
+              "preco": 3850
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "IPAD 11 128GB *WIFI*",
+          "itens": [
+            {
+              "cor": "prata",
+              "preco": 2750
+            },
+            {
+              "cor": "rose",
+              "preco": 2700
+            },
+            {
+              "cor": "mac mini",
+              "preco": 3238
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "MACBOOK PRO M5 1TB 14INCH (A3434/ 10C CPU/ 10C GPU/16GB)",
+          "itens": [
+            {
+              "cor": "preto",
+              "preco": 11300
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "MACBOOK AIR M5 512GB 13INCH (A3448/ 10C CPU/ 10C GPU/16GB)",
+          "itens": [
+            {
+              "cor": "meia-noite",
+              "preco": 7500
+            },
+            {
+              "cor": "prata",
+              "preco": 7500
+            },
+            {
+              "cor": "branco",
+              "preco": 7450
+            },
+            {
+              "cor": "azul",
+              "preco": 7450
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "MACBOOK NEO 512GB 13INCH (A3404/ 6C CPU/ 5C GPU/8GB) ️AIR TAG 2 GERAÇÃO *4 PACK*",
+          "itens": [
+            {
+              "cor": "citrico",
+              "preco": 4900
+            },
+            {
+              "cor": "air pods pro",
+              "preco": null
+            },
+            {
+              "cor": "air pods case",
+              "preco": null
+            },
+            {
+              "cor": "air pods anc",
+              "preco": null
+            },
+            {
+              "cor": "pencil pro",
+              "preco": null
+            },
+            {
+              "cor": "pencil usbc",
+              "preco": null
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "MAGIC MOUSE 3 *USB-C* ️ANEL INTELIGENTE *OURA RING 5 TAM 10* ️ANEL INTELIGENTE *OURA RING 5 TAM 9* ️ANEL INTELIGENTE *OURA RING 5 TAM 7*",
+          "itens": [
+            {
+              "cor": "preto",
+              "preco": 3150
+            },
+            {
+              "cor": "branco",
+              "preco": 3150
+            },
+            {
+              "cor": "prata",
+              "preco": null
+            },
+            {
+              "cor": "stealth",
+              "preco": 3150
+            },
+            {
+              "cor": "preto",
+              "preco": 3150
+            },
+            {
+              "cor": "deep rose",
+              "preco": 3150
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "lugar": "HD ELETRÔNICOS",
+      "quando": "20/10/2026, 10:22:13",
+      "blocos": [
+        {
+          "secao": "lacrados",
+          "modelo": "iPhone-18 Pro Max (1TB)*",
+          "itens": [
+            {
+              "cor": "azul",
+              "preco": 13100
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "iPhone-17 Pro Max (256 GB)*",
+          "itens": [
+            {
+              "cor": "prata",
+              "preco": 6900
+            },
+            {
+              "cor": "azul",
+              "preco": 6800
+            },
+            {
+              "cor": "laranja",
+              "preco": 6700
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "iPhone-17 Pro (256 GB)*",
+          "itens": [
+            {
+              "cor": "laranja",
+              "preco": 6200
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "iPhone 17-E (256 GB)*",
+          "itens": [
+            {
+              "cor": "rosa",
+              "preco": 3500
+            },
+            {
+              "cor": "branco",
+              "preco": 3450
+            }
+          ]
+        },
+        {
+          "secao": "cpo",
+          "modelo": "iPhone-13 (128 GB)*",
+          "itens": [
+            {
+              "cor": "preto",
+              "preco": 2600
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "iMac M-4 (16 / 256gb) (24”)* * 8 CPU / 8 GPU *",
+          "itens": [
+            {
+              "cor": "prata",
+              "preco": 10950
+            },
+            {
+              "cor": "apple pencil",
+              "preco": null
+            },
+            {
+              "cor": "apple pencil usb",
+              "preco": null
+            },
+            {
+              "cor": "branco",
+              "preco": null
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "Apple Watch S-11 (46mm) GPS*",
+          "itens": [
+            {
+              "cor": "preto",
+              "preco": 2150
+            },
+            {
+              "cor": "prata",
+              "preco": null
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "Apple Watch S-11 (42mm) GPS*",
+          "itens": [
+            {
+              "cor": "dourado",
+              "preco": 2000
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "AirPods Pro-3*",
+          "itens": [
+            {
+              "cor": "branco",
+              "preco": null
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "AirPods-5 (Wireless Charge)*",
+          "itens": [
+            {
+              "cor": "branco",
+              "preco": null
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "AirPods-5*",
+          "itens": [
+            {
+              "cor": "branco",
+              "preco": null
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "AirPods-4 (ANC)*",
+          "itens": [
+            {
+              "cor": "branco",
+              "preco": null
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "AirPods-4*",
+          "itens": [
+            {
+              "cor": "branco",
+              "preco": null
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "lugar": "MB SHOP (Larissa)",
+      "quando": "20/10/2026, 10:50:33",
+      "blocos": [
+        {
+          "secao": "lacrados",
+          "modelo": "IMAC M4 (24/512GB) 8-core CPU/ 8-coreGPU",
+          "itens": [
+            {
+              "cor": "prata",
+              "preco": 16300
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "IMAC M4 (16/256GB) 8-core CPU/ 8-coreGPU",
+          "itens": [
+            {
+              "cor": "prata",
+              "preco": 11100
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "MACBOOK M5 PRO CHIP 24/2TB 14”",
+          "itens": [
+            {
+              "cor": "prata",
+              "preco": 17000
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "MACBOOK M5 PRO 16/1TB 14”",
+          "itens": [
+            {
+              "cor": "preto",
+              "preco": 11480
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "MACBOOK AIR M5 (16/512) 13”",
+          "itens": [
+            {
+              "cor": "prata",
+              "preco": 7590
+            },
+            {
+              "cor": "branco",
+              "preco": 7490
+            },
+            {
+              "cor": "meia-noite",
+              "preco": 7490
+            },
+            {
+              "cor": "azul",
+              "preco": 7490
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "IPAD A16 128GB",
+          "itens": [
+            {
+              "cor": "azul",
+              "preco": 2620
+            },
+            {
+              "cor": "rosa",
+              "preco": 2620
+            },
+            {
+              "cor": "prata",
+              "preco": 2680
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "APPLE WATCH **S11 46mm*",
+          "itens": [
+            {
+              "cor": "space gray",
+              "preco": 2190
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "APPLE WATCH **S11 42mm*",
+          "itens": [
+            {
+              "cor": "preto",
+              "preco": 1950
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "APPLE WATCH SE 3 44MM",
+          "itens": [
+            {
+              "cor": "meia-noite",
+              "preco": 1580
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "APPLE WATCH SE 3 40MM",
+          "itens": [
+            {
+              "cor": "meia-noite",
+              "preco": 1400
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "AIRPODS MAX 2 (USB-C)",
+          "itens": [
+            {
+              "cor": "roxo",
+              "preco": 2900
+            },
+            {
+              "cor": "laranja",
+              "preco": 2900
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "MAGIC MOUSE 3",
+          "itens": [
+            {
+              "cor": "branco",
+              "preco": 460
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "IPHONE 18 PRO MAX 256GB",
+          "itens": [
+            {
+              "cor": "bordô",
+              "preco": 9099.99
+            },
+            {
+              "cor": "prata",
+              "preco": 8400
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "IPHONE 18 PRO MAX 256GB",
+          "itens": [
+            {
+              "cor": "bordô",
+              "preco": 8999.99
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "IPHONE 18 PRO 256GB",
+          "itens": [
+            {
+              "cor": "prata",
+              "preco": 7150
+            },
+            {
+              "cor": "bordô",
+              "preco": 7450
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "IPHONE 17 PRO MAX 2TB",
+          "itens": [
+            {
+              "cor": "laranja",
+              "preco": 11300
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "IPHONE 17 PRO MAX 512GB",
+          "itens": [
+            {
+              "cor": "laranja",
+              "preco": 8100
+            },
+            {
+              "cor": "azul",
+              "preco": 8100
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "IPHONE 17 PRO MAX 256GB",
+          "itens": [
+            {
+              "cor": "prata",
+              "preco": 6799.99
+            },
+            {
+              "cor": "azul",
+              "preco": 6649.99
+            },
+            {
+              "cor": "laranja",
+              "preco": 6550
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "IPHONE 17 PRO 512GB",
+          "itens": [
+            {
+              "cor": "laranja",
+              "preco": 7800
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "IPHONE 17 PRO 256GB (ANATEL)",
+          "itens": [
+            {
+              "cor": "laranja",
+              "preco": 6190
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "IPHONE 17 PRO 256GB",
+          "itens": [
+            {
+              "cor": "prata",
+              "preco": 6450
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "IPHONE 17 AIR 256GB",
+          "itens": [
+            {
+              "cor": "dourado",
+              "preco": 4850
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "IPHONE 17 256GB",
+          "itens": [
+            {
+              "cor": "azul",
+              "preco": 5050
+            },
+            {
+              "cor": "sage",
+              "preco": 5000
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "IPHONE 17 256GB (ATIVADO)",
+          "itens": [
+            {
+              "cor": "azul",
+              "preco": 4950
+            },
+            {
+              "cor": "lavender",
+              "preco": 4950
+            },
+            {
+              "cor": "branco",
+              "preco": 4950
+            },
+            {
+              "cor": "preto",
+              "preco": 4950
+            },
+            {
+              "cor": "sage",
+              "preco": 4950
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "IPHONE 17E 256GB",
+          "itens": [
+            {
+              "cor": "branco",
+              "preco": 3450
+            },
+            {
+              "cor": "rosa",
+              "preco": 3450
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "IPHONE 16 128GB",
+          "itens": [
+            {
+              "cor": "azul",
+              "preco": 4090
+            },
+            {
+              "cor": "preto",
+              "preco": 4090
+            },
+            {
+              "cor": "verde",
+              "preco": 3900
+            },
+            {
+              "cor": "branco",
+              "preco": 4100
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "IPHONE 16 128GB ATIVADO",
+          "itens": [
+            {
+              "cor": "azul",
+              "preco": 3790
+            },
+            {
+              "cor": "preto",
+              "preco": 3790
+            },
+            {
+              "cor": "verde",
+              "preco": 3730
+            },
+            {
+              "cor": "branco",
+              "preco": 3790
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "IPHONE 16E 256GB",
+          "itens": [
+            {
+              "cor": "preto",
+              "preco": 2950
+            },
+            {
+              "cor": "branco",
+              "preco": 2950
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "IPHONE 15 128GB ATIVADO",
+          "itens": [
+            {
+              "cor": "azul",
+              "preco": 3350
+            }
+          ]
+        },
+        {
+          "secao": "cpo",
+          "modelo": "IPHONE 15 256GB CPO",
+          "itens": [
+            {
+              "cor": "preto",
+              "preco": 3780
+            },
+            {
+              "cor": "azul",
+              "preco": 3780
+            },
+            {
+              "cor": "verde",
+              "preco": 3780
+            },
+            {
+              "cor": "lista xiaomi",
+              "preco": null
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "ROBÔ VACUM S40",
+          "itens": [
+            {
+              "cor": "mazon",
+              "preco": 1050
+            }
+          ]
+        },
+        {
+          "secao": "lacrados",
+          "modelo": "BOMBOX 4",
+          "itens": [
+            {
+              "cor": "branca",
+              "preco": 2150
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -46,7 +46,8 @@ export interface Product {
   supplierName?: string;
 }
 
-type ProductColumn = "code" | "category" | "photo" | "name" | "sale" | "cost" | "stock" | "weight";
+type FixedColumn = "code" | "category" | "photo" | "name" | "sale" | "cost" | "stock" | "weight";
+type ProductColumn = FixedColumn | `table:${string}`;
 
 type TablePriceRow = {
   id: string;
@@ -121,12 +122,15 @@ const PRODUCT_COLUMNS: { id: ProductColumn; label: string; numeric?: boolean }[]
 const DEFAULT_COLUMN_ORDER = PRODUCT_COLUMNS.map((column) => column.id);
 const COLUMN_ORDER_KEY = "gestao-prod-column-order";
 
+function isColumnId(id: string): id is ProductColumn {
+  return (DEFAULT_COLUMN_ORDER as string[]).includes(id) || id.startsWith("table:");
+}
+
 function readColumnOrder(): ProductColumn[] {
   try {
     const raw = JSON.parse(localStorage.getItem(COLUMN_ORDER_KEY) || "null");
     if (!Array.isArray(raw)) return [...DEFAULT_COLUMN_ORDER];
-    const known = new Set<string>(DEFAULT_COLUMN_ORDER);
-    const next = raw.filter((id): id is ProductColumn => typeof id === "string" && known.has(id));
+    const next = raw.filter((id): id is ProductColumn => typeof id === "string" && isColumnId(id));
     for (const id of DEFAULT_COLUMN_ORDER) {
       if (!next.includes(id)) next.push(id);
     }
@@ -134,6 +138,22 @@ function readColumnOrder(): ProductColumn[] {
   } catch {
     return [...DEFAULT_COLUMN_ORDER];
   }
+}
+
+function placeTableColumns(order: ProductColumn[], tables: Array<{ id: string }>): ProductColumn[] {
+  const tableIds = tables.map((table) => `table:${table.id}` as ProductColumn);
+  const allowed = new Set<string>([...DEFAULT_COLUMN_ORDER, ...tableIds]);
+  const next = order.filter((id) => allowed.has(id));
+  for (const id of DEFAULT_COLUMN_ORDER) {
+    if (!next.includes(id)) next.push(id);
+  }
+  let at = next.indexOf("sale") + 1;
+  for (const id of tableIds) {
+    if (next.includes(id)) continue;
+    next.splice(at, 0, id);
+    at += 1;
+  }
+  return next;
 }
 
 function fieldOptions(rows: Product[], key: keyof Product) {
@@ -205,6 +225,8 @@ export function ProductsTab() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [sortBy, setSortBy] = useState<"name" | "code">("name");
   const [tablePrices, setTablePrices] = useState<TablePriceRow[]>([]);
+  const [gridTables, setGridTables] = useState<TablePriceRow[]>([]);
+  const [gridPrices, setGridPrices] = useState<Record<string, Record<string, number>>>({});
   const [tableDrafts, setTableDrafts] = useState<Record<string, string>>({});
   const [costDraft, setCostDraft] = useState("");
   const [draft, setDraft] = useState<ProductFilters>(EMPTY_PRODUCT_FILTERS);
@@ -219,7 +241,7 @@ export function ProductsTab() {
   const [showInactive, setShowInactive] = useState(false);
   const [editingCell, setEditingCell] = useState<{
     id: string;
-    field: "price" | "weight" | "sale" | "cost" | "stock";
+    field: "price" | "weight" | "sale" | "cost" | "stock" | `table:${string}`;
   } | null>(null);
   const [editingValue, setEditingValue] = useState("");
   const [cellNotice, setCellNotice] = useState("");
@@ -233,6 +255,28 @@ export function ProductsTab() {
   const inactiveRef = useRef(showInactive);
   inactiveRef.current = showInactive;
 
+  const loadGridPrices = async (ids: string[]) => {
+    if (!ids.length) {
+      setGridTables([]);
+      setGridPrices({});
+      return;
+    }
+    try {
+      const { data } = await api.get("/clients/price-tables/grid", { params: { ids: ids.join(",") } });
+      const tables = ((data.tables || []) as TablePriceRow[]).filter((table) => !table.isDefault);
+      const prices: Record<string, Record<string, number>> = {};
+      for (const row of (data.prices || []) as Array<{ productId: string; priceTableId: string; price: number }>) {
+        if (!prices[row.productId]) prices[row.productId] = {};
+        prices[row.productId][row.priceTableId] = Number(row.price) || 0;
+      }
+      setGridTables(tables);
+      setGridPrices(prices);
+      setColumns((current) => placeTableColumns(current, tables));
+    } catch (error) {
+      console.error("Erro ao buscar tabelas de preço:", error);
+    }
+  };
+
   const fetchData = async (filters: ProductFilters, nextPage: number, scrollTop = false) => {
     if (scrollTop) scrollPageToTop();
     setIsLoading(true);
@@ -244,12 +288,16 @@ export function ProductsTab() {
           order: sortRef.current,
         }),
       });
-      setAllProducts((data.products || []) as Product[]);
+      const rows = (data.products || []) as Product[];
+      setAllProducts(rows);
+      void loadGridPrices(rows.map((product) => product.id));
       setTotal(Number(data.total) || 0);
       if (data.facets) setFacets(data.facets as ProductFacets);
     } catch (error) {
       console.error("Erro ao buscar produtos:", error);
       setAllProducts([]);
+      setGridTables([]);
+      setGridPrices({});
       setTotal(0);
     } finally {
       setIsLoading(false);
@@ -414,7 +462,9 @@ export function ProductsTab() {
 
     await executeAction(async () => {
       await Promise.all(ids.map((id) => api.patch(`/invoice/product/${id}`, { active })));
-      await fetchData();
+      const removidos = new Set(ids);
+      setAllProducts((current) => current.filter((product) => !removidos.has(product.id)));
+      setTotal((current) => Math.max(0, current - ids.length));
       setSelectedProducts([]);
       setOpenNotification({
         type: "success",
@@ -806,8 +856,14 @@ export function ProductsTab() {
     });
   };
 
-  const startCellEdit = (product: Product, field: "price" | "weight" | "sale" | "cost" | "stock") => {
+  const startCellEdit = (product: Product, field: "price" | "weight" | "sale" | "cost" | "stock" | `table:${string}`) => {
     if (isActionLoading) return;
+    if (field.startsWith("table:")) {
+      const current = gridPrices[product.id]?.[field.slice(6)];
+      setEditingCell({ id: product.id, field });
+      setEditingValue(current == null ? "" : String(current));
+      return;
+    }
     const current =
       field === "price"
         ? product.priceweightAverage
@@ -829,6 +885,40 @@ export function ProductsTab() {
 
   const commitCellEdit = async (product: Product) => {
     if (!editingCell || editingCell.id !== product.id) return;
+    if (editingCell.field.startsWith("table:")) {
+      const tableId = editingCell.field.slice(6);
+      const table = gridTables.find((item) => item.id === tableId);
+      const raw = editingValue.trim();
+      const parsed = raw === "" ? null : parseFloat(raw.replace(",", "."));
+      if (parsed != null && (isNaN(parsed) || parsed < 0)) {
+        cancelCellEdit();
+        return;
+      }
+      const previous = gridPrices[product.id]?.[tableId];
+      setGridPrices((current) => {
+        const next = { ...current, [product.id]: { ...(current[product.id] || {}) } };
+        if (parsed == null) delete next[product.id][tableId];
+        else next[product.id][tableId] = parsed;
+        return next;
+      });
+      cancelCellEdit();
+      try {
+        await api.put(`/clients/products/${product.id}/table-prices`, {
+          prices: [{ priceTableId: tableId, price: parsed }],
+        });
+      } catch (error: any) {
+        console.error("Erro ao atualizar tabela de preço:", error);
+        setGridPrices((current) => {
+          const next = { ...current, [product.id]: { ...(current[product.id] || {}) } };
+          if (previous == null) delete next[product.id][tableId];
+          else next[product.id][tableId] = previous;
+          return next;
+        });
+        const serverMessage = String(error?.response?.data?.message || "");
+        setCellNotice(serverMessage && serverMessage !== "Internal server error." ? serverMessage : `Não foi possível atualizar a tabela ${table?.name || ""}.`);
+      }
+      return;
+    }
     const parsed = editingValue.trim() === "" ? 0 : parseFloat(editingValue.replace(",", "."));
     if (isNaN(parsed) || parsed < 0) {
       cancelCellEdit();
@@ -915,6 +1005,7 @@ export function ProductsTab() {
         onClear={onClear}
         onLastFilter={onLastFilter}
         categoryOptions={categoryOptions}
+        showInStock
         brands={brands}
         collections={collections}
         genders={genders}
@@ -1046,7 +1137,7 @@ export function ProductsTab() {
                         ? "gestao-prod-cat"
                         : id === "photo"
                           ? "gestao-prod-foto"
-                          : id === "sale" || id === "cost"
+                          : id === "sale" || id === "cost" || id.startsWith("table:")
                             ? "gestao-prod-money"
                             : id === "stock" || id === "weight"
                               ? "gestao-prod-qty"
@@ -1067,14 +1158,21 @@ export function ProductsTab() {
                   />
                 </th>
                 {columns.map((id) => {
-                  const column = PRODUCT_COLUMNS.find((item) => item.id === id)!;
+                  const column = PRODUCT_COLUMNS.find((item) => item.id === id);
+                  const table = id.startsWith("table:") ? gridTables.find((item) => `table:${item.id}` === id) : undefined;
+                  if (!column && !table) return null;
+                  const label = column?.label || table?.name || "";
                   const active = draggingColumn === id;
+                  const tableWidth = table
+                    ? `${moneyWidthCh(products.map((product) => gridPrices[product.id]?.[table.id]))}ch`
+                    : undefined;
                   return (
                     <th
                       key={id}
                       draggable
                       title="Segure e arraste para mudar a posição"
-                      className={`${column.numeric ? "num" : ""} ${id === "sale" ? "gestao-prod-sale" : ""} ${id === "cost" ? "gestao-prod-cost" : ""} ${id === "photo" ? "gestao-prod-photo" : ""} cursor-grab select-none ${active ? "bg-blue-100 opacity-60" : ""}`}
+                      style={tableWidth ? ({ "--money-ch": tableWidth } as CSSProperties) : undefined}
+                      className={`${column?.numeric || table ? "num" : ""} ${id === "sale" ? "gestao-prod-sale" : ""} ${table ? "gestao-prod-sale gestao-prod-table-price" : ""} ${id === "cost" ? "gestao-prod-cost" : ""} ${id === "photo" ? "gestao-prod-photo" : ""} cursor-grab select-none ${active ? "bg-blue-100 opacity-60" : ""}`}
                       onDragStart={(event) => {
                         draggingColumnRef.current = id;
                         setDraggingColumn(id);
@@ -1098,10 +1196,10 @@ export function ProductsTab() {
                         setDraggingColumn(null);
                       }}
                     >
-                      {id === "sale" || id === "cost" ? (
-                        <span className="gestao-prod-money-title">{column.label}</span>
+                      {id === "sale" || id === "cost" || table ? (
+                        <span className="gestao-prod-money-title">{label}</span>
                       ) : (
-                        column.label
+                        label
                       )}
                     </th>
                   );
@@ -1207,6 +1305,61 @@ export function ProductsTab() {
                         }
                         if (id === "name") {
                           return <td key={id} className="gestao-prod-name text-sm">{product.name}</td>;
+                        }
+                        if (id.startsWith("table:")) {
+                          const tableId = id.slice(6);
+                          const table = gridTables.find((item) => item.id === tableId);
+                          const value = gridPrices[product.id]?.[tableId];
+                          const editing = editingCell?.id === product.id && editingCell.field === id;
+                          const width = `${moneyWidthCh(products.map((item) => gridPrices[item.id]?.[tableId]))}ch`;
+                          return (
+                            <td
+                              key={id}
+                              className="num text-sm gestao-prod-sale"
+                              style={{ "--money-ch": width } as CSSProperties}
+                              onDoubleClick={() => startCellEdit(product, id)}
+                              title={
+                                value == null
+                                  ? `Usa o preço de venda. Duplo clique para definir ${table?.name || "a tabela"}.`
+                                  : `Clique duas vezes para editar ${table?.name || "a tabela"}`
+                              }
+                            >
+                              {editing ? (
+                                <span className="gestao-prod-money">
+                                  <span className="gestao-prod-rs">R$</span>
+                                  <input
+                                    autoFocus
+                                    type="text"
+                                    inputMode="decimal"
+                                    value={editingValue}
+                                    onChange={(event) => {
+                                      const next = event.target.value.replace(",", ".");
+                                      if (/^\d*\.?\d{0,2}$/.test(next) || next === "") setEditingValue(next);
+                                    }}
+                                    onBlur={() => commitCellEdit(product)}
+                                    onKeyDown={(event) => {
+                                      if (event.key === "Enter") {
+                                        event.preventDefault();
+                                        commitCellEdit(product);
+                                      }
+                                      if (event.key === "Escape") {
+                                        event.preventDefault();
+                                        cancelCellEdit();
+                                      }
+                                    }}
+                                    className="gestao-prod-edit"
+                                  />
+                                </span>
+                              ) : value == null ? (
+                                <span className="cursor-text text-gray-400">—</span>
+                              ) : (
+                                <span className="gestao-prod-money">
+                                  <span className="gestao-prod-rs">R$</span>
+                                  <span className="cursor-text">{money(value)}</span>
+                                </span>
+                              )}
+                            </td>
+                          );
                         }
                         if (id === "sale") return editable("sale", money(product.salePrice || 0), "preço de venda");
                         if (id === "cost") return editable("cost", money(product.costPrice || 0), "preço de compra");
@@ -1472,7 +1625,7 @@ export function ProductsTab() {
                 .map((table) => (
                   <div key={table.id}>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      {table.isDefault ? "Preço padrão" : table.slug === "lojas" ? "Preço lojas" : `Preço ${table.name}`}
+                      {table.isDefault ? "Preço de venda" : table.slug === "lojas" ? "Preço lojas" : `Preço ${table.name}`}
                     </label>
                     <MoneyInput
                       placeholder={table.isDefault ? "0,00" : "Usa o padrão"}

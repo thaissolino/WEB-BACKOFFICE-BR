@@ -3,7 +3,12 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { ArrowLeft, Ban, Boxes, CircleCheck, ClipboardList, LoaderCircle, PackageX, PartyPopper, ScanLine, Search, ShoppingBag, ShoppingCart, Trash2, Truck, Wallet, X } from "lucide-react";
 import { api, parseError } from "../../../services/api";
 import { isOpenStoreCategory, openCategoryRank } from "../cadastros/produtos/categoryModel";
-import { productSalePrice } from "../cadastros/produtos/types";
+function supplierOrderPrice(product: { tableSalePrice?: number | null; salePrice?: number | null }) {
+  if (product.tableSalePrice != null && Number.isFinite(Number(product.tableSalePrice))) {
+    return Number(product.tableSalePrice);
+  }
+  return Number(product.salePrice) || 0;
+}
 import { ProductPhoto } from "../cadastros/produtos/GradePhotoThumb";
 import { CategoryCoverImage } from "../cadastros/produtos/categoryCover";
 import PdvShell from "../dashboard/PdvShell";
@@ -433,7 +438,7 @@ function Venda() {
             id: String(item.id),
             name: String(item.lojaName || "").trim() || String(item.name || ""),
             code: String(item.code || ""),
-            price: productSalePrice(item as { tableSalePrice?: number; lojaSalePrice?: number; salePrice?: number }),
+            price: supplierOrderPrice(item as { tableSalePrice?: number | null; salePrice?: number | null }),
             costPrice: Number(item.costPrice || 0),
             category: String(item.category || ""),
             categoryId: String(item.categoryId || ""),

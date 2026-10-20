@@ -71,39 +71,12 @@ const TABELA_PRECO_CHILD: BackofficeNavChild = {
   to: "/gestao/cadastro/tabelas-preco",
 };
 
-const FINANCEIRO_CHILD: BackofficeNavChild = {
-  id: "cadastro-financeiro",
-  label: "Financeiro",
-    children: [
-      {
-        id: "financeiro-forma",
-        label: "Forma de Pagamento",
-        children: [
-          { id: "fin-forma-listar", label: "Listar", to: "/gestao/cadastro/financeiro/formas-pagamento" },
-          { id: "fin-forma-cadastrar", label: "Cadastrar", to: "/gestao/cadastro/financeiro/formas-pagamento/cadastrar" },
-          { id: "fin-forma-inativos", label: "Inativos", to: "/gestao/cadastro/financeiro/formas-pagamento/inativos" },
-        ],
-      },
-      {
-        id: "financeiro-plano",
-        label: "Plano de Conta",
-        children: [
-          { id: "fin-plano-listar", label: "Listar", to: "/gestao/cadastro/financeiro/plano-conta" },
-          { id: "fin-plano-cadastrar", label: "Cadastrar", to: "/gestao/cadastro/financeiro/plano-conta/cadastrar" },
-          { id: "fin-plano-inativos", label: "Inativos", to: "/gestao/cadastro/financeiro/plano-conta/inativos" },
-        ],
-      },
-      { id: "financeiro-caixa", label: "Caixa", to: "/gestao/cadastro/financeiro/caixa" },
-    ],
-};
-
 function cadastroChildren(includeLojistas: boolean, operadores: BackofficeNavChild | null): BackofficeNavChild[] {
   return [
     ...(includeLojistas ? [LOJISTAS_CHILD] : []),
     FORNECEDORES_CHILD,
     PRODUTOS_CHILD,
     ...(operadores ? [operadores] : []),
-    FINANCEIRO_CHILD,
     FRETEIROS_CHILD,
     OUTROS_CHILD,
     TABELA_PRECO_CHILD,
@@ -126,46 +99,21 @@ const CAIXAS_CHILDREN: BackofficeNavChild[] = [
 const MOVIMENTACOES_ITEM: BackofficeNavItem = {
   id: "gestao-movimentacoes",
   label: "Movimentações",
-  to: "/gestao/movimentacoes/vendas/abertas",
+  to: "/gestao/movimentacoes/vendas/concluidas",
   children: [
-    {
-      id: "mov-vendas",
-      label: "Vendas",
-      children: [
-        { id: "mov-vendas-pdv", label: "PDV", to: "/client/pdv" },
-        { id: "mov-vendas-pre", label: "Pré Vendas", to: "/gestao/movimentacoes/vendas/pre" },
-        { id: "mov-vendas-entregas", label: "Painel de Entregas", to: "/gestao/movimentacoes/vendas/entregas" },
-        { id: "mov-vendas-abertas", label: "Abertas", to: "/gestao/movimentacoes/vendas/abertas" },
-        { id: "mov-vendas-concluidas", label: "Concluídas", to: "/gestao/movimentacoes/vendas/concluidas" },
-      ],
-    },
+    { id: "mov-vendas-concluidas", label: "Vendas concluídas", to: "/gestao/movimentacoes/vendas/concluidas" },
     {
       id: "mov-financeiro",
       label: "Financeiro",
       children: [
-        { id: "mov-fin-plano", label: "Plano de Conta", to: "/gestao/cadastro/financeiro/plano-conta" },
-        { id: "mov-fin-receber", label: "Contas a Receber", to: "/gestao/movimentacoes/financeiro/receber" },
-        { id: "mov-fin-pagar", label: "Contas a Pagar", to: "/gestao/movimentacoes/financeiro/pagar" },
-        { id: "mov-fin-fluxo", label: "Fluxo de Caixa", to: "/gestao/movimentacoes/financeiro/fluxo" },
-        { id: "mov-fin-previsao", label: "Previsão de Fluxo de Caixa", to: "/gestao/movimentacoes/financeiro/previsao" },
+        { id: "mov-fin-plano", label: "Plano de contas", to: "/gestao/cadastro/financeiro/plano-conta" },
         {
           id: "mov-fin-despesas",
           label: "Despesas / Receitas",
           children: [
-            { id: "mov-fin-despesas-cadastrar-despesa", label: "Cadastrar Despesa", to: "/gestao/movimentacoes/financeiro/despesas/cadastrar" },
-            { id: "mov-fin-despesas-cadastrar-receita", label: "Cadastrar Receita", to: "/gestao/movimentacoes/financeiro/receitas/cadastrar" },
-            { id: "mov-fin-despesas-listar", label: "Listar Receitas / Despesas", to: "/gestao/movimentacoes/financeiro/despesas" },
-          ],
-        },
-        { id: "mov-fin-caixa-clientes", label: "Relatório Caixa de Clientes", to: "/gestao/movimentacoes/financeiro/caixa-clientes" },
-        {
-          id: "mov-fin-boletos",
-          label: "Boletos",
-          children: [
-            { id: "mov-fin-boletos-recorrentes", label: "Boletos Recorrentes", to: "/gestao/movimentacoes/financeiro/boletos/recorrentes" },
-            { id: "mov-fin-boletos-contas", label: "Contas Bancárias", to: "/gestao/movimentacoes/financeiro/boletos/contas" },
-            { id: "mov-fin-boletos-gerenciar", label: "Gerenciar Boletos", to: "/gestao/movimentacoes/financeiro/boletos/gerenciar" },
-            { id: "mov-fin-boletos-arquivos", label: "Gerenciar Arquivos", to: "/gestao/movimentacoes/financeiro/boletos/arquivos" },
+            { id: "mov-fin-despesas-listar", label: "Listar despesas / receitas", to: "/gestao/movimentacoes/financeiro/despesas" },
+            { id: "mov-fin-despesas-cadastrar-despesa", label: "Cadastrar despesas", to: "/gestao/movimentacoes/financeiro/despesas/cadastrar" },
+            { id: "mov-fin-despesas-cadastrar-receita", label: "Cadastrar receitas", to: "/gestao/movimentacoes/financeiro/receitas/cadastrar" },
           ],
         },
       ],

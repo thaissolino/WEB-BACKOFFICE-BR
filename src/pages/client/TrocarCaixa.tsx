@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { Check, ChevronDown, Search } from "lucide-react";
 import { useClientAuth } from "../../hooks/clientAuth";
+import { EVENTO_CRIAR_CAIXA, eventoPermitido } from "./cadastros/usuarios/groupEvents";
+import { listCatalog } from "./cadastros/catalog/catalogApi";
 import PdvShell, { PdvLoading } from "./dashboard/PdvShell";
 import PdvTip from "./dashboard/PdvTip";
 import { CAIXA_STORAGE_KEY, NENHUM_CAIXA } from "./dashboard/mockData";
@@ -114,6 +116,8 @@ function CaixaCombo({
 
 function TrocarCaixaBoard() {
   const navigate = useNavigate();
+  const { client } = useClientAuth();
+  const [podeCriar, setPodeCriar] = useState(false);
   const [names, setNames] = useState<string[]>([NENHUM_CAIXA]);
   const [picked, setPicked] = useState(NENHUM_CAIXA);
   const [active, setActive] = useState(NENHUM_CAIXA);
@@ -149,9 +153,37 @@ function TrocarCaixaBoard() {
     loadCaixas();
   }, []);
 
+  useEffect(() => {
+    if (!client) return;
+    let ativo = true;
+    Promise.all([listCatalog("user", true), listCatalog("group", true)])
+      .then(([users, groups]) => {
+        if (!ativo) return;
+        const email = client.email.trim().toLowerCase();
+        const username = client.username.trim().toLowerCase();
+        const user = users.find((item) => {
+          const mail = String(item.payload.email || "").trim().toLowerCase();
+          const login = String(item.payload.usuario || "").trim().toLowerCase();
+          return (email && mail === email) || (username && login === username);
+        });
+        if (!user) {
+          setPodeCriar(true);
+          return;
+        }
+        const group = groups.find((item) => item.name === String(user.payload.grupo || ""));
+        setPodeCriar(eventoPermitido(group?.payload.eventos, EVENTO_CRIAR_CAIXA));
+      })
+      .catch(() => {
+        if (ativo) setPodeCriar(false);
+      });
+    return () => {
+      ativo = false;
+    };
+  }, [client]);
+
   async function onNovoCaixa() {
     const name = novo.trim();
-    if (!name || creating) return;
+    if (!name || creating || !podeCriar) return;
     setCreating(true);
     try {
       await createLojaCaixa(name);
@@ -270,8 +302,14 @@ function TrocarCaixaBoard() {
               autoComplete="off"
               placeholder="Nome do caixa"
               aria-label="Nome do caixa"
+              disabled={!podeCriar}
             />
-            <button className="pdv-wm-btn" type="submit" disabled={creating || !novo.trim()}>
+            <button
+              className="pdv-wm-btn"
+              type="submit"
+              disabled={creating || !novo.trim() || !podeCriar}
+              title={podeCriar ? "Criar caixa" : "Sem autorização para criar caixa"}
+            >
               {creating ? "Criando..." : "Criar"}
             </button>
           </form>

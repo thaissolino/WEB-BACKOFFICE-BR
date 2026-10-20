@@ -162,6 +162,8 @@ function StoreCluster({
 
 export { PageJumps } from "./PageJumps";
 
+const logoCache = new Map<string, string>();
+
 export default function PdvShell({
   children,
   onClosePanels,
@@ -190,7 +192,7 @@ export default function PdvShell({
   const [chromeModal, setChromeModal] = useState<"config" | "support" | "logo" | null>(null);
   const bank = useBankSwitch();
   const [uiConfig, setUiConfig] = useState<PdvUiConfig>(EMPTY_PDV_UI_CONFIG);
-  const [logoSrc, setLogoSrc] = useState<string | null>(null);
+  const [logoSrc, setLogoSrc] = useState<string | null>(() => logoCache.get(readStoredStoreId()) || null);
   const [logoTick, setLogoTick] = useState(0);
   const layoutMode = usePdvLayoutMode((state) => state.mode);
   const isClassic = layoutMode === "classic";
@@ -256,15 +258,17 @@ export default function PdvShell({
           URL.revokeObjectURL(objectUrl);
           return;
         }
+        const previous = logoCache.get(storeId);
+        if (previous && previous !== objectUrl) URL.revokeObjectURL(previous);
+        logoCache.set(storeId, objectUrl);
         setLogoSrc(objectUrl);
       })
       .catch(() => {
-        if (active) setLogoSrc(null);
+        if (active && !logoCache.get(storeId)) setLogoSrc(null);
       });
 
     return () => {
       active = false;
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
   }, [storeId, logoTick]);
 
@@ -304,7 +308,7 @@ export default function PdvShell({
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
       if (event.key === "F1") {
-        if (chromeModal) return;
+        if (chromeModal || location.pathname === "/client/pdv") return;
         event.preventDefault();
         document.getElementById("pdv-q")?.focus();
       }
@@ -314,7 +318,7 @@ export default function PdvShell({
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [pendingStoreId, chromeModal]);
+  }, [pendingStoreId, chromeModal, location.pathname]);
 
   function closePanels() {
     document.getElementById("pdv-main")?.querySelectorAll("details[open]").forEach((el) => {
@@ -385,6 +389,7 @@ export default function PdvShell({
   }
 
   const onDashboard = location.pathname === "/client/dashboard";
+  const onSale = location.pathname === "/client/pdv";
 
   // Fechar demonstrativo e o filtro de período ficam fora da tela por enquanto.
   // const showCloseDemo = isDashboardVisible(uiConfig, "close-demo");
@@ -407,15 +412,15 @@ export default function PdvShell({
         className={className ? `pdv-root ${className}` : "pdv-root"}
         data-surface="cream"
         data-layout={layoutMode}
-        data-pdv={location.pathname === "/client/pdv" ? "sale" : undefined}
+        data-pdv={onSale ? "sale" : undefined}
         lang="pt-BR"
       >
         <a className="pdv-skip" href="#pdv-main">
           Ir para o conteúdo
         </a>
 
-        {/* Header escondido no PDV só para este teste de layout. */}
-        {location.pathname === "/client/pdv" ? null : <header className="pdv-header">
+        {onSale ? null : (
+        <header className="pdv-header">
           <div className="pdv-brand">
             {isClassic ? (
               <PdvTip label="Menu">
@@ -510,12 +515,10 @@ export default function PdvShell({
           </form>
 
           <nav className="pdv-icons" aria-label="Atalhos">
-            {onDashboard ? null : (
-              <button className="pdv-voltar-link" type="button" onClick={() => navigate(-1)}>
-                <ArrowLeft size={16} strokeWidth={2.2} aria-hidden="true" />
-                Voltar
-              </button>
-            )}
+            <button className="pdv-voltar-link" type="button" onClick={() => navigate(-1)}>
+              <ArrowLeft size={16} strokeWidth={2.2} aria-hidden="true" />
+              Voltar
+            </button>
             <PdvTip label="Voltar ao painel">
               <button
                 className="pdv-ico pdv-ico-home"
@@ -591,7 +594,8 @@ export default function PdvShell({
               </button>
             </PdvTip>
           </nav>
-        </header>}
+        </header>
+        )}
 
         {/* No PDV (/client/pdv) o menu Cadastros, Movimentações, Relatórios e a lista de lojas ficam fora. */}
         {showStrip && !isClassic && location.pathname !== "/client/pdv" ? (

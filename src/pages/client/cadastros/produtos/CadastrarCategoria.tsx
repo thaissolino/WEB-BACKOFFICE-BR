@@ -22,6 +22,7 @@ const EMPTY = {
   ncmx: "",
   grade: "Sem Grade",
   type: "Produto c/ Controle de Estoque",
+  requireSerial: true,
 };
 
 export default function CadastrarCategoria() {
@@ -64,6 +65,7 @@ export default function CadastrarCategoria() {
           ncmx,
           grade: row.grade,
           type: row.type,
+          requireSerial: row.requireSerial,
         });
       })
       .catch(() => setStatus("Não foi possível carregar a categoria."));
@@ -101,6 +103,7 @@ export default function CadastrarCategoria() {
       ncm,
       defaultDiscount: form.defaultDiscount,
       defaultDiscountValue: form.defaultDiscountValue,
+      requireSerial: form.requireSerial,
     };
     setSaving(true);
     try {
@@ -314,6 +317,19 @@ export default function CadastrarCategoria() {
                   </span>
                 ) : null}
               </div>
+            </div>
+
+            <div className="pdv-cad-form-row">
+              <span className="pdv-cad-form-label">IMEI ou serial</span>
+              <button
+                className="pdv-prod-toggle"
+                type="button"
+                role="switch"
+                aria-checked={form.requireSerial}
+                onClick={() => setForm({ ...form, requireSerial: !form.requireSerial })}
+              >
+                {form.requireSerial ? "Obrigatório" : "Não obrigatório"}
+              </button>
             </div>
 
             <div className="pdv-cad-form-row">

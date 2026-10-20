@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react"
 import FilterPage, { type FilterPageProps } from "../pdv/FilterPage"
 import { VendasRelatorio } from "../movimentacoes/LojaVendasPainel"
-import { listCatalog } from "../cadastros/catalog/catalogApi"
+import { lancamentoDaLoja, listCatalog } from "../cadastros/catalog/catalogApi"
+import DreGerencial from "../../gestor/DreGerencial"
 import { api, parseError } from "../../../services/api"
 
 function brl(value: string) {
@@ -19,7 +20,9 @@ function LancamentosRelatorio({ title, tipo }: { title: string; tipo: "despesa" 
   useEffect(() => {
     listCatalog("expense")
       .then((items) => {
-        const filtered = items.filter((item) => String(item.payload.tipo || "despesa") === tipo)
+        const filtered = items
+          .filter((item) => String(item.payload.tipo || "despesa") === tipo)
+          .filter((item) => lancamentoDaLoja(item))
         setRows(filtered.map((item) => [
           item.name,
           String(item.payload.data || "—"),
@@ -76,6 +79,7 @@ export function RelatorioScreen({ def }: { def: FilterPageProps & { path?: strin
   if (def.path && (def.path.startsWith("venda/") || def.path.startsWith("venda-gerencial/"))) {
     return <VendasRelatorio def={{ ...def, path: def.path }} />
   }
+  if (def.path === "dre") return <DreGerencial scope="loja" />
   if (def.path === "despesa") return <LancamentosRelatorio title={def.title} tipo="despesa" />
   if (def.path === "financeiro/recebimento") return <LancamentosRelatorio title="RECEITAS" tipo="receita" />
   if (def.path === "auditoria/estoque") return <AuditoriaEstoque />

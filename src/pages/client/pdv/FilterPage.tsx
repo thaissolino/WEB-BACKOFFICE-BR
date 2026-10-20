@@ -26,6 +26,10 @@ export type FilterPageProps = {
   expanded?: ReactNode
   premium?: boolean
   closedAction?: (index: number) => ReactNode
+  closedLabel?: string
+  rowLead?: (index: number) => ReactNode
+  rowLeadLabel?: string
+  pageClass?: string
 }
 
 export default function FilterPage({
@@ -43,6 +47,10 @@ export default function FilterPage({
   expanded,
   premium = false,
   closedAction,
+  closedLabel = "",
+  rowLead,
+  rowLeadLabel = "",
+  pageClass = "",
 }: FilterPageProps) {
   const navigate = useNavigate()
   const { pathname } = useLocation()
@@ -92,7 +100,7 @@ export default function FilterPage({
 
   return (
     <CadastroFrame>
-      <section className="pdv-cad-page" aria-labelledby="pdv-filter-title">
+      <section className={["pdv-cad-page", pageClass].filter(Boolean).join(" ")} aria-labelledby="pdv-filter-title">
         <div className={`pdv-cad-sheet pdv-cad-sheet-wide${premium ? " pdv-cad-premium" : ""}`}>
           {hideList ? null : <h1 id="pdv-filter-title">{title}</h1>}
           {actions.length ? (
@@ -109,7 +117,7 @@ export default function FilterPage({
               ))}
             </div>
           ) : null}
-          {hideList ? null : <form className="pdv-cad-filters" onSubmit={onSubmit}>
+          {hideList || fields.length === 0 ? null : <form className="pdv-cad-filters" onSubmit={onSubmit}>
             {fields.map((field) => (
               <label key={field.key}>
                 {field.label}
@@ -143,10 +151,11 @@ export default function FilterPage({
             <table className="pdv-cad-table">
               <thead>
                 <tr>
+                  {rowLead ? <th>{rowLeadLabel}</th> : null}
                   {columns.map((column) => (
                     <th key={column}>{column}</th>
                   ))}
-                  {closedAction ? <th /> : null}
+                  {closedAction ? <th>{closedLabel}</th> : null}
                 </tr>
               </thead>
               <tbody>
@@ -160,6 +169,9 @@ export default function FilterPage({
                       aria-expanded={onRowClick ? expandedIndex === index : undefined}
                       onClick={onRowClick ? () => onRowClick(index) : undefined}
                     >
+                      {rowLead ? (
+                        <td className="pdv-cad-row-action">{rowLead(index)}</td>
+                      ) : null}
                       {row.map((cell, cellIndex) => (
                         <td key={cellIndex}>
                           {cellIndex === 0 && onRowClick ? (
@@ -176,7 +188,7 @@ export default function FilterPage({
                     </tr>
                     {expandedIndex === index && expanded ? (
                       <tr className="pdv-cad-accordion">
-                        <td colSpan={columns.length + (closedAction ? 1 : 0)}>{expanded}</td>
+                        <td colSpan={columns.length + (rowLead ? 1 : 0) + (closedAction ? 1 : 0)}>{expanded}</td>
                       </tr>
                     ) : null}
                   </Fragment>

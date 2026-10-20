@@ -1,4 +1,4 @@
-import { useContext, useEffect, useState } from "react";
+import { useContext, useEffect, useRef, useState } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import {
   ArrowLeftRight,
@@ -58,16 +58,29 @@ function NavBranch({
   active: (to: string) => boolean;
   nested?: boolean;
 }) {
-  const location = useLocation();
   const current = branchActive(item, active);
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(current);
+  const rootRef = useRef<HTMLDetailsElement>(null);
+  const wasCurrent = useRef(current);
 
   useEffect(() => {
-    setOpen(false);
-  }, [location.pathname, location.search]);
+    if (current) setOpen(true);
+    else if (wasCurrent.current) setOpen(false);
+    wasCurrent.current = current;
+  }, [current]);
+
+  useEffect(() => {
+    if (!open) return;
+    function onClick(event: MouseEvent) {
+      if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
+    }
+    document.addEventListener("click", onClick);
+    return () => document.removeEventListener("click", onClick);
+  }, [open]);
 
   return (
     <details
+      ref={rootRef}
       className={nested ? "pdv-chrome-sub pdv-chrome-sub-nested" : "pdv-chrome-sub"}
       open={open}
     >
@@ -103,15 +116,28 @@ function LegacyNav({
   items: Array<{ id: string; label: string; to: string }>;
   active: (to: string) => boolean;
 }) {
-  const location = useLocation();
-  const [open, setOpen] = useState(false);
+  const current = items.some((item) => active(item.to));
+  const [open, setOpen] = useState(current);
+  const rootRef = useRef<HTMLDetailsElement>(null);
+  const wasCurrent = useRef(current);
 
   useEffect(() => {
-    setOpen(false);
-  }, [location.pathname, location.search]);
+    if (current) setOpen(true);
+    else if (wasCurrent.current) setOpen(false);
+    wasCurrent.current = current;
+  }, [current]);
+
+  useEffect(() => {
+    if (!open) return;
+    function onClick(event: MouseEvent) {
+      if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
+    }
+    document.addEventListener("click", onClick);
+    return () => document.removeEventListener("click", onClick);
+  }, [open]);
 
   return (
-    <details className="pdv-chrome-legacy" open={open} style={{ marginTop: 12, opacity: 0.72 }}>
+    <details ref={rootRef} className="pdv-chrome-legacy" open={open} style={{ marginTop: 12, opacity: 0.72 }}>
       <summary
         className="pdv-chrome-group"
         style={{ cursor: "pointer", listStyle: "revert", margin: 0 }}

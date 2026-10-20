@@ -1,6 +1,6 @@
 import { FormEvent, ReactNode, useEffect, useMemo, useState } from "react"
 import { useLocation, useNavigate } from "react-router-dom"
-import { Pencil, Plus } from "lucide-react"
+import { Landmark, Pencil, Plus } from "lucide-react"
 import { CadastroFrame } from "../CadastroShell"
 import "../cadastros.css"
 import { AtivoToggle } from "../produtos/QuickCadWindows"
@@ -49,7 +49,15 @@ export type CatalogListConfig = {
   renderCell?: (item: CatalogItem, column: CatalogColumn) => ReactNode
 }
 
-export default function CatalogList({ config, inactive = false }: { config: CatalogListConfig; inactive?: boolean }) {
+export default function CatalogList({
+  config,
+  inactive = false,
+  layout = "pdv",
+}: {
+  config: CatalogListConfig
+  inactive?: boolean
+  layout?: "pdv" | "gestao"
+}) {
   const navigate = useNavigate()
   const location = useLocation()
   const showAll = new URLSearchParams(location.search).get("todos") === "1"
@@ -168,7 +176,7 @@ export default function CatalogList({ config, inactive = false }: { config: Cata
     if (column.from === "action" || column.key === "atualizar") {
       return (
         <button
-          className="pdv-cad-icon-btn"
+          className={layout === "gestao" ? "inline-flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 text-gray-700" : "pdv-cad-icon-btn"}
           type="button"
           aria-label={`${column.label} ${item.name}`}
           title={column.label}
@@ -312,5 +320,146 @@ export default function CatalogList({ config, inactive = false }: { config: Cata
         </div>
       </section>
   )
-  return <CadastroFrame>{page}</CadastroFrame>
+  if (layout !== "gestao") return <CadastroFrame>{page}</CadastroFrame>
+
+  const primaryLabel = (config.cadastrarLabel || "Novo").replace(/^Cadastrar\s+/i, "Novo ")
+  const gestaoPage = (
+    <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+      {config.filters?.length ? (
+        <form className="mb-6 grid items-end gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]" onSubmit={onFilter}>
+          {config.filters.map((filter) => (
+            <label key={filter.key} className="block text-sm font-medium text-gray-700">
+              {filter.label}
+              <input
+                className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm"
+                value={draft[filter.key] ?? ""}
+                onChange={(event) => setDraft({ ...draft, [filter.key]: event.target.value })}
+                autoComplete="off"
+              />
+            </label>
+          ))}
+          <div className="flex gap-2">
+            <button
+              className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-800"
+              type="button"
+              onClick={() => {
+                setDraft({})
+                setApplied({})
+              }}
+            >
+              Limpar
+            </button>
+            <button className="rounded-xl bg-blue-500 px-4 py-2 text-sm font-semibold text-white" type="submit">
+              Filtrar
+            </button>
+          </div>
+        </form>
+      ) : null}
+
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
+        <h2 className="flex items-center text-xl font-semibold text-blue-700">
+          <Landmark className="mr-2" size={18} aria-hidden="true" />
+          {config.title}
+        </h2>
+        <div className="flex flex-wrap items-center gap-4">
+          {config.alwaysPick && config.bulkDisable && picked.length > 0 ? (
+            <button
+              className="flex items-center rounded-xl bg-amber-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+              type="button"
+              disabled={deleting}
+              onClick={() => void disableSelected()}
+            >
+              {deleting ? "Inativando..." : `Inativar (${picked.length})`}
+            </button>
+          ) : null}
+          {config.inativosLabel ? (
+            <label className="flex items-center gap-2 text-sm font-medium text-gray-700 select-none">
+              <input
+                type="checkbox"
+                className="rounded"
+                checked={isInactive}
+                onChange={() => navigate(isInactive ? config.listPath : config.inativosPath || `${config.listPath}/inativos`)}
+              />
+              Ver inativos
+            </label>
+          ) : null}
+          {config.extraActions}
+          {config.cadastrarLabel && config.cadastrarPath ? (
+            <button
+              className="flex items-center rounded-xl bg-blue-500 px-4 py-2 text-sm font-semibold text-white shadow-sm"
+              type="button"
+              onClick={() => navigate(config.cadastrarPath!)}
+            >
+              <Plus className="mr-2" size={16} aria-hidden="true" />
+              {primaryLabel}
+            </button>
+          ) : null}
+        </div>
+      </div>
+
+      {toast ? <p className="mb-4 text-sm font-semibold text-green-700" role="status">{toast}</p> : null}
+      {error ? <p className="mb-4 text-sm font-semibold text-red-700" role="alert">{error}</p> : null}
+
+      <div className="overflow-x-auto rounded-2xl border border-gray-100 shadow-sm">
+        <table className="gestao-prod-table min-w-full">
+          <thead className="bg-gray-100">
+            <tr>
+              {picking ? (
+                <th className="gestao-prod-check">
+                  <input
+                    type="checkbox"
+                    className="rounded"
+                    aria-label="Selecionar todos"
+                    checked={visible.length > 0 && picked.length === visible.length}
+                    onChange={(event) => setPicked(event.target.checked ? visible.map((item) => item.code) : [])}
+                  />
+                </th>
+              ) : null}
+              {config.columns.map((column) => (
+                <th key={column.key} className={column.from === "action" || column.key === "atualizar" || column.key === "ordem" ? "num" : undefined}>
+                  {column.label}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {visible.map((item) => (
+              <tr key={item.code}>
+                {picking ? (
+                  <td className="gestao-prod-check">
+                    <input
+                      type="checkbox"
+                      className="rounded"
+                      aria-label={`Selecionar ${item.name}`}
+                      checked={picked.includes(item.code)}
+                      onChange={() => togglePicked(item.code)}
+                    />
+                  </td>
+                ) : null}
+                {config.columns.map((column) => (
+                  <td
+                    key={column.key}
+                    className={
+                      column.from === "action" || column.key === "atualizar" || column.key === "ordem"
+                        ? "num text-sm"
+                        : column.from === "name" || column.key === "nome"
+                          ? "gestao-prod-name text-sm"
+                          : "text-sm"
+                    }
+                  >
+                    {cell(item, column)}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {visible.length === 0 ? (
+        <p className="mt-4 text-sm text-gray-600">{config.emptyHint || "Nenhum registro para o filtro atual."}</p>
+      ) : null}
+    </div>
+  )
+
+  return <CadastroFrame>{gestaoPage}</CadastroFrame>
 }

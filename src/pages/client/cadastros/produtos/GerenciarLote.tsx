@@ -42,7 +42,33 @@ function finishLoteMoney(raw: string) {
 
 type LoteAction = "sale" | "cost" | "qty" | "priceTable" | "category" | "ncm" | "gender" | "collection" | "brand"
 
-type PriceTableOption = { id: string; name: string; isDefault: boolean }
+type PriceTableOption = { id: string; name: string; slug?: string; isDefault: boolean }
+
+function isLojasTable(table?: { id?: string; name?: string; slug?: string } | null) {
+  if (!table) return false
+  const slug = String(table.slug || "").toLowerCase()
+  const name = String(table.name || "").toLowerCase()
+  return slug === "lojas" || name === "lojas" || table.id === "00000000-0000-4000-8000-0000000000a2"
+}
+
+async function loadLojasPrices(products: PdvProduct[]) {
+  const ids = products.map((row) => row.id).filter(Boolean)
+  const map: Record<string, number> = {}
+  let lojasId = ""
+  for (let index = 0; index < ids.length; index += 180) {
+    const chunk = ids.slice(index, index + 180)
+    const { data } = await api.get("/clients/price-tables/grid", { params: { ids: chunk.join(",") } })
+    if (!lojasId) {
+      const found = ((data.tables || []) as PriceTableOption[]).find((table) => isLojasTable(table))
+      lojasId = found?.id || ""
+    }
+    if (!lojasId) continue
+    for (const item of (data.prices || []) as Array<{ productId: string; priceTableId: string; price: number }>) {
+      if (item.priceTableId === lojasId) map[item.productId] = Number(item.price) || 0
+    }
+  }
+  return map
+}
 
 function LotePick({
   value,
@@ -121,6 +147,7 @@ export default function GerenciarLote() {
   const [tables, setTables] = useState<PriceTableOption[]>([])
   const [tableId, setTableId] = useState("")
   const [tableValue, setTableValue] = useState("")
+  const [lojasPrices, setLojasPrices] = useState<Record<string, number>>({})
   const [categoryId, setCategoryId] = useState("")
   const [ncm, setNcm] = useState("")
   const [gender, setGender] = useState("")
@@ -150,6 +177,24 @@ export default function GerenciarLote() {
   }, [])
 
   const selected = useMemo(() => rows.filter((row) => picked[row.id]), [rows, picked])
+  const rowKey = rows.map((row) => row.id).join(",")
+
+  useEffect(() => {
+    if (!gestao || !rowKey) return
+    let cancel = false
+    loadLojasPrices(rows)
+      .then((map) => {
+        if (!cancel) setLojasPrices(map)
+      })
+      .catch(() => {
+        if (!cancel) setLojasPrices({})
+      })
+    return () => {
+      cancel = true
+    }
+    // Recarrega só quando a lista de produtos muda.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gestao, rowKey])
   const allChecked = rows.length > 0 && rows.every((row) => picked[row.id])
 
   const groups = useMemo(() => {
@@ -306,6 +351,7 @@ export default function GerenciarLote() {
           if (!ids.has(row.id)) return row
           if (action === "sale") return gestao ? { ...row, salePrice: value } : { ...row, lojaSalePrice: value }
           if (action === "cost") return { ...row, costPrice: value }
+          if (action === "priceTable") return row
           if (action === "qty") return gestao ? { ...row, stockQuantity: qty } : { ...row, lojaStock: qty }
           if (action === "category") return { ...row, categoryId: category?.id || "", category: category?.label || "" }
           if (action === "ncm") return { ...row, ncm }
@@ -314,6 +360,15 @@ export default function GerenciarLote() {
           return { ...row, brand }
         }),
       )
+      if (action === "priceTable" && isLojasTable(chosenTable)) {
+        setLojasPrices((current) => {
+          const next = { ...current }
+          selected.forEach((row) => {
+            next[row.id] = tablePrice
+          })
+          return next
+        })
+      }
       setStatus(`${Number(data.updated) || selected.length} produto(s) atualizado(s).`)
     } catch (err) {
       setError(parseError(err).friend || "Não foi possível aplicar.")
@@ -356,6 +411,7 @@ export default function GerenciarLote() {
               style={{
                 "--sale-ch": `${moneyWidthCh(rows.map((row) => (gestao ? row.salePrice : row.lojaSalePrice)))}ch`,
                 "--cost-ch": `${moneyWidthCh(rows.map((row) => row.costPrice))}ch`,
+                "--lojas-ch": `${moneyWidthCh(rows.map((row) => lojasPrices[row.id] || 0))}ch`,
               } as CSSProperties}
             >
               <thead>
@@ -374,6 +430,7 @@ export default function GerenciarLote() {
                   {gestao ? <th>Categoria</th> : <th>Nome</th>}
                   {gestao ? <th>Nome</th> : <th>Categoria</th>}
                   <th className="pdv-lote-price pdv-lote-sale"><span className="pdv-lote-price-title">Preço de venda</span></th>
+                  {gestao ? <th className="pdv-lote-price pdv-lote-lojas"><span className="pdv-lote-price-title">Tabela lojas</span></th> : null}
                   <th className="pdv-lote-price pdv-lote-cost"><span className="pdv-lote-price-title">Preço de custo</span></th>
                   <th className="pdv-lote-mid">Qtd</th>
                   {gestao ? null : (
@@ -392,7 +449,7 @@ export default function GerenciarLote() {
                 {groups.map((group) => (
                   <Fragment key={group.name}>
                     <tr className="pdv-lote-group">
-                      <td colSpan={7} aria-hidden="true" />
+                      <td colSpan={gestao ? 8 : 7} aria-hidden="true" />
                     </tr>
                     {group.rows.map((row) => (
                       <tr key={row.id}>
@@ -415,6 +472,14 @@ export default function GerenciarLote() {
                             <span>{formatMoneyBr(Number(gestao ? row.salePrice : row.lojaSalePrice) || 0)}</span>
                           </span>
                         </td>
+                        {gestao ? (
+                          <td className="pdv-lote-price pdv-lote-lojas">
+                            <span className="pdv-lote-price-line">
+                              <span className="pdv-lote-rs">R$</span>
+                              <span>{formatMoneyBr(Number(lojasPrices[row.id]) || 0)}</span>
+                            </span>
+                          </td>
+                        ) : null}
                         <td className="pdv-lote-price pdv-lote-cost">
                           <span className="pdv-lote-price-line">
                             <span className="pdv-lote-rs">R$</span>

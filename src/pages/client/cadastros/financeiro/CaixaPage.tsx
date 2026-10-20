@@ -412,6 +412,60 @@ export function PlanoContaForm() {
     }
   }
 
+  const gestao = pathname.startsWith("/gestao/")
+  if (gestao) {
+    return (
+      <CadastroFrame>
+        <div className="mx-auto max-w-3xl rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+          <div className="mb-6 flex items-center justify-between gap-4">
+            <h2 className="text-xl font-semibold text-blue-700">{editId ? "Editar centro de custo" : "Novo centro de custo"}</h2>
+            <button
+              className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-800"
+              type="button"
+              onClick={() => navigate(listPath)}
+            >
+              Voltar
+            </button>
+          </div>
+          <form className="flex flex-col gap-4" onSubmit={onSubmit}>
+            <label className="block text-sm font-medium text-gray-700">
+              Centro de custo
+              <input
+                className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2"
+                value={nome}
+                onChange={(event) => setNome(event.target.value)}
+                autoComplete="off"
+              />
+            </label>
+            <label className="block text-sm font-medium text-gray-700">
+              Ordem
+              <input
+                className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2"
+                value={ordem}
+                onChange={(event) => setOrdem(event.target.value)}
+                autoComplete="off"
+              />
+            </label>
+            <label className="block text-sm font-medium text-gray-700">
+              Descrição interna
+              <textarea
+                className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2"
+                rows={4}
+                value={descricao}
+                onChange={(event) => setDescricao(event.target.value)}
+              />
+            </label>
+            {status ? <p className="text-sm font-semibold text-red-700" role="status">{status}</p> : null}
+            <button className="inline-flex w-fit items-center rounded-xl bg-blue-500 px-4 py-2 text-sm font-semibold text-white" type="submit">
+              <Plus className="mr-2" size={16} aria-hidden="true" />
+              Salvar
+            </button>
+          </form>
+        </div>
+      </CadastroFrame>
+    )
+  }
+
   return (
     <CadastroFrame>
       <section className="pdv-cad-page" aria-labelledby="pdv-plano-form">

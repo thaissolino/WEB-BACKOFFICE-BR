@@ -33,6 +33,7 @@ import ClientPdv from "../pages/client/Pdv";
 import LojistaPedidos from "../pages/client/vendas/LojistaPedidos";
 import ClientLoja from "../pages/client/Loja";
 import ClientesList from "../pages/client/cadastros/clientes/ClientesList";
+import ClienteForm from "../pages/client/cadastros/clientes/ClienteForm";
 import ChecarCliente from "../pages/client/cadastros/clientes/ChecarCliente";
 import CadastrarFormStub from "../pages/client/cadastros/clientes/CadastrarFormStub";
 import ClassificacaoClientes from "../pages/client/cadastros/clientes/ClassificacaoClientes";
@@ -182,6 +183,7 @@ export function Router() {
         <Route path="client/clientes/classificacao" element={<ClassificacaoClientes />} />
         <Route path="client/clientes/carteira/:code" element={<CadastrarFormStub />} />
         <Route path="client/clientes/carteira" element={<CarteiraClientes />} />
+        <Route path="client/clientes/:code/atualizar" element={<ClienteForm />} />
         <Route path="client/clientes/:id/:action" element={<CadastrarFormStub />} />
         <Route path="client/fornecedores" element={<FornecedoresList />} />
         <Route path="client/fornecedores/inativos" element={<FornecedoresList inactive />} />

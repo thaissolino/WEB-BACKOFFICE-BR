@@ -74,6 +74,8 @@ export default function GestorCadastroLojistas() {
   const [linking, setLinking] = useState<{ lojista: Lojista; storeIds: string[] } | null>(null);
   const [deleting, setDeleting] = useState<Lojista | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [tableChange, setTableChange] = useState<{ lojista: Lojista; priceTableId: string } | null>(null);
+  const [savingTable, setSavingTable] = useState(false);
 
   async function load() {
     setIsLoading(true);
@@ -137,14 +139,23 @@ export default function GestorCadastroLojistas() {
     }
   }
 
-  async function changeTable(id: string, priceTableId: string) {
+  function askTableChange(lojista: Lojista, priceTableId: string) {
+    const currentId = lojista.priceTableId || tables.find((item) => item.isDefault)?.id || "";
+    if (!priceTableId || priceTableId === currentId) return;
+    setTableChange({ lojista, priceTableId });
+  }
+
+  async function confirmTableChange() {
+    if (!tableChange) return;
+    const { lojista, priceTableId } = tableChange;
+    setSavingTable(true);
     setError("");
     try {
-      await api.put(`/backoffice/lojistas/${id}/price-table`, { priceTableId });
+      await api.put(`/backoffice/lojistas/${lojista.id}/price-table`, { priceTableId });
       const table = tables.find((item) => item.id === priceTableId);
       setLojistas((current) =>
         current.map((item) =>
-          item.id === id
+          item.id === lojista.id
             ? {
                 ...item,
                 priceTableId: table?.isDefault ? null : priceTableId,
@@ -153,9 +164,12 @@ export default function GestorCadastroLojistas() {
             : item,
         ),
       );
+      setTableChange(null);
     } catch (err) {
       const parsed = parseError(err);
       setError(parsed.friend || parsed.message || "Não foi possível trocar a tabela.");
+    } finally {
+      setSavingTable(false);
     }
   }
 
@@ -354,7 +368,7 @@ export default function GestorCadastroLojistas() {
                           <select
                             className="mt-1 w-full max-w-xs px-3"
                             value={lojista.priceTableId || tables.find((item) => item.isDefault)?.id || ""}
-                            onChange={(event) => changeTable(lojista.id, event.target.value)}
+                            onChange={(event) => askTableChange(lojista, event.target.value)}
                           >
                             {tables.map((table) => (
                               <option key={table.id} value={table.id}>{table.name}</option>
@@ -432,6 +446,35 @@ export default function GestorCadastroLojistas() {
               <div className="mt-4 flex justify-end">
                 <button className="pdv-loj-btn pdv-loj-btn-ink" type="button" onClick={() => setCreated(null)}>
                   Entendi
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        {tableChange ? (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+            role="dialog"
+            aria-labelledby="lojista-table-title"
+          >
+            <div className="pdv-loj-modal">
+              <h2 id="lojista-table-title" className="mb-2 text-lg font-bold">
+                Trocar tabela de preço
+              </h2>
+              <p className="text-sm">
+                Trocar a tabela de <strong>{tableChange.lojista.name}</strong> de{" "}
+                <strong>{tableChange.lojista.priceTableName || "Padrão"}</strong> para{" "}
+                <strong>{tables.find((item) => item.id === tableChange.priceTableId)?.name || "a nova tabela"}</strong>?
+                O preço de venda desse lojista só muda depois de confirmar.
+              </p>
+              <div className="mt-4 flex justify-end gap-2">
+                <button className="pdv-loj-btn" type="button" onClick={() => setTableChange(null)} disabled={savingTable}>
+                  Cancelar
+                </button>
+                <button className="pdv-loj-btn pdv-loj-btn-ink" type="button" onClick={confirmTableChange} disabled={savingTable}>
+                  {savingTable ? <Loader2 size={16} className="animate-spin" aria-hidden /> : null}
+                  Confirmar
                 </button>
               </div>
             </div>

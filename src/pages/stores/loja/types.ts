@@ -1,4 +1,4 @@
-export type LojaTabId = "dados" | "configuracoes" | "fiscal" | "integracoes" | "logs"
+export type LojaTabId = "dados" | "configuracoes" | "fiscal" | "integracoes"
 
 export type CnpjSwap = {
   dataAlteracao: string
@@ -158,9 +158,8 @@ export type StoreOption = {
 export const LOJA_TABS: { id: LojaTabId; label: string }[] = [
   { id: "dados", label: "Dados" },
   { id: "configuracoes", label: "Configurações" },
-  { id: "fiscal", label: "$ Fiscal" },
+  { id: "fiscal", label: "Fiscal" },
   { id: "integracoes", label: "Integrações" },
-  { id: "logs", label: "Logs de alterações" },
 ]
 
 export const CONFIG_SECTIONS = [
@@ -186,6 +185,7 @@ export const UF_OPTIONS = [
   "CEARÁ",
   "DISTRITO FEDERAL",
   "ESPÍRITO SANTO",
+  "EXTERIOR",
   "GOIÁS",
   "MARANHÃO",
   "MATO GROSSO",
@@ -210,14 +210,12 @@ export const UF_OPTIONS = [
 export const STATUS_OPTIONS = ["SEM STATUS", "A ENVIAR"]
 
 export function storeLabel(store: { storeCode?: string | null; name: string; dados?: unknown }) {
-  const dados = store.dados as { geral?: { fantasia?: string } } | undefined
-  const fantasia = dados?.geral?.fantasia?.trim()
-  const name = fantasia || store.name
+  const name = store.name.trim()
   return store.storeCode ? `${store.storeCode} - ${name}` : name
 }
 
 export function parseLojaTab(value: string | null | undefined): LojaTabId {
-  if (value === "configuracoes" || value === "fiscal" || value === "integracoes" || value === "logs") {
+  if (value === "configuracoes" || value === "fiscal" || value === "integracoes") {
     return value
   }
   return "dados"

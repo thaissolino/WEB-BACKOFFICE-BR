@@ -4,7 +4,7 @@ import { useLocation, useNavigate } from "react-router-dom"
 import { FormEvent, MouseEvent, useRef, useState } from "react"
 import { api } from "../../../services/api"
 import { FormRow, DatePreset } from "../cadastros/catalog/FormBits"
-import { createCatalog, listCatalog } from "../cadastros/catalog/catalogApi"
+import { clientIdDoLojista, createCatalog, lancamentoDaLoja, listCatalog } from "../cadastros/catalog/catalogApi"
 import { listLojaCaixas } from "../cadastros/financeiro/caixaApi"
 import { parseError } from "../../../services/api"
 import { Pencil, Plus } from "lucide-react"
@@ -347,14 +347,88 @@ export function CadastrarDespesa({ receita = false }: { receita?: boolean }) {
       return
     }
     try {
+      const backoffice = pathname.startsWith("/gestao/")
+      const clientId = backoffice ? "" : clientIdDoLojista()
       await createCatalog("expense", {
         name: form.descricao.trim(),
-        payload: { ...form, tipo: receita ? "receita" : "despesa" },
+        payload: {
+          ...form,
+          tipo: receita ? "receita" : "despesa",
+          origem: backoffice ? "backoffice" : "loja",
+          ...(clientId ? { clientId } : {}),
+        },
       })
       navigate(listPath)
     } catch (err) {
       setStatus(parseError(err).friend || "Não foi possível salvar.")
     }
+  }
+
+  const gestao = pathname.startsWith("/gestao/")
+  if (gestao) {
+    return (
+      <CadastroFrame>
+        <div className="mx-auto max-w-3xl rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+          <div className="mb-6 flex items-center justify-between gap-4">
+            <h2 className="text-xl font-semibold text-blue-700">{receita ? "Nova receita" : "Nova despesa"}</h2>
+            <button
+              className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-800"
+              type="button"
+              onClick={() => navigate(listPath)}
+            >
+              Voltar
+            </button>
+          </div>
+          <form className="flex flex-col gap-4" onSubmit={onSubmit}>
+            <label className="block text-sm font-medium text-gray-700">
+              Descrição
+              <input
+                className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2"
+                value={form.descricao}
+                onChange={(event) => setForm({ ...form, descricao: event.target.value })}
+                autoComplete="off"
+              />
+            </label>
+            <label className="block text-sm font-medium text-gray-700">
+              Valor
+              <input
+                className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2"
+                value={form.total}
+                onChange={(event) => setForm({ ...form, total: event.target.value })}
+                inputMode="decimal"
+                placeholder="0,00"
+                autoComplete="off"
+              />
+            </label>
+            <label className="block text-sm font-medium text-gray-700">
+              Data
+              <input
+                className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2"
+                type="date"
+                value={form.data}
+                onChange={(event) => setForm({ ...form, data: event.target.value })}
+              />
+            </label>
+            <label className="block text-sm font-medium text-gray-700">
+              Caixa
+              <select
+                className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2"
+                value={form.caixa}
+                onChange={(event) => setForm({ ...form, caixa: event.target.value })}
+              >
+                <option value="">Sem caixa</option>
+                {caixas.map((item) => <option key={item}>{item}</option>)}
+              </select>
+            </label>
+            {status ? <p className="text-sm font-semibold text-red-700" role="status">{status}</p> : null}
+            <button className="inline-flex w-fit items-center rounded-xl bg-blue-500 px-4 py-2 text-sm font-semibold text-white" type="submit">
+              <Plus className="mr-2" size={16} aria-hidden="true" />
+              Salvar
+            </button>
+          </form>
+        </div>
+      </CadastroFrame>
+    )
   }
 
   return (
@@ -393,12 +467,16 @@ export function CadastrarDespesa({ receita = false }: { receita?: boolean }) {
 }
 
 export function ListarDespesas() {
+  const { pathname } = useLocation()
+  const backoffice = pathname.startsWith("/gestao/")
+  const base = backoffice ? "/gestao/movimentacoes/financeiro" : "/client/movimentacoes/financeiro"
   const [rows, setRows] = useState<string[][]>([])
   const [hint, setHint] = useState("Carregando...")
   useEffect(() => {
     listCatalog("expense")
       .then((items) => {
-        setRows(items.map((item) => [
+        const visiveis = backoffice ? items : items.filter((item) => lancamentoDaLoja(item))
+        setRows(visiveis.map((item) => [
           String(item.code),
           item.name,
           String(item.payload.tipo || "despesa"),
@@ -406,16 +484,16 @@ export function ListarDespesas() {
           String(item.payload.caixa || "—"),
           String(item.payload.total || "—"),
         ]))
-        setHint(items.length ? "" : "Nenhuma despesa ou receita lançada.")
+        setHint(visiveis.length ? "" : "Nenhuma despesa ou receita lançada.")
       })
       .catch(() => setHint("Não foi possível carregar."))
-  }, [])
+  }, [backoffice])
   return (
     <FilterPage
       title="RECEITA / DESPESAS REGISTRADA"
       actions={[
-        { label: "Cadastrar Despesa", tone: "green", href: "/client/movimentacoes/financeiro/despesas/cadastrar" },
-        { label: "Cadastrar Receita", tone: "blue", href: "/client/movimentacoes/financeiro/receitas/cadastrar" },
+        { label: "Cadastrar Despesa", tone: "green", href: `${base}/despesas/cadastrar` },
+        { label: "Cadastrar Receita", tone: "blue", href: `${base}/receitas/cadastrar` },
       ]}
       fields={[{ key: "nome", label: "Descrição" }]}
       columns={["Código", "Descrição", "Tipo", "Data", "Caixa", "Valor"]}

@@ -119,8 +119,9 @@
   min-height: 56px;
   padding: 6px var(--gutter);
   overflow: visible;
-  position: relative;
-  z-index: 4;
+  position: sticky;
+  top: 0;
+  z-index: 40;
   background: var(--paper);
   border-bottom: 1px solid var(--line);
 }
@@ -1357,6 +1358,10 @@
   overflow: hidden;
   position: relative;
   z-index: 2;
+}
+
+.pdv-main.pdv-main-form {
+  overflow: auto;
 }
 
 .pdv-welcome-block {

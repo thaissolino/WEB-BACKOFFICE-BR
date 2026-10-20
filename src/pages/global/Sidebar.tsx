@@ -599,19 +599,6 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebar }) => {
                 {(user?.role === "MASTER" || user?.role === "ADMIN" || canShowTab("GERENCIAR_OPERADORES")) && (
                   <Item title="Operadores" to="/operators-management" icon={<AdminPanelSettingsOutlinedIcon />} selected={selected} setSelected={setSelected} />
                 )}
-                <LegacySubMenu title="Financeiro" icon={<AccountBalanceWalletOutlinedIcon />}>
-                  <LegacySubMenu title="Forma de Pagamento" icon={<AccountBalanceWalletOutlinedIcon />}>
-                    <Item title="Listar" to="/gestao/cadastro/financeiro/formas-pagamento" icon={<ListIcon />} selected={selected} setSelected={setSelected} />
-                    <Item title="Cadastrar" to="/gestao/cadastro/financeiro/formas-pagamento/cadastrar" icon={<PersonAddIcon />} selected={selected} setSelected={setSelected} />
-                    <Item title="Inativos" to="/gestao/cadastro/financeiro/formas-pagamento/inativos" icon={<ListIcon />} selected={selected} setSelected={setSelected} />
-                  </LegacySubMenu>
-                  <LegacySubMenu title="Plano de Conta" icon={<AccountBalanceWalletOutlinedIcon />}>
-                    <Item title="Listar" to="/gestao/cadastro/financeiro/plano-conta" icon={<ListIcon />} selected={selected} setSelected={setSelected} />
-                    <Item title="Cadastrar" to="/gestao/cadastro/financeiro/plano-conta/cadastrar" icon={<PersonAddIcon />} selected={selected} setSelected={setSelected} />
-                    <Item title="Inativos" to="/gestao/cadastro/financeiro/plano-conta/inativos" icon={<ListIcon />} selected={selected} setSelected={setSelected} />
-                  </LegacySubMenu>
-                  <Item title="Caixa" to="/gestao/cadastro/financeiro/caixa" icon={<AccountBalanceWalletOutlinedIcon />} selected={selected} setSelected={setSelected} />
-                </LegacySubMenu>
                 <Item title="Freteiros" to="/gestao/cadastro?aba=carriers" icon={<LocalShippingOutlinedIcon />} selected={selected} setSelected={setSelected} />
                 <Item title="Outros" to="/gestao/cadastro?aba=others" icon={<GroupsOutlinedIcon />} selected={selected} setSelected={setSelected} />
                 <Item title="Tabela de preços" to="/gestao/cadastro/tabelas-preco" icon={<LocalOfferOutlinedIcon />} selected={selected} setSelected={setSelected} />
@@ -628,30 +615,13 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebar }) => {
             )}
             {(user?.role === "MASTER" || user?.role === "ADMIN" || canShowTab("GERENCIAR_INVOICES")) && (
               <LegacySubMenu title="Movimentações" icon={<SwapHorizOutlinedIcon />} style={{ color: colors.grey[100] }}>
-                <LegacySubMenu title="Vendas" icon={<SwapHorizOutlinedIcon />}>
-                  <Item title="PDV" to="/client/pdv" icon={<StorefrontOutlinedIcon />} selected={selected} setSelected={setSelected} />
-                  <Item title="Pré Vendas" to="/gestao/movimentacoes/vendas/pre" icon={<ListIcon />} selected={selected} setSelected={setSelected} />
-                  <Item title="Painel de Entregas" to="/gestao/movimentacoes/vendas/entregas" icon={<LocalShippingOutlinedIcon />} selected={selected} setSelected={setSelected} />
-                  <Item title="Abertas" to="/gestao/movimentacoes/vendas/abertas" icon={<ListIcon />} selected={selected} setSelected={setSelected} />
-                  <Item title="Concluídas" to="/gestao/movimentacoes/vendas/concluidas" icon={<ListIcon />} selected={selected} setSelected={setSelected} />
-                </LegacySubMenu>
+                <Item title="Vendas concluídas" to="/gestao/movimentacoes/vendas/concluidas" icon={<ListIcon />} selected={selected} setSelected={setSelected} />
                 <LegacySubMenu title="Financeiro" icon={<AccountBalanceWalletOutlinedIcon />}>
-                  <Item title="Plano de Conta" to="/gestao/cadastro/financeiro/plano-conta" icon={<ListIcon />} selected={selected} setSelected={setSelected} />
-                  <Item title="Contas a Receber" to="/gestao/movimentacoes/financeiro/receber" icon={<ListIcon />} selected={selected} setSelected={setSelected} />
-                  <Item title="Contas a Pagar" to="/gestao/movimentacoes/financeiro/pagar" icon={<ListIcon />} selected={selected} setSelected={setSelected} />
-                  <Item title="Fluxo de Caixa" to="/gestao/movimentacoes/financeiro/fluxo" icon={<ListIcon />} selected={selected} setSelected={setSelected} />
-                  <Item title="Previsão de Fluxo de Caixa" to="/gestao/movimentacoes/financeiro/previsao" icon={<ListIcon />} selected={selected} setSelected={setSelected} />
+                  <Item title="Plano de contas" to="/gestao/cadastro/financeiro/plano-conta" icon={<ListIcon />} selected={selected} setSelected={setSelected} />
                   <LegacySubMenu title="Despesas / Receitas" icon={<AccountBalanceWalletOutlinedIcon />}>
-                    <Item title="Cadastrar Despesa" to="/gestao/movimentacoes/financeiro/despesas/cadastrar" icon={<PersonAddIcon />} selected={selected} setSelected={setSelected} />
-                    <Item title="Cadastrar Receita" to="/gestao/movimentacoes/financeiro/receitas/cadastrar" icon={<PersonAddIcon />} selected={selected} setSelected={setSelected} />
-                    <Item title="Listar Receitas / Despesas" to="/gestao/movimentacoes/financeiro/despesas" icon={<ListIcon />} selected={selected} setSelected={setSelected} />
-                  </LegacySubMenu>
-                  <Item title="Relatório Caixa de Clientes" to="/gestao/movimentacoes/financeiro/caixa-clientes" icon={<ListIcon />} selected={selected} setSelected={setSelected} />
-                  <LegacySubMenu title="Boletos" icon={<AccountBalanceWalletOutlinedIcon />}>
-                    <Item title="Boletos Recorrentes" to="/gestao/movimentacoes/financeiro/boletos/recorrentes" icon={<ListIcon />} selected={selected} setSelected={setSelected} />
-                    <Item title="Contas Bancárias" to="/gestao/movimentacoes/financeiro/boletos/contas" icon={<ListIcon />} selected={selected} setSelected={setSelected} />
-                    <Item title="Gerenciar Boletos" to="/gestao/movimentacoes/financeiro/boletos/gerenciar" icon={<ListIcon />} selected={selected} setSelected={setSelected} />
-                    <Item title="Gerenciar Arquivos" to="/gestao/movimentacoes/financeiro/boletos/arquivos" icon={<ListIcon />} selected={selected} setSelected={setSelected} />
+                    <Item title="Listar despesas / receitas" to="/gestao/movimentacoes/financeiro/despesas" icon={<ListIcon />} selected={selected} setSelected={setSelected} />
+                    <Item title="Cadastrar despesas" to="/gestao/movimentacoes/financeiro/despesas/cadastrar" icon={<PersonAddIcon />} selected={selected} setSelected={setSelected} />
+                    <Item title="Cadastrar receitas" to="/gestao/movimentacoes/financeiro/receitas/cadastrar" icon={<PersonAddIcon />} selected={selected} setSelected={setSelected} />
                   </LegacySubMenu>
                 </LegacySubMenu>
               </LegacySubMenu>

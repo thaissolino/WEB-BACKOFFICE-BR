@@ -17,6 +17,8 @@ export type ProductCategory = {
   defaultDiscountValue: string;
   active: boolean;
   storePick?: boolean;
+  /** Sem o campo salvo, as categorias atuais exigem IMEI ou serial. */
+  requireSerial: boolean;
   coverFileId: string | null;
 };
 
@@ -53,6 +55,7 @@ export function categoryFromCatalog(item: CatalogItem): ProductCategory {
     defaultDiscountValue: String(payload.defaultDiscountValue ?? ""),
     active: item.active,
     storePick: asBool(payload.storePick),
+    requireSerial: asBool(payload.requireSerial, true),
     coverFileId: String(payload.coverFileId || "") || null,
   };
 }
@@ -102,6 +105,11 @@ export function toFlatOptions(rows: ProductCategory[]): FlatOption[] {
 
 let cachedCategories: ProductCategory[] | null = null
 let loadingCategories: Promise<ProductCategory[]> | null = null
+
+export function clearProductCategoryCache() {
+  cachedCategories = null
+  loadingCategories = null
+}
 
 export async function loadProductCategories(ativo?: boolean) {
   if (ativo !== false && cachedCategories) return cachedCategories

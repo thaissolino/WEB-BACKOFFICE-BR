@@ -6,14 +6,37 @@ import "../cadastros.css";
 import "../../../gestor/gestao-pages.css";
 import { listCatalog, updateCatalog } from "../catalog/catalogApi";
 import { api, parseError } from "../../../../services/api";
-import { CategoryCoverThumb } from "./categoryCover";
+import { useCategoryCover } from "./categoryCover";
+import { useProductPhotoUrl } from "./GradePhotoThumb";
 import {
   categoryDepth,
   categoryFromCatalog,
   categoryPaths,
+  clearProductCategoryCache,
   sortCategoryTree,
   type ProductCategory,
 } from "./categoryModel";
+
+function CategoryCapa({
+  code,
+  name,
+  coverFileId,
+  fallbackPhotoId,
+}: {
+  code: number;
+  name: string;
+  coverFileId: string | null;
+  fallbackPhotoId: string | null;
+}) {
+  const cover = useCategoryCover(code, coverFileId);
+  const product = useProductPhotoUrl(coverFileId ? null : fallbackPhotoId);
+  const src = cover || product || (/ipad/i.test(name) ? "/capa-ipad.jpg" : "");
+  return (
+    <span className="pdv-cat-cover-preview">
+      {src ? <img src={src} alt="" /> : <span>Foto</span>}
+    </span>
+  );
+}
 
 export default function ListarCategorias({ inactive = false }: { inactive?: boolean }) {
   const navigate = useNavigate();
@@ -26,6 +49,7 @@ export default function ListarCategorias({ inactive = false }: { inactive?: bool
   const [toast, setToast] = useState("");
   const [error, setError] = useState("");
   const [all, setAll] = useState<ProductCategory[]>([]);
+  const [fallbackPhoto, setFallbackPhoto] = useState<Record<string, string>>({});
 
   function load() {
     listCatalog("product_category")
@@ -41,6 +65,25 @@ export default function ListarCategorias({ inactive = false }: { inactive?: bool
 
   useEffect(() => {
     load();
+  }, []);
+
+  useEffect(() => {
+    api
+      .get("/clients/products", { params: { ativo: "1" } })
+      .then(({ data }) => {
+        const list = (data?.products || data || []) as Array<{ category?: string; categoryId?: string; photoFileId?: string | null }>;
+        const map: Record<string, string> = {};
+        for (const product of list) {
+          const photo = product.photoFileId ? String(product.photoFileId) : "";
+          if (!photo) continue;
+          for (const key of [product.categoryId, product.category]) {
+            const name = String(key || "").trim();
+            if (name && !map[name]) map[name] = photo;
+          }
+        }
+        setFallbackPhoto(map);
+      })
+      .catch(() => setFallbackPhoto({}));
   }, []);
 
   const rows = useMemo(() => {
@@ -81,6 +124,18 @@ export default function ListarCategorias({ inactive = false }: { inactive?: bool
       setToast("Foto da capa salva.");
     } catch (err) {
       setError(parseError(err).friend || "Não foi possível enviar a foto.");
+    }
+  }
+
+  async function toggleSerial(item: ProductCategory) {
+    const requireSerial = !item.requireSerial;
+    try {
+      await updateCatalog("product_category", item.code, { payload: { requireSerial } });
+      clearProductCategoryCache();
+      setAll((current) => current.map((row) => (row.code === item.code ? { ...row, requireSerial } : row)));
+      setToast(requireSerial ? `${item.name}: serial obrigatório.` : `${item.name}: serial não obrigatório.`);
+    } catch (err) {
+      setError(parseError(err).friend || "Não foi possível salvar a categoria.");
     }
   }
 
@@ -184,6 +239,7 @@ export default function ListarCategorias({ inactive = false }: { inactive?: bool
                   <th>Comissão %</th>
                   <th>Desconto %</th>
                   <th>Lucro %</th>
+                  <th>Serial</th>
                   <th>
                     Todos
                     <input
@@ -202,7 +258,12 @@ export default function ListarCategorias({ inactive = false }: { inactive?: bool
                     <tr key={item.id}>
                       <td>
                         <label className="pdv-cat-cover">
-                          <CategoryCoverThumb code={item.code} coverFileId={item.coverFileId} />
+                          <CategoryCapa
+                            code={item.code}
+                            name={item.name}
+                            coverFileId={item.coverFileId}
+                            fallbackPhotoId={fallbackPhoto[item.id] || fallbackPhoto[item.name] || null}
+                          />
                           <input
                             type="file"
                             accept="image/png,image/jpeg,image/webp,image/gif"
@@ -225,6 +286,18 @@ export default function ListarCategorias({ inactive = false }: { inactive?: bool
                       <td>{item.commission}</td>
                       <td>{item.discount}</td>
                       <td>{item.profit}</td>
+                      <td>
+                        <button
+                          className="pdv-prod-toggle"
+                          type="button"
+                          role="switch"
+                          aria-checked={item.requireSerial}
+                          aria-label={item.requireSerial ? `Serial obrigatório em ${item.name}` : `Serial não obrigatório em ${item.name}`}
+                          onClick={() => void toggleSerial(item)}
+                        >
+                          {item.requireSerial ? "Obrigatório" : "Não"}
+                        </button>
+                      </td>
                       <td>
                         <div className="pdv-cad-row-actions">
                           <button
