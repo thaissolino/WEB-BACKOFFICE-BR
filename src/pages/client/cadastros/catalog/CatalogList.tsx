@@ -138,7 +138,7 @@ export default function CatalogList({
   }
 
   const visible = useMemo(() => {
-    return rows.filter((item) => {
+    const filtered = rows.filter((item) => {
       for (const filter of config.filters ?? []) {
         const q = (applied[filter.key] || "").trim().toLowerCase()
         if (!q) continue
@@ -151,7 +151,26 @@ export default function CatalogList({
       }
       return true
     })
-  }, [applied, config.filters, rows])
+    if (!config.columns.some((column) => column.key === "ordem")) return filtered
+    const ordemDe = (item: CatalogItem) => Number(payloadStr(item, "ordem").replace(/\D/g, "")) || 9999
+    return [...filtered].sort((a, b) => ordemDe(a) - ordemDe(b) || a.name.localeCompare(b.name, "pt-BR"))
+  }, [applied, config.columns, config.filters, rows])
+
+  async function saveOrdem(item: CatalogItem, raw: string) {
+    const ordem = raw.replace(/\D/g, "")
+    if (ordem === payloadStr(item, "ordem")) return
+    try {
+      await updateCatalog(config.kind, item.code, {
+        name: item.name,
+        payload: { ...item.payload, ordem },
+      })
+      setToast("Ordem salva. O PDV usa esse número.")
+      load()
+    } catch (err) {
+      const parsed = parseError(err)
+      setError(parsed.friend || parsed.message || "Não foi possível salvar a ordem.")
+    }
+  }
 
   function onFilter(event: FormEvent) {
     event.preventDefault()
@@ -188,6 +207,21 @@ export default function CatalogList({
     }
     if (column.from === "active" || column.key === "ativo") {
       return <AtivoToggle value={item.active} onChange={(next) => toggleActive(item, next)} />
+    }
+    if (column.key === "ordem") {
+      return (
+        <input
+          className="pdv-ordem-input"
+          inputMode="numeric"
+          aria-label={`Ordem de ${item.name}`}
+          defaultValue={payloadStr(item, "ordem")}
+          key={`${item.code}-${payloadStr(item, "ordem")}`}
+          onBlur={(event) => void saveOrdem(item, event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") event.currentTarget.blur()
+          }}
+        />
+      )
     }
     if (column.from === "code" || column.key === "code" || column.key === "codigo") return item.code
     if (column.from === "name" || column.key === "name" || column.key === "nome") return item.name
@@ -227,7 +261,11 @@ export default function CatalogList({
                 <>
                   {config.bulkDisable ? (
                     <button className="pdv-cad-btn pdv-cad-btn-red" type="button" disabled={!picked.length || deleting} onClick={() => void disableSelected()}>
-                      {deleting ? "Inabilitando..." : picked.length ? `Inabilitar (${picked.length})` : "Inabilitar selecionados"}
+                      {deleting
+                        ? `${(config.bulkLabel || "Inabilitar") === "Inativar" ? "Inativando..." : "Inabilitando..."}`
+                        : picked.length
+                          ? `${config.bulkLabel || "Inabilitar"} (${picked.length})`
+                          : `${config.bulkLabel || "Inabilitar"} selecionados`}
                     </button>
                   ) : null}
                   {config.bulkDelete ? (

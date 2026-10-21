@@ -2231,6 +2231,10 @@
   z-index: 1;
 }
 
+.pdv-caixa-go {
+  flex: 0 0 auto;
+}
+
 .pdv-caixa-combo[data-open="true"] {
   z-index: 40;
 }
@@ -2249,8 +2253,8 @@
   padding: 0 12px;
   border: 1px solid #8a8378;
   border-radius: 12px;
-  background: #fffdf8 !important;
-  background-color: #fffdf8 !important;
+  background: #fff !important;
+  background-color: #fff !important;
   color: #111 !important;
   -webkit-text-fill-color: #111 !important;
   font: inherit;
@@ -2269,7 +2273,7 @@
   position: absolute;
   top: calc(100% + 6px);
   left: 0;
-  z-index: 40;
+  z-index: 80;
   width: 100%;
   min-width: 16rem;
   padding: 6px 0;
@@ -2286,9 +2290,9 @@
   gap: 8px;
   margin: 6px;
   padding: 0 10px;
-  border: 1px solid #ddd4c6;
+  border: 1px solid #cfc6b8;
   border-radius: 12px;
-  background: #f4f1ea;
+  background: #fff;
   position: relative;
   z-index: 1;
 }
@@ -2428,6 +2432,23 @@
   font-weight: 700;
 }
 
+.pdv-caixa-create-tip {
+  display: block;
+  width: 100%;
+}
+
+.pdv-caixa-create-tip .pdv-tip-bubble {
+  left: 18px;
+  max-width: 22rem;
+  white-space: normal;
+  transform: none;
+}
+
+.pdv-caixa-create-tip .pdv-tip-bubble::before,
+.pdv-caixa-create-tip .pdv-tip-bubble::after {
+  left: 28px;
+}
+
 .pdv-caixa-create {
   display: flex;
   flex-wrap: wrap;
@@ -2443,11 +2464,20 @@
   padding: 0 12px;
   border: 1px solid #8a8378;
   border-radius: 12px;
-  background: #fffdf8;
+  background: #fff;
   color: #1a1511;
   font: inherit;
   font-size: 0.95rem;
   font-weight: 600;
+}
+
+.pdv-caixa-create input:disabled,
+.pdv-caixa-page .pdv-wm-btn:disabled {
+  background: #fff !important;
+  color: #8a8378 !important;
+  -webkit-text-fill-color: #8a8378 !important;
+  cursor: not-allowed;
+  opacity: 1;
 }
 
 .pdv-caixa-store-list {

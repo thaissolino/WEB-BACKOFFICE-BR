@@ -5,6 +5,7 @@ import CadastroShell from "../CadastroShell"
 import { FormRow, RadioSimNao } from "../catalog/FormBits"
 import { createCatalog, getCatalog, listCatalog, updateCatalog } from "../catalog/catalogApi"
 import { api, parseError } from "../../../../services/api"
+import { avisarSalvo } from "../../avisoSalvo"
 import { formatPhoneBr } from "../../../../utils/brMasks"
 import { usePdvSession } from "../../dashboard/PdvShell"
 
@@ -106,6 +107,7 @@ export default function UsuarioForm() {
         ? await updateCatalog("user", editId, { name: form.nome, payload, active: true })
         : await createCatalog("user", { name: form.nome, payload, active: true })
       if (enviarSenha) await api.post(`/clients/catalog/user/${saved.code}/senha`)
+      avisarSalvo("Usuário salvo.")
       navigate("/client/usuarios")
     } catch (err) {
       const parsed = parseError(err)

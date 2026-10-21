@@ -7,6 +7,7 @@ import { FormRow, DatePreset } from "../cadastros/catalog/FormBits"
 import { clientIdDoLojista, createCatalog, lancamentoDaLoja, listCatalog } from "../cadastros/catalog/catalogApi"
 import { listLojaCaixas } from "../cadastros/financeiro/caixaApi"
 import { parseError } from "../../../services/api"
+import { avisarSalvo } from "../avisoSalvo"
 import { Pencil, Plus } from "lucide-react"
 import { useEffect, useMemo } from "react"
 import "../vendas/pedidos.css"
@@ -358,6 +359,7 @@ export function CadastrarDespesa({ receita = false }: { receita?: boolean }) {
           ...(clientId ? { clientId } : {}),
         },
       })
+      avisarSalvo(receita ? "Receita salva." : "Despesa salva.")
       navigate(listPath)
     } catch (err) {
       setStatus(parseError(err).friend || "Não foi possível salvar.")

@@ -5,6 +5,7 @@ import CadastroShell from "../CadastroShell";
 import "../cadastros.css";
 import { createCatalog, getCatalog, updateCatalog } from "../catalog/catalogApi";
 import { api, parseError } from "../../../../services/api";
+import { avisarSalvo } from "../../avisoSalvo";
 import { CategoryCoverThumb } from "./categoryCover";
 import { categoryFromCatalog, categoryPaths, slugifyCategory, type ProductCategory } from "./categoryModel";
 import { CATEGORY_TYPE_OPTIONS, GRADE_OPTIONS } from "./productOptions";
@@ -122,6 +123,7 @@ export default function CadastrarCategoria() {
         body.append("file", coverFile);
         await api.post(`/clients/catalog/product_category/${saved.code}/cover`, body);
       }
+      avisarSalvo("Categoria salva.");
       navigate(paths.list);
     } catch (err) {
       setStatus(parseError(err).friend || "Não foi possível salvar a categoria.");

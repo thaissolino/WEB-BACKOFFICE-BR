@@ -2,6 +2,7 @@ import { ChangeEvent, FormEvent, Fragment, useEffect, useMemo, useState } from "
 import { useNavigate, useParams } from "react-router-dom";
 import { ChevronRight, ImagePlus, RefreshCw, Search, X } from "lucide-react";
 import { api, parseError } from "../../../../services/api";
+import { avisarSalvo } from "../../avisoSalvo";
 import CadastroShell from "../CadastroShell";
 import { formatMoneyBr, parseMoneyBr, type PdvProduct, type PdvProductCategory } from "./types";
 import { useProductPhotoUrl } from "./GradePhotoThumb";
@@ -232,6 +233,7 @@ function EstoqueProdutos({ categoryId }: { categoryId: string }) {
         [productId]: String(product.stockQuantity).replace(".", ","),
       }));
       setToast("Estoque atualizado.");
+      avisarSalvo("Estoque salvo.");
     } catch (err) {
       const parsed = parseError(err);
       setToast(parsed.friend || parsed.message || "Falha ao atualizar estoque.");
@@ -264,6 +266,7 @@ function EstoqueProdutos({ categoryId }: { categoryId: string }) {
           ? "Foto substituída. Arquivo anterior removido do bucket."
           : "Foto enviada ao bucket Geninfra.",
       );
+      avisarSalvo("Foto salva.");
       setPhotoFile(null);
     } catch (err) {
       const parsed = parseError(err);

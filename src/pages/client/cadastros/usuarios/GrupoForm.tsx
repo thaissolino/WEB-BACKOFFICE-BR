@@ -5,6 +5,7 @@ import CadastroShell from "../CadastroShell"
 import { FormRow, RadioSimNao } from "../catalog/FormBits"
 import { createCatalog, getCatalog, updateCatalog } from "../catalog/catalogApi"
 import { parseError } from "../../../../services/api"
+import { avisarSalvo } from "../../avisoSalvo"
 
 export default function GrupoForm() {
   const navigate = useNavigate()
@@ -36,6 +37,7 @@ export default function GrupoForm() {
       const payload = { nivel, painelEntregas }
       if (editId) await updateCatalog("group", editId, { name: nome, active: ativo, payload })
       else await createCatalog("group", { name: nome, active: ativo, payload })
+      avisarSalvo("Grupo salvo.")
       navigate("/client/usuarios/grupos")
     } catch (err) {
       const parsed = parseError(err)

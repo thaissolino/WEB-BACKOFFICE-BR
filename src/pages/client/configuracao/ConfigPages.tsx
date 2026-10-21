@@ -12,6 +12,7 @@ import {
   type CatalogItem,
 } from "../cadastros/catalog/catalogApi"
 import { parseError } from "../../../services/api"
+import { avisarSalvo } from "../avisoSalvo"
 import { AtivoToggle } from "../cadastros/produtos/QuickCadWindows"
 import { usePdvSession } from "../dashboard/PdvShell"
 import { PLAN } from "../dashboard/mockData"
@@ -69,6 +70,7 @@ export function TipoAtividadePage() {
       name: draft.name.trim(),
       payload: { ...item.payload, icone: draft.icone },
     })
+    avisarSalvo("Salvo.")
     load()
   }
 
@@ -78,6 +80,7 @@ export function TipoAtividadePage() {
         name: "Novo tipo",
         payload: { icone: "star", ordem: String(rows.length + 1) },
       })
+      avisarSalvo("Tipo salvo.")
       load()
     } catch (err) {
       setError(parseError(err).friend || "Não foi possível adicionar.")
@@ -229,6 +232,7 @@ export function CartaForm() {
       const payload = { titulo, tipo, ordem, corpo }
       if (editId) await updateCatalog("letter", editId, { name: nome, active: ativo, payload })
       else await createCatalog("letter", { name: nome, active: ativo, payload })
+      avisarSalvo("Impressão salva.")
       navigate("/client/configuracao/impressao")
     } catch (err) {
       setStatus(parseError(err).friend || "Não foi possível salvar.")
@@ -363,6 +367,7 @@ export function SigepPacoteForm() {
       const payload = { tipo, peso, comprimento, altura, largura, diametro, padrao }
       if (editId) await updateCatalog("sigep_package", editId, { name: nome, payload })
       else await createCatalog("sigep_package", { name: nome, payload })
+      avisarSalvo("Pacote salvo.")
       navigate("/client/configuracao/pacotes-sigep")
     } catch (err) {
       setStatus(parseError(err).friend || "Não foi possível salvar.")
@@ -541,6 +546,7 @@ export function GrupoLojaForm() {
       const payload = { lojas }
       if (editId) await updateCatalog("store_group", editId, { name: nome, active: ativo, payload })
       else await createCatalog("store_group", { name: nome, active: ativo, payload })
+      avisarSalvo("Grupo salvo.")
       navigate("/client/grupos-de-loja")
     } catch (err) {
       setStatus(parseError(err).friend || "Não foi possível salvar.")
@@ -674,6 +680,7 @@ export function EstoqueCompartilhadoPage() {
       if (row.code) await updateCatalog("shared_stock", row.code, { name: row.loja, active: row.ativo, payload })
       else await createCatalog("shared_stock", { name: row.loja, active: row.ativo, payload })
       setStatus("Atualizado.")
+      avisarSalvo("Salvo.")
       load()
     } catch (err) {
       setStatus(parseError(err).friend || "Não foi possível atualizar.")
@@ -930,6 +937,7 @@ export function TransportadoraForm() {
       const payload = { placa, cidade, emailXml }
       if (editId) await updateCatalog("carrier", editId, { name: nome, payload })
       else await createCatalog("carrier", { name: nome, payload })
+      avisarSalvo("Transportadora salva.")
       navigate("/client/configuracao/transportadora")
     } catch (err) {
       setStatus(parseError(err).friend || "Não foi possível salvar.")

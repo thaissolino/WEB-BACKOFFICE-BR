@@ -18,6 +18,21 @@
   }
 }
 
+.pdv-salvo {
+  position: fixed;
+  top: 18px;
+  left: 50%;
+  z-index: 10000;
+  transform: translateX(-50%);
+  margin: 0;
+  padding: 12px 22px;
+  border-radius: 999px;
+  background: #1b5e20;
+  color: #fff;
+  font-weight: 700;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.28);
+}
+
 /* Scrollbar personalizada */
 ::-webkit-scrollbar {
     width: 8px;

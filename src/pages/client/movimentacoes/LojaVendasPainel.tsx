@@ -5,7 +5,7 @@ import { STORE_STORAGE_KEY } from "../dashboard/mockData"
 import FilterPage, { type FilterPageProps } from "../pdv/FilterPage"
 import { api, parseError } from "../../../services/api"
 import { formatMoneyRs } from "../cadastros/produtos/types"
-import { ReciboNota } from "../pdv/ReciboNota"
+import { destinatarioPorNome, ReciboNota, type ReciboDestinatario } from "../pdv/ReciboNota"
 import { emitenteDaLoja } from "../pdv/emitenteLoja"
 import { EMPTY_SALE_FILTERS, filterLojaSales, type SaleFilters } from "./lojaSalesFilters"
 import { DatePreset } from "../cadastros/catalog/FormBits"
@@ -25,6 +25,7 @@ export type LojaPdvPayment = {
   method: string
   amount: number
   parcelas?: number
+  troca?: { code?: string; name?: string; imei?: string }
 }
 
 export type LojaPdvSale = {
@@ -48,8 +49,6 @@ export type LojaPdvSale = {
 
 const ACTIONS = [
   { label: "Concluídas", tone: "blue" as const, href: "/client/movimentacoes/vendas/concluidas" },
-  { label: "Abertas", href: "/client/movimentacoes/vendas/abertas" },
-  { label: "Nova venda", tone: "green" as const, href: "/client/pdv" },
 ]
 
 export async function listLojaSales(status?: "espera" | "finalizada") {
@@ -75,12 +74,9 @@ function imeisDaLinha(line: LojaPdvLine) {
   return [...new Set([...salvos, ...imeisNoTexto(`${line.name} ${line.code}`)])]
 }
 
-function imeisDaVenda(sale: LojaPdvSale) {
-  const achados = [
-    ...imeisNoTexto(sale.notes || ""),
-    ...sale.lines.flatMap((line) => imeisDaLinha(line)),
-  ]
-  return [...new Set(achados)]
+function divisaoParcelas(total: number, vezes: number) {
+  if (!(total > 0) || vezes <= 1) return vezes > 1 ? `${vezes}x` : "1x"
+  return `${vezes}x de ${formatMoneyRs(total / vezes)}`
 }
 
 function payText(sale: LojaPdvSale) {
@@ -92,18 +88,8 @@ function payText(sale: LojaPdvSale) {
 }
 
 export function SaleDetailPanel({ sale, emitente, onClose }: { sale: LojaPdvSale; emitente?: Emitente; onClose: () => void }) {
-  const imeis = imeisDaVenda(sale)
-
-  useEffect(() => {
-    function onKey(event: KeyboardEvent) {
-      if (event.key === "Escape") onClose()
-    }
-    window.addEventListener("keydown", onKey)
-    return () => window.removeEventListener("keydown", onKey)
-  }, [onClose])
-
   return (
-    <div className="pdv-caixa-confirm" onClick={onClose}>
+    <div className="pdv-caixa-confirm">
       <div
         className="pdv-caixa-confirm-card venda-folha"
         role="dialog"
@@ -147,23 +133,20 @@ export function SaleDetailPanel({ sale, emitente, onClose }: { sale: LojaPdvSale
               const seriais = imeisDaLinha(line)
               return (
                 <tr key={`${line.productId}-${index}`}>
-                  <td>
+                  <td className="venda-folha-prod">
+                    {line.code ? <b>{line.code}</b> : null}
                     <strong>{line.name}</strong>
-                    {line.code ? <span>{line.code}</span> : null}
                   </td>
-                  <td>{seriais.length ? seriais.join(", ") : "—"}</td>
+                  <td>{seriais.length ? seriais.join(", ") : ""}</td>
                   <td>{line.qty}</td>
                   <td>{formatMoneyRs(line.price)}</td>
-                  <td>{line.discount > 0 ? formatMoneyRs(line.discount) : "—"}</td>
+                  <td>{line.discount < 0 ? `+ ${formatMoneyRs(-line.discount)}` : line.discount > 0 ? formatMoneyRs(line.discount) : ""}</td>
                   <td>{formatMoneyRs(line.qty * Math.max(0, line.price - line.discount))}</td>
                 </tr>
               )
             })}
           </tbody>
         </table>
-        {imeis.length ? (
-          <p className="venda-folha-imei">IMEI: {imeis.join(" · ")}</p>
-        ) : null}
         <h3>Pagamento</h3>
         <table className="venda-folha-table">
           <thead>
@@ -178,8 +161,17 @@ export function SaleDetailPanel({ sale, emitente, onClose }: { sale: LojaPdvSale
               <tr><td colSpan={3}>Nenhuma forma lançada</td></tr>
             ) : sale.payments.map((pay, index) => (
               <tr key={`${pay.method}-${index}`}>
-                <td>{pay.method}</td>
-                <td>{pay.parcelas && pay.parcelas > 1 ? `${pay.parcelas}x` : "1x"}</td>
+                <td>
+                  {pay.method}
+                  {pay.troca ? (
+                    <span>
+                      {pay.troca.code ? `Cód. ${pay.troca.code} · ` : ""}
+                      {pay.troca.name}
+                      {pay.troca.imei ? ` · IMEI ${pay.troca.imei}` : ""}
+                    </span>
+                  ) : null}
+                </td>
+                <td>{divisaoParcelas(pay.amount, pay.parcelas || 1)}</td>
                 <td>{formatMoneyRs(pay.amount)}</td>
               </tr>
             ))}
@@ -232,7 +224,8 @@ function textoDaVenda(sale: LojaPdvSale) {
   }).join("\n")
   const pags = sale.payments.map((pay) => {
     const label = pay.parcelas && pay.parcelas > 1 ? `${pay.method} ${pay.parcelas}x` : pay.method
-    return `${label}  ${formatMoneyRs(pay.amount)}`
+    const troca = pay.troca ? `  ${pay.troca.code ? `Cód. ${pay.troca.code} ` : ""}${pay.troca.name || ""}${pay.troca.imei ? `  IMEI ${pay.troca.imei}` : ""}` : ""
+    return `${label}  ${formatMoneyRs(pay.amount)}${troca}`
   }).join("\n")
   return [
     `Venda ${sale.code}`,
@@ -251,7 +244,7 @@ function textoDaVenda(sale: LojaPdvSale) {
   ].filter((line): line is string => line != null).join("\n")
 }
 
-function FolhaVenda({ sale, emitente, cupom, lines }: { sale: LojaPdvSale; emitente: Emitente; cupom: boolean; lines: LojaPdvLine[] }) {
+function FolhaVenda({ sale, emitente, cupom, lines, destinatario }: { sale: LojaPdvSale; emitente: Emitente; cupom: boolean; lines: LojaPdvLine[]; destinatario: ReciboDestinatario }) {
   const data = when(sale.finalizedAt || sale.createdAt)
   const loja = emitente.name || "Loja"
   if (cupom) {
@@ -274,6 +267,7 @@ function FolhaVenda({ sale, emitente, cupom, lines }: { sale: LojaPdvSale; emite
             {pay.parcelas && pay.parcelas > 1 ? `${pay.method} ${pay.parcelas}x` : pay.method}
             {" "}
             {formatMoneyRs(pay.amount)}
+            {pay.troca ? ` · ${[pay.troca.name, pay.troca.imei ? `IMEI ${pay.troca.imei}` : ""].filter(Boolean).join(" · ")}` : ""}
           </p>
         ))}
         <strong>Total {formatMoneyRs(sale.total)}</strong>
@@ -287,7 +281,7 @@ function FolhaVenda({ sale, emitente, cupom, lines }: { sale: LojaPdvSale; emite
       codigo={sale.code}
       data={data}
       emitente={emitente}
-      destinatario={{ nome: sale.customerName }}
+      destinatario={destinatario}
       vendedor={sale.sellerName}
       notas={sale.notes || ""}
       lines={lines}
@@ -317,20 +311,29 @@ export function SaleActionsMenu({
   const box = useRef<HTMLDivElement>(null)
   const [busy, setBusy] = useState(false)
   const [slip, setSlip] = useState<null | "a4" | "cupom">(null)
+  const [destinatario, setDestinatario] = useState<ReciboDestinatario>({ nome: sale.customerName })
   const [linhasNota, setLinhasNota] = useState(sale.lines)
+  const [emitenteNota, setEmitenteNota] = useState(emitente)
+  const fecharRef = useRef(onClose)
+  fecharRef.current = onClose
 
   async function abrirImpressao(kind: "a4" | "cupom") {
-    const linhas = await Promise.all(sale.lines.map(async (line) => {
-      if (line.category?.trim()) return line
-      try {
-        const { data } = await api.get(`/clients/products/${line.productId}`)
-        const category = String((data.product as { category?: string } | undefined)?.category || "")
-        return category ? { ...line, category } : line
-      } catch {
-        return line
-      }
-    }))
+    const [linhas, loja] = await Promise.all([
+      Promise.all(sale.lines.map(async (line) => {
+        if (line.category?.trim()) return line
+        try {
+          const { data } = await api.get(`/clients/products/${line.productId}`)
+          const category = String((data.product as { category?: string } | undefined)?.category || "")
+          return category ? { ...line, category } : line
+        } catch {
+          return line
+        }
+      })),
+      buscarEmitente("").catch(() => ({ emitente: emitentePronto ? emitente : EMITENTE_VAZIO, nome: emitente.name })),
+    ])
     setLinhasNota(linhas)
+    setEmitenteNota(loja.emitente.name ? loja.emitente : emitente)
+    setDestinatario(await destinatarioPorNome(sale.customerName))
     setSlip(kind)
   }
 
@@ -343,29 +346,39 @@ export function SaleActionsMenu({
   }, [onClose])
 
   useEffect(() => {
-    if (!slip || !emitentePronto) return
-    const style = document.createElement("style")
-    style.textContent = slip === "cupom"
-      ? "@media print { @page { size: 80mm auto; margin: 4mm; } }"
-      : "@media print { @page { size: A4; margin: 0; } }"
-    document.head.appendChild(style)
-    const done = () => {
-      style.remove()
-      setSlip(null)
-      onClose()
+    if (!slip) return
+    const node = document.querySelector(".nf-print")
+    if (!node) return
+    const frame = document.createElement("iframe")
+    frame.setAttribute("aria-hidden", "true")
+    frame.style.cssText = "position:fixed;width:0;height:0;border:0;right:0;bottom:0"
+    document.body.appendChild(frame)
+    const doc = frame.contentDocument
+    const win = frame.contentWindow
+    if (!doc || !win) {
+      frame.remove()
+      return
     }
-    window.addEventListener("afterprint", done)
-    const titulo = document.title
-    document.title = " "
-    const timer = window.setTimeout(() => window.print(), 60)
-    const restaurar = () => { document.title = titulo }
-    window.addEventListener("afterprint", restaurar, { once: true })
+    const css = [...document.querySelectorAll("link[rel='stylesheet'], style")].map((el) => el.outerHTML).join("")
+    const page = slip === "cupom"
+      ? "@page { size: 80mm auto; margin: 0; } .nf-print { width: 72mm; }"
+      : "@page { size: A4; margin: 0; } .nf-print { padding: 8mm; box-sizing: border-box; }"
+    doc.open()
+    doc.write(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"><title></title>${css}<style>${page} html,body{margin:0;background:#fff;} .nf-print,.nf-print *{visibility:visible !important;} .nf-print{display:block !important;position:absolute;top:0;left:0;width:100%;height:auto;overflow:visible;color:#000;background:#fff;}</style></head><body>${node.outerHTML}</body></html>`)
+    doc.close()
+    const done = () => {
+      frame.remove()
+      setSlip(null)
+      fecharRef.current()
+    }
+    win.addEventListener("afterprint", done)
+    const timer = window.setTimeout(() => win.print(), 180)
     return () => {
       window.clearTimeout(timer)
-      window.removeEventListener("afterprint", done)
-      style.remove()
+      win.removeEventListener("afterprint", done)
+      frame.remove()
     }
-  }, [slip, emitentePronto, onClose])
+  }, [slip])
 
   async function duplicar() {
     setBusy(true)
@@ -456,7 +469,7 @@ export function SaleActionsMenu({
       </div>
       {slip ? (
         <div className={`cx-print nf-print${slip === "cupom" ? " nf-cupom" : ""}`} aria-hidden="true">
-          <FolhaVenda sale={sale} emitente={emitente} cupom={slip === "cupom"} lines={linhasNota} />
+          <FolhaVenda sale={sale} emitente={emitenteNota.name ? emitenteNota : emitente} cupom={slip === "cupom"} lines={linhasNota} destinatario={destinatario} />
         </div>
       ) : null}
     </>
@@ -464,16 +477,12 @@ export function SaleActionsMenu({
 }
 
 function SaleFilterBar({
-  filters,
   draft,
-  caixas,
   onDraft,
   onApply,
   onClear,
 }: {
-  filters: SaleFilters
   draft: SaleFilters
-  caixas: string[]
   onDraft: (next: SaleFilters) => void
   onApply: (event: FormEvent) => void
   onClear: () => void
@@ -499,21 +508,33 @@ function SaleFilterBar({
         Cliente
         <input value={draft.nome} onChange={(event) => onDraft({ ...draft, nome: event.target.value })} autoComplete="off" />
       </label>
-      <label>
-        Caixa
-        <select value={draft.caixa} onChange={(event) => onDraft({ ...draft, caixa: event.target.value })}>
-          {caixas.map((name) => <option key={name}>{name}</option>)}
-        </select>
-      </label>
       <div className="pdv-cad-filters-go">
         <button className="pdv-cad-btn" type="button" onClick={onClear}>Limpar</button>
         <button className="pdv-cad-btn pdv-cad-btn-blue" type="submit">Filtrar</button>
       </div>
-      {filters.inicio || filters.fim || filters.cod || filters.nome || filters.caixa !== "Todos" ? (
-        <p className="pdv-cad-kicker">Filtro ativo.</p>
-      ) : null}
     </form>
   )
+}
+
+function idLojaSalvo() {
+  if (typeof sessionStorage === "undefined") return ""
+  return sessionStorage.getItem(STORE_STORAGE_KEY) || ""
+}
+
+async function buscarEmitente(fallbackName: string) {
+  let id = idLojaSalvo()
+  let nome = fallbackName
+  if (!id) {
+    const { data } = await api.get("/clients/stores")
+    const rows = (data.stores || []) as Array<{ id: string; name: string }>
+    const atual = rows.find((item) => item.name === fallbackName) || rows[0]
+    id = atual?.id || ""
+    nome = atual?.name || nome
+  }
+  if (!id) return { emitente: EMITENTE_VAZIO, nome: nome || "Loja" }
+  const loja = await api.get(`/clients/stores/${id}/loja`)
+  const emitente = emitenteDaLoja(loja.data.store)
+  return { emitente, nome: emitente.name || nome || "Loja" }
 }
 
 function useEmitenteLoja(fallbackName: string) {
@@ -522,29 +543,27 @@ function useEmitenteLoja(fallbackName: string) {
   const [emitentePronto, setEmitentePronto] = useState(false)
 
   useEffect(() => {
-    const storeId = typeof sessionStorage === "undefined" ? "" : sessionStorage.getItem(STORE_STORAGE_KEY) || ""
     let vivo = true
-    api.get("/clients/stores")
-      .then(async ({ data }) => {
-        const rows = (data.stores || []) as Array<{ id: string; name: string }>
-        const atual = rows.find((item) => item.id === storeId) || rows[0]
-        if (!vivo) return
-        setLojaNome(atual?.name || fallbackName || "Loja")
-        if (!atual?.id) {
+    function carregar() {
+      buscarEmitente(fallbackName)
+        .then((achado) => {
+          if (!vivo) return
+          setLojaNome(achado.nome)
+          setEmitente(achado.emitente)
           setEmitentePronto(true)
-          return
-        }
-        const loja = await api.get(`/clients/stores/${atual.id}/loja`)
-        if (!vivo) return
-        setEmitente(emitenteDaLoja(loja.data.store))
-        setEmitentePronto(true)
-      })
-      .catch(() => {
-        if (!vivo) return
-        setLojaNome(fallbackName || "Loja")
-        setEmitentePronto(true)
-      })
-    return () => { vivo = false }
+        })
+        .catch(() => {
+          if (!vivo) return
+          setLojaNome(fallbackName || "Loja")
+          setEmitentePronto(true)
+        })
+    }
+    carregar()
+    const timer = window.setTimeout(carregar, 400)
+    return () => {
+      vivo = false
+      window.clearTimeout(timer)
+    }
   }, [fallbackName])
 
   return { lojaNome, emitente, emitentePronto }
@@ -571,7 +590,6 @@ export function VendasMovimento({ status }: { status: "espera" | "finalizada" })
       .catch((err) => setHint(parseError(err).friend || "Não foi possível carregar as vendas."))
   }, [status])
 
-  const caixas = useMemo(() => ["Todos", ...new Set(sales.map((sale) => sale.caixaName).filter(Boolean))], [sales])
   const visible = useMemo(() => filterLojaSales(sales, filters), [sales, filters])
 
   useEffect(() => {
@@ -591,9 +609,7 @@ export function VendasMovimento({ status }: { status: "espera" | "finalizada" })
           <>
             {aviso ? <p className="venda-gear-aviso">{aviso}</p> : null}
             <SaleFilterBar
-            filters={filters}
             draft={draft}
-            caixas={caixas}
             onDraft={setDraft}
             onApply={(event) => { event.preventDefault(); setFilters(draft) }}
             onClear={() => { setDraft(EMPTY_SALE_FILTERS); setFilters(EMPTY_SALE_FILTERS) }}
@@ -791,7 +807,6 @@ export function VendasRelatorio({ def }: { def: FilterPageProps & { path: string
       .catch((err) => setHint(parseError(err).friend || "Não foi possível carregar o relatório."))
   }, [def.path])
 
-  const caixas = useMemo(() => ["Todos", ...new Set(sales.map((sale) => sale.caixaName).filter(Boolean))], [sales])
   const filtered = useMemo(() => filterLojaSales(sales, filters), [sales, filters])
   const view = useMemo(() => reportView(def.path, filtered), [def.path, filtered])
   const saleByCode = useMemo(() => new Map(filtered.map((sale) => [sale.code, sale])), [filtered])
@@ -811,9 +826,7 @@ export function VendasRelatorio({ def }: { def: FilterPageProps & { path: string
           <>
             {aviso ? <p className="venda-gear-aviso">{aviso}</p> : null}
             <SaleFilterBar
-            filters={filters}
             draft={draft}
-            caixas={caixas}
             onDraft={setDraft}
             onApply={(event) => { event.preventDefault(); setFilters(draft) }}
             onClear={() => { setDraft(EMPTY_SALE_FILTERS); setFilters(EMPTY_SALE_FILTERS) }}

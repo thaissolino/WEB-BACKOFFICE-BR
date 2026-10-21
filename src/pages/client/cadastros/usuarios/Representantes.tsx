@@ -5,6 +5,7 @@ import CadastroShell from "../CadastroShell"
 import { FormRow } from "../catalog/FormBits"
 import { createCatalog, getCatalog, listCatalog, updateCatalog } from "../catalog/catalogApi"
 import { parseError } from "../../../../services/api"
+import { avisarSalvo } from "../../avisoSalvo"
 import { formatPhoneBr } from "../../../../utils/brMasks"
 
 export function RepresentanteForm() {
@@ -35,6 +36,7 @@ export function RepresentanteForm() {
       const payload = { telefone, observacao }
       if (editId) await updateCatalog("representative", editId, { name: nome, payload })
       else await createCatalog("representative", { name: nome, payload })
+      avisarSalvo("Representante salvo.")
       navigate("/client/usuarios/representantes")
     } catch (err) {
       const parsed = parseError(err)
@@ -111,6 +113,7 @@ export function IdentificadorForm() {
       const payload = { telefone, email, representante }
       if (editId) await updateCatalog("identifier", editId, { name: nome, payload })
       else await createCatalog("identifier", { name: nome, payload })
+      avisarSalvo("Identificador salvo.")
       navigate("/client/usuarios/representantes/identificadores")
     } catch (err) {
       const parsed = parseError(err)
@@ -184,6 +187,7 @@ export function VincularIdentificador() {
         })
       }
       setStatus("Vínculo atualizado.")
+      avisarSalvo("Vínculo salvo.")
       setSelected([])
     } catch (err) {
       const parsed = parseError(err)

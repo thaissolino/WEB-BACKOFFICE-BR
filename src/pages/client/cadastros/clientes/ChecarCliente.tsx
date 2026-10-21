@@ -2,6 +2,7 @@ import { FormEvent, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Tag } from "lucide-react";
 import { formatCnpj, formatCpf } from "../../../../utils/brMasks";
+import { api, parseError } from "../../../../services/api";
 import CadastroShell from "../CadastroShell";
 
 type ClienteTipo = "fisica" | "juridica" | "estrangeiro";
@@ -52,7 +53,7 @@ export default function ChecarCliente({
     else setDocumento(value);
   }
 
-  function onSubmit(event: FormEvent) {
+  async function onSubmit(event: FormEvent) {
     event.preventDefault();
     if (isEstrangeiro && !nome.trim()) {
       setError("Informe o nome.");
@@ -61,6 +62,21 @@ export default function ChecarCliente({
     if (!documento.trim()) {
       setError(isEstrangeiro ? "Informe o documento." : `Informe o ${idLabel.replace(":", "")}.`);
       return;
+    }
+    const digits = documento.replace(/\D/g, "");
+    if (!isFornecedor && !isEstrangeiro && (digits.length === 11 || digits.length === 14)) {
+      try {
+        const { data } = await api.get("/clients/customers", { params: { document: digits } });
+        const found = (data.customers as Array<{ name?: string }> | undefined) ?? [];
+        if (found.length) {
+          const rotulo = digits.length === 14 ? "CNPJ" : "CPF";
+          setError(`Já existe um cliente com este ${rotulo}${found[0]?.name ? `: ${found[0].name}` : ""}.`);
+          return;
+        }
+      } catch (err) {
+        setError(parseError(err).friend || "Não foi possível verificar o documento.");
+        return;
+      }
     }
     setError("");
     navigate(formPath, { state: { tipo, documento, name: nome.trim(), title: stubTitle } });

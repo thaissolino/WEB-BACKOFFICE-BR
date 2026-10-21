@@ -199,7 +199,18 @@ export const PLAN_LIST: CatalogListConfig = {
 }
 
 export function UsersList({ inactive = false }: { inactive?: boolean }) {
-  return <CatalogList config={{ ...USER_LIST, renderCell: userCell }} inactive={inactive} />
+  return (
+    <CatalogList
+      config={{
+        ...USER_LIST,
+        renderCell: userCell,
+        bulkDelete: true,
+        bulkDisable: !inactive,
+        bulkLabel: "Inativar",
+      }}
+      inactive={inactive}
+    />
+  )
 }
 export function GroupsList() {
   return <CatalogList config={{ ...GROUP_LIST, renderCell: groupCell }} />

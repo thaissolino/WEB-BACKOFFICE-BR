@@ -206,7 +206,7 @@ export default function PdvShell({
     let active = true;
     api
       .get("/clients/stores")
-      .then(({ data }) => {
+      .then(async ({ data }) => {
         if (!active) return;
         const raw = Array.isArray(data?.stores) ? data.stores : Array.isArray(data) ? data : [];
         const list = (
@@ -214,10 +214,21 @@ export default function PdvShell({
         )
           .filter((item) => item?.id)
           .map(toStoreOption);
-        setStores(list);
+        const named = await Promise.all(list.map(async (item) => {
+          try {
+            const loja = await api.get(`/clients/stores/${item.id}/loja`);
+            const fantasia = String(loja.data?.store?.dados?.geral?.fantasia || "").trim();
+            if (!fantasia) return item;
+            return toStoreOption({ id: item.id, name: item.name, storeCode: item.code, fantasia });
+          } catch {
+            return item;
+          }
+        }));
+        if (!active) return;
+        setStores(named);
         setStoreId((current) => {
-          if (current && list.some((item) => item.id === current)) return current;
-          return list[0]?.id ?? "";
+          if (current && named.some((item) => item.id === current)) return current;
+          return named[0]?.id ?? "";
         });
       })
       .catch(() => {
@@ -231,6 +242,20 @@ export default function PdvShell({
   useEffect(() => {
     if (storeId) sessionStorage.setItem(STORE_STORAGE_KEY, storeId);
   }, [storeId]);
+
+  useEffect(() => {
+    function onStoreName(event: Event) {
+      const detail = (event as CustomEvent<{ id?: string; name?: string }>).detail;
+      const id = detail?.id;
+      const fantasia = String(detail?.name || "").trim();
+      if (!id || !fantasia) return;
+      setStores((current) => current.map((item) => (
+        item.id === id ? toStoreOption({ id: item.id, name: fantasia, storeCode: item.code, fantasia }) : item
+      )));
+    }
+    window.addEventListener("pdv-store-name", onStoreName);
+    return () => window.removeEventListener("pdv-store-name", onStoreName);
+  }, []);
 
   useEffect(() => {
     if (!storeId) {

@@ -1,3 +1,4 @@
+import { api } from "../../../services/api"
 import { formatMoneyRs } from "../cadastros/produtos/types"
 
 export type ReciboEmitente = {
@@ -34,6 +35,7 @@ export type ReciboPagamento = {
   amount: number
   parcelas?: number
   detalhe?: string
+  troca?: { code?: string; name?: string; imei?: string }
 }
 
 function docMascara(raw: string) {
@@ -46,6 +48,42 @@ function docMascara(raw: string) {
 function texto(value?: string) {
   const limpo = (value || "").trim()
   return limpo && limpo !== "—" ? limpo : ""
+}
+
+export async function destinatarioPorNome(nome: string): Promise<ReciboDestinatario> {
+  const base: ReciboDestinatario = { nome: nome || "Consumidor final" }
+  const termo = nome.trim()
+  if (!termo || termo.toLocaleUpperCase("pt-BR") === "CONSUMIDOR FINAL") return base
+  try {
+    const { data } = await api.get("/clients/customers", { params: { search: termo } })
+    const lista = (data.customers || []) as Array<Record<string, string>>
+    const alvo = termo.toLocaleUpperCase("pt-BR")
+    const achou = lista.find((item) => (item.name || "").trim().toLocaleUpperCase("pt-BR") === alvo)
+    if (!achou) return base
+    const rua = [achou.address, achou.number].map((parte) => texto(parte)).filter(Boolean).join(", ")
+    const extra = [achou.neighborhood, achou.complement].map((parte) => texto(parte)).filter(Boolean).join(" · ")
+    return {
+      nome: texto(achou.name) || base.nome,
+      documento: texto(achou.document),
+      telefone: texto(achou.phone),
+      email: texto(achou.email),
+      endereco: [rua, extra].filter(Boolean).join(" — "),
+      cep: texto(achou.cep),
+      cidade: texto(achou.city),
+      uf: texto(achou.state),
+    }
+  } catch {
+    return base
+  }
+}
+
+function detalheTroca(pay: ReciboPagamento) {
+  if (!pay.troca) return ""
+  return {
+    code: texto(pay.troca.code),
+    name: texto(pay.troca.name),
+    imei: texto(pay.troca.imei),
+  }
 }
 
 function rotuloDocumento(raw: string) {
@@ -245,10 +283,6 @@ export function ReciboNota({
           <div>
             <span>Identificação e assinatura do recebedor</span>
           </div>
-          <div>
-            <span>Recibo da venda</span>
-            <strong>{codigo || "—"}</strong>
-          </div>
         </div>
       </div>
 
@@ -302,7 +336,8 @@ export function ReciboNota({
           <tbody>
             {lines.map((line, index) => {
               const unit = Math.max(0, line.price)
-              const off = Math.max(0, line.discount)
+              const ajuste = Number(line.discount) || 0
+              const off = ajuste > 0 ? ajuste : 0
               const seriais = (line.serials || []).map((item) => item.trim()).filter(Boolean)
               return (
                 <tr key={`${line.name}-${index}`}>
@@ -313,8 +348,8 @@ export function ReciboNota({
                   </td>
                   <td className="nf-num">{line.qty}</td>
                   <td className="nf-num">{formatMoneyRs(unit)}</td>
-                  <td className="nf-num">{off > 0 ? formatMoneyRs(off) : "—"}</td>
-                  <td className="nf-num">{formatMoneyRs(line.qty * Math.max(0, unit - off))}</td>
+                  <td className="nf-num">{ajuste < 0 ? `+ ${formatMoneyRs(-ajuste)}` : off > 0 ? formatMoneyRs(off) : ""}</td>
+                  <td className="nf-num">{formatMoneyRs(line.qty * Math.max(0, unit - ajuste))}</td>
                 </tr>
               )
             })}
@@ -322,7 +357,7 @@ export function ReciboNota({
           <tfoot>
             <tr>
               <td colSpan={4}>Total</td>
-              <td className="nf-num">{desconto > 0 ? formatMoneyRs(desconto) : "—"}</td>
+              <td className="nf-num">{desconto > 0 ? formatMoneyRs(desconto) : ""}</td>
               <td className="nf-num">{formatMoneyRs(total)}</td>
             </tr>
           </tfoot>
@@ -345,14 +380,25 @@ export function ReciboNota({
               <tr>
                 <td colSpan={4}>Sem pagamento informado</td>
               </tr>
-            ) : payments.map((pay, index) => (
-              <tr key={`${pay.method}-${index}`}>
-                <td>{pay.method}</td>
-                <td>{texto(pay.detalhe) || "—"}</td>
-                <td className="nf-num">{formatMoneyRs(pay.amount)}</td>
-                <td className="nf-num">{pay.parcelas && pay.parcelas > 1 ? pay.parcelas : 1}</td>
-              </tr>
-            ))}
+            ) : payments.map((pay, index) => {
+              const troca = detalheTroca(pay)
+              return (
+                <tr key={`${pay.method}-${index}`}>
+                  <td>{pay.method}</td>
+                  <td>
+                    {troca ? (
+                      <>
+                        {troca.code ? <div>Cód. {troca.code}</div> : null}
+                        <div>{troca.name || "Aparelho da troca"}</div>
+                        {troca.imei ? <div>IMEI: {troca.imei}</div> : null}
+                      </>
+                    ) : (texto(pay.detalhe) || "")}
+                  </td>
+                  <td className="nf-num">{formatMoneyRs(pay.amount)}</td>
+                  <td className="nf-num">{pay.parcelas && pay.parcelas > 1 ? pay.parcelas : 1}</td>
+                </tr>
+              )
+            })}
           </tbody>
           <tfoot>
             <tr>
@@ -390,12 +436,13 @@ export function ReciboNota({
         <div className="nf-sign-lines">
           <span />
           <span />
+          <span />
         </div>
         <div className="nf-sign-names">
           <strong>{destinatario.nome || "Recebedor"}</strong>
+          <em>Obrigado pela preferência.</em>
           <strong>{loja}</strong>
         </div>
-        <em>Obrigado pela preferência.</em>
       </footer>
     </article>
   )

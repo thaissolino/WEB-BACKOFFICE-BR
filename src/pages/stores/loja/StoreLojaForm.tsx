@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react"
 import { useNavigate, useSearchParams } from "react-router-dom"
 import { api, parseError } from "../../../services/api"
+import { avisarSalvo } from "../../client/avisoSalvo"
 import TabConfiguracoes from "./TabConfiguracoes"
 import TabDados from "./TabDados"
 import TabFiscal from "./TabFiscal"
@@ -120,6 +121,13 @@ export default function StoreLojaForm({
         integracoes: "Integrações salvas.",
       }
       setNotice(messages[section])
+      avisarSalvo(messages[section])
+      if (section === "dados") {
+        const fantasia = String(dados.geral.fantasia || "").trim()
+        if (fantasia) {
+          window.dispatchEvent(new CustomEvent("pdv-store-name", { detail: { id: storeId, name: fantasia } }))
+        }
+      }
     } catch (err) {
       const parsed = parseError(err)
       setError(parsed.friend || parsed.message || "Não foi possível salvar.")
@@ -183,6 +191,7 @@ export default function StoreLojaForm({
         ))}
       </div>
 
+      <div className="loja-scroll">
       {loading ? <p>Carregando a loja...</p> : null}
 
       {!loading && tab === "dados" ? <TabDados value={dados} onChange={setDados} /> : null}
@@ -204,6 +213,7 @@ export default function StoreLojaForm({
           }
         />
       ) : null}
+      </div>
 
       {saveLabel && !loading ? (
         <div className="loja-save">

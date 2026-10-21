@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Info, Plus, RefreshCw, Wand2 } from "lucide-react";
 import { api, parseError } from "../../../../services/api";
+import { avisarSalvo } from "../../avisoSalvo";
 import CadastroShell from "../CadastroShell";
 import {
   formatBrMoney,
@@ -104,6 +105,7 @@ export default function ClassificacaoClientes() {
       setRows((current) => current.map((item) => (item.code === saved.code ? saved : item)));
       setDrafts((current) => ({ ...current, [saved.code]: saved }));
       setToast("atualizado");
+      avisarSalvo("Classificação salva.");
       setError("");
     } catch (err) {
       const parsed = parseError(err);
@@ -116,6 +118,7 @@ export default function ClassificacaoClientes() {
       await api.post("/clients/classifications", payloadOf(createRow));
       setCreateRow(EMPTY_NEW);
       setToast("atualizado");
+      avisarSalvo("Classificação salva.");
       load();
     } catch (err) {
       const parsed = parseError(err);

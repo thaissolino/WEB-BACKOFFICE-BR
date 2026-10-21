@@ -1,6 +1,7 @@
 import { ChangeEvent, useEffect, useState } from "react";
 import { ImagePlus } from "lucide-react";
 import { api, parseError } from "../../../services/api";
+import { avisarSalvo } from "../avisoSalvo";
 import PdvOverlayModal from "./PdvOverlayModal";
 
 export default function LogoModal({
@@ -60,6 +61,7 @@ export default function LogoModal({
       body.append("file", file);
       await api.post("/clients/store-logo", body, { params: { storeKey } });
       setOk("Logo enviada para o armazenamento da loja.");
+      avisarSalvo("Logo salva.");
       onSaved();
       onClose();
     } catch (err) {

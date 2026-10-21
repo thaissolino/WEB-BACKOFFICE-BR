@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { Check, ChevronDown, Search } from "lucide-react";
 import { useClientAuth } from "../../hooks/clientAuth";
-import { EVENTO_CRIAR_CAIXA, eventoPermitido } from "./cadastros/usuarios/groupEvents";
+import { CODIGO_CRIAR_CAIXA, EVENTO_CRIAR_CAIXA, eventoPermitido } from "./cadastros/usuarios/groupEvents";
 import { listCatalog } from "./cadastros/catalog/catalogApi";
 import PdvShell, { PdvLoading } from "./dashboard/PdvShell";
 import PdvTip from "./dashboard/PdvTip";
@@ -167,7 +167,7 @@ function TrocarCaixaBoard() {
           return (email && mail === email) || (username && login === username);
         });
         if (!user) {
-          setPodeCriar(true);
+          setPodeCriar(false);
           return;
         }
         const group = groups.find((item) => item.name === String(user.payload.grupo || ""));
@@ -197,14 +197,14 @@ function TrocarCaixaBoard() {
     }
   }
 
-  function applyCaixa(persist = true) {
-    if (picked === NENHUM_CAIXA) {
+  function applyCaixa(name: string, persist = true) {
+    if (name === NENHUM_CAIXA) {
       setNotice("Selecione um caixa.");
       return false;
     }
     if (persist) {
-      setActive(picked);
-      sessionStorage.setItem(CAIXA_STORAGE_KEY, picked);
+      setActive(name);
+      sessionStorage.setItem(CAIXA_STORAGE_KEY, name);
       setNotice("");
     }
     return true;
@@ -215,25 +215,26 @@ function TrocarCaixaBoard() {
     return String(item?.payload?.senhaAcesso || "").trim();
   }
 
-  function runAfterAuth(action: "select" | "pdv") {
-    if (!applyCaixa()) return;
+  function runAfterAuth(name: string, action: "select" | "pdv") {
+    if (!applyCaixa(name)) return;
     if (action === "select") {
-      setNotice(`Caixa ${picked} selecionado.`);
+      setNotice(`Caixa ${name} selecionado.`);
       return;
     }
     navigate("/client/pdv");
   }
 
-  function requestAction(action: "select" | "pdv") {
-    if (!applyCaixa(false)) return;
-    const senha = caixaSenha(picked);
+  function requestAction(name: string, action: "select" | "pdv") {
+    setPicked(name);
+    if (!applyCaixa(name, false)) return;
+    const senha = caixaSenha(name);
     if (senha) {
       setPendingAction(action);
       setPassInput("");
       setPassAsk(true);
       return;
     }
-    runAfterAuth(action);
+    runAfterAuth(name, action);
   }
 
   function confirmPass() {
@@ -244,16 +245,8 @@ function TrocarCaixaBoard() {
     }
     setPassAsk(false);
     setError("");
-    if (pendingAction) runAfterAuth(pendingAction);
+    if (pendingAction) runAfterAuth(picked, pendingAction);
     setPendingAction(null);
-  }
-
-  function onSelecionarCaixa() {
-    requestAction("select");
-  }
-
-  function onAbrirPdv() {
-    requestAction("pdv");
   }
 
   return (
@@ -261,25 +254,12 @@ function TrocarCaixaBoard() {
       <div className="pdv-caixa-sheet">
         <div className="pdv-caixa-head">
           <h1 id="pdv-caixa-title">Trocar de Caixa</h1>
-          <button className="pdv-wm-btn" type="button" onClick={() => navigate("/client/dashboard")}>
-            Voltar
-          </button>
         </div>
 
         <div className="pdv-caixa-row">
-          <label htmlFor="pdv-caixa-trigger">SELECIONAR CAIXA</label>
-          <CaixaCombo value={picked} options={names} onChange={setPicked} />
-        </div>
-
-        <div className="pdv-caixa-actions">
-          <PdvTip label="Gerencia os caixas sem abrir a tela de PDV." rich>
-            <button className="pdv-wm-btn" type="button" onClick={onSelecionarCaixa}>
-              <Check size={16} strokeWidth={2.6} aria-hidden="true" />
-              Selecionar Caixa
-            </button>
-          </PdvTip>
+          <CaixaCombo value={picked} options={names} onChange={(next) => requestAction(next, "select")} />
           <PdvTip label="Abrir PDV" rich text={ABRIR_PDV_TIP}>
-            <button className="pdv-wm-btn" type="button" onClick={onAbrirPdv}>
+            <button className="pdv-wm-btn pdv-caixa-go" type="button" onClick={() => requestAction(picked, "pdv")}>
               <Check size={16} strokeWidth={2.6} aria-hidden="true" />
               Abrir PDV
             </button>
@@ -288,31 +268,37 @@ function TrocarCaixaBoard() {
 
         <section className="pdv-caixa-store" aria-labelledby="pdv-caixa-store-title">
           <h2 id="pdv-caixa-store-title">Caixas da loja</h2>
-          <form
-            className="pdv-caixa-create"
-            onSubmit={(event) => {
-              event.preventDefault();
-              void onNovoCaixa();
-            }}
-          >
-            <input
-              id="pdv-caixa-novo"
-              value={novo}
-              onChange={(event) => setNovo(event.target.value)}
-              autoComplete="off"
-              placeholder="Nome do caixa"
-              aria-label="Nome do caixa"
-              disabled={!podeCriar}
-            />
-            <button
-              className="pdv-wm-btn"
-              type="submit"
-              disabled={creating || !novo.trim() || !podeCriar}
-              title={podeCriar ? "Criar caixa" : "Sem autorização para criar caixa"}
+          <span className={podeCriar ? "pdv-caixa-create-tip" : "pdv-tip pdv-caixa-create-tip"}>
+            <form
+              className="pdv-caixa-create"
+              onSubmit={(event) => {
+                event.preventDefault();
+                void onNovoCaixa();
+              }}
             >
-              {creating ? "Criando..." : "Criar"}
-            </button>
-          </form>
+              <input
+                id="pdv-caixa-novo"
+                value={novo}
+                onChange={(event) => setNovo(event.target.value)}
+                autoComplete="off"
+                placeholder="Nome do caixa"
+                aria-label="Nome do caixa"
+                disabled={!podeCriar}
+              />
+              <button
+                className="pdv-wm-btn"
+                type="submit"
+                disabled={creating || !novo.trim() || !podeCriar}
+              >
+                {creating ? "Criando..." : "Criar"}
+              </button>
+            </form>
+            {podeCriar ? null : (
+              <span className="pdv-tip-bubble" role="tooltip">
+                Para liberar, permita o evento {CODIGO_CRIAR_CAIXA} em Funções do grupo, na área PDV.
+              </span>
+            )}
+          </span>
           <div className="pdv-caixa-store-list">
             <table>
               <thead>
@@ -382,7 +368,7 @@ function TrocarCaixaBoard() {
                 />
               </label>
               <div className="pdv-caixa-confirm-actions">
-                <button className="pdv-cad-btn" type="button" onClick={() => { setPassAsk(false); setPendingAction(null) }}>Cancelar</button>
+                <button className="pdv-cad-btn" type="button" onClick={() => { setPassAsk(false); setPendingAction(null); setPicked(active) }}>Cancelar</button>
                 <button className="pdv-cad-btn pdv-cad-btn-green" type="submit">Entrar no caixa</button>
               </div>
             </form>

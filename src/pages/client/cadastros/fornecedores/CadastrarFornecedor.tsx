@@ -2,6 +2,7 @@ import { FormEvent, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Info, Plus, UserRound } from "lucide-react";
 import { api, parseError } from "../../../../services/api";
+import { avisarSalvo } from "../../avisoSalvo";
 import { formatCep, formatCnpj, formatCpf, formatPhoneBr, PHONE_BR_MAX_LENGTH } from "../../../../utils/brMasks";
 import CadastroShell from "../CadastroShell";
 import type { PersonType, SupplierKind } from "./types";
@@ -52,6 +53,7 @@ export default function CadastrarFornecedor() {
     setError("");
     try {
       await api.post("/clients/suppliers", form);
+      avisarSalvo("Fornecedor salvo.");
       navigate("/client/fornecedores");
     } catch (err) {
       const parsed = parseError(err);

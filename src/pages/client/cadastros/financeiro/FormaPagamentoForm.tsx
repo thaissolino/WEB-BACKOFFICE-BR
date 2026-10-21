@@ -5,6 +5,7 @@ import { CadastroFrame } from "../CadastroShell"
 import { FormRow, RadioSimNao } from "../catalog/FormBits"
 import { createCatalog, getCatalog, updateCatalog } from "../catalog/catalogApi"
 import { parseError } from "../../../../services/api"
+import { avisarSalvo } from "../../avisoSalvo"
 
 type PayForm = {
   nome: string
@@ -124,6 +125,7 @@ export default function FormaPagamentoForm() {
       const { nome, ...payload } = form
       if (editId) await updateCatalog("payment", editId, { name: nome, payload, active: form.ativoGeral })
       else await createCatalog("payment", { name: nome, payload, active: form.ativoGeral })
+      avisarSalvo("Forma de pagamento salva.")
       navigate(listPath)
     } catch (err) {
       const parsed = parseError(err)

@@ -11,10 +11,11 @@ export function toStoreOption(store: {
   name: string;
   storeCode?: string | null;
   code?: string | null;
+  fantasia?: string | null;
 }): StoreOption {
   const raw = String(store.storeCode || store.code || "").trim();
   const code = /^\d{1,6}$/.test(raw) ? raw.padStart(6, "0") : raw;
-  const name = String(store.name || "").trim();
+  const name = String(store.fantasia || store.name || "").trim();
   return {
     id: store.id,
     name,

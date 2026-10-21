@@ -1,7 +1,8 @@
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Calendar, Plus, RefreshCw, Search, UserRound, X } from "lucide-react";
 import { api, parseError } from "../../../../services/api";
+import { avisarSalvo } from "../../avisoSalvo";
 import { formatCep, formatCpfCnpj, formatPhoneBr, PHONE_BR_MAX_LENGTH } from "../../../../utils/brMasks";
 import CadastroShell from "../CadastroShell";
 import GerenciarClienteModal from "./GerenciarClienteModal";
@@ -40,6 +41,9 @@ function matchesSearch(haystack: string, needle: string, type: string) {
 export default function ClientesList({ inactive = false }: { inactive?: boolean }) {
   const navigate = useNavigate();
   const location = useLocation();
+  const returnedCode = String((location.state as { returnedCustomerCode?: string } | null)?.returnedCustomerCode || "");
+  const [onlyCode, setOnlyCode] = useState(returnedCode);
+  const returnedRef = useRef<HTMLTableRowElement>(null);
   const isInactive = inactive || location.pathname.endsWith("/inativos");
   const [draft, setDraft] = useState(EMPTY_FILTERS);
   const [applied, setApplied] = useState(EMPTY_FILTERS);
@@ -52,6 +56,7 @@ export default function ClientesList({ inactive = false }: { inactive?: boolean 
   const [manage, setManage] = useState<StoreCustomer | null>(null);
   const [toast, setToast] = useState("");
   const [error, setError] = useState("");
+  const [acting, setActing] = useState(false);
 
   useEffect(() => {
     api
@@ -65,6 +70,11 @@ export default function ClientesList({ inactive = false }: { inactive?: boolean 
         setError(parsed.friend || parsed.message || "Não foi possível carregar os clientes.");
       });
   }, [isInactive]);
+
+  useEffect(() => {
+    if (!returnedCode || !customers.length) return;
+    returnedRef.current?.scrollIntoView({ block: "center" });
+  }, [returnedCode, customers]);
 
   useEffect(() => {
     api
@@ -89,6 +99,7 @@ export default function ClientesList({ inactive = false }: { inactive?: boolean 
   }, []);
 
   const rows = useMemo(() => {
+    if (onlyCode) return customers.filter((item) => item.code === onlyCode);
     const limit = Number(applied.pageSize) || 500;
     return customers
       .filter((item) => {
@@ -112,13 +123,14 @@ export default function ClientesList({ inactive = false }: { inactive?: boolean 
         return true;
       })
       .slice(0, limit);
-  }, [applied, classApplied, customers]);
+  }, [applied, classApplied, customers, onlyCode]);
 
   const allSelected = rows.length > 0 && rows.every((item) => selected[item.id]);
   const cities = draft.state ? CITIES_BY_UF[draft.state] ?? [] : [];
 
   function onFilter(event: FormEvent) {
     event.preventDefault();
+    setOnlyCode("");
     setApplied(draft);
     setClassApplied(classDraft);
   }
@@ -131,9 +143,35 @@ export default function ClientesList({ inactive = false }: { inactive?: boolean 
     setSelected(next);
   }
 
+  const picked = customers.filter((item) => selected[item.id]);
+
+  async function runOnPicked(action: "inativar" | "reativar" | "excluir") {
+    if (!picked.length || acting) return;
+    const label = action === "excluir" ? "Excluir" : action === "reativar" ? "Reativar" : "Inativar";
+    if (!window.confirm(`${label} ${picked.length} cliente(s)?`)) return;
+    setActing(true);
+    setError("");
+    try {
+      await Promise.all(picked.map((item) => (
+        action === "excluir"
+          ? api.delete(`/clients/customers/${item.code}`)
+          : api.put(`/clients/customers/${item.code}`, { active: action === "reativar" })
+      )));
+      const gone = new Set(picked.map((item) => item.id));
+      setCustomers((current) => current.filter((item) => !gone.has(item.id)));
+      setSelected({});
+      avisarSalvo(action === "excluir" ? "Cliente excluído." : action === "reativar" ? "Cliente reativado." : "Cliente inativado.");
+    } catch (err) {
+      const parsed = parseError(err);
+      setError(parsed.friend || parsed.message || "Não foi possível concluir.");
+    } finally {
+      setActing(false);
+    }
+  }
+
   return (
     <CadastroShell>
-      <section className="pdv-cad-page pdv-cli-page" aria-labelledby="pdv-cad-clientes-title">
+      <section className="pdv-cad-page pdv-cli-page pdv-cli-list" aria-labelledby="pdv-cad-clientes-title">
         <div className="pdv-cad-sheet">
           <h1 id="pdv-cad-clientes-title">CLIENTES</h1>
           <div className="pdv-cad-actions">
@@ -164,6 +202,22 @@ export default function ClientesList({ inactive = false }: { inactive?: boolean 
                 Clientes Inativos
               </button>
             )}
+            <button
+              className="pdv-cad-btn"
+              type="button"
+              disabled={!picked.length || acting}
+              onClick={() => void runOnPicked(isInactive ? "reativar" : "inativar")}
+            >
+              {isInactive ? "Reativar" : "Inativar"}
+            </button>
+            <button
+              className="pdv-cad-btn pdv-cad-btn-red"
+              type="button"
+              disabled={!picked.length || acting}
+              onClick={() => void runOnPicked("excluir")}
+            >
+              Excluir
+            </button>
           </div>
 
           <form className="pdv-cad-filters" onSubmit={onFilter}>
@@ -300,7 +354,7 @@ export default function ClientesList({ inactive = false }: { inactive?: boolean 
             </p>
           ) : null}
 
-          <div className="pdv-cad-table-wrap">
+          <div className="pdv-cad-table-wrap pdv-cli-scroll">
             <table className="pdv-cad-table">
               <thead>
                 <tr>
@@ -325,7 +379,11 @@ export default function ClientesList({ inactive = false }: { inactive?: boolean 
               </thead>
               <tbody>
                 {rows.map((item) => (
-                  <tr key={item.id}>
+                  <tr
+                    key={item.id}
+                    ref={item.code === returnedCode ? returnedRef : undefined}
+                    className={item.code === returnedCode ? "pdv-cli-returned" : undefined}
+                  >
                     <td>
                       <button
                         className="pdv-cad-icon-btn"

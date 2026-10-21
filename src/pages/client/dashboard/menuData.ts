@@ -95,9 +95,9 @@ export const PDV_MENUS: PdvMenuRoot[] = [
           { id: "clientes-listar", label: "Listar", href: "/client/clientes" },
           { id: "clientes-cadastrar", label: "Cadastrar", href: "/client/clientes/cadastrar" },
           { id: "clientes-inativos", label: "Inativos", href: "/client/clientes/inativos" },
-          { id: "clientes-atividade", label: "Atividade", starred: true, href: "/client/atividades" },
-          { id: "clientes-classificacao", label: "Classificação", href: "/client/clientes/classificacao" },
-          { id: "clientes-carteira", label: "Carteira de Clientes", href: "/client/clientes/carteira" },
+          // { id: "clientes-atividade", label: "Atividade", starred: true, href: "/client/atividades" },
+          // { id: "clientes-classificacao", label: "Classificação", href: "/client/clientes/classificacao" },
+          // { id: "clientes-carteira", label: "Carteira de Clientes", href: "/client/clientes/carteira" },
         ],
       },
       {
@@ -108,7 +108,7 @@ export const PDV_MENUS: PdvMenuRoot[] = [
           { id: "fornecedores-listar", label: "Listar", href: "/client/fornecedores" },
           { id: "fornecedores-cadastrar", label: "Cadastrar", href: "/client/fornecedores/cadastrar" },
           { id: "fornecedores-inativos", label: "Inativos", href: "/client/fornecedores/inativos" },
-          { id: "fornecedores-atividade", label: "Atividade", starred: true, href: "/client/atividades" },
+          // { id: "fornecedores-atividade", label: "Atividade", starred: true, href: "/client/atividades" },
         ],
       },
       {
@@ -247,43 +247,43 @@ export const PDV_MENUS: PdvMenuRoot[] = [
           { id: "usuarios-atividade", label: "Atividade", starred: true, href: "/client/usuarios/atividade" },
         ],
       },
-      {
-        id: "financeiro",
-        label: "Financeiro",
-        hasSubmenu: true,
-        children: [
-          {
-            id: "financeiro-forma",
-            label: "Forma de Pagamento",
-            hasSubmenu: true,
-            children: [
-              { id: "financeiro-forma-listar", label: "Listar", href: "/client/financeiro/formas-pagamento" },
-              { id: "financeiro-forma-cadastrar", label: "Cadastrar", href: "/client/financeiro/formas-pagamento/cadastrar" },
-              { id: "financeiro-forma-inativos", label: "Inativos", href: "/client/financeiro/formas-pagamento/inativos" },
-            ],
-          },
-          {
-            id: "financeiro-plano",
-            label: "Plano de Conta",
-            hasSubmenu: true,
-            children: [
-              { id: "financeiro-plano-listar", label: "Listar", href: "/client/financeiro/plano-conta" },
-              { id: "financeiro-plano-cadastrar", label: "Cadastrar", href: "/client/financeiro/plano-conta/cadastrar" },
-              { id: "financeiro-plano-inativos", label: "Inativos", href: "/client/financeiro/plano-conta/inativos" },
-            ],
-          },
-          { id: "financeiro-caixa", label: "Caixa", href: "/client/financeiro/caixa" },
-        ],
-      },
-      {
-        id: "documentos-fiscais",
-        label: "Documentos Fiscais",
-        hasSubmenu: true,
-        children: [
-          { id: "docs-parametros", label: "Parâmetros de Documentos Fiscais", href: "/client/documentos-fiscais/parametros" },
-          { id: "docs-certificado", label: "Certificado Digital", href: "/client/documentos-fiscais/certificado" },
-        ],
-      },
+      // {
+      //   id: "financeiro",
+      //   label: "Financeiro",
+      //   hasSubmenu: true,
+      //   children: [
+      //     {
+      //       id: "financeiro-forma",
+      //       label: "Forma de Pagamento",
+      //       hasSubmenu: true,
+      //       children: [
+      //         { id: "financeiro-forma-listar", label: "Listar", href: "/client/financeiro/formas-pagamento" },
+      //         { id: "financeiro-forma-cadastrar", label: "Cadastrar", href: "/client/financeiro/formas-pagamento/cadastrar" },
+      //         { id: "financeiro-forma-inativos", label: "Inativos", href: "/client/financeiro/formas-pagamento/inativos" },
+      //       ],
+      //     },
+      //     {
+      //       id: "financeiro-plano",
+      //       label: "Plano de Conta",
+      //       hasSubmenu: true,
+      //       children: [
+      //         { id: "financeiro-plano-listar", label: "Listar", href: "/client/financeiro/plano-conta" },
+      //         { id: "financeiro-plano-cadastrar", label: "Cadastrar", href: "/client/financeiro/plano-conta/cadastrar" },
+      //         { id: "financeiro-plano-inativos", label: "Inativos", href: "/client/financeiro/plano-conta/inativos" },
+      //       ],
+      //     },
+      //     { id: "financeiro-caixa", label: "Caixa", href: "/client/financeiro/caixa" },
+      //   ],
+      // },
+      // {
+      //   id: "documentos-fiscais",
+      //   label: "Documentos Fiscais",
+      //   hasSubmenu: true,
+      //   children: [
+      //     { id: "docs-parametros", label: "Parâmetros de Documentos Fiscais", href: "/client/documentos-fiscais/parametros" },
+      //     { id: "docs-certificado", label: "Certificado Digital", href: "/client/documentos-fiscais/certificado" },
+      //   ],
+      // },
     ],
   },
   {

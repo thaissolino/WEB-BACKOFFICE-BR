@@ -8,6 +8,7 @@ export type GroupEvent = {
 
 export const EVENTO_DESCONTO = "pdv.desconto"
 export const EVENTO_CRIAR_CAIXA = "caixa.criar"
+export const CODIGO_CRIAR_CAIXA = "901"
 
 type Item = [code: string, label: string, key?: string]
 
@@ -430,7 +431,7 @@ const SECOES: Array<[area: string, itens: Item[]]> = [
   ]],
   ["PDV", [
     ["", "Desconto/Acréscimo no caixa", EVENTO_DESCONTO],
-    ["", "Criar caixa", EVENTO_CRIAR_CAIXA],
+    [CODIGO_CRIAR_CAIXA, "Criar caixa", EVENTO_CRIAR_CAIXA],
   ]],
 ]
 

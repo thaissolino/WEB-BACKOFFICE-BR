@@ -16,6 +16,7 @@ import {
   X,
 } from "lucide-react"
 import { useClientAuth } from "../../hooks/clientAuth"
+import { avisarSalvo } from "./avisoSalvo"
 import { EVENTO_DESCONTO, eventoPermitido } from "./cadastros/usuarios/groupEvents"
 import PdvShell, { PdvLoading, usePdvSession } from "./dashboard/PdvShell"
 import { api, parseError } from "../../services/api"
@@ -24,7 +25,7 @@ import { listLojaCaixas } from "./cadastros/financeiro/caixaApi"
 import { listCatalog } from "./cadastros/catalog/catalogApi"
 import { categoryFromCatalog, type ProductCategory } from "./cadastros/produtos/categoryModel"
 import { CAIXA_STORAGE_KEY } from "./dashboard/mockData"
-import { ReciboNota } from "./pdv/ReciboNota"
+import { destinatarioPorNome, ReciboNota, type ReciboDestinatario } from "./pdv/ReciboNota"
 import { emitenteDaLoja } from "./pdv/emitenteLoja"
 import "./cadastros/cadastros.css"
 
@@ -44,7 +45,13 @@ type CartLine = {
   serials: string[]
 }
 
-type PayLine = { method: string; amount: number; parcelas?: number }
+type TrocaEntrada = { productId: string; code: string; name: string; imei: string }
+
+type PayLine = { method: string; amount: number; parcelas?: number; troca?: TrocaEntrada }
+
+function ehTroca(method: string) {
+  return /troca/i.test(method)
+}
 
 type OpenSale = {
   id: string
@@ -80,6 +87,28 @@ function needsParcelas(name: string, meta?: PayMeta) {
   return lower.includes("cartão") || lower.includes("cartao")
 }
 
+function valorDigitado(raw: string) {
+  const limpo = String(raw).replace(/[^\d,]/g, "")
+  const corte = limpo.indexOf(",")
+  if (corte < 0) return limpo.replace(/^0+(?=\d)/, "")
+  const inteiro = limpo.slice(0, corte).replace(/\D/g, "").replace(/^0+(?=\d)/, "") || "0"
+  const centavos = limpo.slice(corte + 1).replace(/\D/g, "").slice(0, 2)
+  return `${inteiro},${centavos}`
+}
+
+function sufixoCentavos(valor: string) {
+  if (!valor) return ""
+  const corte = valor.indexOf(",")
+  if (corte < 0) return ",00"
+  const falta = 2 - valor.slice(corte + 1).length
+  return falta > 0 ? "0".repeat(falta) : ""
+}
+
+function divisaoParcelas(total: number, vezes: number) {
+  if (!(total > 0) || vezes <= 1) return ""
+  return `${vezes}x de ${formatMoneyRs(total / vezes)}`
+}
+
 function payLabel(pay: PayLine) {
   if (pay.parcelas && pay.parcelas > 1) return `${pay.method} · ${pay.parcelas}x`
   return pay.method
@@ -101,9 +130,11 @@ type PrintedSale = {
   customer: string
   document: string
   phone: string
+  email: string
   city: string
   state: string
   cep: string
+  endereco: string
   seller: string
   notes: string
   lines: OpenSale["lines"]
@@ -121,21 +152,35 @@ type Emitente = {
   city: string
 }
 
-const DEFAULT_METHODS = ["Dinheiro", "Cartão", "PIX", "Outros"]
+function vendaAtiva(payload: Record<string, unknown>) {
+  const flag = payload.vendaAtivo
+  return flag !== false && String(flag) !== "false"
+}
+
+function nomesCadastrados(rows: Array<{ name: string; payload: Record<string, unknown> }>) {
+  return rows
+    .filter((item) => item.name.trim() && vendaAtiva(item.payload))
+    .sort((a, b) => {
+      const ordem = (item: { payload: Record<string, unknown> }) => Number(String(item.payload.ordem || "").replace(/\D/g, "")) || 9999
+      return ordem(a) - ordem(b) || a.name.localeCompare(b.name, "pt-BR")
+    })
+    .map((item) => item.name)
+}
 
 function moneySum(lines: PayLine[]) {
   return Math.round(lines.reduce((sum, line) => sum + line.amount, 0) * 100) / 100
 }
 
 function parseAjuste(raw: string) {
-  const neg = /^\s*-/.test(raw)
+  const desconto = /^\s*-/.test(raw)
   const n = Math.abs(parseMoneyBr(raw.replace(/[^\d,.-]/g, "").replace(/-/g, "")))
-  return neg ? -n : n
+  return desconto ? n : -n
 }
 
 function textoAjuste(value: number) {
-  if (value < 0) return `- ${formatMoneyRs(-value)}`
-  return formatMoneyRs(value)
+  if (value < 0) return `+ ${formatMoneyRs(-value)}`
+  if (value > 0) return `- ${formatMoneyRs(value)}`
+  return formatMoneyRs(0)
 }
 
 function AjusteCampo({
@@ -160,7 +205,7 @@ function AjusteCampo({
       value={text}
       inputMode="decimal"
       aria-label="Desconto ou acréscimo"
-      title="Número positivo desconta. Com menos na frente, acresce."
+      title="Número positivo acresce e soma no subtotal. Com menos na frente, desconta."
       onChange={(event) => setText(event.target.value)}
       onBlur={() => {
         const typed = parseAjuste(text)
@@ -189,6 +234,106 @@ function serialIncompleto(line: CartLine) {
     if (!(line.serials[index] || "").trim()) return true
   }
   return false
+}
+
+function imeiLimpo(value: string) {
+  return value.trim().toUpperCase().replace(/\s+/g, "")
+}
+
+function SeletorImei({
+  productId,
+  value,
+  ocupados,
+  exceptSaleId,
+  onChange,
+}: {
+  productId: string
+  value: string
+  ocupados: string[]
+  exceptSaleId: string
+  onChange: (imei: string) => void
+}) {
+  const [lista, setLista] = useState<string[] | null>(null)
+  const [falha, setFalha] = useState(false)
+  const [q, setQ] = useState("")
+  const [aberto, setAberto] = useState(false)
+
+  useEffect(() => {
+    let ativo = true
+    api
+      .get(`/clients/products/${productId}/imeis`, { params: exceptSaleId ? { exceto: exceptSaleId } : {} })
+      .then(({ data }) => {
+        if (!ativo) return
+        setFalha(false)
+        setLista(((data.imeis || []) as string[]).map((item) => imeiLimpo(String(item))).filter((item) => item.length >= 8))
+      })
+      .catch(() => {
+        if (!ativo) return
+        setFalha(true)
+        setLista([])
+      })
+    return () => {
+      ativo = false
+    }
+  }, [productId, exceptSaleId])
+
+  const bloqueados = new Set(ocupados.map(imeiLimpo).filter(Boolean))
+  const filtro = imeiLimpo(q)
+  const visiveis = (lista || []).filter((imei) => {
+    if (bloqueados.has(imei) && imei !== imeiLimpo(value)) return false
+    return !filtro || imei.includes(filtro)
+  })
+
+  return (
+    <div className="cx-imei-pick">
+      <input
+        value={aberto ? q : value}
+        placeholder="Buscar IMEI deste produto"
+        aria-label="IMEI deste produto"
+        autoComplete="off"
+        spellCheck={false}
+        onFocus={() => {
+          setAberto(true)
+          setQ("")
+        }}
+        onChange={(event) => {
+          setQ(event.target.value.toUpperCase())
+          setAberto(true)
+        }}
+        onBlur={() => {
+          window.setTimeout(() => setAberto(false), 160)
+        }}
+      />
+      {value && !aberto ? (
+        <button className="cx-imei-clear" type="button" aria-label="Limpar IMEI" onMouseDown={(event) => { event.preventDefault(); onChange("") }}>
+          ×
+        </button>
+      ) : null}
+      {aberto ? (
+        <ul>
+          {lista === null ? <li>Buscando IMEIs...</li> : falha ? (
+            <li>Não deu para buscar os IMEIs agora.</li>
+          ) : visiveis.length === 0 ? (
+            <li>Nenhum IMEI deste produto no estoque.</li>
+          ) : visiveis.slice(0, 12).map((imei) => (
+            <li key={imei}>
+              <button
+                type="button"
+                onMouseDown={(event) => {
+                  event.preventDefault()
+                  onChange(imei)
+                  setQ("")
+                  setAberto(false)
+                }}
+              >
+                {imei}
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </div>
+  )
 }
 
 function imprimirRecibo() {
@@ -254,21 +399,25 @@ function PdvBoard() {
   const [serialFlags, setSerialFlags] = useState<ProductCategory[]>([])
   const serialFlagsRef = useRef(serialFlags)
   serialFlagsRef.current = serialFlags
-  const [methods, setMethods] = useState(DEFAULT_METHODS)
-  const [payMethod, setPayMethod] = useState(DEFAULT_METHODS[0])
+  const [methods, setMethods] = useState<string[]>([])
+  const [payMethod, setPayMethod] = useState("")
   const [received, setReceived] = useState("")
   const [payments, setPayments] = useState<PayLine[]>([])
+  const [trocaOpen, setTrocaOpen] = useState(false)
+  const [trocaQuery, setTrocaQuery] = useState("")
+  const [trocaHits, setTrocaHits] = useState<PdvProduct[]>([])
+  const [trocaBuscando, setTrocaBuscando] = useState(false)
+  const [trocaPick, setTrocaPick] = useState<PdvProduct | null>(null)
+  const [trocaImei, setTrocaImei] = useState("")
+  const [trocaValor, setTrocaValor] = useState("")
   const [sellers, setSellers] = useState<string[]>([])
   const [seller, setSeller] = useState("")
+  const [obrigarVendedor, setObrigarVendedor] = useState(true)
   const [sellerAccounts, setSellerAccounts] = useState<Array<{ code: number; name: string; must: boolean }>>([])
   const sellerNames = useMemo(() => {
     if (sellers.length) return sellers
     return sellerAccounts.map((item) => item.name).filter(Boolean)
   }, [sellers, sellerAccounts])
-  useEffect(() => {
-    if (seller || !sellerNames[0]) return
-    setSeller(sellerNames[0])
-  }, [seller, sellerNames])
   const [passAsk, setPassAsk] = useState<{ code: number; name: string } | null>(null)
   const [nextPass, setNextPass] = useState("")
   const [caixaName, setCaixaName] = useState("")
@@ -282,8 +431,19 @@ function PdvBoard() {
   const [busy, setBusy] = useState(false)
   const [openSales, setOpenSales] = useState<OpenSale[] | null>(null)
   const [printSale, setPrintSale] = useState<PrintedSale | null>(null)
+  const [pessoaAberta, setPessoaAberta] = useState<ReciboDestinatario>({ nome: "" })
   const [blockTrocarModal, setBlockTrocarModal] = useState(false)
   const canBaixa = modo === "finaliza"
+
+  useEffect(() => {
+    let vivo = true
+    destinatarioPorNome(cliente).then((pessoa) => {
+      if (vivo) setPessoaAberta(pessoa)
+    })
+    return () => {
+      vivo = false
+    }
+  }, [cliente])
 
   function flashToast(message: string) {
     if (!message) return
@@ -318,8 +478,8 @@ function PdvBoard() {
       navigate("/client/caixa", { replace: true })
       return
     }
-    listLojaCaixas(true)
-      .then((rows) => {
+    Promise.all([listLojaCaixas(true), listCatalog("payment", true)])
+      .then(([rows, pagamentos]) => {
         const caixa = rows.find((item) => item.name === stored)
         if (!caixa) {
           navigate("/client/caixa", { replace: true })
@@ -330,18 +490,30 @@ function PdvBoard() {
         setPermitirTrocarCaixa(caixa.payload.permitirTrocarCaixa !== false)
         const nextModo = caixa.payload.modo === "espera" ? "espera" : "finaliza"
         setModo(nextModo)
-        const formas = Array.isArray(caixa.payload.formasPagamento)
-          ? caixa.payload.formasPagamento.map(String).filter(Boolean)
+        const cadastradas = nomesCadastrados(pagamentos)
+        const marcadas = Array.isArray(caixa.payload.formasPagamento)
+          ? caixa.payload.formasPagamento.map(String).filter((nome) => cadastradas.includes(nome))
           : []
+        const visiveis = marcadas.length ? marcadas : cadastradas
+        setMethods(visiveis)
+        setPayMethod(visiveis[0] || "")
+        const next: Record<string, PayMeta> = {}
+        pagamentos.forEach((item) => {
+          const cartao = Boolean(item.payload.cartao)
+          const credito = String(item.payload.debitoCredito || "").toLowerCase().includes("créd")
+            || String(item.payload.debitoCredito || "").toLowerCase().includes("cred")
+            || String(item.payload.aceitaCredito) === "true"
+            || item.payload.aceitaCredito === true
+          const maxParcelas = Math.max(1, Math.min(24, Number(String(item.payload.parcelas || "12").replace(/\D/g, "")) || 12))
+          next[item.name] = { credit: cartao && credito, cartao, maxParcelas }
+        })
+        setPayMeta(next)
         const vendedores = Array.isArray(caixa.payload.vendedores)
           ? caixa.payload.vendedores.map(String).filter(Boolean)
           : []
-        if (formas.length) {
-          setMethods(formas)
-          setPayMethod(formas[0])
-        }
         setSellers(vendedores)
-        if (vendedores[0]) setSeller((atual) => atual || vendedores[0])
+        setObrigarVendedor(caixa.payload.obrigarVendedor !== false)
+        setSeller("")
       })
       .catch(() => flashToast("Não foi possível carregar o caixa."))
     listCatalog("user", true)
@@ -351,20 +523,6 @@ function PdvBoard() {
         must: Boolean(item.payload.mustChangePassword),
       }))))
       .catch(() => setSellerAccounts([]))
-    listCatalog("payment", true)
-      .then((rows) => {
-        const next: Record<string, PayMeta> = {}
-        rows.forEach((item) => {
-          const cartao = Boolean(item.payload.cartao)
-          const credito = String(item.payload.debitoCredito || "").toLowerCase().includes("créd")
-            || String(item.payload.debitoCredito || "").toLowerCase().includes("cred")
-            || String(item.payload.aceitaCredito) === "true"
-          const maxParcelas = Math.max(1, Math.min(24, Number(String(item.payload.parcelas || "12").replace(/\D/g, "")) || 12))
-          next[item.name] = { credit: cartao && credito, cartao, maxParcelas }
-        })
-        setPayMeta(next)
-      })
-      .catch(() => setPayMeta({}))
     void refreshReserved()
   }, [])
 
@@ -449,12 +607,42 @@ function PdvBoard() {
     }
     const timer = window.setTimeout(() => {
       api
-        .get("/clients/products", { params: { search: q, ativo: "1" } })
+        .get("/clients/products", { params: { search: q, ativo: "1", rapido: "1" } })
         .then(({ data }) => setHits(((data.products as PdvProduct[]) ?? []).slice(0, 8)))
         .catch(() => flashToast("Não foi possível pesquisar produtos."))
     }, 250)
     return () => window.clearTimeout(timer)
   }, [query])
+
+  useEffect(() => {
+    if (!trocaOpen) return
+    const q = trocaQuery.trim()
+    if (q.length < 2) {
+      setTrocaHits([])
+      setTrocaBuscando(false)
+      return
+    }
+    let ativo = true
+    setTrocaBuscando(true)
+    const timer = window.setTimeout(() => {
+      api
+        .get("/clients/products", { params: { search: q, ativo: "1", rapido: "1" } })
+        .then(({ data }) => {
+          if (!ativo) return
+          setTrocaHits(((data.products as PdvProduct[]) ?? []).slice(0, 8))
+        })
+        .catch(() => {
+          if (ativo) flashToast("Não foi possível pesquisar produtos.")
+        })
+        .finally(() => {
+          if (ativo) setTrocaBuscando(false)
+        })
+    }, 120)
+    return () => {
+      ativo = false
+      window.clearTimeout(timer)
+    }
+  }, [trocaOpen, trocaQuery])
 
   useEffect(() => {
     if (!productSearchOpen) return
@@ -465,8 +653,8 @@ function PdvBoard() {
     }
     const timer = window.setTimeout(() => {
       api
-        .get("/clients/products", { params: { search: q, ativo: "1" } })
-        .then(({ data }) => setPickerHits(((data.products as PdvProduct[]) ?? []).slice(0, 30)))
+        .get("/clients/products", { params: { search: q, ativo: "1", rapido: "1" } })
+        .then(({ data }) => setPickerHits(((data.products as PdvProduct[]) ?? []).slice(0, 8)))
         .catch(() => flashToast("Não foi possível pesquisar produtos."))
     }, 250)
     return () => window.clearTimeout(timer)
@@ -492,9 +680,10 @@ function PdvBoard() {
   }, [pickerHits, productSearchOpen, storeId])
 
   const itemCount = cart.reduce((sum, line) => sum + line.qty, 0)
-  const subtotal = cart.reduce((sum, line) => sum + line.qty * line.price, 0)
+  const bruto = cart.reduce((sum, line) => sum + line.qty * line.price, 0)
   const discount = cart.reduce((sum, line) => sum + line.qty * line.discount, 0)
-  const total = Math.max(0, subtotal - discount)
+  const subtotal = cart.reduce((sum, line) => sum + line.qty * Math.max(0, line.price - line.discount), 0)
+  const total = subtotal
   const paid = moneySum(payments)
   const typed = parseMoneyBr(received)
   const covered = Math.round((paid + (typed > 0 ? typed : 0)) * 100) / 100
@@ -625,16 +814,60 @@ function PdvBoard() {
     setPayments([])
     setQuery("")
     setHits([])
-    setPayMethod(methods[0] || DEFAULT_METHODS[0])
+    setPayMethod(methods[0] || "")
     setPayParcelas(1)
     setObservacao("")
+    setSeller("")
     setFinishingSaleId(null)
     setFinishingCode("")
     setAskCancel(false)
     void refreshReserved()
   }
 
+  function abrirTroca(valor?: string) {
+    setTrocaQuery("")
+    setTrocaHits([])
+    setTrocaPick(null)
+    setTrocaImei("")
+    setTrocaValor(valor ?? received)
+    setTrocaOpen(true)
+  }
+
+  function confirmarTroca() {
+    if (!trocaPick) {
+      flashToast("Escolha o produto que está entrando.")
+      return
+    }
+    const imei = trocaImei.trim().toUpperCase().replace(/\s+/g, "")
+    if (imei.length < 8) {
+      flashToast("Informe o IMEI com pelo menos 8 caracteres.")
+      return
+    }
+    const amount = parseMoneyBr(trocaValor)
+    if (!(amount > 0)) {
+      flashToast("Informe o preço que pegamos esse aparelho.")
+      return
+    }
+    const line: PayLine = {
+      method: payMethod,
+      amount,
+      troca: {
+        productId: trocaPick.id,
+        code: trocaPick.code,
+        name: lojaProductName(trocaPick),
+        imei,
+      },
+    }
+    setPayments((current) => [...current, line])
+    setTrocaOpen(false)
+    setReceived("")
+  }
+
   function addPayment() {
+    if (ehTroca(payMethod)) {
+      abrirTroca(received)
+      return
+    }
     const amount = parseMoneyBr(received)
     if (!(amount > 0)) {
       flashToast("Informe o valor desta forma.")
@@ -682,7 +915,7 @@ function PdvBoard() {
   function pagamentosDaTela() {
     const pending = parseMoneyBr(received)
     let tail: PayLine | null = null
-    if (pending > 0) {
+    if (pending > 0 && !ehTroca(payMethod)) {
       tail = { method: payMethod, amount: pending }
       if (needsParcelas(payMethod, payMeta[payMethod]) && payParcelas > 1) tail.parcelas = payParcelas
     }
@@ -691,6 +924,11 @@ function PdvBoard() {
   }
 
   function pagamentoFecha() {
+    if (parseMoneyBr(received) > 0 && ehTroca(payMethod)) {
+      flashToast("Na troca, escolha o produto e o IMEI.")
+      abrirTroca(received)
+      return null
+    }
     const pronto = pagamentosDaTela()
     if (pronto.nextPayments.length === 0) {
       flashToast("Informe o valor e a forma de pagamento.")
@@ -731,6 +969,10 @@ function PdvBoard() {
       flashToast("Inclua um produto.")
       return
     }
+    if (obrigarVendedor && !seller.trim()) {
+      flashToast("Escolha o vendedor.")
+      return
+    }
     if (!(await exigirSerial())) return
     const nextPayments = pagamentoFecha()
     if (!nextPayments) return
@@ -766,8 +1008,8 @@ function PdvBoard() {
       flashToast("Inclua um produto.")
       return
     }
-    if (sellerNames.length > 0 && !seller) {
-      flashToast("Escolha o vendedor deste caixa.")
+    if (obrigarVendedor && !seller.trim()) {
+      flashToast("Escolha o vendedor.")
       return
     }
     if (!(await exigirSerial())) return
@@ -795,16 +1037,18 @@ function PdvBoard() {
       }
       clearSale()
       if (sale.status === "finalizada") {
-        const pessoa = customers.find((item) => item.name === sale.customerName)
+        const pessoa = await destinatarioPorNome(sale.customerName)
         setPrintSale({
           kind: "",
           code: sale.code,
-          customer: sale.customerName,
-          document: pessoa?.document && pessoa.document !== "—" ? pessoa.document : "",
-          phone: pessoa?.phone || "",
-          city: pessoa?.city || "",
-          state: pessoa?.state || "",
-          cep: pessoa?.cep || "",
+          customer: pessoa.nome || sale.customerName,
+          document: pessoa.documento || "",
+          phone: pessoa.telefone || "",
+          email: pessoa.email || "",
+          city: pessoa.cidade || "",
+          state: pessoa.uf || "",
+          cep: pessoa.cep || "",
+          endereco: pessoa.endereco || "",
           seller: sale.sellerName || seller,
           notes: sale.notes || "",
           lines: sale.lines,
@@ -856,7 +1100,7 @@ function PdvBoard() {
     setFinishingSaleId(sale.id)
     setFinishingCode(sale.code)
     setCliente(sale.customerName)
-    setSeller(sale.sellerName || seller)
+    setSeller(sale.sellerName || "")
     setObservacao(sale.notes || "")
     setPayments(sale.payments)
     setReceived("")
@@ -938,6 +1182,7 @@ function PdvBoard() {
       setCliente(created.name)
       setClientQuery(created.name)
       setClientModal(false)
+      avisarSalvo("Cliente salvo.")
       setNewName("")
       setNewPhone("")
       setNewDoc("")
@@ -1033,8 +1278,8 @@ function PdvBoard() {
             </button>
             <label className="cx-client-pick cx-seller-pick">
               <span className="cx-client-pick-label">Vendedor</span>
-              <select value={seller} onChange={(event) => setSeller(event.target.value)} aria-label="Vendedor">
-                {seller ? null : <option value="">Selecione</option>}
+              <select value={seller} onChange={(event) => setSeller(event.target.value)} aria-label="Vendedor" required={obrigarVendedor}>
+                <option value="">Selecione</option>
                 {seller && !sellerNames.includes(seller) ? <option value={seller}>{seller}</option> : null}
                 {sellerNames.map((name) => <option key={name}>{name}</option>)}
               </select>
@@ -1119,28 +1364,27 @@ function PdvBoard() {
                 <li key={line.id}>
                   <div className="cx-line-name">
                     <b>{line.name}</b>
-                    {line.requireSerial ? (
-                      <div className="cx-line-serials">
-                        {Array.from({ length: line.qty }, (_, index) => (
-                          <input
-                            key={index}
-                            value={line.serials[index] || ""}
-                            placeholder={line.qty > 1 ? `IMEI ou serial ${index + 1}` : "IMEI ou serial"}
-                            aria-label={`IMEI ou serial de ${line.name}${line.qty > 1 ? ` ${index + 1}` : ""}`}
-                            autoComplete="off"
-                            onChange={(event) => {
-                              const value = event.target.value
-                              setCart((current) => current.map((row) => {
-                                if (row.id !== line.id) return row
-                                const serials = row.serials.slice()
-                                serials[index] = value
-                                return { ...row, serials }
-                              }))
-                            }}
-                          />
-                        ))}
-                      </div>
-                    ) : null}
+                    <div className="cx-line-serials">
+                      {Array.from({ length: line.qty }, (_, index) => (
+                        <SeletorImei
+                          key={`${line.id}-${index}`}
+                          productId={line.id}
+                          value={line.serials[index] || ""}
+                          ocupados={cart.flatMap((row) => (
+                            row.id === line.id ? row.serials.filter((_, serialIndex) => serialIndex !== index) : row.serials
+                          ))}
+                          exceptSaleId={finishingSaleId || ""}
+                          onChange={(imei) => {
+                            setCart((current) => current.map((row) => {
+                              if (row.id !== line.id) return row
+                              const serials = row.serials.slice()
+                              serials[index] = imei
+                              return { ...row, serials }
+                            }))
+                          }}
+                        />
+                      ))}
+                    </div>
                   </div>
                   <span className="cx-line-qty">
                     <button type="button" aria-label="Diminuir quantidade" onClick={() => bumpCartLine(line.id, -1)}>
@@ -1177,7 +1421,7 @@ function PdvBoard() {
           <dl>
             <div>
               <dt>Itens ({itemCount})</dt>
-              <dd>{formatMoneyRs(subtotal)}</dd>
+              <dd>{formatMoneyRs(bruto)}</dd>
             </div>
             <div>
               <dt>Subtotal</dt>
@@ -1185,7 +1429,7 @@ function PdvBoard() {
             </div>
             <div className="cx-off">
               <dt>Desconto/Acréscimo</dt>
-              <dd>{discount < 0 ? `+ ${formatMoneyRs(-discount)}` : `- ${formatMoneyRs(discount)}`}</dd>
+              <dd>{discount < 0 ? `+ ${formatMoneyRs(-discount)}` : discount > 0 ? `- ${formatMoneyRs(discount)}` : formatMoneyRs(0)}</dd>
             </div>
           </dl>
           <div className="cx-total">
@@ -1201,6 +1445,7 @@ function PdvBoard() {
           </h2>
           <p className="cx-pay-hint">Escolha a forma, informe o valor e clique em Adicionar. No cartão, selecione as parcelas ao lado do valor.</p>
           <div className="cx-tabs cx-tabs-pay" role="tablist" aria-label="Forma de pagamento">
+            {methods.length === 0 ? <p className="cx-pay-hint">Nenhuma forma de pagamento cadastrada para venda.</p> : null}
             {methods.map((label) => (
               <button
                 key={label}
@@ -1208,7 +1453,11 @@ function PdvBoard() {
                 role="tab"
                 aria-selected={payMethod === label}
                 className={payments.some((pay) => pay.method === label) ? "is-used" : undefined}
-                onClick={() => { setPayMethod(label); setPayParcelas(1) }}
+                onClick={() => {
+                  setPayMethod(label)
+                  setPayParcelas(1)
+                  if (ehTroca(label)) abrirTroca(received)
+                }}
               >
                 {label}
               </button>
@@ -1225,20 +1474,28 @@ function PdvBoard() {
                 campo?.select()
               }}>
                 <b>R$</b>
-                <input
-                  value={received}
-                  inputMode="decimal"
-                  placeholder="0,00"
-                  onChange={(event) => setReceived(event.target.value)}
-                  onFocus={(event) => event.currentTarget.select()}
-                  onMouseUp={(event) => event.preventDefault()}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter") {
-                      event.preventDefault()
-                      addPayment()
-                    }
-                  }}
-                />
+                <span className="cx-received-num">
+                  <input
+                    value={received}
+                    inputMode="decimal"
+                    placeholder="0,00"
+                    style={{ width: `${Math.max(received.length || 4, 1)}ch` }}
+                    onChange={(event) => setReceived(valorDigitado(event.target.value))}
+                    onBlur={() => {
+                      const amount = parseMoneyBr(received)
+                      setReceived(amount > 0 ? formatMoneyBr(amount) : "")
+                    }}
+                    onFocus={(event) => event.currentTarget.select()}
+                    onMouseUp={(event) => event.preventDefault()}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        event.preventDefault()
+                        addPayment()
+                      }
+                    }}
+                  />
+                  {sufixoCentavos(received) ? <em className="cx-received-cents">{sufixoCentavos(received)}</em> : null}
+                </span>
               </span>
             </label>
             {needsParcelas(payMethod, payMeta[payMethod]) ? (
@@ -1252,12 +1509,19 @@ function PdvBoard() {
               </label>
             ) : null}
             <button className="cx-pay-add" type="button" onClick={addPayment}>Adicionar</button>
+            {needsParcelas(payMethod, payMeta[payMethod]) && payParcelas > 1 && parseMoneyBr(received) > 0 ? (
+              <p className="cx-parcelas-split">{divisaoParcelas(parseMoneyBr(received), payParcelas)}</p>
+            ) : null}
           </div>
           {payments.length ? (
             <ul className="cx-splits">
               {payments.map((pay, index) => (
                 <li key={`${pay.method}-${index}`}>
-                  <span>{pay.method}</span>
+                  <span>
+                    {pay.method}
+                    {pay.troca ? <small>{pay.troca.name} · {pay.troca.imei}</small> : null}
+                    {pay.parcelas && pay.parcelas > 1 ? <small>{divisaoParcelas(pay.amount, pay.parcelas)}</small> : null}
+                  </span>
                   {needsParcelas(pay.method, payMeta[pay.method]) ? (
                     <select
                       className="cx-split-parcelas"
@@ -1319,7 +1583,6 @@ function PdvBoard() {
           <textarea
             value={observacao}
             onChange={(event) => setObservacao(event.target.value)}
-            placeholder="IMEI, número de série, detalhes..."
             rows={2}
           />
         </section>
@@ -1370,12 +1633,14 @@ function PdvBoard() {
           data={new Date().toLocaleDateString("pt-BR")}
           emitente={{ ...emitente, name: emitente.name || storeName }}
           destinatario={{
-            nome: slip?.customer || cliente,
-            documento: slip?.document || (customers.find((item) => item.name === cliente)?.document || ""),
-            telefone: slip?.phone || (customers.find((item) => item.name === cliente)?.phone || ""),
-            cidade: slip?.city || (customers.find((item) => item.name === cliente)?.city || ""),
-            uf: slip?.state || (customers.find((item) => item.name === cliente)?.state || ""),
-            cep: slip?.cep || (customers.find((item) => item.name === cliente)?.cep || ""),
+            nome: slip?.customer || pessoaAberta.nome || cliente,
+            documento: slip?.document || pessoaAberta.documento || "",
+            telefone: slip?.phone || pessoaAberta.telefone || "",
+            email: slip?.email || pessoaAberta.email || "",
+            endereco: slip?.endereco || pessoaAberta.endereco || "",
+            cidade: slip?.city || pessoaAberta.cidade || "",
+            uf: slip?.state || pessoaAberta.uf || "",
+            cep: slip?.cep || pessoaAberta.cep || "",
           }}
           vendedor={slip?.seller || seller}
           notas={slip?.notes || observacao}
@@ -1419,6 +1684,74 @@ function PdvBoard() {
         </div>
       ) : null}
 
+      {trocaOpen ? (
+        <div className="pdv-caixa-confirm">
+          <div className="pdv-caixa-confirm-card cx-troca-card" role="dialog" aria-modal="true" aria-labelledby="cx-troca-title">
+            <button className="cx-troca-x" type="button" aria-label="Fechar" onClick={() => setTrocaOpen(false)}>
+              <X size={18} />
+            </button>
+            <h2 id="cx-troca-title">Produto da troca</h2>
+            <p>O aparelho entra no estoque quando a venda for finalizada, pelo preço de entrada. O IMEI fica como rastro.</p>
+            <label>
+              Produto que está entrando
+              <input
+                value={trocaQuery}
+                onChange={(event) => {
+                  setTrocaQuery(event.target.value)
+                  setTrocaPick(null)
+                }}
+                placeholder="Código ou nome"
+                autoComplete="off"
+                autoFocus
+              />
+            </label>
+            {trocaPick ? (
+              <p className="cx-troca-pick"><b>{trocaPick.code}</b><span>{lojaProductName(trocaPick)}</span></p>
+            ) : (
+              <ul className="cx-troca-hits">
+                {trocaQuery.trim().length < 2 ? (
+                  <li>Digite ao menos 2 letras.</li>
+                ) : trocaBuscando ? (
+                  <li>Buscando...</li>
+                ) : trocaHits.length === 0 ? (
+                  <li>Nenhum produto encontrado.</li>
+                ) : trocaHits.map((product) => (
+                  <li key={product.id}>
+                    <button type="button" onClick={() => { setTrocaPick(product); setTrocaQuery(lojaProductName(product)) }}>
+                      <b>{product.code}</b>
+                      <span>{lojaProductName(product)}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <label>
+              IMEI
+              <input
+                value={trocaImei}
+                onChange={(event) => setTrocaImei(event.target.value.toUpperCase())}
+                placeholder="IMEI do aparelho"
+                autoComplete="off"
+                spellCheck={false}
+              />
+            </label>
+            <label>
+              Preço de entrada
+              <input
+                value={trocaValor}
+                inputMode="decimal"
+                placeholder="0,00"
+                onChange={(event) => setTrocaValor(event.target.value)}
+              />
+            </label>
+            <div className="pdv-caixa-confirm-actions">
+              <button className="pdv-cad-btn" type="button" onClick={() => setTrocaOpen(false)}>Cancelar</button>
+              <button className="pdv-cad-btn pdv-cad-btn-green" type="button" onClick={confirmarTroca}>Adicionar troca</button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       {productSearchOpen ? (
         <div className="pdv-caixa-confirm" onClick={() => setProductSearchOpen(false)}>
           <div className="pdv-caixa-confirm-card cx-open-modal cx-open-modal-wide cx-product-search" role="dialog" aria-modal="true" aria-labelledby="cx-product-search-title" onClick={(event) => event.stopPropagation()}>
@@ -1453,8 +1786,9 @@ function PdvBoard() {
               ) : pickerHits.map((product) => (
                 <li key={product.id} className="cx-product-row">
                   <button type="button" className="cx-product-hit" onClick={() => addProduct(product)}>
+                    <b className="cx-hit-code">{product.code}</b>
                     <strong>{lojaProductName(product)}</strong>
-                    <span>{[product.code, product.reference && product.reference !== "—" ? product.reference : ""].filter(Boolean).join(" · ")}</span>
+                    <span>{product.reference && product.reference !== "—" ? product.reference : ""}</span>
                     <em>{formatMoneyRs(productSalePrice(product))}</em>
                   </button>
                   <button
@@ -1536,7 +1870,7 @@ function PdvBoard() {
               <Search size={16} aria-hidden="true" />
               <input
                 value={clientQuery}
-                onChange={(event) => setClientQuery(event.target.value)}
+                onChange={(event) => setClientQuery(event.target.value.toLocaleUpperCase("pt-BR"))}
                 placeholder="Nome, CPF ou CNPJ..."
                 autoComplete="off"
                 autoFocus
@@ -1587,7 +1921,7 @@ function PdvBoard() {
               </button>
             </header>
             <form className="cx-client-modal-form" onSubmit={saveClient}>
-              <label>Nome<input value={newName} onChange={(event) => setNewName(event.target.value)} autoComplete="off" required /></label>
+              <label>Nome<input value={newName} onChange={(event) => setNewName(event.target.value.toLocaleUpperCase("pt-BR"))} autoComplete="off" required /></label>
               <label>Telefone<input value={newPhone} inputMode="numeric" onChange={(event) => setNewPhone(digitsOnly(event.target.value, 11))} autoComplete="off" /></label>
               <label>
                 CPF ou CNPJ

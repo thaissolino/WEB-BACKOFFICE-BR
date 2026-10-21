@@ -5,6 +5,7 @@ import CadastroShell from "../CadastroShell"
 import { FormRow, RadioSimNao } from "../catalog/FormBits"
 import { createCatalog } from "../catalog/catalogApi"
 import { parseError, api } from "../../../../services/api"
+import { avisarSalvo } from "../../avisoSalvo"
 import CatalogList from "../catalog/CatalogList"
 import GerenciarLote from "./GerenciarLote"
 
@@ -144,6 +145,7 @@ function PromocaoForm() {
         active: ativo,
         payload: { inicio: `${inicio} ${horaI}:${minI}`, fim: `${fim} ${horaF}:${minF}`, valor, tipo },
       })
+      avisarSalvo("Promoção salva.")
       navigate("/client/produtos/promocoes")
     } catch (err) {
       setStatus(parseError(err).friend || "Não foi possível cadastrar.")
@@ -321,6 +323,7 @@ export function TabelaPrecoForm() {
     }
     try {
       await createCatalog("price_table", { name: nome, payload: { padrao } })
+      avisarSalvo("Tabela salva.")
       navigate("/client/produtos/tabela-preco")
     } catch (err) {
       setStatus(parseError(err).friend || "Não foi possível cadastrar.")
@@ -418,6 +421,7 @@ export function SetorForm() {
     if (!nome.trim()) { setStatus("Informe o nome do setor."); return }
     try {
       await createCatalog("sector", { name: nome, payload: {} })
+      avisarSalvo("Setor salvo.")
       navigate("/client/produtos/localizacao/setores")
     } catch (err) {
       setStatus(parseError(err).friend || "Não foi possível cadastrar.")

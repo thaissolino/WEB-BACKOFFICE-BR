@@ -6,6 +6,7 @@ import { FormRow } from "../catalog/FormBits"
 import { getCatalog, createCatalog, listCatalog, updateCatalog } from "../catalog/catalogApi"
 import { createLojaCaixa, deleteLojaCaixas, listLojaCaixas, updateLojaCaixa, type LojaCaixa } from "./caixaApi"
 import { parseError } from "../../../../services/api"
+import { avisarSalvo } from "../../avisoSalvo"
 import { AtivoToggle } from "../produtos/QuickCadWindows"
 
 const TRANSF = ["Manual", "Automática", "Abertura de Caixa"]
@@ -26,6 +27,7 @@ export default function CaixaPage() {
   const [gearUsers, setGearUsers] = useState<string[]>([])
   const [gearModo, setGearModo] = useState<"finaliza" | "espera">("finaliza")
   const [gearPermitirTrocar, setGearPermitirTrocar] = useState(true)
+  const [gearObrigarVendedor, setGearObrigarVendedor] = useState(true)
   const [gearSenha, setGearSenha] = useState("")
   const [gearSaving, setGearSaving] = useState(false)
 
@@ -59,6 +61,7 @@ export default function CaixaPage() {
     setGearUsers(namesOf(item.payload.vendedores))
     setGearModo(item.payload.modo === "espera" ? "espera" : "finaliza")
     setGearPermitirTrocar(item.payload.permitirTrocarCaixa !== false)
+    setGearObrigarVendedor(item.payload.obrigarVendedor !== false)
     setGearSenha(String(item.payload.senhaAcesso || ""))
     try {
       const [pays, users] = await Promise.all([
@@ -84,10 +87,12 @@ export default function CaixaPage() {
       await patch(gear, {
         formasPagamento: gearPay,
         vendedores: gearUsers,
+        obrigarVendedor: gearObrigarVendedor,
         modo: gearModo,
         permitirTrocarCaixa: gearPermitirTrocar,
         senhaAcesso: gearSenha.trim(),
       })
+      avisarSalvo("Caixa salvo.")
       setGear(null)
     } catch (err) {
       setError(parseError(err).friend || "Não foi possível salvar os parâmetros.")
@@ -142,6 +147,7 @@ export default function CaixaPage() {
     setError("")
     try {
       await createLojaCaixa(name)
+      avisarSalvo("Caixa criado.")
       setNome("")
       load()
     } catch (err) {
@@ -292,7 +298,11 @@ export default function CaixaPage() {
               </div>
               <div>
                 <strong>Vendedores neste caixa</strong>
-                <p>Marque um ou vários. Sem marca, o PDV não exige vendedor.</p>
+                <p>Marque quem pode vender neste caixa.</p>
+                <label>
+                  <input type="checkbox" checked={gearObrigarVendedor} onChange={(event) => setGearObrigarVendedor(event.target.checked)} />
+                  Obrigar vendedor na venda
+                </label>
                 <div className="pdv-gear-list">
                   {[...new Set([...userOptions, ...gearUsers])].length === 0 ? <span>Nenhum usuário cadastrado.</span> : null}
                   {[...new Set([...userOptions, ...gearUsers])].map((name) => (
@@ -405,6 +415,7 @@ export function PlanoContaForm() {
       const payload = { ordem, descricao }
       if (editId) await updateCatalog("account_plan", editId, { name: nome, payload })
       else await createCatalog("account_plan", { name: nome, payload })
+      avisarSalvo("Centro de custo salvo.")
       navigate(listPath)
     } catch (err) {
       const parsed = parseError(err)

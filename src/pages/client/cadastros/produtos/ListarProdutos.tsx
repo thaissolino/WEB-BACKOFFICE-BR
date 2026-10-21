@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { Ban, Save, Settings, X } from "lucide-react";
 import { api, parseError } from "../../../../services/api";
+import { avisarSalvo } from "../../avisoSalvo";
 import { scrollPageToTop } from "../../dashboard/PageJumps";
 import CadastroShell from "../CadastroShell";
 // import EstoqueGradeModal from "./EstoqueGradeModal";
@@ -378,6 +379,7 @@ function ProdutosBoard() {
     try {
       if (field === "stock") await api.patch(`/clients/products/${item.id}/stock`, { stockQuantity: next });
       else await api.put(`/clients/products/${item.id}`, field === "sale" ? { lojaSalePrice: next } : { lojaCostAverage: next });
+      avisarSalvo("Salvo.");
       setError("");
     } catch (err) {
       setRows((current) => current.map((row) => (row.id === item.id ? { ...row, [key]: previous } : row)));

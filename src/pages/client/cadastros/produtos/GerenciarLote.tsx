@@ -2,6 +2,7 @@ import { ChangeEvent, CSSProperties, Fragment, FormEvent, useEffect, useMemo, us
 import { useLocation } from "react-router-dom"
 import { ChevronDown } from "lucide-react"
 import { api, parseError } from "../../../../services/api"
+import { avisarSalvo } from "../../avisoSalvo"
 import { CadastroFrame } from "../CadastroShell"
 import { loadProductCategories, toFlatOptions, type FlatOption } from "./categoryModel"
 import {
@@ -370,6 +371,7 @@ export default function GerenciarLote() {
         })
       }
       setStatus(`${Number(data.updated) || selected.length} produto(s) atualizado(s).`)
+      avisarSalvo("Alteração salva.")
     } catch (err) {
       setError(parseError(err).friend || "Não foi possível aplicar.")
     } finally {
