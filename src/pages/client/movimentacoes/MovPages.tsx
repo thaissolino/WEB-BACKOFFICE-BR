@@ -1,19 +1,22 @@
 import FilterPage from "../pdv/FilterPage"
+import SearchableSelect from "../cadastros/produtos/SearchableSelect"
 import { CadastroFrame } from "../cadastros/CadastroShell"
 import { useLocation, useNavigate } from "react-router-dom"
 import { FormEvent, MouseEvent, useRef, useState } from "react"
 import { api } from "../../../services/api"
 import { FormRow, DatePreset } from "../cadastros/catalog/FormBits"
-import { clientIdDoLojista, createCatalog, lancamentoDaLoja, listCatalog } from "../cadastros/catalog/catalogApi"
+import { clientIdDoLojista, createCatalog, lancamentoDaLoja, listCatalog, type CatalogItem } from "../cadastros/catalog/catalogApi"
 import { listLojaCaixas } from "../cadastros/financeiro/caixaApi"
 import { parseError } from "../../../services/api"
 import { avisarSalvo } from "../avisoSalvo"
-import { Pencil, Plus } from "lucide-react"
+import { CheckCircle2, ChevronDown, Clock, Paperclip, Pencil, Plus, RotateCcw, Search, X } from "lucide-react"
 import { useEffect, useMemo } from "react"
 import "../vendas/pedidos.css"
 import { todayIso } from "../../../utils/todayIso"
 import { filterLojaSales, EMPTY_SALE_FILTERS, type SaleFilters } from "./lojaSalesFilters"
-import { VendasMovimento, listLojaSales, type LojaPdvSale } from "./LojaVendasPainel"
+import { SaleDetailPanel, VendasMovimento, listLojaSales, type LojaPdvSale } from "./LojaVendasPainel"
+import { formatMoneyRs } from "../cadastros/produtos/types"
+import PdvOverlayModal from "../dashboard/PdvOverlayModal"
 
 const VENDA_COLS = [
   "Visualizar",
@@ -44,11 +47,17 @@ const VENDA_ACTIONS = [
   { label: "Nova", tone: "green" as const, href: "/client/pdv" },
 ]
 
+export function VendasTodas() {
+  return <VendasMovimento status="todas" />
+}
 export function VendasAbertas() {
   return <VendasMovimento status="espera" />
 }
 export function VendasConcluidas() {
   return <VendasMovimento status="finalizada" />
+}
+export function VendasEstornadas() {
+  return <VendasMovimento status="estornada" />
 }
 export function PreVendas() {
   return <FilterPage title="PRÉ VENDAS" actions={VENDA_ACTIONS} fields={VENDA_FIELDS} columns={VENDA_COLS} />
@@ -87,95 +96,444 @@ function useFinalizedSales() {
   return { sales, hint }
 }
 
+function quandoCaixa(value?: string | null) {
+  if (!value) return "—"
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return "—"
+  return `${date.toLocaleDateString("pt-BR")} ${date.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}`
+}
+
+function dataCaixaBr(iso: string) {
+  const [year, month, day] = iso.split("-")
+  if (!year || !month || !day) return ""
+  return `${day}/${month}/${year}`
+}
+
+function periodoCaixa(inicio: string, fim: string) {
+  const a = dataCaixaBr(inicio)
+  const b = dataCaixaBr(fim)
+  if (a && b) return `Período de ${a} a ${b}`
+  if (a) return `A partir de ${a}`
+  if (b) return `Até ${b}`
+  return "Período todo"
+}
+
+function resumoFiltrosCaixa(filters: SaleFilters) {
+  const partes = [periodoCaixa(filters.inicio, filters.fim), `Caixa: ${filters.caixa || "Todos"}`]
+  if (filters.obs?.trim()) partes.push(`Obs: ${filters.obs.trim()}`)
+  if (filters.forma?.trim()) partes.push(filters.forma.trim())
+  if (filters.cod.trim()) partes.push(`Venda: ${filters.cod.trim()}`)
+  if (filters.nome.trim()) partes.push(`Cliente: ${filters.nome.trim()}`)
+  if (filters.estornadas === false) partes.push("Sem estornadas")
+  return `Filtros: ${partes.join(" · ")}`
+}
+
+type CaixaAnexo = {
+  id: string
+  caixaName: string
+  method: string
+  receiptDate: string
+  fileName: string
+  contentType: string
+}
+
+function AnexosCaixa({
+  caixa,
+  method,
+  date,
+  items,
+  onClose,
+  onChange,
+}: {
+  caixa: string
+  method: string
+  date: string
+  items: CaixaAnexo[]
+  onClose: () => void
+  onChange: () => void
+}) {
+  const [receiptDate, setReceiptDate] = useState(date)
+  const [file, setFile] = useState<File | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [erro, setErro] = useState("")
+  const [preview, setPreview] = useState<{ url: string; name: string; image: boolean } | null>(null)
+
+  useEffect(() => {
+    return () => {
+      if (preview?.url) URL.revokeObjectURL(preview.url)
+    }
+  }, [preview])
+
+  async function enviar(event: FormEvent) {
+    event.preventDefault()
+    if (!file) {
+      setErro("Escolha o comprovante.")
+      return
+    }
+    setBusy(true)
+    setErro("")
+    const body = new FormData()
+    body.append("file", file)
+    try {
+      await api.post("/clients/caixa-anexos", body, {
+        params: { caixa, method, date: receiptDate },
+      })
+      setFile(null)
+      onChange()
+    } catch (err) {
+      setErro(parseError(err).friend || "Não foi possível enviar o comprovante.")
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function abrir(item: CaixaAnexo) {
+    setErro("")
+    try {
+      const { data } = await api.get(`/clients/caixa-anexos/${item.id}/file`, { responseType: "blob" })
+      const blob = data as Blob
+      const url = URL.createObjectURL(blob)
+      setPreview((current) => {
+        if (current?.url) URL.revokeObjectURL(current.url)
+        return { url, name: item.fileName, image: blob.type.startsWith("image/") }
+      })
+    } catch (err) {
+      setErro(parseError(err).friend || "Não foi possível abrir o comprovante.")
+    }
+  }
+
+  async function remover(item: CaixaAnexo) {
+    setErro("")
+    try {
+      await api.delete(`/clients/caixa-anexos/${item.id}`)
+      if (preview?.name === item.fileName) setPreview(null)
+      onChange()
+    } catch (err) {
+      setErro(parseError(err).friend || "Não foi possível remover o comprovante.")
+    }
+  }
+
+  return (
+    <PdvOverlayModal open title={`Anexos ${method}`} size="form" icon={<Paperclip size={18} />} onClose={onClose}>
+      <form className="pdv-caixa-anexo" onSubmit={enviar}>
+        <label>
+          Caixa
+          <input value={caixa} readOnly />
+        </label>
+        <label>
+          Data comprovante
+          <input type="date" value={receiptDate} onChange={(event) => setReceiptDate(event.target.value)} />
+        </label>
+        <div className="pdv-caixa-anexo-file">
+          <input
+            type="file"
+            accept="image/*,application/pdf"
+            onChange={(event) => setFile(event.target.files?.[0] ?? null)}
+          />
+          <button className="pdv-cad-btn pdv-cad-btn-blue" type="submit" disabled={busy}>
+            {busy ? "Enviando..." : "Enviar"}
+          </button>
+        </div>
+        {erro ? <p className="pdv-caixa-anexo-erro">{erro}</p> : null}
+        <ul>
+          {items.length === 0 ? <li>Nenhum comprovante neste período.</li> : null}
+          {items.map((item) => (
+            <li key={item.id}>
+              <button type="button" onClick={() => void abrir(item)}>
+                ({dataCaixaBr(item.receiptDate)}) {item.fileName}
+              </button>
+              <button type="button" aria-label="Remover comprovante" onClick={() => void remover(item)}>
+                <X size={14} />
+              </button>
+            </li>
+          ))}
+        </ul>
+        {preview ? (
+          preview.image ? (
+            <img src={preview.url} alt={preview.name} />
+          ) : (
+            <iframe title={preview.name} src={preview.url} />
+          )
+        ) : null}
+      </form>
+    </PdvOverlayModal>
+  )
+}
+
 export function RelatorioCaixa() {
   const [sales, setSales] = useState<LojaPdvSale[]>([])
+  const [caixasCad, setCaixasCad] = useState<string[]>([])
   const [hint, setHint] = useState("Carregando...")
   const [draft, setDraft] = useState<SaleFilters>(EMPTY_SALE_FILTERS)
   const [filters, setFilters] = useState<SaleFilters>(EMPTY_SALE_FILTERS)
+  const [modo, setModo] = useState<"expandido" | "retraido">("expandido")
+  const [forcado, setForcado] = useState<Record<string, boolean>>({})
+  const [detail, setDetail] = useState<LojaPdvSale | null>(null)
+  const [anexos, setAnexos] = useState<CaixaAnexo[]>([])
+  const [anexoAlvo, setAnexoAlvo] = useState<{ caixa: string; method: string } | null>(null)
 
   useEffect(() => {
-    listLojaSales("finalizada")
-      .then((rows) => {
+    Promise.all([listLojaSales("finalizada"), listLojaSales("estornada")])
+      .then(([fechadas, estornadas]) => {
+        const rows = [...fechadas, ...estornadas]
         setSales(rows)
         setHint(rows.length ? "" : "Nenhuma venda registrada no caixa.")
       })
       .catch((err) => setHint(parseError(err).friend || "Não foi possível carregar o caixa."))
+    listLojaCaixas(true)
+      .then((items) => setCaixasCad(items.map((item) => item.name.trim()).filter(Boolean)))
+      .catch(() => setCaixasCad([]))
   }, [])
 
-  const caixas = useMemo(() => ["Todos", ...new Set(sales.map((sale) => sale.caixaName).filter(Boolean))], [sales])
-  const filtered = useMemo(() => filterLojaSales(sales, filters), [sales, filters])
-  const payTotals = useMemo(() => {
-    const map = new Map<string, number>()
-    filtered.forEach((sale) => {
+  useEffect(() => {
+    api
+      .get("/clients/caixa-anexos", { params: { inicio: filters.inicio, fim: filters.fim } })
+      .then(({ data }) => setAnexos(data.items || []))
+      .catch(() => setAnexos([]))
+  }, [filters.inicio, filters.fim])
+
+  const nomesCaixa = useMemo(() => {
+    const nomes = new Set<string>(caixasCad)
+    sales.forEach((sale) => {
+      const nome = sale.caixaName.trim()
+      if (nome) nomes.add(nome)
+    })
+    return [...nomes].sort((a, b) => a.localeCompare(b, "pt-BR"))
+  }, [caixasCad, sales])
+
+  const formas = useMemo(() => {
+    const nomes = new Set<string>()
+    sales.forEach((sale) => {
       sale.payments.forEach((pay) => {
-        map.set(pay.method, (map.get(pay.method) || 0) + pay.amount)
+        const method = pay.method.trim()
+        if (method) nomes.add(method)
       })
     })
-    return map
-  }, [filtered])
+    return [...nomes].sort((a, b) => a.localeCompare(b, "pt-BR"))
+  }, [sales])
 
-  const grouped = useMemo(() => {
-    const map = new Map<string, { vendas: number; total: number }>()
+  const grupos = useMemo(() => {
+    const filtered = filterLojaSales(sales, filters)
+    const map = new Map<string, LojaPdvSale[]>()
     filtered.forEach((sale) => {
-      const day = new Date(sale.finalizedAt || sale.createdAt).toLocaleDateString("pt-BR")
-      const key = `${sale.caixaName || "Sem caixa"}|${day}`
-      const row = map.get(key) || { vendas: 0, total: 0 }
-      row.vendas += 1
-      row.total += sale.total
-      map.set(key, row)
+      const nome = sale.caixaName.trim() || "Sem caixa"
+      const list = map.get(nome) || []
+      list.push(sale)
+      map.set(nome, list)
     })
-    return map
-  }, [filtered])
+    if (filters.caixa && filters.caixa !== "Todos" && !map.has(filters.caixa)) map.set(filters.caixa, [])
+    return [...map.entries()]
+      .map(([nome, list]) => {
+        const pays = new Map<string, number>()
+        list.sort((a, b) => new Date(a.finalizedAt || a.createdAt).getTime() - new Date(b.finalizedAt || b.createdAt).getTime())
+        const forma = (filters.forma || "").trim().toLowerCase()
+        list.forEach((sale) => {
+          const linhas = sale.payments.length ? sale.payments : [{ method: "Sem forma", amount: sale.total }]
+          linhas.forEach((pay) => {
+            const method = pay.method.trim() || "Sem forma"
+            if (forma && method.toLowerCase() !== forma) return
+            pays.set(method, (pays.get(method) || 0) + pay.amount)
+          })
+        })
+        const fechamento = [...pays.values()].reduce((sum, value) => sum + value, 0)
+        return { nome, list, pays, fechamento }
+      })
+      .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"))
+  }, [filters, sales])
 
-  const rows = [...grouped.entries()].map(([key, row]) => {
-    const [caixa, data] = key.split("|")
-    return [caixa, data, String(row.vendas), brl(row.total), brl(row.total), brl(row.total)]
-  })
+  function aberto(nome: string) {
+    if (nome in forcado) return forcado[nome]
+    return modo === "expandido"
+  }
 
-  const payRows = [...payTotals.entries()].map(([method, total]) => [method, brl(total)])
-  const sumVendas = filtered.reduce((sum, sale) => sum + sale.total, 0)
-  const sumRecebido = filtered.reduce((sum, sale) => sum + sale.received, 0)
-  const sumQtd = filtered.length
+  function escolherModo(next: "expandido" | "retraido") {
+    setModo(next)
+    setForcado({})
+  }
 
   return (
-    <FilterPage
-      title="RELATÓRIO DE CAIXA"
-      fields={[]}
-      extra={(
-        <>
-          <form className="pdv-cad-filters" onSubmit={(event) => { event.preventDefault(); setFilters(draft) }}>
-            <label>Data início<span className="pdv-date-field"><input type="date" value={draft.inicio} onChange={(event) => setDraft({ ...draft, inicio: event.target.value })} /><DatePreset onPick={(inicio, fim) => setDraft({ ...draft, inicio, fim })} /></span></label>
-            <label>Data fim<input type="date" value={draft.fim} onChange={(event) => setDraft({ ...draft, fim: event.target.value })} /></label>
-            <label>Caixa
-              <select value={draft.caixa} onChange={(event) => setDraft({ ...draft, caixa: event.target.value })}>
-                {caixas.map((name) => <option key={name}>{name}</option>)}
-              </select>
+    <CadastroFrame>
+      <section className="pdv-cad-page pdv-cli-page pdv-caixa-rel" aria-labelledby="pdv-caixa-rel-title">
+        <div className="pdv-cad-sheet">
+          <h1 id="pdv-caixa-rel-title">RELATÓRIO DE CAIXA</h1>
+          <form
+            className="pdv-caixa-rel-filtros"
+            onSubmit={(event) => {
+              event.preventDefault()
+              setFilters(draft)
+            }}
+          >
+            <label>
+              Data Caixa início
+              <span className="pdv-date-field">
+                <input type="date" value={draft.inicio} onChange={(event) => setDraft({ ...draft, inicio: event.target.value })} />
+                <DatePreset onPick={(inicio, fim) => setDraft({ ...draft, inicio, fim })} />
+              </span>
             </label>
-            <div className="pdv-cad-filters-go">
+            <label>
+              Data Caixa fim
+              <span className="pdv-date-field">
+                <input type="date" value={draft.fim} onChange={(event) => setDraft({ ...draft, fim: event.target.value })} />
+                <DatePreset onPick={(inicio, fim) => setDraft({ ...draft, inicio, fim })} />
+              </span>
+            </label>
+            <label>
+              Caixa
+              <SearchableSelect
+                value={draft.caixa === "Todos" ? "" : draft.caixa}
+                emptyLabel="Todos"
+                options={nomesCaixa}
+                onChange={(next) => setDraft({ ...draft, caixa: !next || next === "Todos" ? "Todos" : next })}
+              />
+            </label>
+            <label>
+              Observação
+              <input type="text" value={draft.obs || ""} onChange={(event) => setDraft({ ...draft, obs: event.target.value })} />
+            </label>
+            <label>
+              Tipo Financeiro
+              <SearchableSelect
+                value={draft.forma || ""}
+                emptyLabel="Todos"
+                options={formas}
+                onChange={(next) => setDraft({ ...draft, forma: next === "Todos" ? "" : next })}
+              />
+            </label>
+            <label>
+              Código Venda
+              <input type="text" value={draft.cod} onChange={(event) => setDraft({ ...draft, cod: event.target.value })} />
+            </label>
+            <label>
+              Código do Cliente
+              <input type="text" value={draft.nome} onChange={(event) => setDraft({ ...draft, nome: event.target.value })} />
+            </label>
+            <label>
+              Exibir Estornadas
+              <SearchableSelect
+                hideEmpty
+                value={draft.estornadas === false ? "Não" : "Sim"}
+                options={["Sim", "Não"]}
+                onChange={(next) => setDraft({ ...draft, estornadas: next !== "Não" })}
+              />
+            </label>
+            <div className="pdv-caixa-rel-modos">
+              <span>Visualizar relatório</span>
+              <button type="button" aria-pressed={modo === "expandido"} onClick={() => escolherModo("expandido")}>Expandido</button>
+              <button type="button" aria-pressed={modo === "retraido"} onClick={() => escolherModo("retraido")}>Retraído</button>
+            </div>
+            <div className="pdv-caixa-rel-go">
               <button className="pdv-cad-btn" type="button" onClick={() => { setDraft(EMPTY_SALE_FILTERS); setFilters(EMPTY_SALE_FILTERS) }}>Limpar</button>
               <button className="pdv-cad-btn pdv-cad-btn-blue" type="submit">Filtrar</button>
             </div>
           </form>
-          {payRows.length ? (
-            <div className="pdv-cad-table-wrap">
-              <h2 className="pdv-cad-kicker">Total por forma de pagamento</h2>
-              <table className="pdv-cad-table">
-                <thead><tr><th>Forma</th><th>Total</th></tr></thead>
-                <tbody>{payRows.map(([method, total]) => <tr key={method}><td>{method}</td><td>{total}</td></tr>)}</tbody>
-              </table>
-            </div>
-          ) : null}
-          <div className="pdv-cad-totals-footer">
-            <p><span>Vendas no período</span><strong>{sumQtd}</strong></p>
-            <p><span>Total vendido</span><strong>{brl(sumVendas)}</strong></p>
-            <p><span>Total recebido</span><strong>{brl(sumRecebido)}</strong></p>
-          </div>
-        </>
-      )}
-      columns={["Caixa", "Data", "Vendas", "Entradas", "Saídas", "Saldo"]}
-      rows={rows}
-      hint={rows.length ? hint || undefined : "Nenhuma venda para o filtro atual."}
-    />
+          <p className="pdv-caixa-rel-filtros-resumo">{resumoFiltrosCaixa(filters)}</p>
+
+          {grupos.length === 0 ? <p className="pdv-caixa-rel-vazio">{hint || "Nenhuma movimentação para o filtro atual."}</p> : null}
+
+          {grupos.map((grupo) => {
+            const open = aberto(grupo.nome)
+            return (
+              <article className="pdv-caixa-rel-caixa" key={grupo.nome} data-open={open ? "true" : undefined}>
+                <header>
+                  <button
+                    type="button"
+                    aria-expanded={open}
+                    onClick={() => setForcado((current) => ({ ...current, [grupo.nome]: !open }))}
+                  >
+                    <ChevronDown size={16} aria-hidden="true" />
+                    {grupo.nome}
+                  </button>
+                  <span>{grupo.list.length} movimentações</span>
+                </header>
+                {open ? (
+                  <table className="pdv-caixa-rel-mov">
+                    <thead>
+                      <tr>
+                        <th>Pago no dia</th>
+                        <th>Código da venda</th>
+                        <th>Obs</th>
+                        <th>Cliente</th>
+                        <th>Usuário</th>
+                        <th>Forma de pagamento</th>
+                        <th>Valor</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {grupo.list.length === 0 ? (
+                        <tr><td colSpan={7}>Nenhuma movimentação neste caixa.</td></tr>
+                      ) : grupo.list.flatMap((sale) => {
+                        const forma = (filters.forma || "").trim().toLowerCase()
+                        const linhas = (sale.payments.length
+                          ? sale.payments
+                          : [{ method: "Sem forma", amount: sale.total }]
+                        ).filter((pay) => !forma || (pay.method.trim() || "Sem forma").toLowerCase() === forma)
+                        return linhas.map((pay, index) => (
+                          <tr key={`${sale.id}-${index}`}>
+                            <td>{quandoCaixa(sale.finalizedAt || sale.createdAt)}</td>
+                            <td>
+                              <button type="button" onClick={() => setDetail(sale)}>{sale.code}</button>
+                            </td>
+                            <td>{sale.notes?.trim() || ""}</td>
+                            <td>{sale.customerName || ""}</td>
+                            <td>{sale.sellerName || ""}</td>
+                            <td>{pay.method}</td>
+                            <td className="num">{formatMoneyRs(pay.amount)}</td>
+                          </tr>
+                        ))
+                      })}
+                      <tr className="pdv-caixa-rel-fecha">
+                        <td colSpan={6}>Fechamento</td>
+                        <td className="num">{formatMoneyRs(grupo.fechamento)}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                ) : null}
+                <footer className="pdv-caixa-rel-tots">
+                  {[...grupo.pays.entries()].map(([method, total]) => {
+                    const qtd = anexos.filter((item) => item.caixaName === grupo.nome && item.method === method).length
+                    return (
+                      <p key={method}>
+                        <span>{method}</span>
+                        <strong>
+                          {formatMoneyRs(total)}
+                          <button
+                            type="button"
+                            className="pdv-caixa-rel-clip"
+                            data-count={qtd ? "true" : undefined}
+                            aria-label={`Anexos de ${method}`}
+                            onClick={() => setAnexoAlvo({ caixa: grupo.nome, method })}
+                          >
+                            <Paperclip size={14} aria-hidden="true" />
+                            {qtd ? <em>{qtd}</em> : null}
+                          </button>
+                        </strong>
+                      </p>
+                    )
+                  })}
+                  <p className="is-fecha"><span>Fechamento</span><strong>{formatMoneyRs(grupo.fechamento)}</strong></p>
+                </footer>
+              </article>
+            )
+          })}
+        </div>
+      </section>
+      {anexoAlvo ? (
+        <AnexosCaixa
+          caixa={anexoAlvo.caixa}
+          method={anexoAlvo.method}
+          date={filters.fim || filters.inicio || todayIso()}
+          items={anexos.filter((item) => item.caixaName === anexoAlvo.caixa && item.method === anexoAlvo.method)}
+          onClose={() => setAnexoAlvo(null)}
+          onChange={() => {
+            api
+              .get("/clients/caixa-anexos", { params: { inicio: filters.inicio, fim: filters.fim } })
+              .then(({ data }) => setAnexos(data.items || []))
+              .catch(() => undefined)
+          }}
+        />
+      ) : null}
+      {detail ? <SaleDetailPanel sale={detail} onClose={() => setDetail(null)} /> : null}
+    </CadastroFrame>
   )
 }
 export function RelatorioContaCorrente() {
@@ -334,16 +692,20 @@ export function CadastrarDespesa({ receita = false }: { receita?: boolean }) {
     ? "/gestao/movimentacoes/financeiro/despesas"
     : "/client/movimentacoes/financeiro/despesas"
   const [caixas, setCaixas] = useState<string[]>([])
+  const [planos, setPlanos] = useState<string[]>([])
   const [status, setStatus] = useState("")
-  const [form, setForm] = useState({ descricao: "", total: "", data: todayIso(), caixa: "" })
+  const [form, setForm] = useState({ descricao: "", total: "R$ 0,00", data: todayIso(), caixa: "", plano: "" })
 
   useEffect(() => {
     listLojaCaixas(true).then((rows) => setCaixas(rows.map((item) => item.name))).catch(() => setCaixas([]))
+    listCatalog("account_plan", true)
+      .then((rows) => setPlanos(rows.map((item) => item.name.trim()).filter(Boolean)))
+      .catch(() => setPlanos([]))
   }, [])
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault()
-    if (!form.descricao.trim() || !form.total.trim()) {
+    if (!form.descricao.trim() || !parseMoney(form.total)) {
       setStatus("Informe a descrição e o valor.")
       return
     }
@@ -366,93 +728,50 @@ export function CadastrarDespesa({ receita = false }: { receita?: boolean }) {
     }
   }
 
-  const gestao = pathname.startsWith("/gestao/")
-  if (gestao) {
-    return (
-      <CadastroFrame>
-        <div className="mx-auto max-w-3xl rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
-          <div className="mb-6 flex items-center justify-between gap-4">
-            <h2 className="text-xl font-semibold text-blue-700">{receita ? "Nova receita" : "Nova despesa"}</h2>
-            <button
-              className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-800"
-              type="button"
-              onClick={() => navigate(listPath)}
-            >
-              Voltar
-            </button>
-          </div>
-          <form className="flex flex-col gap-4" onSubmit={onSubmit}>
-            <label className="block text-sm font-medium text-gray-700">
-              Descrição
-              <input
-                className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2"
-                value={form.descricao}
-                onChange={(event) => setForm({ ...form, descricao: event.target.value })}
-                autoComplete="off"
-              />
-            </label>
-            <label className="block text-sm font-medium text-gray-700">
-              Valor
-              <input
-                className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2"
-                value={form.total}
-                onChange={(event) => setForm({ ...form, total: event.target.value })}
-                inputMode="decimal"
-                placeholder="0,00"
-                autoComplete="off"
-              />
-            </label>
-            <label className="block text-sm font-medium text-gray-700">
-              Data
-              <input
-                className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2"
-                type="date"
-                value={form.data}
-                onChange={(event) => setForm({ ...form, data: event.target.value })}
-              />
-            </label>
-            <label className="block text-sm font-medium text-gray-700">
-              Caixa
-              <select
-                className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2"
-                value={form.caixa}
-                onChange={(event) => setForm({ ...form, caixa: event.target.value })}
-              >
-                <option value="">Sem caixa</option>
-                {caixas.map((item) => <option key={item}>{item}</option>)}
-              </select>
-            </label>
-            {status ? <p className="text-sm font-semibold text-red-700" role="status">{status}</p> : null}
-            <button className="inline-flex w-fit items-center rounded-xl bg-blue-500 px-4 py-2 text-sm font-semibold text-white" type="submit">
-              <Plus className="mr-2" size={16} aria-hidden="true" />
-              Salvar
-            </button>
-          </form>
-        </div>
-      </CadastroFrame>
-    )
-  }
-
   return (
     <CadastroFrame>
-      <section className="pdv-cad-page" aria-labelledby="pdv-desp-form">
+      <section className="pdv-cad-page pdv-cli-page" aria-labelledby="pdv-desp-form">
         <div className="pdv-cad-sheet">
-          <h1 id="pdv-desp-form">{receita ? "CADASTRAR RECEITA" : "CADASTRAR DESPESA"}</h1>
+          <div className="cli-edit-head">
+            <button className="pdv-cad-btn pdv-cad-btn-back pdv-voltar" type="button" onClick={() => navigate(listPath)}>
+              Voltar
+            </button>
+            <h1 id="pdv-desp-form">{receita ? "CADASTRAR RECEITA" : "CADASTRAR DESPESA"}</h1>
+          </div>
           <form className="pdv-cad-form" onSubmit={onSubmit}>
             <FormRow label="Descrição">
               <input value={form.descricao} onChange={(event) => setForm({ ...form, descricao: event.target.value })} autoComplete="off" />
             </FormRow>
+            <FormRow label="Plano de Conta">
+              <SearchableSelect
+                value={form.plano}
+                emptyLabel="Selecione"
+                options={planos}
+                onChange={(next) => setForm({ ...form, plano: next === "Selecione" ? "" : next })}
+              />
+            </FormRow>
             <FormRow label="Valor">
-              <input value={form.total} onChange={(event) => setForm({ ...form, total: event.target.value })} inputMode="decimal" placeholder="0,00" autoComplete="off" />
+              <input
+                value={form.total}
+                onFocus={(event) => event.currentTarget.select()}
+                onChange={(event) => setForm({ ...form, total: maskValorReais(form.total, event.target.value) })}
+                inputMode="decimal"
+                autoComplete="off"
+              />
             </FormRow>
             <FormRow label="Data">
-              <input type="date" value={form.data} onChange={(event) => setForm({ ...form, data: event.target.value })} />
+              <span className="pdv-date-field">
+                <input type="date" value={form.data} onChange={(event) => setForm({ ...form, data: event.target.value })} />
+                <DatePreset onPick={(inicio) => setForm({ ...form, data: inicio || todayIso() })} />
+              </span>
             </FormRow>
             <FormRow label="Caixa">
-              <select value={form.caixa} onChange={(event) => setForm({ ...form, caixa: event.target.value })}>
-                <option value="">Sem caixa</option>
-                {caixas.map((item) => <option key={item}>{item}</option>)}
-              </select>
+              <SearchableSelect
+                value={form.caixa}
+                emptyLabel="Sem caixa"
+                options={caixas}
+                onChange={(next) => setForm({ ...form, caixa: next === "Sem caixa" ? "" : next })}
+              />
             </FormRow>
             {status ? <p className="pdv-prod-status" role="status">{status}</p> : null}
             <div className="pdv-cad-form-go">
@@ -472,36 +791,64 @@ export function ListarDespesas() {
   const { pathname } = useLocation()
   const backoffice = pathname.startsWith("/gestao/")
   const base = backoffice ? "/gestao/movimentacoes/financeiro" : "/client/movimentacoes/financeiro"
-  const [rows, setRows] = useState<string[][]>([])
+  const [itens, setItens] = useState<CatalogItem[]>([])
+  const [planos, setPlanos] = useState<string[]>([])
+  const [busca, setBusca] = useState({ nome: "", plano: "" })
   const [hint, setHint] = useState("Carregando...")
   useEffect(() => {
+    listCatalog("account_plan", true)
+      .then((rows) => setPlanos(rows.map((item) => item.name.trim()).filter(Boolean)))
+      .catch(() => setPlanos([]))
     listCatalog("expense")
       .then((items) => {
         const visiveis = backoffice ? items : items.filter((item) => lancamentoDaLoja(item))
-        setRows(visiveis.map((item) => [
-          String(item.code),
-          item.name,
-          String(item.payload.tipo || "despesa"),
-          String(item.payload.data || "—"),
-          String(item.payload.caixa || "—"),
-          String(item.payload.total || "—"),
-        ]))
+        setItens(visiveis)
         setHint(visiveis.length ? "" : "Nenhuma despesa ou receita lançada.")
       })
       .catch(() => setHint("Não foi possível carregar."))
   }, [backoffice])
+  const rows = useMemo(() => {
+    const nome = busca.nome.trim().toLowerCase()
+    const plano = busca.plano.trim()
+    return itens
+      .filter((item) => {
+        if (nome && !item.name.toLowerCase().includes(nome)) return false
+        if (plano && plano !== "Todos" && String(item.payload.plano || "") !== plano) return false
+        return true
+      })
+      .map((item) => [
+        String(item.code),
+        item.name,
+        String(item.payload.plano || "—"),
+        String(item.payload.tipo || "despesa"),
+        String(item.payload.data || "—"),
+        String(item.payload.caixa || "—"),
+        formatValorLista(item.payload.total),
+      ])
+  }, [busca.nome, busca.plano, itens])
   return (
     <FilterPage
       title="RECEITA / DESPESAS REGISTRADA"
       actions={[
         { label: "Cadastrar Despesa", tone: "green", href: `${base}/despesas/cadastrar` },
         { label: "Cadastrar Receita", tone: "blue", href: `${base}/receitas/cadastrar` },
+        {
+          label: "Cadastrar Plano de Conta",
+          tone: "ink",
+          href: backoffice ? "/gestao/cadastro/financeiro/plano-conta/cadastrar" : "/client/financeiro/plano-conta/cadastrar",
+        },
       ]}
-      fields={[{ key: "nome", label: "Descrição" }]}
-      columns={["Código", "Descrição", "Tipo", "Data", "Caixa", "Valor"]}
+      fields={[
+        { key: "nome", label: "Descrição" },
+        { key: "plano", label: "Plano de Conta", kind: "search", options: ["Todos", ...planos] },
+      ]}
+      columns={["Código", "Descrição", "Plano de Conta", "Tipo", "Data", "Caixa", "Valor"]}
       rows={rows}
-      hint={hint || undefined}
+      hint={rows.length ? undefined : hint || "Nenhuma despesa ou receita lançada."}
       submitLabel="Filtrar"
+      pageClass="pdv-cli-page"
+      filtersClass="pdv-cad-filters-linha"
+      onSearch={(values) => setBusca({ nome: values.nome || "", plano: values.plano || "" })}
     />
   )
 }
@@ -516,8 +863,16 @@ export function TransferenciaLojas() {
     />
   )
 }
-type TransferOrder = { id: string; code: string; date: string; state: string; total: number }
 type TransferLine = { code: string; name: string; qty: number; price: number; imeis: string[] }
+type TransferOrder = {
+  id: string
+  code: string
+  date: string
+  state: string
+  total: number
+  received?: boolean
+  lines?: TransferLine[]
+}
 
 function money(value: number) {
   return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
@@ -530,6 +885,46 @@ function parseMoney(value: string) {
   const number = Number(normalized)
   if (!Number.isFinite(number) || number < 0) return null
   return Math.round(number * 100) / 100
+}
+
+function inteirosReais(value: string) {
+  const body = value.replace(/R\$/gi, "")
+  const comma = body.indexOf(",")
+  const digits = (comma === -1 ? body : body.slice(0, comma)).replace(/\D/g, "")
+  return digits.replace(/^0+(?=\d)/, "")
+}
+
+function formatReais(intDigits: string, cents: string) {
+  const intClean = intDigits.replace(/\D/g, "").replace(/^0+(?=\d)/, "") || "0"
+  const grouped = intClean.replace(/\B(?=(\d{3})+(?!\d))/g, ".")
+  const dec = `${cents.replace(/\D/g, "")}00`.slice(0, 2)
+  return `R$ ${grouped},${dec}`
+}
+
+function maskValorReais(previous: string, raw: string) {
+  const prev = previous.trim() || "R$ 0,00"
+  if (!raw.trim()) return "R$ 0,00"
+  const prevCompact = prev.replace(/\s/g, "")
+  const rawCompact = raw.replace(/\s/g, "")
+  if (prevCompact.endsWith(",00") && rawCompact.startsWith(prevCompact)) {
+    const extra = rawCompact.slice(prevCompact.length).replace(/\D/g, "")
+    if (extra) return formatReais(inteirosReais(prev) + extra, "00")
+  }
+  if (prevCompact.endsWith(",00") && rawCompact === prevCompact.slice(0, -1)) {
+    const ints = inteirosReais(prev)
+    return formatReais(ints.length <= 1 ? "" : ints.slice(0, -1), "00")
+  }
+  const cleaned = raw.replace(/R\$/gi, "").replace(/[^\d,]/g, "")
+  if (!cleaned) return "R$ 0,00"
+  const comma = cleaned.indexOf(",")
+  if (comma === -1) return formatReais(cleaned, "00")
+  return formatReais(cleaned.slice(0, comma), cleaned.slice(comma + 1))
+}
+
+function formatValorLista(value: unknown) {
+  const parsed = parseMoney(String(value ?? ""))
+  if (parsed == null) return "—"
+  return `R$ ${parsed.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }
 
 function maskUnitPrice(raw: string) {
@@ -545,39 +940,97 @@ function maskUnitPrice(raw: string) {
 
 type TransferDetail = TransferOrder & { received: boolean; lines: TransferLine[] }
 
+type TransferFaixa = "abertas" | "concluidas" | "estornadas"
+
 export function TransferenciasList({ title }: { title: string }) {
-  const recebidasAbertas = title.includes("RECEBID") && title.includes("ABERT")
-  const recebidasConcluidas = title.includes("RECEBID") && title.includes("CONCLU")
-  const estornadas = title.includes("ESTORNAD")
-  const kind = estornadas ? "estornadas" : recebidasAbertas ? "abertas" : recebidasConcluidas ? "recebidas" : ""
+  const navigate = useNavigate()
+  const { pathname } = useLocation()
+  const recebidas = /\/transferencias\/recebidas\/(abertas|concluidas|estornadas)\/?$/.test(pathname)
+  const faixa: TransferFaixa = pathname.includes("/estornadas")
+    ? "estornadas"
+    : pathname.includes("/concluidas")
+      ? "concluidas"
+      : "abertas"
+  const recebidasAbertas = recebidas && faixa === "abertas"
+  const recebidasConcluidas = recebidas && faixa === "concluidas"
+  const estornadas = title.includes("ESTORNAD") && !recebidas
+  const kind = recebidas
+    ? faixa === "concluidas" ? "recebidas" : faixa
+    : estornadas
+      ? "estornadas"
+      : title.includes("RECEBID") && title.includes("CONCLU")
+        ? "recebidas"
+        : title.includes("ABERT")
+          ? "abertas"
+          : ""
   const [orders, setOrders] = useState<TransferOrder[]>([])
+  const [grupos, setGrupos] = useState<Record<TransferFaixa, TransferOrder[]>>({
+    abertas: [],
+    concluidas: [],
+    estornadas: [],
+  })
   const [detail, setDetail] = useState<TransferDetail | null>(null)
   const [openIndex, setOpenIndex] = useState<number | null>(null)
   const openRef = useRef<number | null>(null)
-  const [notice, setNotice] = useState("")
   const [error, setError] = useState("")
-  const [confirmingId, setConfirmingId] = useState<string | null>(null)
   const confirmingRef = useRef<string | null>(null)
   const [openLines, setOpenLines] = useState<Record<string, boolean>>({})
   const [priceDraft, setPriceDraft] = useState<Record<string, string>>({})
 
+  function takeOrders(data: { orders?: TransferOrder[] } | undefined) {
+    return Array.isArray(data?.orders) ? data.orders : []
+  }
+
   function load() {
+    if (recebidas) {
+      Promise.all([
+        api.get("/clients/transferencias", { params: { kind: "abertas" } }),
+        api.get("/clients/transferencias", { params: { kind: "recebidas" } }),
+        api.get("/clients/transferencias", { params: { kind: "estornadas" } }),
+      ])
+        .then(([abertas, concluidas, estornadasRes]) => {
+          setGrupos({
+            abertas: takeOrders(abertas.data),
+            concluidas: takeOrders(concluidas.data),
+            estornadas: takeOrders(estornadasRes.data),
+          })
+        })
+        .catch(() => setGrupos({ abertas: [], concluidas: [], estornadas: [] }))
+      return
+    }
     if (!kind) return
     api
       .get("/clients/transferencias", { params: { kind } })
       .then(({ data }) => {
-        setOrders(Array.isArray(data?.orders) ? data.orders : [])
+        setOrders(takeOrders(data))
       })
       .catch(() => setOrders([]))
   }
 
   useEffect(() => {
     load()
-  }, [kind])
+  }, [recebidas, recebidas ? "recebidas" : kind])
+
+  useEffect(() => {
+    openRef.current = null
+    setOpenIndex(null)
+    setDetail(null)
+    setOpenLines({})
+  }, [faixa])
+
+  const lista = recebidas ? grupos[faixa] : orders
+
+  function asDetail(order: TransferOrder): TransferDetail {
+    return {
+      ...order,
+      received: Boolean(order.received) || faixa === "concluidas",
+      lines: order.lines || [],
+    }
+  }
 
   function openOrder(index: number) {
-    const order = orders[index]
-    if (!order || (!recebidasAbertas && !recebidasConcluidas)) return
+    const order = lista[index]
+    if (!order || (!recebidasAbertas && !recebidasConcluidas && !(recebidas && faixa === "estornadas"))) return
     if (openIndex === index) {
       openRef.current = null
       setOpenIndex(null)
@@ -587,20 +1040,9 @@ export function TransferenciasList({ title }: { title: string }) {
     }
     openRef.current = index
     setOpenIndex(index)
-    setDetail(null)
+    setDetail(asDetail(order))
     setOpenLines({})
-    setNotice("")
     setError("")
-    api
-      .get(`/clients/transferencias/${order.id}`)
-      .then(({ data }) => {
-        if (openRef.current !== index) return
-        setDetail(data.order)
-      })
-      .catch((err) => {
-        if (openRef.current !== index) return
-        setError(parseError(err).message || "Não foi possível abrir o pedido.")
-      })
   }
 
   async function savePrice(index: number, line: TransferLine, raw: string) {
@@ -628,6 +1070,10 @@ export function TransferenciasList({ title }: { title: string }) {
         lines: current.lines.map((item, itemIndex) => itemIndex === index ? { ...item, price } : item),
       } : current)
       setOrders((current) => current.map((order) => order.id === orderId ? { ...order, total } : order))
+      setGrupos((current) => ({
+        ...current,
+        [faixa]: current[faixa].map((order) => order.id === orderId ? { ...order, total } : order),
+      }))
     } catch (err) {
       setError(parseError(err).message || "Não foi possível salvar o valor.")
     }
@@ -636,25 +1082,34 @@ export function TransferenciasList({ title }: { title: string }) {
   async function confirmReceipt(order: TransferOrder, event: MouseEvent<HTMLButtonElement>) {
     event.stopPropagation()
     if (confirmingRef.current) return
+    if (!window.confirm(`Confirmar recebimento do pedido ${order.code}?`)) return
     confirmingRef.current = order.id
-    setConfirmingId(order.id)
     setError("")
+    openRef.current = null
+    setOpenIndex(null)
+    setDetail(null)
+    setGrupos((current) => ({
+      abertas: current.abertas.filter((item) => item.id !== order.id),
+      concluidas: [{ ...order, received: true }, ...current.concluidas],
+      estornadas: current.estornadas,
+    }))
     try {
       await api.post(`/clients/transferencias/${order.id}/receber`)
-      openRef.current = null
-      setOpenIndex(null)
-      setDetail(null)
-      setNotice("Recebimento confirmado. As quantidades entraram no estoque da loja.")
-      load()
     } catch (err) {
+      setGrupos((current) => ({
+        abertas: current.abertas.some((item) => item.id === order.id)
+          ? current.abertas
+          : [order, ...current.abertas],
+        concluidas: current.concluidas.filter((item) => item.id !== order.id),
+        estornadas: current.estornadas,
+      }))
       setError(parseError(err).message || "Não foi possível confirmar o recebimento.")
     } finally {
       confirmingRef.current = null
-      setConfirmingId(null)
     }
   }
 
-  const rows = orders.map((order) => [
+  const rows = lista.map((order) => [
     order.code,
     "Esta loja",
     new Date(order.date).toLocaleString("pt-BR"),
@@ -749,28 +1204,62 @@ export function TransferenciasList({ title }: { title: string }) {
         </tbody>
       </table>
     </section>
-  ) : (
-    <p className="pdv-cad-kicker">{error || "Abrindo pedido..."}</p>
-  )
+  ) : error ? (
+    <p className="pdv-cad-kicker">{error}</p>
+  ) : null
+
+  const cards = recebidas ? (
+    <div className="pdv-compra-cards pdv-compra-cards-3">
+      <button
+        type="button"
+        className={`pdv-compra-card pdv-compra-card-abertas${faixa === "abertas" ? " is-on" : ""}`}
+        onClick={() => navigate("/client/movimentacoes/transferencias/recebidas/abertas")}
+      >
+        <Clock size={22} strokeWidth={2.4} aria-hidden="true" />
+        <span>Abertas</span>
+        <strong>{grupos.abertas.length}</strong>
+      </button>
+      <button
+        type="button"
+        className={`pdv-compra-card pdv-compra-card-concluidas${faixa === "concluidas" ? " is-on" : ""}`}
+        onClick={() => navigate("/client/movimentacoes/transferencias/recebidas/concluidas")}
+      >
+        <CheckCircle2 size={22} strokeWidth={2.4} aria-hidden="true" />
+        <span>Concluídas</span>
+        <strong>{grupos.concluidas.length}</strong>
+      </button>
+      <button
+        type="button"
+        className={`pdv-compra-card pdv-compra-card-estornadas${faixa === "estornadas" ? " is-on" : ""}`}
+        onClick={() => navigate("/client/movimentacoes/transferencias/recebidas/estornadas")}
+      >
+        <RotateCcw size={22} strokeWidth={2.4} aria-hidden="true" />
+        <span>Estornadas</span>
+        <strong>{grupos.estornadas.length}</strong>
+      </button>
+    </div>
+  ) : null
 
   return (
     <FilterPage
-      title={title}
+      title={recebidas ? "TRANSFERÊNCIAS RECEBIDAS" : title}
+      pageClass="pdv-cli-page"
       fields={[
         { key: "cod", label: "Código" },
         { key: "loja", label: "Loja" },
       ]}
+      lead={cards}
       columns={["Código", "Loja Destino", "Data", "Total"]}
-      rows={kind ? rows : undefined}
-      hint={error || notice || (kind && !orders.length ? "Nenhum pedido neste painel." : undefined)}
+      rows={kind || recebidas ? rows : undefined}
+      hint={error || ((kind || recebidas) && !lista.length ? "Nenhum pedido neste painel." : undefined)}
       premium
-      onRowClick={recebidasAbertas ? openOrder : undefined}
+      onRowClick={recebidasAbertas || recebidasConcluidas || (recebidas && faixa === "estornadas") ? openOrder : undefined}
       expandedIndex={openIndex}
       expanded={expanded}
-      closedAction={recebidasAbertas || recebidasConcluidas ? (index) => {
-        const order = orders[index]
+      closedAction={recebidas || recebidasAbertas || recebidasConcluidas ? (index) => {
+        const order = lista[index]
         if (!order) return null
-        if (recebidasConcluidas) {
+        if (!recebidasAbertas) {
           const open = openIndex === index
           return (
             <button
@@ -785,15 +1274,13 @@ export function TransferenciasList({ title }: { title: string }) {
             </button>
           )
         }
-        const confirming = confirmingId === order.id
         return (
           <button
             className="pdv-cad-receive-go"
             type="button"
-            disabled={confirming}
             onClick={(event) => confirmReceipt(order, event)}
           >
-            {confirming ? "Confirmando..." : "Confirmar recebimento"}
+            Confirmar recebimento
           </button>
         )
       } : undefined}

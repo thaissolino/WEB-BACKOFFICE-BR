@@ -114,7 +114,7 @@
   flex: 0 0 auto;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 12px 16px;
   min-height: 56px;
   padding: 6px var(--gutter);
@@ -177,10 +177,144 @@
 
 .pdv-brand {
   display: flex;
-  align-items: flex-start;
-  gap: 8px;
+  align-items: center;
+  gap: 12px;
   min-width: 0;
   justify-self: start;
+}
+
+.pdv-header .pdv-menubar {
+  flex: 0 1 auto;
+  width: auto;
+  height: auto;
+  min-height: 0;
+  margin-left: 28px;
+  gap: 10px;
+  background: transparent;
+  border-bottom: 0;
+}
+
+.pdv-header .pdv-dd-trigger {
+  height: 40px;
+  min-height: 40px;
+  border: 1px solid #d4cbbd;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #1a1511 !important;
+  -webkit-text-fill-color: #1a1511 !important;
+}
+
+.pdv-header .pdv-dd-trigger:hover,
+.pdv-header .pdv-dd[data-open="true"] > .pdv-dd-trigger,
+.pdv-header .pdv-menubar > .pdv-dd-trigger[data-active="true"],
+.pdv-header .pdv-menubar > .pdv-dd-trigger[aria-current="page"] {
+  background: #ffffff !important;
+  border-color: #1a1511;
+  color: #1a1511 !important;
+  -webkit-text-fill-color: #1a1511 !important;
+}
+
+.pdv-header .pdv-search {
+  display: block;
+  flex: 0 0 auto;
+  width: 17.5rem;
+  max-width: 17.5rem;
+  min-width: 17.5rem;
+  margin-left: auto;
+  align-self: center;
+}
+
+.pdv-header .pdv-search-head {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.pdv-header .pdv-search-row {
+  background: #ffffff;
+  border-radius: 999px;
+}
+
+.pdv-header .pdv-search-input,
+.pdv-header .pdv-search-input[type="search"],
+.pdv-root[data-surface="cream"] .pdv-header .pdv-search-input,
+.pdv-root[data-layout="classic"] .pdv-header .pdv-search-input,
+.pdv-root[data-layout="premium"] .pdv-header .pdv-search-input {
+  height: 40px;
+  min-height: 40px;
+  padding: 0 36px;
+  border: 1px solid #d4cbbd;
+  border-radius: 999px;
+  appearance: none;
+  -webkit-appearance: none;
+  background: #ffffff !important;
+  background-color: #ffffff !important;
+  box-shadow: inset 0 0 0 40px #ffffff;
+  color: #1a1511;
+  -webkit-text-fill-color: #1a1511;
+  color-scheme: light;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-align: center;
+}
+
+.pdv-header .pdv-search-input::-webkit-search-decoration,
+.pdv-header .pdv-search-input::-webkit-search-cancel-button,
+.pdv-header .pdv-search-input::-webkit-search-results-button,
+.pdv-header .pdv-search-input::-webkit-search-results-decoration {
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.pdv-header .pdv-search-input::placeholder {
+  color: #1a1511;
+  -webkit-text-fill-color: #1a1511;
+  opacity: 1;
+  text-align: center;
+}
+
+.pdv-header .pdv-search-icon {
+  left: 14px;
+}
+
+.pdv-header-side {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  margin-left: 12px;
+  flex: 0 0 auto;
+  width: max-content;
+  max-width: 100%;
+}
+
+.pdv-header-side .pdv-icons {
+  justify-content: flex-start;
+  width: max-content;
+  max-width: 100%;
+}
+
+.pdv-header-side .pdv-shop {
+  width: 100%;
+  align-self: stretch;
+  box-sizing: border-box;
+}
+
+.pdv-header-side .pdv-shop-trigger {
+  min-width: 0;
+}
+
+.pdv-header-side .pdv-shop-trigger span {
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* Header chip: the button IS the logo. Beat Tailwind [type=button] + grouped .pdv-store-logo. */
@@ -878,7 +1012,8 @@
   max-height: none;
   overflow: visible !important;
   padding: 6px;
-  background: rgba(255, 253, 248, 0.96);
+  background: #ffffff;
+  isolation: isolate;
   border: 1px solid var(--line);
   border-radius: 16px;
   box-shadow: 0 18px 44px rgba(26, 21, 17, 0.16);
@@ -928,6 +1063,8 @@
   font-size: 0.92rem;
   font-weight: 600;
   text-align: left;
+  text-decoration: none;
+  box-sizing: border-box;
   white-space: nowrap;
   cursor: pointer;
   touch-action: manipulation;
@@ -2076,6 +2213,9 @@
   outline-offset: 3px;
 }
 
+.pdv-root input:focus-visible,
+.pdv-root textarea:focus-visible,
+.pdv-root select:focus-visible,
 .pdv-root .pdv-date:focus-visible,
 .pdv-root .pdv-select:focus-visible {
   outline: none;
@@ -2711,13 +2851,19 @@
   .pdv-search {
     grid-area: search;
     flex: none;
-    max-width: 420px;
-    justify-self: start;
-    width: min(420px, 100%);
+    max-width: none;
+    width: 100%;
+    margin-left: 0;
+    justify-self: stretch;
+  }
+
+  .pdv-header-side {
+    grid-area: icons;
+    justify-self: end;
+    margin-left: 0;
   }
 
   .pdv-icons {
-    grid-area: icons;
     justify-self: end;
   }
 }
@@ -2733,8 +2879,14 @@
 
   .pdv-search {
     width: 100%;
-    max-width: 420px;
+    max-width: none;
+    margin-left: 0;
     justify-self: stretch;
+  }
+
+  .pdv-header-side {
+    justify-self: start;
+    align-items: stretch;
   }
 
   .pdv-icons {
@@ -2934,6 +3086,19 @@
   -webkit-text-fill-color: #fffdf8 !important;
 }
 
+.pdv-root[data-layout="premium"] .pdv-header .pdv-dd-trigger {
+  border: 1px solid #d4cbbd;
+  background: #fffdf8;
+}
+
+.pdv-root[data-layout="premium"] .pdv-header .pdv-dd-trigger:hover,
+.pdv-root[data-layout="premium"] .pdv-header .pdv-dd[data-open="true"] > .pdv-dd-trigger {
+  border-color: var(--ink);
+  background: #ffffff !important;
+  color: #1a1511 !important;
+  -webkit-text-fill-color: #1a1511 !important;
+}
+
 .pdv-root[data-layout="premium"] .pdv-close-demo,
 .pdv-root[data-layout="premium"] .pdv-period,
 .pdv-root[data-layout="premium"] .pdv-shop {
@@ -2979,4 +3144,26 @@
 
 .pdv-root[data-layout="premium"] .pdv-shop-option {
   border-radius: 0.6rem;
+}
+
+.pdv-root input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="hidden"]):not([type="button"]):not([type="submit"]):not([type="reset"]):not([type="image"]):not([type="color"]),
+.pdv-root textarea,
+.pdv-root select {
+  appearance: none;
+  -webkit-appearance: none;
+  background: #ffffff !important;
+  background-color: #ffffff !important;
+  color: #1a1511 !important;
+  -webkit-text-fill-color: #1a1511 !important;
+  color-scheme: light;
+}
+
+.pdv-root input[type="search"] {
+  box-shadow: inset 0 0 0 100px #ffffff;
+}
+
+.pdv-root input[type="search"]::-webkit-search-decoration,
+.pdv-root input[type="search"]::-webkit-search-cancel-button {
+  appearance: none;
+  -webkit-appearance: none;
 }

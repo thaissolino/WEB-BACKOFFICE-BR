@@ -54,10 +54,8 @@ export function ProductSearchSelect({ products, value, onChange, inline = false,
 
   return (
     <div ref={dropdownRef} className={`relative ${inline ? 'mb-0' : 'mb-1'}`}>
-      <label className="block text-sm font-medium text-gray-700 mb-1">Produto</label>
-
       <div
-        className={`w-full border border-gray-300 rounded-md p-2 flex items-center whitespace-nowrap overflow-hidden text-ellipsis ${
+        className={`w-full min-h-[40px] border border-[#ddd4c6] rounded-full px-4 py-2 flex items-center whitespace-nowrap overflow-hidden text-ellipsis ${
           disabled ? "bg-gray-100 text-gray-500 cursor-not-allowed" : "bg-white cursor-pointer"
         }`}
         onClick={() => {

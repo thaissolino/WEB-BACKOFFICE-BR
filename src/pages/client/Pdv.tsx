@@ -2,6 +2,7 @@ import { FormEvent, useEffect, useMemo, useRef, useState } from "react"
 import { Navigate, useNavigate } from "react-router-dom"
 import {
   ArrowLeft,
+  ArrowLeftRight,
   Banknote,
   Check,
   Minus,
@@ -20,12 +21,13 @@ import { avisarSalvo } from "./avisoSalvo"
 import { EVENTO_DESCONTO, eventoPermitido } from "./cadastros/usuarios/groupEvents"
 import PdvShell, { PdvLoading, usePdvSession } from "./dashboard/PdvShell"
 import { api, parseError } from "../../services/api"
-import { formatMoneyBr, formatMoneyRs, lojaProductName, parseMoneyBr, productSalePrice, type PdvProduct } from "./cadastros/produtos/types"
+import { formatMoneyBr, formatMoneyRs, lojaProductName, parseMoneyBr, productSalePrice, produtoRotulo, type PdvProduct } from "./cadastros/produtos/types"
+import SearchableSelect from "./cadastros/produtos/SearchableSelect"
 import { listLojaCaixas } from "./cadastros/financeiro/caixaApi"
 import { listCatalog } from "./cadastros/catalog/catalogApi"
 import { categoryFromCatalog, type ProductCategory } from "./cadastros/produtos/categoryModel"
-import { CAIXA_STORAGE_KEY } from "./dashboard/mockData"
-import { destinatarioPorNome, ReciboNota, type ReciboDestinatario } from "./pdv/ReciboNota"
+import { CAIXA_SNAP_KEY, CAIXA_STORAGE_KEY } from "./dashboard/mockData"
+import { carregarTextosRecibo, destinatarioPorNome, ReciboNota, type ReciboDestinatario, type TextoImpressao } from "./pdv/ReciboNota"
 import { emitenteDaLoja } from "./pdv/emitenteLoja"
 import "./cadastros/cadastros.css"
 
@@ -43,6 +45,8 @@ type CartLine = {
   category: string
   requireSerial: boolean
   serials: string[]
+  seller: string
+  sellerCustom: boolean
 }
 
 type TrocaEntrada = { productId: string; code: string; name: string; imei: string }
@@ -60,7 +64,7 @@ type OpenSale = {
   customerName: string
   sellerName: string
   notes?: string
-  lines: Array<{ productId: string; code?: string; name: string; qty: number; price: number; discount: number; serials?: string[]; category?: string }>
+  lines: Array<{ productId: string; code?: string; name: string; qty: number; price: number; discount: number; serials?: string[]; category?: string; categoryId?: string; reference?: string; lojaStock?: number; seller?: string }>
   payments: PayLine[]
   total: number
   received: number
@@ -157,6 +161,15 @@ function vendaAtiva(payload: Record<string, unknown>) {
   return flag !== false && String(flag) !== "false"
 }
 
+function ordemPagamento(nome: string) {
+  const n = nome.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase()
+  if (/cartao|credito|debito/.test(n)) return 0
+  if (/dinheiro/.test(n)) return 1
+  if (/\bpix\b/.test(n)) return 2
+  if (/troca/.test(n)) return 3
+  return 4
+}
+
 function nomesCadastrados(rows: Array<{ name: string; payload: Record<string, unknown> }>) {
   return rows
     .filter((item) => item.name.trim() && vendaAtiva(item.payload))
@@ -183,47 +196,212 @@ function textoAjuste(value: number) {
   return formatMoneyRs(0)
 }
 
-function AjusteCampo({
-  value,
-  enabled,
-  max,
+function CampoValor({
+  texto,
+  editavel,
+  aria,
+  title,
+  onChangeText,
   onCommit,
 }: {
-  value: number
-  enabled: boolean
-  max: number
-  onCommit: (next: number) => void
+  texto: string
+  editavel: boolean
+  aria: string
+  title?: string
+  onChangeText?: (raw: string) => string
+  onCommit: (raw: string) => void
 }) {
-  const [text, setText] = useState(textoAjuste(value))
-  useEffect(() => setText(textoAjuste(value)), [value])
-  if (!enabled) {
-    return <span className="cx-ajuste-fixo" title="Sem autorização para alterar desconto/acréscimo">{textoAjuste(value)}</span>
+  const [editando, setEditando] = useState(false)
+  const [text, setText] = useState(texto)
+  const ref = useRef<HTMLInputElement>(null)
+  const cancelar = useRef(false)
+  useEffect(() => {
+    if (!editando) setText(texto)
+  }, [texto, editando])
+  useEffect(() => {
+    if (!editando) return
+    const field = ref.current
+    if (!field) return
+    field.focus()
+    field.select()
+  }, [editando])
+  if (!editavel || !editando) {
+    return (
+      <span
+        className="cx-line-money"
+        title={editavel ? "Duplo clique para editar" : title}
+        onMouseDown={(event) => {
+          if (event.detail > 1) event.preventDefault()
+        }}
+        onDoubleClick={() => {
+          if (editavel) setEditando(true)
+        }}
+      >
+        {texto}
+      </span>
+    )
   }
   return (
     <input
-      className="cx-ajuste"
+      ref={ref}
+      className="cx-line-money"
       value={text}
       inputMode="decimal"
-      aria-label="Desconto ou acréscimo"
-      title="Número positivo acresce e soma no subtotal. Com menos na frente, desconta."
-      onChange={(event) => setText(event.target.value)}
+      aria-label={aria}
+      title={title}
+      onChange={(event) => setText(onChangeText ? onChangeText(event.target.value) : event.target.value)}
       onBlur={() => {
-        const typed = parseAjuste(text)
-        const next = typed > 0 ? Math.min(typed, max) : typed
-        onCommit(next)
-        setText(textoAjuste(next))
+        if (cancelar.current) {
+          cancelar.current = false
+          setEditando(false)
+          return
+        }
+        onCommit(text)
+        setEditando(false)
       }}
       onKeyDown={(event) => {
-        if (event.key === "Enter") (event.target as HTMLInputElement).blur()
+        if (event.key === "Enter") event.currentTarget.blur()
+        if (event.key === "Escape") {
+          cancelar.current = true
+          setText(texto)
+          setEditando(false)
+        }
       }}
     />
   )
 }
 
+function ValorPagamento({ amount, onCommit }: { amount: number; onCommit: (next: number) => void }) {
+  const [texto, setTexto] = useState(() => (amount > 0 ? formatMoneyBr(amount) : ""))
+  const foco = useRef(false)
+  useEffect(() => {
+    if (!foco.current) setTexto(amount > 0 ? formatMoneyBr(amount) : "")
+  }, [amount])
+  return (
+    <input
+      inputMode="decimal"
+      value={texto}
+      aria-label="Valor do pagamento"
+      onFocus={(event) => {
+        foco.current = true
+        event.currentTarget.select()
+      }}
+      onMouseUp={(event) => event.preventDefault()}
+      onChange={(event) => {
+        const next = valorDigitado(event.target.value)
+        setTexto(next)
+        onCommit(parseMoneyBr(next))
+      }}
+      onBlur={() => {
+        foco.current = false
+        const next = parseMoneyBr(texto)
+        onCommit(Number.isFinite(next) ? next : 0)
+        setTexto(next > 0 ? formatMoneyBr(next) : "")
+      }}
+    />
+  )
+}
+
+function AjusteCampo({
+  value,
+  enabled,
+  max,
+  title,
+  onCommit,
+}: {
+  value: number
+  enabled: boolean
+  max: number
+  title?: string
+  onCommit: (next: number) => void
+}) {
+  return (
+    <CampoValor
+      texto={textoAjuste(value)}
+      editavel={enabled}
+      aria="Desconto ou acréscimo"
+      title={enabled ? "Duplo clique para editar. Com menos na frente, desconta." : title || "Sem autorização para alterar desconto/acréscimo"}
+      onCommit={(raw) => {
+        const typed = parseAjuste(raw)
+        onCommit(typed > 0 ? Math.min(typed, max) : typed)
+      }}
+    />
+  )
+}
+
+function VendedorItem({
+  value,
+  options,
+  onChange,
+}: {
+  value: string
+  options: string[]
+  onChange: (next: string) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!open) return
+    function onPointer(event: PointerEvent) {
+      if (!ref.current?.contains(event.target as Node)) setOpen(false)
+    }
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "Escape") setOpen(false)
+    }
+    document.addEventListener("pointerdown", onPointer)
+    document.addEventListener("keydown", onKey)
+    return () => {
+      document.removeEventListener("pointerdown", onPointer)
+      document.removeEventListener("keydown", onKey)
+    }
+  }, [open])
+  return (
+    <div className="cx-line-seller" ref={ref}>
+      <button className="cx-seller-swap" type="button" aria-label="Alterar vendedor deste item" onClick={() => setOpen((current) => !current)}>
+        <ArrowLeftRight size={14} strokeWidth={2.2} />
+      </button>
+      <strong>{value}</strong>
+      {open ? (
+        <ul className="cx-seller-menu">
+          {options.map((name) => (
+            <li key={name}>
+              <button type="button" onClick={() => { onChange(name); setOpen(false) }}>{name}</button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </div>
+  )
+}
+
+function PrecoCampo({ value, editavel = true, onCommit }: { value: number; editavel?: boolean; onCommit: (next: number) => void }) {
+  return (
+    <CampoValor
+      texto={formatMoneyRs(value)}
+      editavel={editavel}
+      aria="Valor unitário"
+      title={editavel ? "Duplo clique para editar" : "Valor definido no outro caixa"}
+      onChangeText={(raw) => {
+        const numero = valorDigitado(raw)
+        return numero ? `R$ ${numero}` : "R$ "
+      }}
+      onCommit={(raw) => onCommit(Math.max(0, parseMoneyBr(raw.replace(/[^\d,.-]/g, ""))))}
+    />
+  )
+}
+
+function semCategoria(categoryId: string, category: string) {
+  const id = categoryId.trim()
+  const name = category.trim()
+  if (!id && !name) return true
+  const limpo = name.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase()
+  return limpo === "sem categoria" || limpo === "-" || limpo === "—"
+}
+
 function serialObrigatorio(flags: ProductCategory[], categoryId: string, category: string) {
   const id = categoryId.trim()
   const name = category.trim().toLowerCase()
-  if (!id && !name) return false
+  if (semCategoria(id, category)) return true
   const row = flags.find((item) => item.id === id || item.name.trim().toLowerCase() === name || String(item.code) === id)
   return row ? row.requireSerial : true
 }
@@ -288,8 +466,10 @@ function SeletorImei({
     <div className="cx-imei-pick">
       <input
         value={aberto ? q : value}
-        placeholder="Buscar IMEI deste produto"
-        aria-label="IMEI deste produto"
+        placeholder="Informe o IMEI"
+        aria-label="Informe o IMEI"
+        size={15}
+        maxLength={20}
         autoComplete="off"
         spellCheck={false}
         onFocus={() => {
@@ -366,7 +546,42 @@ function semNumeroRepetido(list: PessoaNota[]) {
   })
 }
 
+function caixaAberto() {
+  if (typeof sessionStorage === "undefined") return null
+  const name = sessionStorage.getItem(CAIXA_STORAGE_KEY) || ""
+  if (!name) return null
+  try {
+    const snap = JSON.parse(sessionStorage.getItem(CAIXA_SNAP_KEY) || "") as { code?: number; name?: string; payload?: Record<string, unknown> }
+    if (snap?.name === name) return { code: Number(snap.code) || 0, name, payload: snap.payload || {} }
+  } catch {
+    /* segue com o nome salvo */
+  }
+  return { code: 0, name, payload: {} as Record<string, unknown> }
+}
+
+function nomesLista(value: unknown) {
+  if (!Array.isArray(value)) return []
+  return value.flatMap((item) => {
+    if (typeof item === "string" || typeof item === "number") {
+      const nome = String(item).trim()
+      return nome ? [nome] : []
+    }
+    if (item && typeof item === "object") {
+      const registro = item as { name?: unknown; nome?: unknown }
+      const nome = String(registro.name || registro.nome || "").trim()
+      return nome ? [nome] : []
+    }
+    return []
+  })
+}
+
+function nomesPagamento(payload: Record<string, unknown>) {
+  const nomes = Array.isArray(payload.formasPagamento) ? payload.formasPagamento.map(String).filter(Boolean) : []
+  return nomes.slice().sort((a, b) => ordemPagamento(a) - ordemPagamento(b) || a.localeCompare(b, "pt-BR"))
+}
+
 function PdvBoard() {
+  const aberto = useState(caixaAberto)[0]
   const { client } = useClientAuth()
   const { storeId, storeName } = usePdvSession()
   const [emitente, setEmitente] = useState<Emitente>({ name: "", document: "", phone: "", address: "", city: "" })
@@ -375,6 +590,7 @@ function PdvBoard() {
   const [clientQuery, setClientQuery] = useState("")
   const [customers, setCustomers] = useState<PessoaNota[]>([])
   const [clientPickerOpen, setClientPickerOpen] = useState(false)
+  const clientSearchRef = useRef<HTMLInputElement>(null)
   const [productSearchOpen, setProductSearchOpen] = useState(false)
   const [pickerQuery, setPickerQuery] = useState("")
   const [pickerHits, setPickerHits] = useState<PdvProduct[]>([])
@@ -390,6 +606,9 @@ function PdvBoard() {
   const [observacao, setObservacao] = useState("")
   const [finishingSaleId, setFinishingSaleId] = useState<string | null>(null)
   const [finishingCode, setFinishingCode] = useState("")
+  const [proximaVenda, setProximaVenda] = useState("")
+  const [vendaEnviada, setVendaEnviada] = useState("")
+  const [askNova, setAskNova] = useState(false)
   const [reserved, setReserved] = useState<Record<string, number>>({})
   const [payMeta, setPayMeta] = useState<Record<string, PayMeta>>({})
   const [payParcelas, setPayParcelas] = useState(1)
@@ -399,8 +618,8 @@ function PdvBoard() {
   const [serialFlags, setSerialFlags] = useState<ProductCategory[]>([])
   const serialFlagsRef = useRef(serialFlags)
   serialFlagsRef.current = serialFlags
-  const [methods, setMethods] = useState<string[]>([])
-  const [payMethod, setPayMethod] = useState("")
+  const [methods, setMethods] = useState<string[]>(() => nomesPagamento(aberto?.payload || {}))
+  const [payMethod, setPayMethod] = useState(() => nomesPagamento(aberto?.payload || {})[0] || "")
   const [received, setReceived] = useState("")
   const [payments, setPayments] = useState<PayLine[]>([])
   const [trocaOpen, setTrocaOpen] = useState(false)
@@ -410,20 +629,26 @@ function PdvBoard() {
   const [trocaPick, setTrocaPick] = useState<PdvProduct | null>(null)
   const [trocaImei, setTrocaImei] = useState("")
   const [trocaValor, setTrocaValor] = useState("")
-  const [sellers, setSellers] = useState<string[]>([])
+  const [sellers, setSellers] = useState<string[]>(() => nomesLista(aberto?.payload.vendedores))
   const [seller, setSeller] = useState("")
-  const [obrigarVendedor, setObrigarVendedor] = useState(true)
+  const [obrigarVendedor, setObrigarVendedor] = useState(aberto?.payload.obrigarVendedor !== false)
   const [sellerAccounts, setSellerAccounts] = useState<Array<{ code: number; name: string; must: boolean }>>([])
   const sellerNames = useMemo(() => {
-    if (sellers.length) return sellers
-    return sellerAccounts.map((item) => item.name).filter(Boolean)
+    const daCaixa = nomesLista(sellers)
+    const contas = sellerAccounts.map((item) => item.name.trim()).filter(Boolean)
+    if (!daCaixa.length) return contas
+    if (!contas.length) return daCaixa
+    const permitidos = new Set(daCaixa.map((nome) => nome.toLocaleLowerCase("pt-BR")))
+    const doCaixa = contas.filter((nome) => permitidos.has(nome.toLocaleLowerCase("pt-BR")))
+    return doCaixa.length ? doCaixa : daCaixa
   }, [sellers, sellerAccounts])
   const [passAsk, setPassAsk] = useState<{ code: number; name: string } | null>(null)
   const [nextPass, setNextPass] = useState("")
-  const [caixaName, setCaixaName] = useState("")
-  const [caixaCode, setCaixaCode] = useState(0)
-  const [modo, setModo] = useState<"finaliza" | "espera">("finaliza")
-  const [permitirTrocarCaixa, setPermitirTrocarCaixa] = useState(true)
+  const [caixaName, setCaixaName] = useState(aberto?.name || "")
+  const [caixaOrigem, setCaixaOrigem] = useState("")
+  const [caixaCode, setCaixaCode] = useState(aberto?.code || 0)
+  const [modo, setModo] = useState<"finaliza" | "espera">(aberto?.payload.modo === "espera" ? "espera" : "finaliza")
+  const [permitirTrocarCaixa, setPermitirTrocarCaixa] = useState(aberto?.payload.permitirTrocarCaixa !== false)
   const [podeAjuste, setPodeAjuste] = useState(false)
   const [toast, setToast] = useState("")
   const [stockAlert, setStockAlert] = useState<string | null>(null)
@@ -432,8 +657,13 @@ function PdvBoard() {
   const [openSales, setOpenSales] = useState<OpenSale[] | null>(null)
   const [printSale, setPrintSale] = useState<PrintedSale | null>(null)
   const [pessoaAberta, setPessoaAberta] = useState<ReciboDestinatario>({ nome: "" })
+  const [textosNota, setTextosNota] = useState<TextoImpressao[]>([])
   const [blockTrocarModal, setBlockTrocarModal] = useState(false)
   const canBaixa = modo === "finaliza"
+
+  useEffect(() => {
+    carregarTextosRecibo().then(setTextosNota).catch(() => setTextosNota([]))
+  }, [])
 
   useEffect(() => {
     let vivo = true
@@ -466,6 +696,12 @@ function PdvBoard() {
   }, [serialFlags])
 
   useEffect(() => {
+    const nome = seller.trim()
+    if (!nome) return
+    setCart((current) => current.map((line) => (line.sellerCustom ? line : { ...line, seller: nome })))
+  }, [seller])
+
+  useEffect(() => {
     if (!storeId) return
     api.get(`/clients/stores/${storeId}/loja`)
       .then(({ data }) => setEmitente(emitenteDaLoja(data.store)))
@@ -473,6 +709,7 @@ function PdvBoard() {
   }, [storeId, storeName])
 
   useEffect(() => {
+    let vivo = true
     const stored = typeof sessionStorage === "undefined" ? "" : sessionStorage.getItem(CAIXA_STORAGE_KEY) || ""
     if (!stored) {
       navigate("/client/caixa", { replace: true })
@@ -480,6 +717,7 @@ function PdvBoard() {
     }
     Promise.all([listLojaCaixas(true), listCatalog("payment", true)])
       .then(([rows, pagamentos]) => {
+        if (!vivo) return
         const caixa = rows.find((item) => item.name === stored)
         if (!caixa) {
           navigate("/client/caixa", { replace: true })
@@ -494,9 +732,11 @@ function PdvBoard() {
         const marcadas = Array.isArray(caixa.payload.formasPagamento)
           ? caixa.payload.formasPagamento.map(String).filter((nome) => cadastradas.includes(nome))
           : []
-        const visiveis = marcadas.length ? marcadas : cadastradas
+        const visiveis = (marcadas.length ? marcadas : cadastradas)
+          .slice()
+          .sort((a, b) => ordemPagamento(a) - ordemPagamento(b) || a.localeCompare(b, "pt-BR"))
         setMethods(visiveis)
-        setPayMethod(visiveis[0] || "")
+        setPayMethod((atual) => (atual && visiveis.includes(atual) ? atual : visiveis[0] || ""))
         const next: Record<string, PayMeta> = {}
         pagamentos.forEach((item) => {
           const cartao = Boolean(item.payload.cartao)
@@ -508,22 +748,32 @@ function PdvBoard() {
           next[item.name] = { credit: cartao && credito, cartao, maxParcelas }
         })
         setPayMeta(next)
-        const vendedores = Array.isArray(caixa.payload.vendedores)
-          ? caixa.payload.vendedores.map(String).filter(Boolean)
-          : []
-        setSellers(vendedores)
+        const vendedores = nomesLista(caixa.payload.vendedores)
+        if (vendedores.length) setSellers(vendedores)
         setObrigarVendedor(caixa.payload.obrigarVendedor !== false)
-        setSeller("")
       })
-      .catch(() => flashToast("Não foi possível carregar o caixa."))
+      .catch(() => {
+        if (vivo) flashToast("Não foi possível carregar o caixa.")
+      })
     listCatalog("user", true)
-      .then((rows) => setSellerAccounts(rows.map((item) => ({
-        code: item.code,
-        name: item.name,
-        must: Boolean(item.payload.mustChangePassword),
-      }))))
-      .catch(() => setSellerAccounts([]))
-    void refreshReserved()
+      .then((rows) => {
+        if (!vivo) return
+        setSellerAccounts(rows.map((item) => ({
+          code: item.code,
+          name: item.name,
+          must: Boolean(item.payload.mustChangePassword),
+        })))
+      })
+      .catch(() => {
+        if (vivo) setSellerAccounts([])
+      })
+    const reservedTimer = window.setTimeout(() => {
+      if (vivo) void refreshReserved()
+    }, 600)
+    return () => {
+      vivo = false
+      window.clearTimeout(reservedTimer)
+    }
   }, [])
 
   useEffect(() => {
@@ -539,6 +789,11 @@ function PdvBoard() {
           const login = String(item.payload.usuario || "").trim().toLowerCase()
           return (email && mail === email) || (username && login === username)
         })
+        setSellerAccounts(users.map((item) => ({
+          code: item.code,
+          name: item.name,
+          must: Boolean(item.payload.mustChangePassword),
+        })))
         if (!user) {
           setPodeAjuste(true)
           return
@@ -577,8 +832,12 @@ function PdvBoard() {
   }
 
   useEffect(() => {
+    if (!clientPickerOpen) return
     const term = clientQuery.trim()
-    if (term.length < 2) return
+    if (term.length < 2) {
+      setCustomers([])
+      return
+    }
     const timer = window.setTimeout(() => {
       api
         .get("/clients/customers", { params: { ativo: "1", search: term } })
@@ -597,7 +856,13 @@ function PdvBoard() {
         .catch(() => undefined)
     }, 250)
     return () => window.clearTimeout(timer)
-  }, [clientQuery])
+  }, [clientQuery, clientPickerOpen])
+
+  useEffect(() => {
+    if (!clientPickerOpen) return
+    const id = window.setTimeout(() => clientSearchRef.current?.focus(), 0)
+    return () => window.clearTimeout(id)
+  }, [clientPickerOpen])
 
   useEffect(() => {
     const q = query.trim()
@@ -698,6 +963,10 @@ function PdvBoard() {
 
   function addProduct(product: PdvProduct) {
     if (actionLock.current) return
+    if (obrigarVendedor && !seller.trim()) {
+      flashToast("Selecione o vendedor.")
+      return
+    }
     const lojaStock = Number(product.lojaStock) || 0
     const blocked = reserved[product.id] || 0
     const existingQty = cart.find((line) => line.id === product.id)?.qty || 0
@@ -714,7 +983,7 @@ function PdvBoard() {
       return
     }
     actionLock.current = true
-    window.setTimeout(() => { actionLock.current = false }, 400)
+    window.setTimeout(() => { actionLock.current = false }, 120)
     const categoryId = product.categoryId || ""
     const category = product.category || ""
     const requireSerial = serialObrigatorio(serialFlagsRef.current, categoryId, category)
@@ -743,6 +1012,8 @@ function PdvBoard() {
           category,
           requireSerial,
           serials: [],
+          seller,
+          sellerCustom: false,
         },
       ]
     })
@@ -790,9 +1061,9 @@ function PdvBoard() {
     }
     setConsulting(true)
     api
-      .get("/clients/products", { params: { search: query.trim(), ativo: "1" } })
+      .get("/clients/products", { params: { search: query.trim(), ativo: "1", rapido: "1" } })
       .then(({ data }) => {
-        const products = ((data.products as PdvProduct[]) ?? []).slice(0, 30)
+        const products = ((data.products as PdvProduct[]) ?? []).slice(0, 8)
         setHits(products)
         const hit = products.find((item) => item.code.toLowerCase() === q || item.barcode.toLowerCase() === q)
         if (hit) addProduct(hit)
@@ -805,7 +1076,7 @@ function PdvBoard() {
         }
       })
       .catch(() => flashToast("Não foi possível pesquisar produtos."))
-      .finally(() => window.setTimeout(() => setConsulting(false), 400))
+      .finally(() => setConsulting(false))
   }
 
   function clearSale() {
@@ -820,8 +1091,29 @@ function PdvBoard() {
     setSeller("")
     setFinishingSaleId(null)
     setFinishingCode("")
+    setCaixaOrigem("")
     setAskCancel(false)
+    setAskNova(false)
     void refreshReserved()
+  }
+
+  function iniciarNovaVenda() {
+    setVendaEnviada("")
+    setAskNova(false)
+    clearSale()
+    window.setTimeout(() => document.getElementById("cx-produto")?.focus(), 0)
+  }
+
+  function pedirNovaVenda() {
+    if (vendaEnviada) {
+      iniciarNovaVenda()
+      return
+    }
+    if (cart.length || finishingSaleId || payments.length) {
+      setAskNova(true)
+      return
+    }
+    iniciarNovaVenda()
   }
 
   function abrirTroca(valor?: string) {
@@ -884,9 +1176,16 @@ function PdvBoard() {
     setPayments((current) => current.map((pay, item) => (item === index ? { ...pay, ...patch } : pay)))
   }
 
+  function closeClientPicker() {
+    setClientPickerOpen(false)
+    setClientQuery("")
+    setCustomers([])
+  }
+
   function pickClient(name: string) {
     setCliente(name)
-    setClientQuery(name)
+    setClientQuery("")
+    setCustomers([])
     setClientPickerOpen(false)
   }
 
@@ -907,6 +1206,7 @@ function PdvBoard() {
         discount: line.discount,
         serials: line.serials.slice(0, line.qty).map((item) => item.trim()).filter(Boolean),
         category: line.category,
+        seller: line.seller || seller,
       })),
       payments: nextPayments,
     }
@@ -943,19 +1243,25 @@ function PdvBoard() {
 
   async function exigirSerial() {
     let flags = serialFlagsRef.current
-    try {
-      const items = await listCatalog("product_category", true)
-      flags = items.map(categoryFromCatalog)
-      setSerialFlags(flags)
-    } catch {
-      flags = serialFlagsRef.current
+    if (!flags.length) {
+      try {
+        const items = await listCatalog("product_category", true)
+        flags = items.map(categoryFromCatalog)
+        setSerialFlags(flags)
+      } catch {
+        flags = serialFlagsRef.current
+      }
     }
     const next = cart.map((line) => ({
       ...line,
       requireSerial: serialObrigatorio(flags, line.categoryId, line.category),
     }))
     const faltou = next.find(serialIncompleto)
-    if (faltou || next.some((line, index) => line.requireSerial !== cart[index]?.requireSerial)) setCart(next)
+    const mudou = next.some((line, index) => {
+      const prev = cart[index]
+      return !prev || line.requireSerial !== prev.requireSerial || line.categoryId !== prev.categoryId || line.category !== prev.category
+    })
+    if (faltou || mudou) setCart(next)
     if (faltou) {
       flashToast(`Informe o IMEI ou serial de ${faltou.name}.`)
       return false
@@ -982,9 +1288,10 @@ function PdvBoard() {
         ...saleBody(nextPayments, "espera"),
         notes: observacao.trim(),
       })
-      flashToast("Venda em aberto atualizada.")
+      const code = finishingCode
       clearSale()
-      void refreshReserved()
+      setVendaEnviada(code)
+      void carregarProximaVenda()
     } catch (err) {
       flashToast(parseError(err).friend || "Não foi possível salvar a venda.")
     } finally {
@@ -1036,6 +1343,8 @@ function PdvBoard() {
         sale = data.sale as OpenSale
       }
       clearSale()
+      void carregarProximaVenda()
+      if (sale.status === "espera") setVendaEnviada(sale.code)
       if (sale.status === "finalizada") {
         const pessoa = await destinatarioPorNome(sale.customerName)
         setPrintSale({
@@ -1058,7 +1367,6 @@ function PdvBoard() {
           changeAmount: sale.changeAmount,
         })
       }
-      void refreshReserved()
     } catch (err) {
       flashToast(parseError(err).friend || "Não foi possível gravar a venda.")
     } finally {
@@ -1088,59 +1396,58 @@ function PdvBoard() {
   async function showOpenSales() {
     try {
       const { data } = await api.get("/clients/pdv-vendas", { params: { status: "espera" } })
-      setOpenSales((data.sales || []) as OpenSale[])
-      void refreshReserved()
+      const sales = (data.sales || []) as OpenSale[]
+      setOpenSales(sales)
+      const map: Record<string, number> = {}
+      for (const sale of sales) {
+        for (const line of sale.lines) map[line.productId] = (map[line.productId] || 0) + line.qty
+      }
+      setReserved(map)
     } catch (err) {
       flashToast(parseError(err).friend || "Não foi possível carregar as vendas em aberto.")
     }
   }
 
-  async function loadSaleToScreen(sale: OpenSale) {
+  function loadSaleToScreen(sale: OpenSale) {
+    const daLinha = sale.lines.map((line) => (line.seller || "").trim()).find(Boolean) || ""
+    const vendedor = (sale.sellerName || "").trim() || daLinha
     setOpenSales(null)
     setFinishingSaleId(sale.id)
     setFinishingCode(sale.code)
+    setCaixaOrigem(sale.caixaName || "")
     setCliente(sale.customerName)
-    setSeller(sale.sellerName || "")
+    setSeller(vendedor)
     setObservacao(sale.notes || "")
     setPayments(sale.payments)
     setReceived("")
     setPayParcelas(1)
-    const stockMap: Record<string, { lojaStock: number; reference: string; categoryId: string; category: string }> = {}
-    await Promise.all(
-      [...new Set(sale.lines.map((line) => line.productId))].map(async (productId) => {
-        try {
-          const { data } = await api.get(`/clients/products/${productId}`)
-          const product = data.product as PdvProduct
-          stockMap[productId] = {
-            lojaStock: Number(product.lojaStock) || 0,
-            reference: product.reference || "—",
-            categoryId: product.categoryId || "",
-            category: product.category || "",
-          }
-        } catch {
-          stockMap[productId] = { lojaStock: 0, reference: "—", categoryId: "", category: "" }
-        }
-      }),
-    )
     setCart(sale.lines.map((line) => {
-      const categoryId = stockMap[line.productId]?.categoryId || ""
-      const category = stockMap[line.productId]?.category || ""
+      const categoryId = line.categoryId || ""
+      const category = line.category || ""
+      const linhaSeller = (line.seller || "").trim() || vendedor
       return {
         id: line.productId,
         code: line.code || "",
-        reference: stockMap[line.productId]?.reference || "—",
+        reference: line.reference || "—",
         name: line.name,
         qty: line.qty,
         price: line.price,
         discount: line.discount,
         stock: line.qty,
-        lojaStock: stockMap[line.productId]?.lojaStock ?? line.qty,
+        lojaStock: line.lojaStock == null ? 0 : Number(line.lojaStock) || 0,
         categoryId,
         category,
         requireSerial: serialObrigatorio(serialFlagsRef.current, categoryId, category),
         serials: Array.isArray(line.serials) ? line.serials.map(String) : [],
+        seller: linhaSeller,
+        sellerCustom: Boolean(linhaSeller && linhaSeller !== vendedor),
       }
     }))
+    setReserved((current) => {
+      const next = { ...current }
+      for (const line of sale.lines) next[line.productId] = Math.max(0, (next[line.productId] || 0) - line.qty)
+      return next
+    })
     void refreshReserved(sale.id)
   }
 
@@ -1195,37 +1502,100 @@ function PdvBoard() {
 
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
+      const popupAberto = Boolean(
+        estoqueProduto || clientModal || clientPickerOpen || productSearchOpen || openSales || trocaOpen || passAsk || askCancel || askNova || vendaEnviada,
+      )
+      if (event.key === "Escape") {
+        event.preventDefault()
+        if (estoqueProduto) {
+          setEstoqueProduto(null)
+          return
+        }
+        if (clientModal) {
+          setClientModal(false)
+          return
+        }
+        if (clientPickerOpen) {
+          closeClientPicker()
+          return
+        }
+        if (productSearchOpen) {
+          setProductSearchOpen(false)
+          return
+        }
+        if (openSales) {
+          setOpenSales(null)
+          return
+        }
+        if (trocaOpen) {
+          setTrocaOpen(false)
+          return
+        }
+        if (passAsk) {
+          setPassAsk(null)
+          return
+        }
+        if (askCancel) {
+          setAskCancel(false)
+          return
+        }
+        if (askNova) {
+          setAskNova(false)
+          return
+        }
+        if (vendaEnviada) {
+          setVendaEnviada("")
+          return
+        }
+        setHits([])
+        return
+      }
+      if (popupAberto) {
+        if (event.key === "F2" || event.key === "F3") event.preventDefault()
+        return
+      }
       if (event.key === "F2") {
         event.preventDefault()
         void finish()
       } else if (event.key === "F3" && !(event.target instanceof HTMLInputElement)) {
         event.preventDefault()
         imprimirRecibo()
-      } else if (event.key === "Escape") {
-        setAskCancel(false)
-        setHits([])
-        setClientModal(false)
       }
     }
     window.addEventListener("keydown", onKey)
     return () => window.removeEventListener("keydown", onKey)
-  })
+  }, [estoqueProduto, clientModal, clientPickerOpen, productSearchOpen, openSales, trocaOpen, passAsk, askCancel, askNova, vendaEnviada])
 
   const slip = printSale
+  const numeroVenda = finishingCode || proximaVenda
+  const baixaOutroCaixa = Boolean(finishingSaleId) && caixaOrigem.trim().toLocaleLowerCase("pt-BR") !== caixaName.trim().toLocaleLowerCase("pt-BR")
+
+  function carregarProximaVenda() {
+    api.get("/clients/pdv-vendas/proxima")
+      .then(({ data }) => setProximaVenda(String(data?.code || "")))
+      .catch(() => setProximaVenda(""))
+  }
+
+  useEffect(() => {
+    carregarProximaVenda()
+  }, [])
 
   return (
     <section className="cx-pdv">
       <header className="cx-head">
         <div className="cx-brand">
           <button type="button" className="cx-open-sales" onClick={() => void showOpenSales()}>
-            <Receipt size={15} strokeWidth={2.2} aria-hidden="true" />
+            <Receipt size={18} strokeWidth={2.2} aria-hidden="true" />
             Vendas em aberto
           </button>
           <span className="cx-brand-ico" aria-hidden="true">
             <ShoppingCart size={18} strokeWidth={2.2} />
           </span>
           <div>
-            <h1>PDV – Caixa</h1>
+            <h1>
+              PDV – Caixa
+              {numeroVenda ? <span className="cx-sale-no">Venda {numeroVenda}</span> : null}
+            </h1>
             <p>{caixaName ? `${caixaName} · ${modo === "espera" ? "envia para vendas em aberto" : "finaliza a venda"}` : "Selecione um caixa para registrar a venda"}</p>
           </div>
         </div>
@@ -1254,6 +1624,9 @@ function PdvBoard() {
             <Monitor size={15} strokeWidth={2.2} aria-hidden="true" />
             Trocar caixa
           </button>
+          <button type="button" onClick={pedirNovaVenda}>
+            Nova venda
+          </button>
           <button className="cx-danger" type="button" onClick={() => (cart.length ? setAskCancel(true) : clearSale())}>
             <Trash2 size={15} strokeWidth={2.2} aria-hidden="true" />
             Cancelar Venda
@@ -1276,14 +1649,16 @@ function PdvBoard() {
               <span className="cx-client-pick-label">Cliente</span>
               <strong>{cliente}</strong>
             </button>
-            <label className="cx-client-pick cx-seller-pick">
-              <span className="cx-client-pick-label">Vendedor</span>
-              <select value={seller} onChange={(event) => setSeller(event.target.value)} aria-label="Vendedor" required={obrigarVendedor}>
-                <option value="">Selecione</option>
-                {seller && !sellerNames.includes(seller) ? <option value={seller}>{seller}</option> : null}
-                {sellerNames.map((name) => <option key={name}>{name}</option>)}
-              </select>
-            </label>
+            <div className="cx-client-pick cx-seller-pick">
+              <span className="cx-client-pick-label" id="cx-seller-label">Vendedor</span>
+              <SearchableSelect
+                labelledBy="cx-seller-label"
+                value={seller}
+                onChange={setSeller}
+                emptyLabel="Selecione"
+                options={seller && !sellerNames.includes(seller) ? [seller, ...sellerNames] : sellerNames}
+              />
+            </div>
           </div>
           <label className="cx-produto">
             <span>Produto</span>
@@ -1312,20 +1687,13 @@ function PdvBoard() {
             {hits.map((product) => (
               <li key={product.id}>
                 <button type="button" onClick={() => addProduct(product)}>
-                  <strong>{product.code}</strong>
+                  <strong>{product.code || product.barcode}</strong>
                   <span>{lojaProductName(product)}</span>
                   <em>{formatMoneyRs(productSalePrice(product))}</em>
                 </button>
               </li>
             ))}
           </ul>
-        ) : null}
-
-        {finishingSaleId ? (
-          <p className="cx-baixa-banner" role="status">
-            Venda <strong>{finishingCode}</strong> · {cliente} · {canBaixa ? "informe o pagamento e finalize a baixa" : "edite itens e salve — este caixa não dá baixa"}
-            <button type="button" onClick={clearSale}>Sair da venda</button>
-          </p>
         ) : null}
 
         <section className="cx-card cx-items" aria-labelledby="cx-items-title">
@@ -1340,7 +1708,9 @@ function PdvBoard() {
             </button>
           </div>
           <div className="cx-table-head" aria-hidden="true">
+            <span>Código</span>
             <span>Produto</span>
+            <span>Vendedor</span>
             <span>Qtd.</span>
             <span>Valor Unit.</span>
             <span>Desconto/Acréscimo</span>
@@ -1362,9 +1732,10 @@ function PdvBoard() {
             <ul className="cx-lines">
               {cart.map((line) => (
                 <li key={line.id}>
+                  <span className="cx-line-code">{line.code}</span>
                   <div className="cx-line-name">
                     <b>{line.name}</b>
-                    <div className="cx-line-serials">
+                    {line.requireSerial ? <div className="cx-line-serials">
                       {Array.from({ length: line.qty }, (_, index) => (
                         <SeletorImei
                           key={`${line.id}-${index}`}
@@ -1384,8 +1755,15 @@ function PdvBoard() {
                           }}
                         />
                       ))}
-                    </div>
+                    </div> : null}
                   </div>
+                  <VendedorItem
+                    value={line.seller || seller}
+                    options={line.seller && !sellerNames.includes(line.seller) ? [line.seller, ...sellerNames] : sellerNames}
+                    onChange={(next) => setCart((current) => current.map((row) => (
+                      row.id === line.id ? { ...row, seller: next, sellerCustom: next !== seller } : row
+                    )))}
+                  />
                   <span className="cx-line-qty">
                     <button type="button" aria-label="Diminuir quantidade" onClick={() => bumpCartLine(line.id, -1)}>
                       <Minus size={14} strokeWidth={2.6} />
@@ -1395,16 +1773,27 @@ function PdvBoard() {
                       <Plus size={14} strokeWidth={2.6} />
                     </button>
                   </span>
-                  <span>{formatMoneyRs(line.price)}</span>
-                  <span>
-                    <AjusteCampo
-                      value={line.discount}
-                      enabled={podeAjuste}
-                      max={line.price}
-                      onCommit={(next) => setCart((current) => current.map((row) => (row.id === line.id ? { ...row, discount: next } : row)))}
+                  <span className="cx-line-num">
+                    <PrecoCampo
+                      value={line.price}
+                      editavel={!baixaOutroCaixa}
+                      onCommit={(next) => setCart((current) => current.map((row) => {
+                        if (baixaOutroCaixa || row.id !== line.id) return row
+                        const discount = row.discount > next ? next : row.discount
+                        return { ...row, price: next, discount }
+                      }))}
                     />
                   </span>
-                  <span>{formatMoneyRs(line.qty * Math.max(0, line.price - line.discount))}</span>
+                  <span className="cx-line-num">
+                    <AjusteCampo
+                      value={line.discount}
+                      enabled={podeAjuste && !baixaOutroCaixa}
+                      max={line.price}
+                      title={baixaOutroCaixa ? "Desconto definido no outro caixa" : undefined}
+                      onCommit={(next) => setCart((current) => current.map((row) => (baixaOutroCaixa || row.id !== line.id ? row : { ...row, discount: next })))}
+                    />
+                  </span>
+                  <span className="cx-line-num"><span className="cx-line-money">{formatMoneyRs(line.qty * Math.max(0, line.price - line.discount))}</span></span>
                 </li>
               ))}
             </ul>
@@ -1535,17 +1924,10 @@ function PdvBoard() {
                   ) : null}
                   <label className="cx-split-amount">
                     R$
-                    <input
-                      inputMode="decimal"
-                      value={formatMoneyBr(pay.amount)}
-                      onChange={(event) => {
-                        const amount = parseMoneyBr(event.target.value)
-                        if (!Number.isNaN(amount)) updatePayment(index, { amount })
-                      }}
-                    />
+                    <ValorPagamento amount={pay.amount} onCommit={(amount) => updatePayment(index, { amount })} />
                   </label>
-                  <button type="button" aria-label={`Remover ${pay.method}`} onClick={() => setPayments((current) => current.filter((_, item) => item !== index))}>
-                    <X size={14} />
+                  <button className="cx-split-remove" type="button" aria-label={`Remover ${pay.method}`} onClick={() => setPayments((current) => current.filter((_, item) => item !== index))}>
+                    <Trash2 size={15} strokeWidth={2} />
                   </button>
                 </li>
               ))}
@@ -1559,17 +1941,17 @@ function PdvBoard() {
           {finishingSaleId && !canBaixa ? (
             <button className="cx-finish" type="button" onClick={() => void saveOpenSaleEdit()} disabled={busy || cart.length === 0}>
               <Check size={16} strokeWidth={2.6} aria-hidden="true" />
-              Enviar para vendas em aberto
+              {busy ? "Enviando..." : "Enviar para vendas em aberto"}
             </button>
           ) : (
             <button className="cx-finish" type="button" onClick={() => void finish()} disabled={busy || cart.length === 0}>
               <Check size={16} strokeWidth={2.6} aria-hidden="true" />
-              {finishingSaleId ? "Finalizar baixa (F2)" : modo === "espera" ? "Enviar para vendas em aberto" : "Finalizar Venda (F2)"}
+              {busy ? "Enviando..." : finishingSaleId ? "Finalizar baixa (F2)" : modo === "espera" ? "Enviar para vendas em aberto" : "Finalizar Venda (F2)"}
             </button>
           )}
           {modo === "finaliza" && !finishingSaleId ? (
             <button className="cx-finish cx-finish-open" type="button" onClick={() => void finish("espera")} disabled={busy || cart.length === 0}>
-              Enviar para vendas em aberto
+              {busy ? "Enviando..." : "Enviar para vendas em aberto"}
             </button>
           ) : null}
           <button className="cx-print" type="button" onClick={() => imprimirRecibo()}>
@@ -1649,6 +2031,7 @@ function PdvBoard() {
           total={slip?.total ?? total}
           received={slip?.received ?? paid}
           changeAmount={slip?.changeAmount ?? Math.max(0, Math.round((paid - total) * 100) / 100)}
+          textos={textosNota}
         />
       </div>
 
@@ -1666,6 +2049,31 @@ function PdvBoard() {
               <button className="pdv-cad-btn pdv-cad-btn-green" type="button" disabled={busy} onClick={() => void saveSellerPassword()}>
                 Salvar senha
               </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {vendaEnviada ? (
+        <div className="pdv-caixa-confirm">
+          <div className="pdv-caixa-confirm-card" role="dialog" aria-modal="true" aria-labelledby="cx-enviada-title">
+            <h2 id="cx-enviada-title">Venda {vendaEnviada}</h2>
+            <p>Foi para vendas em aberto.</p>
+            <div className="pdv-caixa-confirm-actions">
+              <button className="pdv-cad-btn pdv-cad-btn-green" type="button" onClick={iniciarNovaVenda}>Nova venda</button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {askNova ? (
+        <div className="pdv-caixa-confirm">
+          <div className="pdv-caixa-confirm-card" role="alertdialog" aria-modal="true" aria-labelledby="cx-nova-title">
+            <h2 id="cx-nova-title">Nova venda</h2>
+            <p>O que está na tela sai sem gravar.</p>
+            <div className="pdv-caixa-confirm-actions">
+              <button className="pdv-cad-btn" type="button" onClick={() => setAskNova(false)}>Voltar</button>
+              <button className="pdv-cad-btn pdv-cad-btn-green" type="button" onClick={iniciarNovaVenda}>Nova venda</button>
             </div>
           </div>
         </div>
@@ -1706,25 +2114,23 @@ function PdvBoard() {
               />
             </label>
             {trocaPick ? (
-              <p className="cx-troca-pick"><b>{trocaPick.code}</b><span>{lojaProductName(trocaPick)}</span></p>
-            ) : (
+              <p className="cx-troca-pick"><b>{trocaPick.code || trocaPick.barcode}</b><span>{lojaProductName(trocaPick)}</span></p>
+            ) : trocaQuery.trim().length >= 2 ? (
               <ul className="cx-troca-hits">
-                {trocaQuery.trim().length < 2 ? (
-                  <li>Digite ao menos 2 letras.</li>
-                ) : trocaBuscando ? (
-                  <li>Buscando...</li>
+                {trocaBuscando ? (
+                  <li className="cx-troca-status">Buscando...</li>
                 ) : trocaHits.length === 0 ? (
-                  <li>Nenhum produto encontrado.</li>
+                  <li className="cx-troca-status">Nenhum produto encontrado.</li>
                 ) : trocaHits.map((product) => (
                   <li key={product.id}>
-                    <button type="button" onClick={() => { setTrocaPick(product); setTrocaQuery(lojaProductName(product)) }}>
-                      <b>{product.code}</b>
+                    <button type="button" onClick={() => { setTrocaPick(product); setTrocaQuery(produtoRotulo(product.code || product.barcode, lojaProductName(product))) }}>
+                      <b>{product.code || product.barcode}</b>
                       <span>{lojaProductName(product)}</span>
                     </button>
                   </li>
                 ))}
               </ul>
-            )}
+            ) : null}
             <label>
               IMEI
               <input
@@ -1753,7 +2159,7 @@ function PdvBoard() {
       ) : null}
 
       {productSearchOpen ? (
-        <div className="pdv-caixa-confirm" onClick={() => setProductSearchOpen(false)}>
+        <div className="pdv-caixa-confirm">
           <div className="pdv-caixa-confirm-card cx-open-modal cx-open-modal-wide cx-product-search" role="dialog" aria-modal="true" aria-labelledby="cx-product-search-title" onClick={(event) => event.stopPropagation()}>
             <header className="cx-open-head">
               <div>
@@ -1786,7 +2192,7 @@ function PdvBoard() {
               ) : pickerHits.map((product) => (
                 <li key={product.id} className="cx-product-row">
                   <button type="button" className="cx-product-hit" onClick={() => addProduct(product)}>
-                    <b className="cx-hit-code">{product.code}</b>
+                    <b className="cx-hit-code">{product.code || product.barcode}</b>
                     <strong>{lojaProductName(product)}</strong>
                     <span>{product.reference && product.reference !== "—" ? product.reference : ""}</span>
                     <em>{formatMoneyRs(productSalePrice(product))}</em>
@@ -1807,10 +2213,10 @@ function PdvBoard() {
       ) : null}
 
       {estoqueProduto ? (
-        <div className="pdv-caixa-confirm cx-stock-layer" onClick={() => setEstoqueProduto(null)}>
+        <div className="pdv-caixa-confirm cx-stock-layer">
           <div className="cx-stock-card" role="dialog" aria-modal="true" aria-labelledby="cx-stock-title" onClick={(event) => event.stopPropagation()}>
             <header className="cx-stock-head">
-              <strong className="cx-stock-code">{estoqueProduto.code}</strong>
+              <strong className="cx-stock-code">{estoqueProduto.code || estoqueProduto.barcode}</strong>
               <h2 id="cx-stock-title">
                 ESTOQUE DO PRODUTO:
                 <span>{lojaProductName(estoqueProduto).toLocaleUpperCase("pt-BR")}</span>
@@ -1855,25 +2261,31 @@ function PdvBoard() {
       ) : null}
 
       {clientPickerOpen ? (
-        <div className="pdv-caixa-confirm" onClick={() => setClientPickerOpen(false)}>
-          <div className="pdv-caixa-confirm-card cx-open-modal cx-client-picker" role="dialog" aria-modal="true" aria-labelledby="cx-picker-title" onClick={(event) => event.stopPropagation()}>
+        <div className="pdv-caixa-confirm">
+          <div className="pdv-caixa-confirm-card cx-open-modal cx-client-picker" role="dialog" aria-modal="true" aria-labelledby="cx-picker-title" onClick={(event) => {
+            event.stopPropagation()
+            clientSearchRef.current?.focus()
+          }}>
             <header className="cx-open-head">
               <div>
                 <h2 id="cx-picker-title">Selecionar cliente</h2>
                 <p className="cx-open-sub">Busque por nome, CPF ou CNPJ</p>
               </div>
-              <button className="pdv-cad-icon-btn pdv-gear-close" type="button" aria-label="Fechar" onClick={() => setClientPickerOpen(false)}>
+              <button className="pdv-cad-icon-btn pdv-gear-close" type="button" aria-label="Fechar" onClick={closeClientPicker}>
                 <X size={16} />
               </button>
             </header>
             <div className="cx-client-picker-search">
               <Search size={16} aria-hidden="true" />
               <input
+                ref={clientSearchRef}
                 value={clientQuery}
                 onChange={(event) => setClientQuery(event.target.value.toLocaleUpperCase("pt-BR"))}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") event.preventDefault()
+                }}
                 placeholder="Nome, CPF ou CNPJ..."
                 autoComplete="off"
-                autoFocus
               />
             </div>
             <ul className="cx-client-picker-list">
@@ -1909,7 +2321,7 @@ function PdvBoard() {
       ) : null}
 
       {clientModal ? (
-        <div className="pdv-caixa-confirm" onClick={() => setClientModal(false)}>
+        <div className="pdv-caixa-confirm">
           <div className="pdv-caixa-confirm-card cx-open-modal cx-client-picker" role="dialog" aria-modal="true" aria-labelledby="cx-client-title" onClick={(event) => event.stopPropagation()}>
             <header className="cx-open-head">
               <div>
@@ -1957,19 +2369,19 @@ function PdvBoard() {
       ) : null}
 
       {openSales ? (
-        <div className="pdv-caixa-confirm" onClick={() => setOpenSales(null)}>
+        <div className="pdv-caixa-confirm">
           <div className="pdv-caixa-confirm-card cx-open-modal cx-open-modal-wide" role="dialog" aria-modal="true" aria-labelledby="cx-open-title" onClick={(event) => event.stopPropagation()}>
             <header className="cx-open-head">
               <div>
                 <h2 id="cx-open-title">Vendas em aberto</h2>
-                <p className="cx-open-sub">Clique na venda para abrir no caixa. {canBaixa ? "Depois finalize a baixa na tela principal." : "Este caixa só edita e salva — não dá baixa."}</p>
+                <p className="cx-open-sub">Clique na venda para abrir no caixa.</p>
               </div>
               <button className="pdv-cad-icon-btn pdv-gear-close" type="button" aria-label="Fechar" onClick={() => setOpenSales(null)}>
                 <X size={16} />
               </button>
             </header>
             {openSales.length === 0 ? (
-              <p className="cx-open-empty">Nenhuma venda pendente de baixa.</p>
+              <p className="cx-open-empty">Nenhuma venda em aberto.</p>
             ) : (
               <ul className="cx-open-list">
                 {openSales.map((sale) => (

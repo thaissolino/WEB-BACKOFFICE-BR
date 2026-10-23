@@ -155,6 +155,7 @@ export function productFilterParams(
     estoqueOp: filters.estoque.op,
     estoque: filters.estoque.op === "Todos" ? undefined : filters.estoque.value,
     comEstoque: filters.comEstoque ? "1" : undefined,
+    light: "1",
   };
 }
 

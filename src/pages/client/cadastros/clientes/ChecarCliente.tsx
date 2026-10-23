@@ -84,12 +84,14 @@ export default function ChecarCliente({
 
   return (
     <CadastroShell>
-      <section className="pdv-cad-page" aria-labelledby="pdv-cad-check-title">
+      <section className="pdv-cad-page pdv-cli-page" aria-labelledby="pdv-cad-check-title">
         <div className="pdv-cad-sheet">
-          <h1 id="pdv-cad-check-title">{title}</h1>
-          <button className="pdv-cad-btn pdv-cad-btn-back pdv-voltar" type="button" onClick={() => navigate(listPath)}>
-            Voltar
-          </button>
+          <div className="pdv-cad-head">
+            <h1 id="pdv-cad-check-title">{title}</h1>
+            <button className="pdv-cad-btn pdv-cad-btn-back pdv-voltar" type="button" onClick={() => navigate(listPath)}>
+              Voltar
+            </button>
+          </div>
 
           <form className="pdv-cad-check" onSubmit={onSubmit}>
             <div className="pdv-cad-check-head">

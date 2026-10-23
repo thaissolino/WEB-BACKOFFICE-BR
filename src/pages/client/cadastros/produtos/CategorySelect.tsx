@@ -16,6 +16,7 @@ export default function CategorySelect({
   labelledBy,
   placeholder,
   options,
+  disabled,
 }: {
   selected: string[];
   onChange: (next: string[]) => void;
@@ -24,6 +25,7 @@ export default function CategorySelect({
   labelledBy?: string;
   placeholder: string;
   options: FlatOption[];
+  disabled?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -68,7 +70,9 @@ export default function CategorySelect({
         aria-expanded={open}
         aria-required={required || undefined}
         data-invalid={required && selected.length === 0 ? "true" : undefined}
+        disabled={disabled}
         onClick={() => {
+          if (disabled) return
           setOpen((current) => !current);
           setQuery("");
         }}

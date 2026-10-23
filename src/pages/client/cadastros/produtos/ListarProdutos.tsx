@@ -45,9 +45,10 @@ function uniqField(rows: PdvProduct[], key: keyof PdvProduct) {
 }
 
 export default function ListarProdutos() {
+  const location = useLocation();
   return (
     <CadastroShell>
-      <ProdutosBoard />
+      <ProdutosBoard key={location.key} />
     </CadastroShell>
   );
 }
@@ -444,21 +445,20 @@ function ProdutosBoard() {
             />
           ) : null}
           {error ? <p className="pdv-cad-error">{error}</p> : null}
-          {loading ? <p className="pdv-cad-kicker">Carregando produtos…</p> : null}
 
           {tab === "produto" ? (
             <>
               {searched && !loading && !error && visible.length === 0 ? (
                 <p className="pdv-cad-kicker">Nenhum produto para esse filtro.</p>
               ) : null}
-              {searched && !loading && visible.length > 0 ? (
+              {searched && visible.length > 0 ? (
                 <div className="pdv-cad-table-wrap">
                   <table className="pdv-cad-table">
                     <thead>
                       <tr>
                         <th>Cód.</th>
                         <th>Nome</th>
-                        <th>Categoria</th>
+                        <th className="pdv-prod-cat-head">Categoria</th>
                         <th className="pdv-prod-edit-head">Estoque</th>
                         <th className="pdv-prod-edit-head">Venda</th>
                         <th className="pdv-prod-edit-head">Custo médio</th>
@@ -503,7 +503,7 @@ function ProdutosBoard() {
                               </span>
                             </span>
                           </td>
-                          <td>{item.category || categoryLabel(item.categoryId, categoryOptions) || "—"}</td>
+                          <td className="pdv-prod-cat-cell">{item.category || categoryLabel(item.categoryId, categoryOptions) || "—"}</td>
                           <td className="pdv-prod-edit-cell">
                             <EditableAmount
                               value={Number(item.lojaStock) || 0}

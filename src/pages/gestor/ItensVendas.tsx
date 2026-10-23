@@ -3,6 +3,7 @@ import { api, parseError } from "../../services/api";
 import { todayIso } from "../../utils/todayIso";
 import GestaoShell from "./GestaoShell";
 import { DatePreset } from "../client/cadastros/catalog/FormBits";
+import SearchableSelect from "../client/cadastros/produtos/SearchableSelect";
 import "./gestao-pages.css";
 
 type Line = { name: string; code: string; price: number; qty: number; cost?: number; category?: string; discount?: number };
@@ -96,13 +97,12 @@ type Filtros = {
   fim: string;
   codigo: string;
   produto: string;
-  loja: string;
-  vendedor: string;
-  operador: string;
   categoria: string;
   venda: string;
-  clienteCodigo: string;
   cliente: string;
+  vendedor: string;
+  caixa: string;
+  loja: string;
   tipo: TipoRelatorio;
 };
 
@@ -111,14 +111,13 @@ const VAZIO: Filtros = {
   fim: "",
   codigo: "",
   produto: "",
-  loja: "estoque",
-  vendedor: "",
-  operador: "",
-  categoria: "",
+  categoria: "Todas",
   venda: "",
-  clienteCodigo: "",
   cliente: "",
-  tipo: "marketplace",
+  vendedor: "Todos",
+  caixa: "Todos",
+  loja: "estoque",
+  tipo: "detalhado",
 };
 
 function filtrosDoDia(): Filtros {
@@ -136,16 +135,15 @@ function when(value: string) {
   return date.toLocaleString("pt-BR");
 }
 
-function has(value: string, query: string) {
-  const needle = query.trim().toLowerCase();
-  if (!needle) return true;
-  return value.toLowerCase().includes(needle);
+function termos(valor: string) {
+  return valor.split(/[,;]/).map((item) => item.trim().toLowerCase()).filter(Boolean);
 }
 
-function igual(value: string, query: string) {
-  const needle = query.trim().toLowerCase();
-  if (!needle) return true;
-  return value.trim().toLowerCase() === needle;
+function casaLista(texto: string, valor: string) {
+  const lista = termos(valor);
+  if (!lista.length) return true;
+  const hay = texto.toLowerCase();
+  return lista.some((termo) => hay.includes(termo));
 }
 
 function inPeriod(at: string, filtros: Filtros) {
@@ -164,15 +162,20 @@ function inPeriod(at: string, filtros: Filtros) {
 
 function passa(item: ItemVenda, filtros: Filtros) {
   if (!inPeriod(item.at, filtros)) return false;
-  if (!has(item.codigo, filtros.codigo)) return false;
-  if (!has(item.produto, filtros.produto)) return false;
-  if (!igual(item.vendedor, filtros.vendedor)) return false;
-  if (!igual(item.operador, filtros.operador)) return false;
-  if (!igual(item.categoria, filtros.categoria)) return false;
-  if (!has(item.venda, filtros.venda)) return false;
-  if (!has(item.clienteCodigo, filtros.clienteCodigo)) return false;
-  if (!has(item.cliente, filtros.cliente)) return false;
+  if (!casaLista(item.codigo, filtros.codigo)) return false;
+  if (!casaLista(item.produto, filtros.produto)) return false;
+  if (filtros.categoria !== "Todas" && item.categoria !== filtros.categoria) return false;
+  if (!casaLista(item.venda, filtros.venda)) return false;
+  if (!casaLista(item.cliente, filtros.cliente)) return false;
+  if (filtros.vendedor !== "Todos" && item.vendedor !== filtros.vendedor) return false;
+  if (filtros.caixa !== "Todos" && item.caixa !== filtros.caixa) return false;
   return true;
+}
+
+function classeCelula(valor: string | number, numerica = false, extra = "") {
+  const texto = String(valor).trim();
+  const traco = texto === "—" || texto === "-" || texto === "–";
+  return [numerica ? "iv-num" : "", traco ? "iv-traco" : "", extra].filter(Boolean).join(" ");
 }
 
 function ajusteDe(item: { desconto: number; acrescimo: number }) {
@@ -251,54 +254,6 @@ function flattenLoja(sales: LojaSale[], loja: string): ItemVenda[] {
   );
 }
 
-function Completa({
-  value,
-  options,
-  onChange,
-}: {
-  value: string;
-  options: string[];
-  onChange: (value: string) => void;
-}) {
-  const [aberto, setAberto] = useState(false);
-  const needle = value.trim().toLowerCase();
-  const sugestoes = needle
-    ? options.filter((item) => item.toLowerCase().includes(needle) && item.toLowerCase() !== needle).slice(0, 8)
-    : [];
-  return (
-    <span className="iv-completa">
-      <input
-        value={value}
-        autoComplete="off"
-        onChange={(event) => {
-          onChange(event.target.value);
-          setAberto(true);
-        }}
-        onFocus={() => setAberto(true)}
-        onBlur={() => window.setTimeout(() => setAberto(false), 120)}
-      />
-      {aberto && sugestoes.length ? (
-        <ul>
-          {sugestoes.map((item) => (
-            <li key={item}>
-              <button
-                type="button"
-                onMouseDown={(event) => {
-                  event.preventDefault();
-                  onChange(item);
-                  setAberto(false);
-                }}
-              >
-                {item}
-              </button>
-            </li>
-          ))}
-        </ul>
-      ) : null}
-    </span>
-  );
-}
-
 function chaveGrupo(item: ItemVenda, tipo: TipoRelatorio) {
   if (tipo === "marketplace" || tipo === "local" || tipo === "local-resumido") return item.canal || "Sem local";
   if (tipo === "operador") return item.operador || "Sem operador";
@@ -311,7 +266,7 @@ function chaveGrupo(item: ItemVenda, tipo: TipoRelatorio) {
 
 export default function ItensVendas() {
   const [itens, setItens] = useState<ItemVenda[]>([]);
-  const [hint, setHint] = useState("Clique em Filtrar para carregar.");
+  const [hint, setHint] = useState("Clique em Buscar para carregar.");
   const [carregando, setCarregando] = useState(false);
   const [pronto, setPronto] = useState(false);
   const [draft, setDraft] = useState<Filtros>(filtrosDoDia);
@@ -319,10 +274,9 @@ export default function ItensVendas() {
   const [lojistas, setLojistas] = useState<LojistaOpcao[]>([]);
   const [opcoes, setOpcoes] = useState<{
     vendedores: string[];
-    operadores: string[];
+    caixas: string[];
     categorias: string[];
-    produtos: Array<{ code: string; name: string }>;
-  }>({ vendedores: [], operadores: [], categorias: [], produtos: [] });
+  }>({ vendedores: [], caixas: [], categorias: [] });
 
   useEffect(() => {
     api.get("/backoffice/lojistas")
@@ -338,22 +292,34 @@ export default function ItensVendas() {
       .then(({ data }) => {
         setOpcoes({
           vendedores: data?.vendedores || [],
-          operadores: data?.operadores || [],
+          caixas: data?.caixas || [],
           categorias: data?.categorias || [],
-          produtos: data?.produtos || [],
         });
       })
-      .catch(() => setOpcoes({ vendedores: [], operadores: [], categorias: [], produtos: [] }));
+      .catch(() => setOpcoes({ vendedores: [], caixas: [], categorias: [] }));
   }, [draft.loja]);
 
-  const codigos = useMemo(
-    () => [...new Set(opcoes.produtos.map((item) => item.code).filter(Boolean))],
-    [opcoes.produtos],
-  );
-  const nomesProduto = useMemo(
-    () => [...new Set(opcoes.produtos.map((item) => item.name).filter(Boolean))],
-    [opcoes.produtos],
-  );
+  const categorias = useMemo(() => {
+    const nomes = new Set(opcoes.categorias);
+    for (const item of itens) {
+      if (item.categoria && item.categoria !== "—") nomes.add(item.categoria);
+    }
+    return ["Todas", ...[...nomes].sort((a, b) => a.localeCompare(b, "pt-BR"))];
+  }, [opcoes.categorias, itens]);
+  const vendedores = useMemo(() => {
+    const nomes = new Set(opcoes.vendedores);
+    for (const item of itens) {
+      if (item.vendedor && item.vendedor !== "—") nomes.add(item.vendedor);
+    }
+    return ["Todos", ...[...nomes].sort((a, b) => a.localeCompare(b, "pt-BR"))];
+  }, [opcoes.vendedores, itens]);
+  const caixas = useMemo(() => {
+    const nomes = new Set(opcoes.caixas);
+    for (const item of itens) {
+      if (item.caixa && item.caixa !== "—") nomes.add(item.caixa);
+    }
+    return ["Todos", ...[...nomes].sort((a, b) => a.localeCompare(b, "pt-BR"))];
+  }, [opcoes.caixas, itens]);
 
   const visiveis = useMemo(
     () => (pronto ? itens.filter((item) => passa(item, filtros)) : []),
@@ -427,7 +393,7 @@ export default function ItensVendas() {
     setFiltros(base);
     setItens([]);
     setPronto(false);
-    setHint("Clique em Filtrar para carregar.");
+    setHint("Clique em Buscar para carregar.");
   }
 
   function escolherPeriodo(inicio: string, fim: string) {
@@ -438,14 +404,14 @@ export default function ItensVendas() {
     <GestaoShell title="ITENS DAS VENDAS" subtitle="Venda detalhada, no mesmo quadro do WM10.">
       <form className="iv-filtros" onSubmit={buscar}>
         <label>
-          Data início
+          Data da venda início
           <span className="pdv-date-field">
             <input type="date" value={draft.inicio} onChange={(event) => setCampo("inicio", event.target.value)} />
             <DatePreset onPick={escolherPeriodo} />
           </span>
         </label>
         <label>
-          Data fim
+          Data da venda fim
           <span className="pdv-date-field">
             <input type="date" value={draft.fim} onChange={(event) => setCampo("fim", event.target.value)} />
             <DatePreset onPick={escolherPeriodo} />
@@ -453,73 +419,62 @@ export default function ItensVendas() {
         </label>
         <label>
           Cód. do produto
-          <Completa value={draft.codigo} options={codigos} onChange={(value) => setCampo("codigo", value)} />
+          <input value={draft.codigo} onChange={(event) => setCampo("codigo", event.target.value)} autoComplete="off" />
         </label>
         <label>
-          Produto
-          <Completa value={draft.produto} options={nomesProduto} onChange={(value) => setCampo("produto", value)} />
-        </label>
-        <label>
-          Loja
-          <select
-            value={draft.loja}
-            onChange={(event) => setDraft((atual) => ({
-              ...atual,
-              loja: event.target.value,
-              vendedor: "",
-              operador: "",
-              categoria: "",
-            }))}
-          >
-            <option value="estoque">Estoque</option>
-            {lojistas.map((item) => (
-              <option key={item.id} value={item.id}>{item.name}</option>
-            ))}
-          </select>
-        </label>
-        <label>
-          Vendedor
-          <select value={draft.vendedor} onChange={(event) => setCampo("vendedor", event.target.value)}>
-            <option value="">Todos</option>
-            {opcoes.vendedores.map((nome) => (
-              <option key={nome} value={nome}>{nome}</option>
-            ))}
-          </select>
-        </label>
-        <label>
-          Operador
-          <select value={draft.operador} onChange={(event) => setCampo("operador", event.target.value)}>
-            <option value="">Todos</option>
-            {opcoes.operadores.map((nome) => (
-              <option key={nome} value={nome}>{nome}</option>
-            ))}
-          </select>
+          Nome do produto
+          <input value={draft.produto} onChange={(event) => setCampo("produto", event.target.value)} autoComplete="off" />
         </label>
         <label>
           Categoria
-          <select value={draft.categoria} onChange={(event) => setCampo("categoria", event.target.value)}>
-            <option value="">Todas</option>
-            {opcoes.categorias.map((nome) => (
-              <option key={nome} value={nome}>{nome}</option>
-            ))}
-          </select>
+          <SearchableSelect hideEmpty value={draft.categoria} options={categorias} onChange={(value) => setCampo("categoria", value)} />
         </label>
-        <label>Código da venda<input value={draft.venda} onChange={(event) => setCampo("venda", event.target.value)} /></label>
-        <label>Código do cliente<input value={draft.clienteCodigo} onChange={(event) => setCampo("clienteCodigo", event.target.value)} /></label>
-        <label>Nome do cliente<input value={draft.cliente} onChange={(event) => setCampo("cliente", event.target.value)} /></label>
+        <label>
+          Código da venda
+          <input value={draft.venda} onChange={(event) => setCampo("venda", event.target.value)} autoComplete="off" />
+        </label>
+        <label>
+          Nome do cliente
+          <input value={draft.cliente} onChange={(event) => setCampo("cliente", event.target.value)} autoComplete="off" />
+        </label>
+        <label>
+          Vendedor
+          <SearchableSelect hideEmpty value={draft.vendedor} options={vendedores} onChange={(value) => setCampo("vendedor", value)} />
+        </label>
+        <label>
+          Caixa
+          <SearchableSelect hideEmpty value={draft.caixa} options={caixas} onChange={(value) => setCampo("caixa", value)} />
+        </label>
+        <label>
+          Loja
+          <SearchableSelect
+            hideEmpty
+            value={draft.loja === "estoque" ? "Estoque" : (lojistas.find((item) => item.id === draft.loja)?.name || "Estoque")}
+            options={["Estoque", ...lojistas.map((item) => item.name)]}
+            onChange={(nome) => setDraft((atual) => ({
+              ...atual,
+              loja: nome === "Estoque" ? "estoque" : (lojistas.find((item) => item.name === nome)?.id || "estoque"),
+              vendedor: "Todos",
+              caixa: "Todos",
+              categoria: "Todas",
+            }))}
+          />
+        </label>
         <label>
           Tipo de relatório
-          <select value={draft.tipo} onChange={(event) => setCampo("tipo", event.target.value as TipoRelatorio)}>
-            {TIPOS.map((tipo) => (
-              <option key={tipo.value} value={tipo.value}>{tipo.label}</option>
-            ))}
-          </select>
+          <SearchableSelect
+            hideEmpty
+            value={TIPOS.find((tipo) => tipo.value === draft.tipo)?.label || "Detalhado"}
+            options={TIPOS.map((tipo) => tipo.label)}
+            onChange={(label) => {
+              const tipo = TIPOS.find((item) => item.label === label);
+              if (tipo) setCampo("tipo", tipo.value);
+            }}
+          />
         </label>
         <div className="iv-acoes">
-          <button type="submit" disabled={carregando}>{carregando ? "Filtrando..." : "Filtrar"}</button>
-          <button type="button" className="iv-limpar" onClick={limpar} disabled={carregando}>
-            Limpar
-          </button>
+          <button type="button" className="iv-limpar" onClick={limpar} disabled={carregando}>Limpar</button>
+          <button type="submit" disabled={carregando}>{carregando ? "Buscando..." : "Buscar"}</button>
         </div>
       </form>
 
@@ -565,23 +520,27 @@ export default function ItensVendas() {
                     <tr className="dre-group">
                       <th colSpan={13}>{ROTULO[filtros.tipo]}: {nome}</th>
                     </tr>
-                    {resumido ? null : linhas.map((item, index) => (
+                    {resumido ? null : linhas.map((item, index) => {
+                      const ajuste = money(ajusteDe(item));
+                      const lucro = money(item.lucro);
+                      return (
                       <tr key={`${nome}-${item.venda}-${item.codigo}-${index}`}>
-                        <td>{when(item.at)}</td>
-                        <td>{item.venda}</td>
-                        <td>{item.cliente}</td>
-                        <td>{item.caixa}</td>
-                        <td>{item.vendedor}</td>
-                        <td>{item.operador}</td>
-                        <td>{item.codigo}</td>
-                        <td>{item.produto}</td>
-                        <td className="iv-num">{item.qtd}</td>
-                        <td className="iv-num">{money(item.vendaValor)}</td>
-                        <td className={`iv-num ${ajusteDe(item) < 0 ? "dre-neg" : ajusteDe(item) > 0 ? "dre-pos" : ""}`}>{money(ajusteDe(item))}</td>
-                        <td className="iv-num">{money(item.compra)}</td>
-                        <td className={`iv-num ${item.lucro < 0 ? "dre-neg" : "dre-pos"}`}>{money(item.lucro)}</td>
+                        <td className={classeCelula(when(item.at))}>{when(item.at)}</td>
+                        <td className={classeCelula(item.venda)}>{item.venda}</td>
+                        <td className={classeCelula(item.cliente)}>{item.cliente}</td>
+                        <td className={classeCelula(item.caixa)}>{item.caixa}</td>
+                        <td className={classeCelula(item.vendedor)}>{item.vendedor}</td>
+                        <td className={classeCelula(item.operador)}>{item.operador}</td>
+                        <td className={classeCelula(item.codigo)}>{item.codigo}</td>
+                        <td className={classeCelula(item.produto)}>{item.produto}</td>
+                        <td className={classeCelula(item.qtd, true)}>{item.qtd}</td>
+                        <td className={classeCelula(money(item.vendaValor), true)}>{money(item.vendaValor)}</td>
+                        <td className={classeCelula(ajuste, true, ajusteDe(item) < 0 ? "dre-neg" : ajusteDe(item) > 0 ? "dre-pos" : "")}>{ajuste}</td>
+                        <td className={classeCelula(money(item.compra), true)}>{money(item.compra)}</td>
+                        <td className={classeCelula(lucro, true, item.lucro < 0 ? "dre-neg" : "dre-pos")}>{lucro}</td>
                       </tr>
-                    ))}
+                      );
+                    })}
                     <tr className="dre-strong">
                       <th colSpan={8}>Total ({nome})</th>
                       <td className="iv-num">{qtd}</td>

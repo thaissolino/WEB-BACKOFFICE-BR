@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { startTransition, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { formatMoneyRs } from "../../../client/cadastros/produtos/types";
 
 export type ItemLista = { cor: string; preco: number | null };
@@ -19,14 +20,17 @@ function resumoModelo(modelo: string) {
   const base = semAcento(modelo)
     .replace(/\biphones?\b/g, " ")
     .replace(/\bapple\b/g, " ")
+    .replace(/\b17\s+e\b/g, "17e")
+    .replace(/\b16\s+e\b/g, "16e")
     .replace(/\be-?sim\b/g, " ")
+    .replace(/\be\s*sims?\b/g, " ")
     .replace(/\bamerican[oa]s?\b/g, " ")
     .replace(/\bindian[oa]s?\b/g, " ")
     .replace(/\banatel\b/g, " ")
-    .replace(/\bchips?\b/g, " ")
+    .replace(/\b\d*chips?\b/g, " ")
     .replace(/\bchipi\b/g, " ")
-    .replace(/\bfisic[oa]\b/g, " ")
-    .replace(/\bvirtual\b/g, " ")
+    .replace(/\bfisic[oa]s?\b/g, " ")
+    .replace(/\b\d*virtuals?\b/g, " ")
     .replace(/\blla\b/g, " ")
     .replace(/[()]/g, " ")
     .replace(/\bpromax\b/g, "pro max")
@@ -68,6 +72,69 @@ export function chaveItemLista(lugar: string, modelo: string, cor: string, secao
   return `${chaveModeloLista(lugar, modelo)}|${semAcento(cor)}|${secao}`;
 }
 
+function BuscaVinculo({
+  termo,
+  onTermo,
+  sugestoes,
+  onEscolher,
+}: {
+  termo: string;
+  onTermo: (valor: string) => void;
+  sugestoes: ProdutoVinculo[];
+  onEscolher: (produto: ProdutoVinculo) => void;
+}) {
+  const campo = useRef<HTMLInputElement>(null);
+  const [caixa, setCaixa] = useState({ top: 0, left: 0, width: 280 });
+
+  useLayoutEffect(() => {
+    function lugar() {
+      const el = campo.current;
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      setCaixa({ top: rect.bottom + 4, left: rect.left, width: Math.max(rect.width, 280) });
+    }
+    lugar();
+    window.addEventListener("resize", lugar);
+    window.addEventListener("scroll", lugar, true);
+    return () => {
+      window.removeEventListener("resize", lugar);
+      window.removeEventListener("scroll", lugar, true);
+    };
+  }, [termo, sugestoes.length]);
+
+  return (
+    <>
+      <input
+        ref={campo}
+        value={termo}
+        onChange={(event) => onTermo(event.target.value)}
+        placeholder="Nome do produto no estoque"
+        className="w-full rounded-md border border-gray-300 bg-white p-1"
+        autoFocus
+      />
+      {createPortal(
+        <ul className="lf-picker-list" style={{ top: caixa.top, left: caixa.left, width: caixa.width }}>
+          {sugestoes.map((produto) => (
+            <li key={produto.id}>
+              <button
+                type="button"
+                className="lf-picker-hit"
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => onEscolher(produto)}
+              >
+                <span className="lf-picker-code">{produto.code || "—"}</span>
+                <span>{produto.name}</span>
+              </button>
+            </li>
+          ))}
+          {sugestoes.length === 0 ? <li className="lf-picker-empty">Nenhum produto</li> : null}
+        </ul>,
+        document.body,
+      )}
+    </>
+  );
+}
+
 function dicaBusca(modelo: string, cor: string) {
   const base = semAcento(modelo).replace(/[()*]/g, " ").replace(/-/g, " ");
   const geracao = base.match(/\b1[1-8]e?\b/)?.[0] || "";
@@ -85,7 +152,9 @@ const FORNECEDORES = [
 ] as const;
 
 export function ehIphone(modelo: string) {
-  return /\biphones?\b/.test(semAcento(modelo));
+  const base = semAcento(modelo);
+  if (/\b(realme|poco|xiaomi|redmi|notes?)\b/.test(base)) return false;
+  return /\biphones?\b/.test(base);
 }
 
 export function modeloAtivado(modelo: string) {
@@ -94,6 +163,28 @@ export function modeloAtivado(modelo: string) {
 
 function soIphones(blocos: BlocoLista[]) {
   return blocos.filter((bloco) => ehIphone(bloco.modelo));
+}
+
+function juntarBlocos(blocos: BlocoLista[]) {
+  const ordem: BlocoLista[] = [];
+  const indice = new Map<string, number>();
+  for (const bloco of blocos) {
+    const id = `${bloco.secao}|${semAcento(bloco.modelo)}`;
+    const pos = indice.get(id);
+    if (pos == null) {
+      indice.set(id, ordem.length);
+      ordem.push({ ...bloco, itens: bloco.itens.map((item) => ({ ...item })) });
+      continue;
+    }
+    const destino = ordem[pos];
+    for (const item of bloco.itens) {
+      const cor = semAcento(item.cor);
+      const ja = destino.itens.find((atual) => semAcento(atual.cor) === cor);
+      if (!ja) destino.itens.push({ ...item });
+      else if (item.preco != null) ja.preco = item.preco;
+    }
+  }
+  return ordem;
 }
 
 function chaveDoCard(lugar: string, bloco: BlocoLista) {
@@ -117,8 +208,8 @@ function faltaVincular(
 }
 
 function fornecedorDaLista(lugar: string) {
-  const base = semAcento(lugar);
-  return FORNECEDORES.find((fornecedor) => base.includes(fornecedor.chave))?.nome || "";
+  const base = semAcento(lugar).replace(/-/g, " ");
+  return FORNECEDORES.find((fornecedor) => base.includes(semAcento(fornecedor.chave).replace(/-/g, " ")))?.nome || "";
 }
 
 const ROTULO_SECAO: Record<BlocoLista["secao"], string> = {
@@ -148,6 +239,10 @@ export function ListaFornecedor({ listas, produtos, excluidos, vinculos, casar, 
   const [ok, setOk] = useState("");
   const [selecionados, setSelecionados] = useState<string[]>([]);
   const fora = useMemo(() => new Set(excluidos), [excluidos]);
+  const listasUnicas = useMemo(
+    () => listas.map((lista) => ({ ...lista, blocos: juntarBlocos(lista.blocos) })),
+    [listas],
+  );
   const pendentesAntes = useRef<Set<string> | null>(null);
 
   const sugestoes = useMemo(() => {
@@ -172,7 +267,8 @@ export function ListaFornecedor({ listas, produtos, excluidos, vinculos, casar, 
 
   const pendentes = useMemo(() => {
     const chaves = new Set<string>();
-    for (const lista of listas) {
+    for (const lista of listasUnicas) {
+      if (fornecedorDaLista(lista.lugar) !== fornecedor) continue;
       for (const bloco of lista.blocos) {
         const chaveCard = chaveDoCard(lista.lugar, bloco);
         if (blocoExcluido(fora, lista.lugar, bloco.modelo, bloco.secao)) continue;
@@ -180,11 +276,11 @@ export function ListaFornecedor({ listas, produtos, excluidos, vinculos, casar, 
       }
     }
     return chaves;
-  }, [listas, fora, vinculos, casar]);
+  }, [listasUnicas, fornecedor, fora, vinculos, casar]);
 
   const visiveis = useMemo(() => {
     const chaves: string[] = [];
-    for (const lista of listas) {
+    for (const lista of listasUnicas) {
       if (fornecedorDaLista(lista.lugar) !== fornecedor) continue;
       for (const bloco of soIphones(lista.blocos)) {
         const chaveBloco = `${chaveModeloLista(lista.lugar, bloco.modelo)}|${bloco.secao}`;
@@ -201,7 +297,7 @@ export function ListaFornecedor({ listas, produtos, excluidos, vinculos, casar, 
       }
     }
     return chaves;
-  }, [listas, fornecedor, fora, termoBusca, filtro, pendentes]);
+  }, [listasUnicas, fornecedor, fora, termoBusca, filtro, pendentes]);
 
   useEffect(() => {
     setSelecionados([]);
@@ -253,7 +349,7 @@ export function ListaFornecedor({ listas, produtos, excluidos, vinculos, casar, 
           <button
             key={item.nome}
             type="button"
-            onClick={() => setFornecedor(item.nome)}
+            onClick={() => startTransition(() => setFornecedor(item.nome))}
             className={`pb-1 text-base font-semibold ${fornecedor === item.nome ? "border-b-2 border-blue-700 text-blue-700" : "text-gray-400"}`}
           >
             {item.nome}
@@ -313,10 +409,10 @@ export function ListaFornecedor({ listas, produtos, excluidos, vinculos, casar, 
           ) : null}
         </div>
       ) : null}
-      {listas.filter((lista) => fornecedorDaLista(lista.lugar) === fornecedor).length === 0 ? (
+      {listasUnicas.filter((lista) => fornecedorDaLista(lista.lugar) === fornecedor).length === 0 ? (
         <p className="text-sm text-gray-500">A lista de hoje da {fornecedor} ainda não chegou.</p>
       ) : null}
-      {listas.filter((lista) => fornecedorDaLista(lista.lugar) === fornecedor).map((lista) => (
+      {listasUnicas.filter((lista) => fornecedorDaLista(lista.lugar) === fornecedor).map((lista) => (
         <section key={`${lista.lugar}-${lista.quando}`} className="mb-6">
           <h3 className="mb-3 text-base font-semibold text-gray-800">
             {lista.lugar}
@@ -381,34 +477,16 @@ export function ListaFornecedor({ listas, produtos, excluidos, vinculos, casar, 
                             </td>
                             <td className="px-3 py-2 text-left">
                               {aberto === chaveLinha ? (
-                                <div>
-                                  <input
-                                    value={termo}
-                                    onChange={(event) => setTermo(event.target.value)}
-                                    placeholder="Nome do produto no estoque"
-                                    className="w-full rounded-md border border-gray-300 p-1"
-                                    autoFocus
-                                  />
-                                  <ul className="mt-1 max-h-40 overflow-auto rounded-md border border-gray-200 bg-white">
-                                    {sugestoes.map((produto) => (
-                                      <li key={produto.id}>
-                                        <button
-                                          type="button"
-                                          className="w-full px-2 py-1 text-left hover:bg-gray-50"
-                                          onClick={() => {
-                                            onVincular(chave, produto.id);
-                                            setAberto("");
-                                            setTermo("");
-                                          }}
-                                        >
-                                          {produto.name}
-                                          {produto.code ? <span className="ml-2 text-xs text-gray-400">{produto.code}</span> : null}
-                                        </button>
-                                      </li>
-                                    ))}
-                                    {sugestoes.length === 0 ? <li className="px-2 py-1 text-gray-400">Nenhum produto</li> : null}
-                                  </ul>
-                                </div>
+                                <BuscaVinculo
+                                  termo={termo}
+                                  onTermo={setTermo}
+                                  sugestoes={sugestoes}
+                                  onEscolher={(produto) => {
+                                    onVincular(chave, produto.id);
+                                    setAberto("");
+                                    setTermo("");
+                                  }}
+                                />
                               ) : ligado ? (
                                 <span className="text-gray-700">
                                   {manual ? "Vinculado: " : "No estoque: "}

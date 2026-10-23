@@ -42,6 +42,8 @@ import {
   TransferenciasList,
   VendasAbertas,
   VendasConcluidas,
+  VendasEstornadas,
+  VendasTodas,
 } from "./movimentacoes/MovPages"
 import { RELATORIOS, RelatorioScreen } from "./relatorios/relatorios"
 import ClientPdv from "./Pdv"
@@ -62,6 +64,8 @@ import {
   TransportadoraList,
 } from "./configuracao/ConfigPages"
 import ImportacaoPage from "./configuracao/ImportPages"
+import { BuscarImei, BuscarImeiVenda } from "./movimentacoes/BuscarImei"
+import { BuscarImeiCompra, ImportarXmlCompra, NovaCompra, NovasCompras } from "./movimentacoes/LojaCompras"
 
 export function PdvModuleRoutes() {
   return (
@@ -97,8 +101,18 @@ export function PdvModuleRoutes() {
       <Route path="client/movimentacoes/vendas/pdv" element={<ClientPdv />} />
       <Route path="client/movimentacoes/vendas/pre" element={<PreVendas />} />
       <Route path="client/movimentacoes/vendas/entregas" element={<PainelEntregas />} />
+      <Route path="client/movimentacoes/vendas/todas" element={<VendasTodas />} />
       <Route path="client/movimentacoes/vendas/abertas" element={<VendasAbertas />} />
       <Route path="client/movimentacoes/vendas/concluidas" element={<VendasConcluidas />} />
+      <Route path="client/movimentacoes/vendas/estornadas" element={<VendasEstornadas />} />
+      <Route path="client/movimentacoes/vendas/imei" element={<BuscarImeiVenda />} />
+      <Route path="client/movimentacoes/compras/nova" element={<NovaCompra />} />
+      <Route path="client/movimentacoes/compras/abertas" element={<NovasCompras />} />
+      <Route path="client/movimentacoes/compras/concluidas" element={<NovasCompras />} />
+      <Route path="client/movimentacoes/compras/estornadas" element={<NovasCompras />} />
+      <Route path="client/movimentacoes/compras" element={<NovasCompras />} />
+      <Route path="client/movimentacoes/compras/imei" element={<BuscarImeiCompra />} />
+      <Route path="client/movimentacoes/compras/xml" element={<ImportarXmlCompra />} />
       <Route path="client/movimentacoes/caixa/selecionar" element={<TrocarCaixa />} />
       <Route path="client/movimentacoes/caixa/relatorio" element={<RelatorioCaixa />} />
       <Route path="client/movimentacoes/caixa/conta-corrente" element={<RelatorioContaCorrente />} />
@@ -136,6 +150,7 @@ export function PdvModuleRoutes() {
       <Route path="client/movimentacoes/documentos-fiscais/arquivos-contador" element={<ArquivosContador />} />
       <Route path="client/movimentacoes/documentos-fiscais/gerenciador" element={<GerenciadorArquivos />} />
 
+      <Route path="client/relatorios/imei" element={<BuscarImei escopo="tudo" />} />
       {RELATORIOS.map((def) => (
         <Route
           key={def.path}

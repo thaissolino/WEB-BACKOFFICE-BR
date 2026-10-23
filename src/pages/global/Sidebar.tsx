@@ -617,11 +617,11 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebar }) => {
               <LegacySubMenu title="Movimentações" icon={<SwapHorizOutlinedIcon />} style={{ color: colors.grey[100] }}>
                 <Item title="Vendas concluídas" to="/gestao/movimentacoes/vendas/concluidas" icon={<ListIcon />} selected={selected} setSelected={setSelected} />
                 <LegacySubMenu title="Financeiro" icon={<AccountBalanceWalletOutlinedIcon />}>
-                  <Item title="Plano de contas" to="/gestao/cadastro/financeiro/plano-conta" icon={<ListIcon />} selected={selected} setSelected={setSelected} />
+                  <Item title="Plano de Conta" to="/gestao/cadastro/financeiro/plano-conta" icon={<ListIcon />} selected={selected} setSelected={setSelected} />
                   <LegacySubMenu title="Despesas / Receitas" icon={<AccountBalanceWalletOutlinedIcon />}>
-                    <Item title="Listar despesas / receitas" to="/gestao/movimentacoes/financeiro/despesas" icon={<ListIcon />} selected={selected} setSelected={setSelected} />
-                    <Item title="Cadastrar despesas" to="/gestao/movimentacoes/financeiro/despesas/cadastrar" icon={<PersonAddIcon />} selected={selected} setSelected={setSelected} />
-                    <Item title="Cadastrar receitas" to="/gestao/movimentacoes/financeiro/receitas/cadastrar" icon={<PersonAddIcon />} selected={selected} setSelected={setSelected} />
+                    <Item title="Cadastrar Despesa" to="/gestao/movimentacoes/financeiro/despesas/cadastrar" icon={<PersonAddIcon />} selected={selected} setSelected={setSelected} />
+                    <Item title="Cadastrar Receita" to="/gestao/movimentacoes/financeiro/receitas/cadastrar" icon={<PersonAddIcon />} selected={selected} setSelected={setSelected} />
+                    <Item title="Listar Receitas / Despesas" to="/gestao/movimentacoes/financeiro/despesas" icon={<ListIcon />} selected={selected} setSelected={setSelected} />
                   </LegacySubMenu>
                 </LegacySubMenu>
               </LegacySubMenu>

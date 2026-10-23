@@ -1,4 +1,5 @@
 import { api } from "../../../services/api"
+import { createCatalog, deleteCatalog, listCatalog } from "../cadastros/catalog/catalogApi"
 import { formatMoneyRs } from "../cadastros/produtos/types"
 
 export type ReciboEmitente = {
@@ -200,7 +201,99 @@ function termoNovo(loja: string) {
   ]
 }
 
-function termosDaNota(loja: string, lines: ReciboLinha[]) {
+export type TextoImpressao = {
+  nome: string
+  titulo: string
+  categoria: string
+  corpo: string
+  chave: string
+}
+
+export async function carregarTextosRecibo() {
+  const items = await listCatalog("letter")
+  return items.map((item) => ({
+    nome: item.name,
+    titulo: String(item.payload.titulo || ""),
+    categoria: String(item.payload.categoria || ""),
+    corpo: String(item.payload.corpo || ""),
+    chave: String(item.payload.chave || ""),
+  }))
+}
+
+let garantiaRecibo: Promise<void> | null = null
+
+export function garantirTextosRecibo() {
+  if (!garantiaRecibo) {
+    garantiaRecibo = criarTextosRecibo().catch((error) => {
+      garantiaRecibo = null
+      throw error
+    })
+  }
+  return garantiaRecibo
+}
+
+async function criarTextosRecibo() {
+  const [cartas, categorias] = await Promise.all([
+    listCatalog("letter"),
+    listCatalog("product_category"),
+  ])
+  const vazio = cartas.find((item) => item.name === "RECIBO" && !String(item.payload.corpo || "").trim() && !String(item.payload.chave || ""))
+  if (vazio) await deleteCatalog("letter", [vazio.code])
+  const nomes = categorias.map((item) => item.name)
+  const pares = [
+    { condicao: "seminovo" as const, nome: "TERMO SEMINOVOS", titulo: "Termo de seminovos", ordem: "2" },
+    { condicao: "novo" as const, nome: "TERMO NOVOS", titulo: "Termo de novos", ordem: "3" },
+  ]
+  for (const par of pares) {
+    const chave = `recibo-${par.condicao}`
+    if (cartas.some((item) => String(item.payload.chave || "") === chave)) continue
+    const categoria = nomes.find((nome) => condicaoDoItem(nome) === par.condicao) || ""
+    await createCatalog("letter", {
+      name: par.nome,
+      active: true,
+      payload: {
+        tipo: "Impressão",
+        titulo: par.titulo,
+        ordem: par.ordem,
+        corpo: corpoDoTermo(par.condicao),
+        categoria,
+        chave,
+      },
+    })
+  }
+}
+
+export function corpoDoTermo(condicao: "seminovo" | "novo") {
+  const blocos = condicao === "seminovo" ? termoSeminovo("{{loja}}") : termoNovo("{{loja}}")
+  return blocos.map((bloco) => [bloco.titulo.toUpperCase(), ...bloco.itens].join("\n")).join("\n\n")
+}
+
+function blocosDoCorpo(texto: TextoImpressao, loja: string, prefixo: string) {
+  const linhas = texto.corpo.replaceAll("{{loja}}", loja).split("\n").map((linha) => linha.trim()).filter(Boolean)
+  const blocos: Array<{ titulo: string; itens: string[]; chave: string }> = []
+  let atual = { titulo: texto.titulo || texto.nome, itens: [] as string[], chave: `${prefixo}-0` }
+  linhas.forEach((linha, index) => {
+    const clausula = linha.toLowerCase().startsWith("cláusula") || linha.toLowerCase().startsWith("clausula")
+    if (!clausula && atual.itens.length) {
+      blocos.push(atual)
+      atual = { titulo: linha, itens: [], chave: `${prefixo}-${index}` }
+      return
+    }
+    if (!clausula) {
+      atual.titulo = linha
+      return
+    }
+    atual.itens.push(linha)
+  })
+  if (atual.itens.length || atual.titulo) blocos.push(atual)
+  return blocos
+}
+
+function textoDaCondicao(textos: TextoImpressao[], condicao: "seminovo" | "novo") {
+  return textos.find((texto) => texto.corpo.trim() && (texto.chave === `recibo-${condicao}` || condicaoDoItem(texto.categoria) === condicao))
+}
+
+function termosDaNota(loja: string, lines: ReciboLinha[], textos: TextoImpressao[] = []) {
   const condicoes = lines.map((line) => condicaoDoItem(line.category, line.name))
   const temSeminovo = condicoes.includes("seminovo")
   const temNovo = condicoes.includes("novo")
@@ -208,12 +301,16 @@ function termosDaNota(loja: string, lines: ReciboLinha[]) {
   const novo = temNovo
   const ambos = seminovo && novo
   const blocos: Array<{ titulo: string; itens: string[]; chave: string }> = []
-  if (seminovo) {
+  const salvoSeminovo = seminovo ? textoDaCondicao(textos, "seminovo") : undefined
+  const salvoNovo = novo ? textoDaCondicao(textos, "novo") : undefined
+  if (salvoSeminovo) blocos.push(...blocosDoCorpo(salvoSeminovo, loja, "s"))
+  else if (seminovo) {
     for (const bloco of termoSeminovo(loja)) {
       blocos.push({ ...bloco, titulo: ambos ? `${bloco.titulo} — seminovos` : bloco.titulo, chave: `s-${bloco.titulo}` })
     }
   }
-  if (novo) {
+  if (salvoNovo) blocos.push(...blocosDoCorpo(salvoNovo, loja, "n"))
+  else if (novo) {
     for (const bloco of termoNovo(loja)) {
       blocos.push({ ...bloco, titulo: ambos ? `${bloco.titulo} — novos` : bloco.titulo, chave: `n-${bloco.titulo}` })
     }
@@ -248,6 +345,7 @@ export function ReciboNota({
   total,
   received,
   changeAmount,
+  textos = [],
 }: {
   codigo: string
   data: string
@@ -260,6 +358,7 @@ export function ReciboNota({
   total: number
   received: number
   changeAmount: number
+  textos?: TextoImpressao[]
 }) {
   const loja = emitente.name || "Loja"
   const documentoLoja = texto(emitente.document)
@@ -424,7 +523,7 @@ export function ReciboNota({
 
       <section className="nf-box nf-clausulas">
         <h3>Dados adicionais</h3>
-        {termosDaNota(loja, lines).map((bloco) => (
+        {termosDaNota(loja, lines, textos).map((bloco) => (
           <div key={bloco.chave}>
             <h4>{bloco.titulo}</h4>
             {bloco.itens.map((item) => <p key={item.slice(0, 40)}>{item}</p>)}

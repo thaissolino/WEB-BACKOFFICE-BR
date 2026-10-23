@@ -457,8 +457,12 @@ export const GROUP_EVENTS = montarEventos()
 export const GROUP_EVENT_AREAS = [...new Set(GROUP_EVENTS.map((event) => event.area))]
 
 export function regraDoEvento(salvo: unknown, event: GroupEvent) {
-  const value = salvo && typeof salvo === "object" ? String((salvo as Record<string, unknown>)[event.key] || "") : ""
-  if (value === "permitir" || value === "bloquear") return value
+  if (salvo && typeof salvo === "object") {
+    const mapa = salvo as Record<string, unknown>
+    if (mapa["*"] === "permitir") return "permitir"
+    const value = String(mapa[event.key] || "")
+    if (value === "permitir" || value === "bloquear") return value
+  }
   return event.padrao
 }
 

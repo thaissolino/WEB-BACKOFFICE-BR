@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useState } from "react"
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom"
-import { Pencil, Plus, Settings, X } from "lucide-react"
+import { CreditCard, KeyRound, Pencil, Plus, Settings, Users, X } from "lucide-react"
 import { CadastroFrame } from "../CadastroShell"
 import { FormRow } from "../catalog/FormBits"
 import { getCatalog, createCatalog, listCatalog, updateCatalog } from "../catalog/catalogApi"
@@ -266,7 +266,7 @@ export default function CaixaPage() {
         </div>
       </section>
       {gear ? (
-        <div className="pdv-caixa-confirm" onClick={() => { if (!gearSaving) setGear(null) }}>
+        <div className="pdv-caixa-confirm">
           <div
             className="pdv-caixa-confirm-card pdv-gear-card pdv-fin-caixa"
             role="dialog"
@@ -274,18 +274,32 @@ export default function CaixaPage() {
             aria-labelledby="pdv-caixa-gear-title"
             onClick={(event) => event.stopPropagation()}
           >
-            <button className="pdv-cad-icon-btn pdv-gear-close" type="button" aria-label="Fechar" onClick={() => setGear(null)}>
-              <X size={16} />
-            </button>
-            <h2 id="pdv-caixa-gear-title">Parâmetros · {gear.name}</h2>
+            <header className="pdv-gear-head">
+              <span className="pdv-gear-mark" aria-hidden="true">
+                <Settings size={18} />
+              </span>
+              <div className="pdv-gear-titles">
+                <h2 id="pdv-caixa-gear-title">Parâmetros do caixa</h2>
+                <p>{gear.name}</p>
+              </div>
+              <button className="pdv-cad-icon-btn pdv-gear-close" type="button" aria-label="Fechar" onClick={() => setGear(null)}>
+                <X size={16} />
+              </button>
+            </header>
             <div className="pdv-gear-grid">
-              <div>
-                <strong>Formas de pagamento</strong>
-                <p>Marque uma ou várias. Sem marca, o PDV libera todas.</p>
+              <section className="pdv-gear-block">
+                <div className="pdv-gear-block-head">
+                  <CreditCard size={16} aria-hidden="true" />
+                  <div>
+                    <strong>Formas de pagamento</strong>
+                    <p>Marque uma ou várias. Sem marca, o PDV libera todas.</p>
+                  </div>
+                  <span className="pdv-gear-count">{gearPay.length ? `${gearPay.length} marcada${gearPay.length === 1 ? "" : "s"}` : "Todas"}</span>
+                </div>
                 <div className="pdv-gear-list">
                   {[...new Set([...payOptions, ...gearPay])].length === 0 ? <span>Nenhuma forma cadastrada.</span> : null}
                   {[...new Set([...payOptions, ...gearPay])].map((name) => (
-                    <label key={name}>
+                    <label key={name} className={gearPay.includes(name) ? "pdv-gear-opt is-on" : "pdv-gear-opt"}>
                       <input
                         type="checkbox"
                         checked={gearPay.includes(name)}
@@ -295,18 +309,24 @@ export default function CaixaPage() {
                     </label>
                   ))}
                 </div>
-              </div>
-              <div>
-                <strong>Vendedores neste caixa</strong>
-                <p>Marque quem pode vender neste caixa.</p>
-                <label>
+              </section>
+              <section className="pdv-gear-block">
+                <div className="pdv-gear-block-head">
+                  <Users size={16} aria-hidden="true" />
+                  <div>
+                    <strong>Vendedores neste caixa</strong>
+                    <p>Marque quem pode vender neste caixa.</p>
+                  </div>
+                  <span className="pdv-gear-count">{gearUsers.length ? `${gearUsers.length}` : "0"}</span>
+                </div>
+                <label className={gearObrigarVendedor ? "pdv-gear-opt is-on" : "pdv-gear-opt"}>
                   <input type="checkbox" checked={gearObrigarVendedor} onChange={(event) => setGearObrigarVendedor(event.target.checked)} />
                   Obrigar vendedor na venda
                 </label>
                 <div className="pdv-gear-list">
                   {[...new Set([...userOptions, ...gearUsers])].length === 0 ? <span>Nenhum usuário cadastrado.</span> : null}
                   {[...new Set([...userOptions, ...gearUsers])].map((name) => (
-                    <label key={name}>
+                    <label key={name} className={gearUsers.includes(name) ? "pdv-gear-opt is-on" : "pdv-gear-opt"}>
                       <input
                         type="checkbox"
                         checked={gearUsers.includes(name)}
@@ -316,25 +336,37 @@ export default function CaixaPage() {
                     </label>
                   ))}
                 </div>
-              </div>
-              <fieldset>
-                <legend>Baixa da venda</legend>
-                <label>
+              </section>
+              <fieldset className="pdv-gear-block">
+                <legend className="pdv-gear-block-head">
+                  <Settings size={16} aria-hidden="true" />
+                  <strong>Baixa da venda</strong>
+                </legend>
+                <label className={gearModo === "finaliza" ? "pdv-gear-choice is-on" : "pdv-gear-choice"}>
                   <input type="radio" name="modo-caixa" checked={gearModo === "finaliza"} onChange={() => setGearModo("finaliza")} />
-                  Este caixa finaliza a venda
+                  <span>
+                    <b>Finaliza a venda</b>
+                    Este caixa fecha o pedido na hora.
+                  </span>
                 </label>
-                <label>
+                <label className={gearModo === "espera" ? "pdv-gear-choice is-on" : "pdv-gear-choice"}>
                   <input type="radio" name="modo-caixa" checked={gearModo === "espera"} onChange={() => setGearModo("espera")} />
-                  Este caixa só envia para vendas em aberto
+                  <span>
+                    <b>Vendas em aberto</b>
+                    Este caixa só envia para vendas em aberto.
+                  </span>
                 </label>
               </fieldset>
-              <fieldset>
-                <legend>Acesso</legend>
-                <label>
+              <fieldset className="pdv-gear-block">
+                <legend className="pdv-gear-block-head">
+                  <KeyRound size={16} aria-hidden="true" />
+                  <strong>Acesso</strong>
+                </legend>
+                <label className={gearPermitirTrocar ? "pdv-gear-opt is-on" : "pdv-gear-opt"}>
                   <input type="checkbox" checked={gearPermitirTrocar} onChange={(event) => setGearPermitirTrocar(event.target.checked)} />
                   Permitir trocar de caixa no PDV
                 </label>
-                <label>
+                <label className="pdv-gear-field">
                   Senha para abrir o caixa (opcional)
                   <input value={gearSenha} onChange={(event) => setGearSenha(event.target.value)} autoComplete="new-password" placeholder="Deixe vazio para não exigir" />
                 </label>
@@ -423,63 +455,9 @@ export function PlanoContaForm() {
     }
   }
 
-  const gestao = pathname.startsWith("/gestao/")
-  if (gestao) {
-    return (
-      <CadastroFrame>
-        <div className="mx-auto max-w-3xl rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
-          <div className="mb-6 flex items-center justify-between gap-4">
-            <h2 className="text-xl font-semibold text-blue-700">{editId ? "Editar centro de custo" : "Novo centro de custo"}</h2>
-            <button
-              className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-800"
-              type="button"
-              onClick={() => navigate(listPath)}
-            >
-              Voltar
-            </button>
-          </div>
-          <form className="flex flex-col gap-4" onSubmit={onSubmit}>
-            <label className="block text-sm font-medium text-gray-700">
-              Centro de custo
-              <input
-                className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2"
-                value={nome}
-                onChange={(event) => setNome(event.target.value)}
-                autoComplete="off"
-              />
-            </label>
-            <label className="block text-sm font-medium text-gray-700">
-              Ordem
-              <input
-                className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2"
-                value={ordem}
-                onChange={(event) => setOrdem(event.target.value)}
-                autoComplete="off"
-              />
-            </label>
-            <label className="block text-sm font-medium text-gray-700">
-              Descrição interna
-              <textarea
-                className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2"
-                rows={4}
-                value={descricao}
-                onChange={(event) => setDescricao(event.target.value)}
-              />
-            </label>
-            {status ? <p className="text-sm font-semibold text-red-700" role="status">{status}</p> : null}
-            <button className="inline-flex w-fit items-center rounded-xl bg-blue-500 px-4 py-2 text-sm font-semibold text-white" type="submit">
-              <Plus className="mr-2" size={16} aria-hidden="true" />
-              Salvar
-            </button>
-          </form>
-        </div>
-      </CadastroFrame>
-    )
-  }
-
   return (
     <CadastroFrame>
-      <section className="pdv-cad-page" aria-labelledby="pdv-plano-form">
+      <section className="pdv-cad-page pdv-cli-page" aria-labelledby="pdv-plano-form">
         <div className="pdv-cad-sheet">
           <h1 id="pdv-plano-form">CADASTRAR CENTRO DE CUSTO</h1>
           <button className="pdv-cad-btn pdv-cad-btn-back pdv-voltar" type="button" onClick={() => navigate(listPath)}>

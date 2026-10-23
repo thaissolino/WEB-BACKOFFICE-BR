@@ -33,18 +33,21 @@ type ViaCep = {
   complemento?: string
 }
 
-export default function ClienteForm() {
+export default function ClienteForm({ criar = false }: { criar?: boolean }) {
   const navigate = useNavigate()
   const { code = "" } = useParams()
   const [form, setForm] = useState(EMPTY)
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(!criar)
   const [saving, setSaving] = useState(false)
   const [status, setStatus] = useState("")
   const [cepMsg, setCepMsg] = useState("")
   const cepBusca = useRef("")
 
   useEffect(() => {
-    if (!code) return
+    if (criar || !code) {
+      setLoading(false)
+      return
+    }
     api
       .get(`/clients/customers/${code}`)
       .then(({ data }) => {
@@ -71,7 +74,7 @@ export default function ClienteForm() {
       })
       .catch((err) => setStatus(parseError(err).friend || "Não foi possível abrir o cliente."))
       .finally(() => setLoading(false))
-  }, [code])
+  }, [code, criar])
 
   function setField(key: keyof typeof EMPTY, value: string) {
     setForm((current) => ({ ...current, [key]: value }))
@@ -116,9 +119,29 @@ export default function ClienteForm() {
     setSaving(true)
     setStatus("")
     try {
-      await api.put(`/clients/customers/${code}`, form)
-      avisarSalvo("Cliente salvo.")
-      navigate("/client/clientes", { state: { returnedCustomerCode: String(code) } })
+      const payload = {
+        ...form,
+        name: form.name.trim(),
+        responsible: form.name.trim(),
+        portfolio: form.portfolio || "",
+        phone: form.phone || "",
+        classification: form.classification || "",
+        city: form.city || "",
+        state: form.state || "",
+        cep: form.cep || "",
+        document: form.document || "",
+        financialCode: form.financialCode || "0",
+      }
+      if (criar) {
+        const { data } = await api.post("/clients/customers", payload)
+        const novo = String((data.customer as { code?: string | number })?.code || "")
+        avisarSalvo("Cliente cadastrado.")
+        navigate("/client/clientes", { state: { returnedCustomerCode: novo } })
+      } else {
+        await api.put(`/clients/customers/${code}`, payload)
+        avisarSalvo("Cliente salvo.")
+        navigate("/client/clientes", { state: { returnedCustomerCode: String(code) } })
+      }
     } catch (err) {
       setStatus(parseError(err).friend || "Não foi possível salvar o cliente.")
     } finally {
@@ -131,25 +154,27 @@ export default function ClienteForm() {
       <section className="pdv-cad-page pdv-cli-page" aria-labelledby="cli-form-title">
         <div className="pdv-cad-sheet cli-edit">
           <div className="cli-edit-head">
-            <h1 id="cli-form-title">ATUALIZAR CLIENTE</h1>
             <button className="pdv-cad-btn pdv-cad-btn-back pdv-voltar" type="button" onClick={() => navigate("/client/clientes", { state: { returnedCustomerCode: String(code) } })}>
               Voltar
             </button>
+            <h1 id="cli-form-title">{criar ? "CADASTRAR CLIENTE" : "ATUALIZAR CLIENTE"}</h1>
           </div>
           {loading ? <p>Carregando o cliente...</p> : null}
           {status ? <p className="pdv-cad-error" role="status">{status}</p> : null}
           {!loading ? (
-            <form className="cli-edit-scroll" onSubmit={onSubmit}>
+            <form id="cli-cadastro" className="cli-edit-scroll" onSubmit={onSubmit}>
               <fieldset>
                 <legend>Dados</legend>
                 <div className="cli-edit-grid">
-                  <label>
-                    Código
-                    <input value={code} readOnly />
-                  </label>
+                  {criar ? null : (
+                    <label>
+                      Código
+                      <input value={code} readOnly />
+                    </label>
+                  )}
                   <label className="cli-edit-span">
                     Nome
-                    <input value={form.name} onChange={(event) => setField("name", event.target.value.toLocaleUpperCase("pt-BR"))} required />
+                    <input value={form.name} onChange={(event) => setField("name", event.target.value.toLocaleUpperCase("pt-BR"))} required autoFocus={criar} />
                   </label>
                   <label>
                     CPF / CNPJ
@@ -208,7 +233,7 @@ export default function ClienteForm() {
 
               <div className="cli-edit-save">
                 <button className="pdv-cad-btn pdv-cad-btn-green" type="submit" disabled={saving}>
-                  {saving ? "Salvando..." : "Salvar"}
+                  {saving ? "Salvando..." : criar ? "Cadastrar" : "Salvar"}
                 </button>
               </div>
             </form>

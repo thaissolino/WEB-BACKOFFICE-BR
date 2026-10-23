@@ -1,29 +1,15 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import {
-  Calendar,
-  CreditCard,
-  Plus,
-  RefreshCw,
-  Search,
-  Settings,
-  Undo2,
-  UserRound,
-  X,
-} from "lucide-react";
+import { Calendar, Plus, RefreshCw, Search, UserRound, X } from "lucide-react";
 import { api, parseError } from "../../../../services/api";
+import { avisarSalvo } from "../../avisoSalvo";
 import { formatCnpj } from "../../../../utils/brMasks";
 import CadastroShell from "../CadastroShell";
 import type { PdvSupplier } from "./types";
 
 function cityLabel(item: PdvSupplier) {
   if (item.city && item.uf) return `${item.city} - ${item.uf}`;
-  if (item.city) return item.city;
-  return "-";
-}
-
-function phoneLabel(value: string) {
-  return value.trim() || "()";
+  return item.city || "";
 }
 
 export default function FornecedoresList({ inactive = false }: { inactive?: boolean }) {
@@ -35,7 +21,7 @@ export default function FornecedoresList({ inactive = false }: { inactive?: bool
   const [applied, setApplied] = useState(draft);
   const [selected, setSelected] = useState<Record<number, boolean>>({});
   const [error, setError] = useState("");
-  const [toast, setToast] = useState("");
+  const [acting, setActing] = useState(false);
 
   function load() {
     api
@@ -70,27 +56,48 @@ export default function FornecedoresList({ inactive = false }: { inactive?: bool
   }, [applied, rows]);
 
   const allSelected = visible.length > 0 && visible.every((item) => selected[item.code]);
+  const picked = rows.filter((item) => selected[item.code]);
 
   function onFilter(event: FormEvent) {
     event.preventDefault();
     setApplied(draft);
   }
 
-  function onClear() {
-    const empty = { type: "Todos", name: "", document: "" };
-    setDraft(empty);
-    setApplied(empty);
+  function toggleAll(checked: boolean) {
+    const next: Record<number, boolean> = { ...selected };
+    visible.forEach((item) => {
+      next[item.code] = checked;
+    });
+    setSelected(next);
+  }
+
+  async function runOnPicked(action: "inativar" | "reativar") {
+    if (!picked.length || acting) return;
+    const label = action === "reativar" ? "Reativar" : "Inativar";
+    if (!window.confirm(`${label} ${picked.length} fornecedor(es)?`)) return;
+    setActing(true);
+    setError("");
+    try {
+      await Promise.all(
+        picked.map((item) => api.put(`/clients/suppliers/${item.code}`, { active: action === "reativar" })),
+      );
+      const gone = new Set(picked.map((item) => item.code));
+      setRows((atual) => atual.filter((item) => !gone.has(item.code)));
+      setSelected({});
+      avisarSalvo(action === "reativar" ? "Fornecedor reativado." : "Fornecedor inativado.");
+    } catch (err) {
+      const parsed = parseError(err);
+      setError(parsed.friend || parsed.message || "Não foi possível concluir.");
+    } finally {
+      setActing(false);
+    }
   }
 
   return (
     <CadastroShell>
-      <section className="pdv-cad-page" aria-labelledby="pdv-cad-forn-title">
-        <div className="pdv-cad-sheet pdv-cad-sheet-wide">
-          <h1 id="pdv-cad-forn-title">FORNECEDORES</h1>
-          <p className="pdv-cad-hint">
-            Fornecedores particulares da sua conta de lojista. Os fornecedores da Central
-            (usados nas invoices) são separados e não aparecem aqui.
-          </p>
+      <section className="pdv-cad-page pdv-cli-page pdv-cli-list" aria-labelledby="pdv-cad-forn-title">
+        <div className="pdv-cad-sheet">
+          <h1 id="pdv-cad-forn-title">{isInactive ? "FORNECEDORES INATIVOS" : "FORNECEDORES"}</h1>
           <div className="pdv-cad-actions">
             <button
               className="pdv-cad-btn pdv-cad-btn-green"
@@ -102,7 +109,7 @@ export default function FornecedoresList({ inactive = false }: { inactive?: bool
             </button>
             {isInactive ? (
               <button className="pdv-cad-btn pdv-cad-btn-green" type="button" onClick={() => navigate("/client/fornecedores")}>
-                <UserRound size={16} aria-hidden="true" />
+                <UserRound size={16} strokeWidth={2.2} aria-hidden="true" />
                 Fornecedores Ativos
               </button>
             ) : (
@@ -115,6 +122,14 @@ export default function FornecedoresList({ inactive = false }: { inactive?: bool
                 Fornecedores Inativos
               </button>
             )}
+            <button
+              className="pdv-cad-btn"
+              type="button"
+              disabled={!picked.length || acting}
+              onClick={() => void runOnPicked(isInactive ? "reativar" : "inativar")}
+            >
+              {isInactive ? "Reativar" : "Inativar"}
+            </button>
           </div>
 
           <form className="pdv-cad-filters pdv-cad-filters-forn" onSubmit={onFilter}>
@@ -126,7 +141,7 @@ export default function FornecedoresList({ inactive = false }: { inactive?: bool
               </select>
             </label>
             <label>
-              Fantasia/Razao/Código
+              Fantasia/Razão/Código
               <input
                 value={draft.name}
                 onChange={(event) => setDraft({ ...draft, name: event.target.value })}
@@ -143,12 +158,8 @@ export default function FornecedoresList({ inactive = false }: { inactive?: bool
               />
             </label>
             <div className="pdv-cad-filters-go">
-              <button className="pdv-cad-btn pdv-cad-btn-ghost" type="button" onClick={onClear}>
-                <Undo2 size={16} aria-hidden="true" />
-                Limpar
-              </button>
               <button className="pdv-cad-btn pdv-cad-btn-blue" type="submit">
-                <Search size={16} aria-hidden="true" />
+                <Search size={16} strokeWidth={2.2} aria-hidden="true" />
                 Filtrar
               </button>
             </div>
@@ -160,32 +171,23 @@ export default function FornecedoresList({ inactive = false }: { inactive?: bool
             </p>
           ) : null}
 
-          <div className="pdv-cad-table-wrap">
+          <div className="pdv-cad-table-wrap pdv-cli-scroll">
             <table className="pdv-cad-table">
               <thead>
                 <tr>
-                  <th>Compra</th>
-                  <th>Tipo</th>
-                  <th>Cód. - Fantasia</th>
+                  <th>Código</th>
+                  <th>Fantasia</th>
+                  <th>Razão</th>
+                  <th>CNPJ</th>
                   <th>Telefone</th>
                   <th>Cidade</th>
-                  <th>Tipo de Custo</th>
-                  <th>Visualizar Compras</th>
-                  <th>Caixa</th>
                   <th>Atividade</th>
                   <th>Atualizar</th>
                   <th>
-                    Inativar{" "}
                     <input
                       type="checkbox"
                       checked={allSelected}
-                      onChange={(event) => {
-                        const next: Record<number, boolean> = { ...selected };
-                        visible.forEach((item) => {
-                          next[item.code] = event.target.checked;
-                        });
-                        setSelected(next);
-                      }}
+                      onChange={(event) => toggleAll(event.target.checked)}
                       aria-label="Selecionar todos"
                     />
                   </th>
@@ -194,82 +196,30 @@ export default function FornecedoresList({ inactive = false }: { inactive?: bool
               <tbody>
                 {visible.map((item) => (
                   <tr key={item.code}>
-                    <td>
-                      <button
-                        className="pdv-cad-icon-btn"
-                        type="button"
-                        aria-label={`Compra ${item.fantasia}`}
-                        onClick={() => navigate(`/client/fornecedores/${item.code}/compra`)}
-                      >
-                        <Plus size={16} strokeWidth={2.6} aria-hidden="true" />
-                      </button>
-                    </td>
-                    <td>{item.type}</td>
-                    <td>
-                      {item.code} - {item.fantasia || item.razao}
-                    </td>
-                    <td>{phoneLabel(item.phone)}</td>
+                    <td>{item.code}</td>
+                    <td>{item.fantasia}</td>
+                    <td>{item.razao}</td>
+                    <td>{item.document}</td>
+                    <td>{item.phone}</td>
                     <td>{cityLabel(item)}</td>
                     <td>
                       <button
                         className="pdv-cad-icon-btn"
                         type="button"
-                        aria-label={`Tipo de Custo ${item.fantasia}`}
-                        onClick={() =>
-                          navigate(`/client/fornecedores/${item.code}/tipo-custo`, {
-                            state: { title: "Tipo de Custo", name: item.fantasia },
-                          })
-                        }
-                      >
-                        <Settings size={16} aria-hidden="true" />
-                      </button>
-                    </td>
-                    <td>
-                      <button
-                        className="pdv-cad-icon-btn"
-                        type="button"
-                        aria-label={`Visualizar Compras ${item.fantasia}`}
-                        onClick={() =>
-                          navigate(`/client/fornecedores/${item.code}/compras`, {
-                            state: { title: "Visualizar Compras", name: item.fantasia },
-                          })
-                        }
-                      >
-                        <Plus size={16} strokeWidth={2.6} aria-hidden="true" />
-                      </button>
-                    </td>
-                    <td>
-                      <button
-                        className="pdv-cad-icon-btn"
-                        type="button"
-                        aria-label={`Caixa ${item.fantasia}`}
-                        onClick={() =>
-                          navigate(`/client/fornecedores/${item.code}/caixa`, {
-                            state: { title: "Caixa", name: item.fantasia },
-                          })
-                        }
-                      >
-                        <CreditCard size={16} aria-hidden="true" />
-                      </button>
-                    </td>
-                    <td>
-                      <button
-                        className="pdv-cad-icon-btn"
-                        type="button"
-                        aria-label={`Atividade ${item.fantasia}`}
+                        aria-label={`Atividade ${item.fantasia || item.razao}`}
                         onClick={() => navigate(`/client/atividades?fornecedor=${item.code}`)}
                       >
-                        <Calendar size={16} aria-hidden="true" />
+                        <Calendar size={16} strokeWidth={2.2} aria-hidden="true" />
                       </button>
                     </td>
                     <td>
                       <button
                         className="pdv-cad-icon-btn"
                         type="button"
-                        aria-label={`Atualizar ${item.fantasia}`}
-                        onClick={() => setToast("atualizado")}
+                        aria-label={`Atualizar ${item.fantasia || item.razao}`}
+                        onClick={() => navigate(`/client/fornecedores/${item.code}/atualizar`)}
                       >
-                        <RefreshCw size={16} aria-hidden="true" />
+                        <RefreshCw size={16} strokeWidth={2.2} aria-hidden="true" />
                       </button>
                     </td>
                     <td>
@@ -277,7 +227,7 @@ export default function FornecedoresList({ inactive = false }: { inactive?: bool
                         type="checkbox"
                         checked={Boolean(selected[item.code])}
                         onChange={(event) => setSelected({ ...selected, [item.code]: event.target.checked })}
-                        aria-label={`Inativar ${item.fantasia}`}
+                        aria-label={`Selecionar ${item.fantasia || item.razao}`}
                       />
                     </td>
                   </tr>
@@ -285,9 +235,6 @@ export default function FornecedoresList({ inactive = false }: { inactive?: bool
               </tbody>
             </table>
           </div>
-          <p className="pdv-sr" aria-live="polite">
-            {toast}
-          </p>
         </div>
       </section>
     </CadastroShell>

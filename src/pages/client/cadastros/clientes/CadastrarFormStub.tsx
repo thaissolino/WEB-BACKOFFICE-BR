@@ -29,7 +29,7 @@ export default function CadastrarFormStub({ entity = "cliente" }: { entity?: "cl
 
   return (
     <CadastroShell>
-      <section className="pdv-cad-page" aria-labelledby="pdv-cad-form-title">
+      <section className="pdv-cad-page pdv-cli-page" aria-labelledby="pdv-cad-form-title">
         <div className="pdv-cad-sheet">
           <div className="pdv-cad-head">
             <h1 id="pdv-cad-form-title">{title}</h1>

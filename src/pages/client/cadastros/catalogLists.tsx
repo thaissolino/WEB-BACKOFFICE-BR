@@ -69,6 +69,7 @@ function VincularBtn() {
 export const USER_LIST: CatalogListConfig = {
   kind: "user",
   title: "USUÁRIOS",
+  pageClass: "pdv-cli-page",
   cadastrarLabel: "Cadastrar Usuário",
   cadastrarPath: "/client/usuarios/cadastrar",
   inativosLabel: "Usuários Inativos",
@@ -84,12 +85,9 @@ export const USER_LIST: CatalogListConfig = {
     { key: "code", label: "Código", from: "code" },
     { key: "nome", label: "Nome", from: "name" },
     { key: "usuario", label: "Usuario", payloadKey: "usuario" },
-    { key: "telefone", label: "Telefone", payloadKey: "telefone" },
     { key: "grupo", label: "Grupo", payloadKey: "grupo" },
     { key: "createdAt", label: "Data de Cadastro", from: "createdAt" },
-    { key: "replicar", label: "Replicar Acesso" },
     { key: "senha", label: "Trocar Senha" },
-    { key: "atividade", label: "Atividade" },
     { key: "atualizar", label: "Atualizar", from: "action" },
     { key: "inativar", label: "Inativar", from: "active" },
   ],
@@ -207,6 +205,7 @@ export function UsersList({ inactive = false }: { inactive?: boolean }) {
         bulkDelete: true,
         bulkDisable: !inactive,
         bulkLabel: "Inativar",
+        alwaysPick: true,
       }}
       inactive={inactive}
     />
@@ -240,15 +239,14 @@ export function PayList({ inactive = false }: { inactive?: boolean }) {
 export function PlanList({ inactive = false }: { inactive?: boolean }) {
   const { pathname, search } = useLocation()
   const navigate = useNavigate()
-  const gestao = pathname.startsWith("/gestao/")
-  const base = gestao ? "/gestao/cadastro/financeiro/plano-conta" : "/client/financeiro/plano-conta"
+  const base = pathname.startsWith("/gestao/") ? "/gestao/cadastro/financeiro/plano-conta" : "/client/financeiro/plano-conta"
   const showAll = new URLSearchParams(search).get("todos") === "1"
   return (
     <CatalogList
-      layout={gestao ? "gestao" : "pdv"}
       config={{
         ...PLAN_LIST,
-        title: gestao ? "Plano de Conta" : inactive ? "CENTRO DE CUSTO INATIVOS" : PLAN_LIST.title,
+        pageClass: "pdv-cli-page",
+        title: inactive ? "CENTRO DE CUSTO INATIVOS" : PLAN_LIST.title,
         listPath: base,
         cadastrarPath: `${base}/cadastrar`,
         inativosPath: `${base}/inativos`,
@@ -263,7 +261,7 @@ export function PlanList({ inactive = false }: { inactive?: boolean }) {
         ],
         extraActions: (
           <button
-            className={gestao ? "rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-800" : "pdv-cad-btn pdv-cad-btn-blue"}
+            className="pdv-cad-btn pdv-cad-btn-blue"
             type="button"
             onClick={() => navigate(showAll ? base : `${base}?todos=1`)}
           >

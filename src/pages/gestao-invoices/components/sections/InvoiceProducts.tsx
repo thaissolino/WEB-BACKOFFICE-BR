@@ -972,7 +972,6 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
               <label className="block text-sm font-medium text-gray-700 mb-1">Código</label>
               <input
                 type="text"
-                placeholder="Código"
                 value={
                   productPickMode === "name"
                     ? products.find((p) => p.id === productForm.productId)?.code || ""
@@ -1027,7 +1026,6 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
                   setProductForm({ ...productForm, quantity: e.target.value });
                 }}
                 className="w-full border border-gray-300 rounded-md p-2 text-sm focus:ring-blue-500 focus:border-blue-500 appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-                placeholder="Qtd"
               />
             </div>
             <div>
@@ -1091,7 +1089,6 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
                   }
                 }}
                 className="w-full border border-gray-300 rounded-md p-2 text-sm focus:ring-blue-500 focus:border-blue-500 appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-                placeholder={moneySymbol}
               />
             </div>
             <div>
@@ -1104,7 +1101,6 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
                   setProductForm({ ...productForm, weight: e.target.value });
                 }}
                 className="w-full border border-gray-300 rounded-md p-2 text-sm focus:ring-blue-500 focus:border-blue-500 appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-                placeholder="kg"
               />
             </div>
           </div>
@@ -1117,7 +1113,6 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
                 value={productForm.total}
                 readOnly
                 className="w-full border border-gray-300 rounded-md p-2 bg-gray-100 focus:ring-blue-500 focus:border-blue-500"
-                placeholder={moneySymbol}
               />
             </div>
             <div className="flex items-end">

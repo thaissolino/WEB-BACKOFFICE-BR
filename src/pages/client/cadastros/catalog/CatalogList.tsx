@@ -2,6 +2,7 @@ import { FormEvent, ReactNode, useEffect, useMemo, useState } from "react"
 import { useLocation, useNavigate } from "react-router-dom"
 import { Landmark, Pencil, Plus } from "lucide-react"
 import { CadastroFrame } from "../CadastroShell"
+import { colunaNumero } from "../../pdv/FilterPage"
 import "../cadastros.css"
 import { AtivoToggle } from "../produtos/QuickCadWindows"
 import {
@@ -46,7 +47,13 @@ export type CatalogListConfig = {
   bulkDisable?: boolean
   bulkLabel?: string
   alwaysPick?: boolean
+  pageClass?: string
   renderCell?: (item: CatalogItem, column: CatalogColumn) => ReactNode
+}
+
+function classeColuna(column: CatalogColumn) {
+  if (column.from === "action" || column.key === "atualizar") return "pdv-col-num"
+  return colunaNumero(column.label) ? "pdv-col-num" : undefined
 }
 
 export default function CatalogList({
@@ -94,17 +101,30 @@ export default function CatalogList({
     setPicked((current) => (current.includes(code) ? current.filter((item) => item !== code) : [...current, code]))
   }
 
+  function principal(item: CatalogItem) {
+    return item.payload.sistema === true
+  }
+
   async function deleteSelected() {
     if (!picked.length || deleting) return
-    const count = picked.length
-    if (!window.confirm(count === 1 ? "Excluir este registro?" : `Excluir ${count} registros?`)) return
+    const chosen = rows.filter((item) => picked.includes(item.code))
+    const protegidos = chosen.filter(principal)
+    const alvos = chosen.filter((item) => !principal(item))
+    if (!alvos.length) {
+      setError("O usuário principal do cadastro do lojista não pode ser excluído.")
+      return
+    }
+    const aviso = protegidos.length ? " O usuário principal do lojista permanece." : ""
+    const pergunta = alvos.length === 1 ? `Excluir este registro?${aviso}` : `Excluir ${alvos.length} registros?${aviso}`
+    if (!window.confirm(pergunta)) return
     setDeleting(true)
     setError("")
     try {
-      await deleteCatalog(config.kind, picked)
-      setPicked([])
-      setPicking(false)
-      setToast(count === 1 ? "Registro excluído." : `${count} registros excluídos.`)
+      await deleteCatalog(config.kind, alvos.map((item) => item.code))
+      setPicked(protegidos.map((item) => item.code))
+      if (!config.alwaysPick) setPicking(false)
+      const feito = alvos.length === 1 ? "Registro excluído." : `${alvos.length} registros excluídos.`
+      setToast(protegidos.length ? `${feito} O usuário principal do lojista não pode ser excluído.` : feito)
       load()
     } catch (err) {
       const parsed = parseError(err)
@@ -230,7 +250,7 @@ export default function CatalogList({
   }
 
   const page = (
-      <section className="pdv-cad-page" aria-labelledby={`pdv-cat-${config.kind}`}>
+      <section className={["pdv-cad-page", config.pageClass].filter(Boolean).join(" ")} aria-labelledby={`pdv-cat-${config.kind}`}>
         <div className="pdv-cad-sheet pdv-cad-sheet-wide">
           <h1 id={`pdv-cat-${config.kind}`}>{config.title}</h1>
           <div className="pdv-cad-actions">
@@ -252,12 +272,8 @@ export default function CatalogList({
               )
             ) : null}
             {config.extraActions}
-            {config.alwaysPick && config.bulkDisable ? (
-              <button className="pdv-cad-btn pdv-cad-btn-red" type="button" disabled={!picked.length || deleting} onClick={() => void disableSelected()}>
-                {deleting ? "Inativando..." : "Inativar"}
-              </button>
-            ) : config.bulkDelete || config.bulkDisable ? (
-              picking ? (
+            {config.bulkDelete || config.bulkDisable ? (
+              picking || config.alwaysPick ? (
                 <>
                   {config.bulkDisable ? (
                     <button className="pdv-cad-btn pdv-cad-btn-red" type="button" disabled={!picked.length || deleting} onClick={() => void disableSelected()}>
@@ -273,9 +289,11 @@ export default function CatalogList({
                       {deleting ? "Excluindo..." : picked.length ? `Excluir (${picked.length})` : "Excluir selecionados"}
                     </button>
                   ) : null}
-                  <button className="pdv-cad-btn" type="button" disabled={deleting} onClick={() => { setPicking(false); setPicked([]) }}>
-                    Cancelar
-                  </button>
+                  {config.alwaysPick ? null : (
+                    <button className="pdv-cad-btn" type="button" disabled={deleting} onClick={() => { setPicking(false); setPicked([]) }}>
+                      Cancelar
+                    </button>
+                  )}
                 </>
               ) : (
                 <button className="pdv-cad-btn pdv-cad-btn-blue" type="button" onClick={() => setPicking(true)}>
@@ -316,18 +334,17 @@ export default function CatalogList({
               <thead>
                 <tr>
                   {picking ? (
-                    <th>
+                    <th className="pdv-col-mark">
                       <input
                         type="checkbox"
                         aria-label="Selecionar todos"
                         checked={visible.length > 0 && picked.length === visible.length}
                         onChange={(event) => setPicked(event.target.checked ? visible.map((item) => item.code) : [])}
                       />
-                      {config.alwaysPick ? " Todos" : null}
                     </th>
                   ) : null}
                   {config.columns.map((column) => (
-                    <th key={column.key}>{column.label}</th>
+                    <th key={column.key} className={classeColuna(column)}>{column.label}</th>
                   ))}
                 </tr>
               </thead>
@@ -335,7 +352,7 @@ export default function CatalogList({
                 {visible.map((item) => (
                   <tr key={item.code}>
                     {picking ? (
-                      <td>
+                      <td className="pdv-col-mark">
                         <input
                           type="checkbox"
                           aria-label={`Selecionar ${item.name}`}
@@ -345,7 +362,7 @@ export default function CatalogList({
                       </td>
                     ) : null}
                     {config.columns.map((column) => (
-                      <td key={column.key}>{cell(item, column)}</td>
+                      <td key={column.key} className={classeColuna(column)}>{cell(item, column)}</td>
                     ))}
                   </tr>
                 ))}

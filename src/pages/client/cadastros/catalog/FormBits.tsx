@@ -1,4 +1,5 @@
 import { ReactNode, useEffect, useRef, useState } from "react"
+import { ChevronDown } from "lucide-react"
 import { AtivoToggle } from "../produtos/QuickCadWindows"
 
 export function RadioSimNao({
@@ -125,7 +126,7 @@ export function DatePreset({
         aria-haspopup="menu"
         onClick={() => setOpen((value) => !value)}
       >
-        <span className="pdv-date-presets-caret" aria-hidden="true" />
+        <ChevronDown size={16} aria-hidden="true" />
       </button>
       {open ? (
         <div className="pdv-date-presets-menu" role="menu" style={{ position: "fixed", top: spot.top, left: spot.left, right: "auto" }}>

@@ -2,23 +2,32 @@ import { FormEvent, Fragment, ReactNode, useState } from "react"
 import { useLocation, useNavigate } from "react-router-dom"
 import { CadastroFrame } from "../cadastros/CadastroShell"
 import { DatePreset } from "../cadastros/catalog/FormBits"
+import SearchableSelect from "../cadastros/produtos/SearchableSelect"
 import { todayIso } from "../../../utils/todayIso"
+
+const COLUNA_NUMERO = ["cod", "qtd", "quant", "valor", "preco", "total", "data", "ordem", "numero", "subtotal", "saldo", "estoque", "unit"]
+
+export function colunaNumero(titulo: string) {
+  const texto = titulo.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase()
+  return COLUNA_NUMERO.some((chave) => texto.includes(chave))
+}
 
 export type FilterField = {
   key: string
   label: string
-  kind?: "text" | "select" | "date"
+  kind?: "text" | "select" | "date" | "search"
   options?: string[]
 }
 
 export type FilterPageProps = {
   title: string
-  actions?: { label: string; href?: string; tone?: "green" | "red" | "blue" }[]
+  actions?: { label: string; href?: string; tone?: "green" | "red" | "blue" | "ink" }[]
   fields: FilterField[]
   columns: string[]
   submitLabel?: string
   hint?: string
   extra?: ReactNode
+  lead?: ReactNode
   rows?: string[][]
   onRowClick?: (index: number) => void
   hideList?: boolean
@@ -30,6 +39,8 @@ export type FilterPageProps = {
   rowLead?: (index: number) => ReactNode
   rowLeadLabel?: string
   pageClass?: string
+  filtersClass?: string
+  onSearch?: (values: Record<string, string>) => void
 }
 
 export default function FilterPage({
@@ -40,6 +51,7 @@ export default function FilterPage({
   submitLabel = "Buscar",
   hint,
   extra,
+  lead,
   rows,
   onRowClick,
   hideList = false,
@@ -51,6 +63,8 @@ export default function FilterPage({
   rowLead,
   rowLeadLabel = "",
   pageClass = "",
+  filtersClass = "",
+  onSearch,
 }: FilterPageProps) {
   const navigate = useNavigate()
   const { pathname } = useLocation()
@@ -58,7 +72,7 @@ export default function FilterPage({
   const [values, setValues] = useState<Record<string, string>>(() => {
     const next: Record<string, string> = {}
     for (const field of fields) {
-      next[field.key] = field.kind === "date" ? todayIso() : field.kind === "select" ? field.options?.[0] || "" : ""
+      next[field.key] = field.kind === "date" ? todayIso() : field.kind === "select" || field.kind === "search" ? field.options?.[0] || "" : ""
     }
     return next
   })
@@ -77,13 +91,12 @@ export default function FilterPage({
   }
 
   function clearValues() {
-    setValues((current) => {
-      const next = { ...current }
-      for (const field of fields) {
-        next[field.key] = field.kind === "date" ? todayIso() : field.kind === "select" ? field.options?.[0] || "" : ""
-      }
-      return next
-    })
+    const next: Record<string, string> = {}
+    for (const field of fields) {
+      next[field.key] = field.kind === "date" ? todayIso() : field.kind === "select" || field.kind === "search" ? field.options?.[0] || "" : ""
+    }
+    setValues(next)
+    onSearch?.(next)
   }
 
   function go(href?: string) {
@@ -96,6 +109,7 @@ export default function FilterPage({
 
   function onSubmit(event: FormEvent) {
     event.preventDefault()
+    onSearch?.(values)
   }
 
   return (
@@ -103,12 +117,13 @@ export default function FilterPage({
       <section className={["pdv-cad-page", pageClass].filter(Boolean).join(" ")} aria-labelledby="pdv-filter-title">
         <div className={`pdv-cad-sheet pdv-cad-sheet-wide${premium ? " pdv-cad-premium" : ""}`}>
           {hideList ? null : <h1 id="pdv-filter-title">{title}</h1>}
+          {lead}
           {actions.length ? (
             <div className="pdv-cad-actions">
               {actions.map((action) => (
                 <button
                   key={action.label}
-                  className={`pdv-cad-btn ${action.tone === "green" ? "pdv-cad-btn-green" : action.tone === "red" ? "pdv-cad-btn-red" : action.tone === "blue" ? "pdv-cad-btn-blue" : ""}`}
+                  className={`pdv-cad-btn ${action.tone === "green" ? "pdv-cad-btn-green" : action.tone === "red" ? "pdv-cad-btn-red" : action.tone === "blue" ? "pdv-cad-btn-blue" : action.tone === "ink" ? "pdv-cad-btn-ink" : ""}`}
                   type="button"
                   onClick={() => go(action.href)}
                 >
@@ -117,11 +132,18 @@ export default function FilterPage({
               ))}
             </div>
           ) : null}
-          {hideList || fields.length === 0 ? null : <form className="pdv-cad-filters" onSubmit={onSubmit}>
+          {hideList || fields.length === 0 ? null : <form className={["pdv-cad-filters", filtersClass].filter(Boolean).join(" ")} onSubmit={onSubmit}>
             {fields.map((field) => (
               <label key={field.key}>
                 {field.label}
-                {field.kind === "select" ? (
+                {field.kind === "search" ? (
+                  <SearchableSelect
+                    value={!values[field.key] || values[field.key] === (field.options?.[0] || "") ? "" : values[field.key]}
+                    emptyLabel={field.options?.[0] || "Todos"}
+                    options={(field.options || []).slice(1)}
+                    onChange={(next) => setValue(field.key, !next || next === (field.options?.[0] || "") ? field.options?.[0] || "" : next)}
+                  />
+                ) : field.kind === "select" ? (
                   <select value={values[field.key] ?? ""} onChange={(event) => setValue(field.key, event.target.value)}>
                     {(field.options || []).map((opt) => (
                       <option key={opt}>{opt}</option>
@@ -153,7 +175,7 @@ export default function FilterPage({
                 <tr>
                   {rowLead ? <th>{rowLeadLabel}</th> : null}
                   {columns.map((column) => (
-                    <th key={column}>{column}</th>
+                    <th key={column} className={colunaNumero(column) ? "pdv-col-num" : undefined}>{column}</th>
                   ))}
                   {closedAction ? <th>{closedLabel}</th> : null}
                 </tr>
@@ -173,7 +195,7 @@ export default function FilterPage({
                         <td className="pdv-cad-row-action">{rowLead(index)}</td>
                       ) : null}
                       {row.map((cell, cellIndex) => (
-                        <td key={cellIndex}>
+                        <td key={cellIndex} className={colunaNumero(columns[cellIndex] || "") ? "pdv-col-num" : undefined}>
                           {cellIndex === 0 && onRowClick ? (
                             <span className="pdv-cad-code">
                               <span className={`pdv-cad-chevron${expandedIndex === index ? " is-open" : ""}`} aria-hidden="true" />

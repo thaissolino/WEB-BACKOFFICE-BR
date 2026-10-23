@@ -22,6 +22,7 @@ import OperatorManager from "../pages/form-operators/OperatorsManagement";
 import OperatorsManagementPerfilEdit from "../pages/form-operators-perfil-edit/OperatorsManagementPerfilEdit";
 import AdmManagementPerfilEdit from "../pages/form-adm-perfil-edit/AdmManagementPerfilEdit";
 import { useClientAuth } from "../hooks/clientAuth";
+import PdvShell from "../pages/client/dashboard/PdvShell";
 // import { GestorVixHome } from "../pages/home/GestorVixHome"; // /home desativado
 import ClientLogin from "../pages/client/Login";
 import ClientSso from "../pages/client/ClientSso";
@@ -34,7 +35,6 @@ import LojistaPedidos from "../pages/client/vendas/LojistaPedidos";
 import ClientLoja from "../pages/client/Loja";
 import ClientesList from "../pages/client/cadastros/clientes/ClientesList";
 import ClienteForm from "../pages/client/cadastros/clientes/ClienteForm";
-import ChecarCliente from "../pages/client/cadastros/clientes/ChecarCliente";
 import CadastrarFormStub from "../pages/client/cadastros/clientes/CadastrarFormStub";
 import ClassificacaoClientes from "../pages/client/cadastros/clientes/ClassificacaoClientes";
 import CarteiraClientes from "../pages/client/cadastros/clientes/CarteiraClientes";
@@ -61,6 +61,8 @@ import {
 } from "../pages/client/cadastros/produtos/ProdutosExtras";
 import PdvConfig from "../pages/backoffice/PdvConfig";
 import { PdvModuleRoutes } from "../pages/client/PdvModuleRoutes";
+import { aquecerCompras } from "../pages/client/movimentacoes/LojaCompras";
+import { BuscarImei, BuscarImeiVenda } from "../pages/client/movimentacoes/BuscarImei";
 import CreateStore from "../pages/stores/CreateStore";
 import StoresList from "../pages/stores/StoresList";
 import StoreDetail from "../pages/stores/StoreDetail";
@@ -115,12 +117,22 @@ function RequireAuthBackoffice({ children }: { children: JSX.Element }) {
 function ClientArea() {
   const { isClientAuthenticated, client, loadingClient } = useClientAuth();
   const location = useLocation();
+  useEffect(() => {
+    if (isClientAuthenticated) aquecerCompras()
+  }, [isClientAuthenticated])
   if (loadingClient) return null;
   if (!isClientAuthenticated) return <Navigate to="/signin/lojista" replace />;
   if (client?.mustChangePassword && location.pathname !== "/client/trocar-senha") {
     return <Navigate to="/client/trocar-senha" replace />;
   }
-  return <Outlet />;
+  if (location.pathname === "/client/trocar-senha") return <Outlet />;
+  const menuAt = (location.state as { menuAt?: number } | null)?.menuAt ?? 0;
+  const variant = location.pathname === "/client/dashboard" ? "board" : "form";
+  return (
+    <PdvShell variant={variant}>
+      <Outlet key={menuAt} />
+    </PdvShell>
+  );
 }
 
 function LojistaAlias() {
@@ -176,8 +188,8 @@ export function Router() {
         <Route path="client/loja" element={<ClientLoja />} />
         <Route path="client/clientes" element={<ClientesList />} />
         <Route path="client/clientes/inativos" element={<ClientesList inactive />} />
-        <Route path="client/clientes/cadastrar" element={<ChecarCliente />} />
-        <Route path="client/clientes/cadastrar/form" element={<CadastrarFormStub />} />
+        <Route path="client/clientes/cadastrar" element={<ClienteForm criar />} />
+        <Route path="client/clientes/cadastrar/form" element={<ClienteForm criar />} />
         <Route path="client/atividades" element={<RelatorioAtividades />} />
         <Route path="client/clientes/atividade" element={<RelatorioAtividades />} />
         <Route path="client/clientes/classificacao" element={<ClassificacaoClientes />} />
@@ -188,6 +200,7 @@ export function Router() {
         <Route path="client/fornecedores" element={<FornecedoresList />} />
         <Route path="client/fornecedores/inativos" element={<FornecedoresList inactive />} />
         <Route path="client/fornecedores/cadastrar" element={<CadastrarFornecedor />} />
+        <Route path="client/fornecedores/:code/atualizar" element={<CadastrarFornecedor />} />
         <Route path="client/fornecedores/atividade" element={<RelatorioAtividades />} />
         <Route path="client/fornecedores/:id/compra" element={<CompraAcessorio />} />
         <Route path="client/fornecedores/:id/:action" element={<CadastrarFormStub entity="fornecedor" />} />
@@ -234,7 +247,10 @@ export function Router() {
         <Route path="client/produtos/lotes" element={<LotePage />} />
         <Route path="client/produtos/tray" element={<TrayDownloadPage />} />
         <Route path="client/produtos/etiquetas" element={<EditorEtiquetasPage />} />
+        <Route path="client/relatorios/imei" element={<BuscarImei escopo="tudo" />} />
+        <Route path="client/movimentacoes/vendas/imei" element={<BuscarImeiVenda />} />
         {PdvModuleRoutes()}
+        <Route path="client/*" element={<Navigate to="/client/dashboard" replace />} />
       </Route>
 
       <Route

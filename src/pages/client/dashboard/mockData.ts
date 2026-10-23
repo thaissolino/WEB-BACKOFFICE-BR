@@ -81,3 +81,4 @@ export const NENHUM_CAIXA = "Nenhum >>";
 
 export const STORE_STORAGE_KEY = "pdv-store-id";
 export const CAIXA_STORAGE_KEY = "pdv-selected-caixa";
+export const CAIXA_SNAP_KEY = "pdv-selected-caixa-snap";

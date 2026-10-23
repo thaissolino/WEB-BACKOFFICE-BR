@@ -7,6 +7,9 @@ export type SaleFilters = {
   cod: string
   nome: string
   caixa: string
+  obs?: string
+  forma?: string
+  estornadas?: boolean
 }
 
 export const EMPTY_SALE_FILTERS: SaleFilters = {
@@ -15,18 +18,37 @@ export const EMPTY_SALE_FILTERS: SaleFilters = {
   cod: "",
   nome: "",
   caixa: "Todos",
+  obs: "",
+  forma: "",
+  estornadas: true,
+}
+
+export const ALL_SALE_FILTERS: SaleFilters = {
+  inicio: "",
+  fim: "",
+  cod: "",
+  nome: "",
+  caixa: "Todos",
+  obs: "",
+  forma: "",
+  estornadas: true,
 }
 
 export function filterLojaSales(sales: LojaPdvSale[], filters: SaleFilters) {
   const cod = filters.cod.trim()
   const nome = filters.nome.trim().toLowerCase()
   const caixa = filters.caixa.trim()
+  const obs = (filters.obs || "").trim().toLowerCase()
+  const forma = (filters.forma || "").trim().toLowerCase()
   const inicio = filters.inicio ? new Date(`${filters.inicio}T00:00:00`) : null
   const fim = filters.fim ? new Date(`${filters.fim}T23:59:59`) : null
 
   return sales.filter((sale) => {
+    if (filters.estornadas === false && sale.status === "estornada") return false
     if (cod && !sale.code.includes(cod.replace(/\D/g, "") || cod)) return false
     if (nome && !sale.customerName.toLowerCase().includes(nome)) return false
+    if (obs && !(sale.notes || "").toLowerCase().includes(obs)) return false
+    if (forma && !sale.payments.some((pay) => pay.method.trim().toLowerCase() === forma)) return false
     if (caixa && caixa !== "Todos" && sale.caixaName !== caixa) return false
     const at = new Date(sale.finalizedAt || sale.createdAt)
     if (inicio && !Number.isNaN(inicio.getTime()) && at < inicio) return false

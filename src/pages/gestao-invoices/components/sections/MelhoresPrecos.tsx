@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { startTransition, useEffect, useMemo, useState } from "react";
 import { api } from "../../../../services/api";
 import { loadProductCategories, openCategoryRank, slugifyCategory, toFlatOptions } from "../../../client/cadastros/produtos/categoryModel";
 import { formatMoneyRs } from "../../../client/cadastros/produtos/types";
@@ -26,12 +26,17 @@ const MODELOS = [
   "18 pro max 1tb",
   "18 pro max 512gb",
   "18 pro max 256gb",
+  "17 pro max 2tb",
+  "17 pro max 1tb",
   "17 pro max 512gb",
   "17 pro max 256gb",
   "18 pro 512gb",
   "18 pro 256gb",
   "17 pro 512gb",
   "17 pro 256gb",
+  "17 air 256gb",
+  "17e 256gb",
+  "17 e 256gb",
   "watch ultra 4",
   "17 256gb",
   "16 128gb",
@@ -49,6 +54,11 @@ const CORES: [string, string][] = [
   ["branco estelar", "branco"],
   ["meia noite", "meia-noite"],
   ["ultramarino", "ultramarino"],
+  ["ultramarine", "ultramarino"],
+  ["verde azulado", "verde"],
+  ["verde agua", "verde"],
+  ["mist blue", "azul"],
+  ["glacier", "azul"],
   ["burgundy", "bordô"],
   ["bordo", "bordô"],
   ["vinho", "bordô"],
@@ -58,10 +68,17 @@ const CORES: [string, string][] = [
   ["amarelo", "amarelo"],
   ["dourado", "dourado"],
   ["vermelho", "vermelho"],
+  ["silver", "prata"],
   ["prata", "prata"],
   ["branco", "branco"],
   ["preto", "preto"],
+  ["salvia", "verde"],
+  ["sage", "verde"],
   ["verde", "verde"],
+  ["teal", "verde"],
+  ["green", "verde"],
+  ["lavender", "roxo"],
+  ["lavanda", "roxo"],
   ["roxo", "roxo"],
   ["rosa", "rosa"],
   ["azul", "azul"],
@@ -72,53 +89,132 @@ function semAcento(texto: string) {
   return texto
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[\u200b-\u200d\ufeff]/g, "")
     .toLowerCase()
+    .replace(/-/g, " ")
     .replace(/\s+/g, " ")
     .trim();
 }
 
 function chaveModelo(texto: string) {
   return semAcento(texto)
-    .replace(/[()*]/g, " ")
-    .replace(/-/g, " ")
-    .replace(/\biphones?\b/g, " ")
+    .replace(/[()*·•|*]/g, " ")
+    .replace(/\biphones?(?=\d)/g, "iphone ")
     .replace(/\bapple\b/g, " ")
-    .replace(/\b(ll|chip|virtual|esim|anatel)\b/g, " ")
+    .replace(/\biphones?\b/g, " ")
+    .replace(/\b17\s+e\b/g, "17e")
+    .replace(/\b16\s+e\b/g, "16e")
+    .replace(/\b\d*chips?\b/g, " ")
+    .replace(/\bchipi\b/g, " ")
+    .replace(/\bfisic[oa]s?\b/g, " ")
+    .replace(/\b\d*virtuals?\b/g, " ")
+    .replace(/\be\s*sims?\b/g, " ")
+    .replace(/\besims?\b/g, " ")
+    .replace(/\banatel\b/g, " ")
+    .replace(/\bindian[oa]s?\b/g, " ")
+    .replace(/\bamerican[oa]s?\b/g, " ")
+    .replace(/\bjapones\b/g, " ")
+    .replace(/\b(ll|lla)\b/g, " ")
     .replace(/(\d+)\s*g(?:b)?\b/g, "$1gb")
     .replace(/(\d+)\s*tb\b/g, "$1tb")
-    .replace(/gb\b/g, "")
+    .replace(/gb\b/g, " ")
     .replace(/\s+/g, " ")
     .trim();
 }
 
-function identificar(nome: string) {
+function bordaPalavra(texto: string, inicio: number, fim: number) {
+  const antes = inicio > 0 ? texto[inicio - 1] : " ";
+  const depois = fim < texto.length ? texto[fim] : " ";
+  return !/[a-z0-9]/.test(antes) && !/[a-z0-9]/.test(depois);
+}
+
+function modeloDoNome(nome: string) {
+  if (/\b(realme|poco|xiaomi|redmi|notes?)\b/.test(semAcento(nome))) return null;
   const base = chaveModelo(nome);
-  const modelo = MODELOS.find((item) => {
-    const alvo = chaveModelo(item);
-    const indice = base.indexOf(alvo);
-    if (indice < 0) return false;
-    const antes = indice > 0 ? base[indice - 1] : " ";
-    const depois = indice + alvo.length < base.length ? base[indice + alvo.length] : " ";
-    return !/[a-z0-9]/.test(antes) && !/[a-z0-9]/.test(depois);
-  });
-  if (!modelo && !/\bultra 4\b/.test(base)) return null;
-  const produto = modelo || "watch ultra 4";
+  const modelo = [...MODELOS]
+    .sort((a, b) => chaveModelo(b).length - chaveModelo(a).length)
+    .find((item) => {
+      const alvo = chaveModelo(item);
+      let desde = 0;
+      while (desde < base.length) {
+        const indice = base.indexOf(alvo, desde);
+        if (indice < 0) return false;
+        if (bordaPalavra(base, indice, indice + alvo.length)) return true;
+        desde = indice + 1;
+      }
+      return false;
+    });
+  if (modelo) return modelo;
+  if (/\bultra 4\b/.test(base)) return "watch ultra 4";
+  return null;
+}
+
+function corDoNome(nome: string) {
   const texto = semAcento(nome);
-  const cor = CORES.find(([alias]) => {
-    const indice = texto.indexOf(alias);
-    if (indice < 0) return false;
-    const antes = indice > 0 ? texto[indice - 1] : " ";
-    const depois = indice + alias.length < texto.length ? texto[indice + alias.length] : " ";
-    return !/[a-z0-9]/.test(antes) && !/[a-z0-9]/.test(depois);
-  });
-  if (!cor) return null;
-  return { produto, cor: cor[1] };
+  const aliases = [...CORES].sort((a, b) => b[0].length - a[0].length);
+  for (const [alias, cor] of aliases) {
+    let desde = 0;
+    while (desde < texto.length) {
+      const indice = texto.indexOf(alias, desde);
+      if (indice < 0) break;
+      if (bordaPalavra(texto, indice, indice + alias.length)) return cor;
+      desde = indice + 1;
+    }
+  }
+  return null;
+}
+
+function identificar(nome: string) {
+  const produto = modeloDoNome(nome);
+  const cor = corDoNome(nome);
+  if (!produto || !cor) return null;
+  return { produto, cor };
 }
 
 function coresAceitas(cor: string) {
-  if (cor === "branco" || cor === "prata") return ["branco", "prata"];
-  if (cor === "bordô") return ["bordô", "vinho"];
-  return [cor];
+  const base = semAcento(cor);
+  const grupo = new Set<string>([cor, base]);
+  if (cor === "branco" || cor === "prata" || base === "branco" || base === "prata") {
+    grupo.add("branco");
+    grupo.add("prata");
+  }
+  if (cor === "bordô" || base === "bordo") {
+    grupo.add("bordô");
+    grupo.add("vinho");
+  }
+  if (cor === "verde" || base === "verde") {
+    grupo.add("verde");
+    grupo.add("teal");
+    grupo.add("green");
+  }
+  for (const [alias, canon] of CORES) {
+    if (canon === cor || semAcento(canon) === base) grupo.add(canon);
+    if (alias === base) grupo.add(canon);
+  }
+  return [...grupo];
+}
+
+function nomeDoProduto(produto: Catalogo) {
+  return [produto.name, produto.lojaName].filter((parte) => parte && parte.trim()).join(" ");
+}
+
+function ehSeminovo(produto: Catalogo) {
+  return semAcento(`${produto.category || ""} ${nomeDoProduto(produto)}`).includes("seminovo");
+}
+
+function mesmaLinha(listaModelo: string, nomeProduto: string) {
+  const alvo = modeloDoNome(listaModelo);
+  const deles = modeloDoNome(nomeProduto);
+  if (!alvo || deles !== alvo) return false;
+  const extra = ["plus", "pro", "max", "mini", "air"];
+  const lista = chaveModelo(listaModelo);
+  const produto = chaveModelo(nomeProduto);
+  for (const palavra of extra) {
+    if (new RegExp(`\\b${palavra}\\b`).test(produto) !== new RegExp(`\\b${palavra}\\b`).test(lista)) return false;
+  }
+  if (/\b16e\b/.test(produto) !== /\b16e\b/.test(lista)) return false;
+  if (/\b17e\b/.test(produto) !== /\b17e\b/.test(lista)) return false;
+  return true;
 }
 
 function posicaoCategoria(nome: string) {
@@ -133,7 +229,38 @@ function posicaoCategoria(nome: string) {
 
 function listaDoLugar(lugar: string) {
   const base = semAcento(lugar);
-  return LISTAS_SP.find((lista) => base.includes(lista.chave))?.nome || "";
+  return LISTAS_SP.find((lista) => base.includes(semAcento(lista.chave)))?.nome || "";
+}
+
+function diaDe(valor: string) {
+  const brasileiro = valor.match(/(\d{2})\/(\d{2})\/(\d{4})/);
+  if (brasileiro) return `${brasileiro[3]}-${brasileiro[2]}-${brasileiro[1]}`;
+  const data = new Date(valor);
+  if (Number.isNaN(data.getTime())) return "";
+  const mes = String(data.getMonth() + 1).padStart(2, "0");
+  const dia = String(data.getDate()).padStart(2, "0");
+  return `${data.getFullYear()}-${mes}-${dia}`;
+}
+
+function diaDeHoje() {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(new Date());
+}
+
+function minutoEmSaoPaulo() {
+  const partes = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "America/Sao_Paulo",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(new Date());
+  const hora = Number(partes.find((parte) => parte.type === "hour")?.value || 0);
+  const minuto = Number(partes.find((parte) => parte.type === "minute")?.value || 0);
+  return hora * 60 + minuto;
+}
+
+function listasDoDiaProntas(listas: ListaFornecedorDados[], hoje: string) {
+  const nomes = new Set(listas.filter((lista) => diaDe(lista.quando) === hoje).map((lista) => listaDoLugar(lista.lugar)).filter(Boolean));
+  return LISTAS_SP.every((lista) => nomes.has(lista.nome));
 }
 
 type CotacaoBruta = { produto: string; cor: string; preco: number; lugar: string };
@@ -141,7 +268,7 @@ type CotacaoBruta = { produto: string; cor: string; preco: number; lugar: string
 function encaixar(produtos: Catalogo[], brutas: CotacaoBruta[]): Cotacao[] {
   const saida: Cotacao[] = [];
   for (const produto of produtos) {
-    const id = identificar(produto.name);
+    const id = identificar(nomeDoProduto(produto));
     if (!id) continue;
     const cores = coresAceitas(id.cor);
     for (const item of brutas) {
@@ -159,6 +286,7 @@ type Catalogo = {
   name: string;
   code: string;
   category?: string;
+  lojaName?: string;
   salePrice?: number;
 };
 
@@ -196,18 +324,45 @@ function lerPreferencia(): PreferenciaLista {
 }
 
 function produtoDaLista(produtos: Catalogo[], modelo: string, cor: string, secao?: string) {
-  const id = identificar(`${modelo} ${cor}`);
-  if (!id) return null;
-  const aceitas = new Set(coresAceitas(id.cor));
-  const candidatos = produtos.filter((produto) => {
-    const deles = identificar(produto.name);
-    return !!deles && deles.produto === id.produto && aceitas.has(deles.cor);
+  const escolhidos = produtosDaLista(produtos, modelo, cor, secao);
+  return escolhidos[0] || null;
+}
+
+const indicePorProdutos = new WeakMap<Catalogo[], Map<string, Catalogo[]>>();
+
+function indiceCatalogo(produtos: Catalogo[]) {
+  const ja = indicePorProdutos.get(produtos);
+  if (ja) return ja;
+  const mapa = new Map<string, Catalogo[]>();
+  for (const produto of produtos) {
+    const modelo = modeloDoNome(nomeDoProduto(produto));
+    if (!modelo) continue;
+    const chave = chaveModelo(modelo);
+    const lista = mapa.get(chave) || [];
+    lista.push(produto);
+    mapa.set(chave, lista);
+  }
+  indicePorProdutos.set(produtos, mapa);
+  return mapa;
+}
+
+function produtosDaLista(produtos: Catalogo[], modelo: string, cor: string, secao?: string) {
+  const corAlvo = corDoNome(cor) || corDoNome(`${modelo} ${cor}`);
+  if (!corAlvo) return [];
+  const aceitas = new Set(coresAceitas(corAlvo).map((item) => semAcento(item)));
+  const chave = modeloDoNome(modelo);
+  const base = chave ? indiceCatalogo(produtos).get(chaveModelo(chave)) || [] : produtos;
+  const candidatos = base.filter((produto) => {
+    if (!mesmaLinha(modelo, nomeDoProduto(produto))) return false;
+    const deles = corDoNome(nomeDoProduto(produto));
+    return !!deles && aceitas.has(semAcento(deles));
   });
   if (secao === "lacrados") {
-    const novo = candidatos.find((produto) => !semAcento(`${produto.category || ""} ${produto.name}`).includes("seminovo"));
-    if (novo) return novo;
+    const novos = candidatos.filter((produto) => !ehSeminovo(produto));
+    if (novos.length) return novos;
+    return [];
   }
-  return candidatos[0] || null;
+  return candidatos;
 }
 
 function montarCotacoes(
@@ -232,20 +387,37 @@ function montarCotacoes(
     if (!nome) continue;
     for (const bloco of lista.blocos) {
       if (!ehIphone(bloco.modelo)) continue;
-      if (blocoExcluido(fora, lista.lugar, bloco.modelo, bloco.secao)) continue;
+      const excluido = blocoExcluido(fora, lista.lugar, bloco.modelo, bloco.secao);
+      if (excluido && (bloco.secao !== "lacrados" || modeloAtivado(bloco.modelo))) continue;
       for (const item of bloco.itens) {
         if (item.preco == null) continue;
         const manual = preferencia.vinculos[chaveItemLista(lista.lugar, bloco.modelo, item.cor, bloco.secao)];
-        if (manual) {
-          saida.push({ produtoId: manual, lista: nome, preco: item.preco });
+        if (bloco.secao === "cpo" || modeloAtivado(bloco.modelo)) {
+          if (manual) saida.push({ produtoId: manual, lista: nome, preco: item.preco });
           continue;
         }
-        if (bloco.secao === "cpo" || modeloAtivado(bloco.modelo)) continue;
-        const produto = produtoDaLista(produtos, bloco.modelo, item.cor, bloco.secao);
-        if (!produto) continue;
-        saida.push({ produtoId: produto.id, lista: nome, preco: item.preco });
+        const automaticos = produtosDaLista(produtos, bloco.modelo, item.cor, bloco.secao);
+        const ligados = new Set(automaticos.map((produto) => produto.id));
+        if (manual && !ligados.has(manual)) {
+          const apontado = produtos.find((produto) => produto.id === manual);
+          const seminovoRuim = bloco.secao === "lacrados" && apontado && ehSeminovo(apontado) && automaticos.length > 0;
+          if (apontado && !seminovoRuim) saida.push({ produtoId: manual, lista: nome, preco: item.preco });
+        }
+        for (const produto of automaticos) {
+          saida.push({ produtoId: produto.id, lista: nome, preco: item.preco });
+        }
       }
     }
+  }
+  const jaTem = new Set(saida.map((item) => `${item.produtoId}|${item.lista}`));
+  for (const extra of encaixar(
+    produtos,
+    brutas.filter((item) => oficiais.has(listaDoLugar(item.lugar))),
+  )) {
+    const chave = `${extra.produtoId}|${extra.lista}`;
+    if (jaTem.has(chave)) continue;
+    jaTem.add(chave);
+    saida.push(extra);
   }
   return saida;
 }
@@ -257,6 +429,8 @@ export function MelhoresPrecos() {
   const [listas, setListas] = useState<ListaFornecedorDados[]>([]);
   const [preferencia, setPreferencia] = useState<PreferenciaLista>(lerPreferencia);
   const [atualizadoEm, setAtualizadoEm] = useState("");
+  const [precosEm, setPrecosEm] = useState("");
+  const [listasFechadas, setListasFechadas] = useState(false);
   const [visao, setVisao] = useState<"estoque" | "fornecedor">("estoque");
   const [categoriaAtiva, setCategoriaAtiva] = useState("");
   const [busca, setBusca] = useState("");
@@ -275,13 +449,15 @@ export function MelhoresPrecos() {
       .then(([produtosRes, categorias, precosRes, listasRes]) => {
         if (cancel) return;
         const lista = ((Array.isArray(produtosRes.data) ? produtosRes.data : produtosRes.data?.products || []) as Catalogo[]).filter(
-          (item) => item?.name
+          (item) => item?.name || item?.lojaName
         );
         setProdutos(lista);
         setOrdemCategorias(toFlatOptions(categorias).map((item) => item.label));
         setBrutas(Array.isArray(precosRes?.cotacoes) ? (precosRes.cotacoes as CotacaoBruta[]) : []);
         setListas(Array.isArray(listasRes?.listas) ? (listasRes.listas as ListaFornecedorDados[]) : []);
+        setListasFechadas(listasRes?.fechadas === true);
         setAtualizadoEm(typeof listasRes?.atualizadoEm === "string" ? listasRes.atualizadoEm : typeof precosRes?.atualizadoEm === "string" ? precosRes.atualizadoEm : "");
+        setPrecosEm(typeof precosRes?.atualizadoEm === "string" ? precosRes.atualizadoEm : "");
       })
       .catch(() => {
         if (!cancel) setErro("Não foi possível carregar os produtos.");
@@ -294,7 +470,11 @@ export function MelhoresPrecos() {
     };
   }, []);
 
+  const hoje = diaDeHoje();
+  const listasProntas = minutoEmSaoPaulo() >= 12 * 60 && (listasFechadas || listasDoDiaProntas(listas, hoje));
+
   useEffect(() => {
+    if (listasProntas) return;
     let cancel = false;
     const timer = window.setInterval(() => {
       Promise.all([
@@ -303,14 +483,17 @@ export function MelhoresPrecos() {
       ])
         .then(([precosRes, listasRes]) => {
           if (cancel || !precosRes || !listasRes) return;
-          setBrutas(Array.isArray(precosRes.cotacoes) ? (precosRes.cotacoes as CotacaoBruta[]) : []);
-          setListas(Array.isArray(listasRes.listas) ? (listasRes.listas as ListaFornecedorDados[]) : []);
           const quando = typeof listasRes.atualizadoEm === "string"
             ? listasRes.atualizadoEm
             : typeof precosRes.atualizadoEm === "string"
               ? precosRes.atualizadoEm
               : "";
+          if (quando && quando === atualizadoEm && precosRes?.atualizadoEm === precosEm) return;
+          setBrutas(Array.isArray(precosRes.cotacoes) ? (precosRes.cotacoes as CotacaoBruta[]) : []);
+          setListas(Array.isArray(listasRes.listas) ? (listasRes.listas as ListaFornecedorDados[]) : []);
+          setListasFechadas(listasRes?.fechadas === true);
           if (quando) setAtualizadoEm(quando);
+          if (typeof precosRes.atualizadoEm === "string") setPrecosEm(precosRes.atualizadoEm);
         })
         .catch(() => undefined);
     }, 20_000);
@@ -318,16 +501,28 @@ export function MelhoresPrecos() {
       cancel = true;
       window.clearInterval(timer);
     };
-  }, []);
+  }, [listasProntas, atualizadoEm, precosEm]);
 
   function gravarPreferencia(proxima: PreferenciaLista) {
     setPreferencia(proxima);
     localStorage.setItem("@gestorvix:lista-vinculos", JSON.stringify(proxima));
   }
 
+  const listasHoje = useMemo(() => listas.filter((lista) => diaDe(lista.quando) === hoje), [listas, hoje]);
+  const casar = useMemo(() => {
+    const cache = new Map<string, Catalogo | null>();
+    return (modelo: string, cor: string, secao?: string) => {
+      const chave = `${modelo}|${cor}|${secao || ""}`;
+      if (cache.has(chave)) return cache.get(chave) || null;
+      const achado = produtoDaLista(produtos, modelo, cor, secao);
+      cache.set(chave, achado);
+      return achado;
+    };
+  }, [produtos]);
+  const brutasHoje = useMemo(() => (diaDe(precosEm) === hoje ? brutas : []), [brutas, precosEm, hoje]);
   const cotacoes = useMemo(
-    () => montarCotacoes(produtos, brutas, listas, preferencia),
-    [produtos, brutas, listas, preferencia],
+    () => montarCotacoes(produtos, brutasHoje, listasHoje, preferencia),
+    [produtos, brutasHoje, listasHoje, preferencia],
   );
 
   const precoDe = useMemo(() => {
@@ -392,14 +587,14 @@ export function MelhoresPrecos() {
       <div className="mb-4 flex flex-wrap gap-x-5 gap-y-2 border-b border-gray-200 pb-2">
         <button
           type="button"
-          onClick={() => setVisao("estoque")}
+          onClick={() => startTransition(() => setVisao("estoque"))}
           className={`pb-1 text-base font-semibold ${visao === "estoque" ? "border-b-2 border-blue-700 text-blue-700" : "text-gray-400"}`}
         >
           Nossos produtos
         </button>
         <button
           type="button"
-          onClick={() => setVisao("fornecedor")}
+          onClick={() => startTransition(() => setVisao("fornecedor"))}
           className={`pb-1 text-base font-semibold ${visao === "fornecedor" ? "border-b-2 border-blue-700 text-blue-700" : "text-gray-400"}`}
         >
           Lista do fornecedor
@@ -410,11 +605,11 @@ export function MelhoresPrecos() {
           <p className="text-sm text-gray-500">Carregando a lista...</p>
         ) : (
           <ListaFornecedor
-            listas={listas}
+            listas={listasHoje}
             produtos={produtos}
             excluidos={preferencia.excluidos}
             vinculos={preferencia.vinculos}
-            casar={(modelo, cor, secao) => produtoDaLista(produtos, modelo, cor, secao)}
+            casar={casar}
             onExcluir={(chave, excluido) => {
               const chaves = Array.isArray(chave) ? chave : [chave];
               const conjunto = new Set(chaves);
@@ -441,7 +636,7 @@ export function MelhoresPrecos() {
             <button
               key={aba.nome}
               type="button"
-              onClick={() => setCategoriaAtiva(aba.nome)}
+              onClick={() => startTransition(() => setCategoriaAtiva(aba.nome))}
               className={`pb-1 text-base font-semibold ${ativa ? "border-b-2 border-blue-700 text-blue-700" : "text-gray-400"}`}
             >
               {aba.nome} ({aba.itens.length})
@@ -450,9 +645,13 @@ export function MelhoresPrecos() {
         })}
       </div>
       <p className="mb-4 text-sm text-gray-600">
-        Entram todos os produtos da categoria, mesmo sem preço. Onde não aparecer valor, o fornecedor escreveu o nome de outro jeito.
-        {linhas.length ? ` ${linhas.length} produtos, ${semPreco} sem preço.` : ""}
-        {atualizadoEm ? ` Lido em ${new Date(atualizadoEm).toLocaleString("pt-BR")}.` : ""}
+        {listasHoje.length === 0
+          ? `Nenhuma lista de hoje. A última leitura foi ${atualizadoEm ? new Date(atualizadoEm).toLocaleString("pt-BR") : "de outro dia"}, e esse preço não entra.`
+          : listasProntas
+            ? "Listas de hoje já estão gravadas. Não fica buscando de novo."
+            : "Entram só as listas de hoje. Ainda faltando algum fornecedor, o painel atualiza sozinho."}
+        {listasHoje.length && linhas.length ? ` ${linhas.length} produtos, ${semPreco} sem preço.` : ""}
+        {listasHoje.length && atualizadoEm ? ` Lido em ${new Date(atualizadoEm).toLocaleString("pt-BR")}.` : ""}
       </p>
       <input
         value={busca}
@@ -468,6 +667,7 @@ export function MelhoresPrecos() {
           <table className="min-w-full divide-y divide-gray-200 text-sm">
             <thead className="bg-gray-50">
               <tr>
+                <th className="px-3 py-2 text-left text-xs font-medium uppercase text-gray-500">Código</th>
                 <th className="px-3 py-2 text-left text-xs font-medium uppercase text-gray-500">Produto</th>
                 {LISTAS_SP.map((lista) => (
                   <th key={lista.nome} className="px-3 py-2 text-center text-xs font-medium uppercase text-gray-500">
@@ -483,10 +683,8 @@ export function MelhoresPrecos() {
                 const melhor = menor(produto.id);
                 return (
                   <tr key={produto.id}>
-                    <td className="px-3 py-2 text-left text-gray-800">
-                      {produto.name}
-                      {produto.code ? <span className="ml-2 text-xs text-gray-400">{produto.code}</span> : null}
-                    </td>
+                    <td className="px-3 py-2 text-left text-gray-500">{produto.code || "—"}</td>
+                    <td className="px-3 py-2 text-left text-gray-800">{produto.name}</td>
                     {LISTAS_SP.map((lista) => {
                       const preco = precoDe.get(`${produto.id}|${lista.nome}`);
                       const marcado = melhor?.lista === lista.nome;
@@ -510,7 +708,7 @@ export function MelhoresPrecos() {
               })}
               {linhas.length === 0 ? (
                 <tr>
-                  <td className="px-3 py-4 text-gray-500" colSpan={LISTAS_SP.length + 3}>
+                  <td className="px-3 py-4 text-gray-500" colSpan={LISTAS_SP.length + 4}>
                     Nenhum produto encontrado.
                   </td>
                 </tr>

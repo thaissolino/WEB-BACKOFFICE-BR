@@ -11,6 +11,7 @@ function rel(path: string, title: string, fields: FilterPageProps["fields"], col
 }
 
 export const RELATORIOS: Array<FilterPageProps & { path: string }> = [
+  rel("imei", "BUSCAR IMEI", [txt("imei", "IMEI")], ["Quando", "IMEI", "O que aconteceu", "De", "Para", "Produto", "Doc.", "Valor"]),
   rel("auditoria/autorizacao-venda", "AUTORIZAÇÃO DE VENDA", [date("inicio", "Data inicio"), date("fim", "Data fim"), txt("usuario", "Usuário")], ["Data", "Usuário", "Venda", "Valor"]),
   rel("auditoria/estoque", "AUDITORIA ESTOQUE", [date("inicio", "Data inicio"), txt("produto", "Produto")], ["Data", "Produto", "Antes", "Depois", "Usuário"]),
   rel("auditoria/geral-log", "GERAL DE LOG", [date("inicio", "Data inicio"), txt("usuario", "Usuário")], ["Data", "Usuário", "Evento"]),

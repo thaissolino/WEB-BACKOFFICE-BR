@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState, type MouseEvent, type ReactNode, type RefObject } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { ChevronDown, ChevronRight, Star } from "lucide-react";
 import {
   PDV_MENUS,
@@ -119,23 +119,43 @@ function MenuRow({
         if (finePointer) openBranch();
       }}
     >
-      <button
-        className="pdv-menu-item"
-        type="button"
-        data-active={flyoutOpen ? "true" : undefined}
-        aria-expanded={canOpen ? flyoutOpen : undefined}
-        aria-haspopup={canOpen ? "true" : undefined}
-        aria-label={item.starred ? `${item.label}, favorito` : undefined}
-        onClick={onClick}
-      >
-        <span className="pdv-menu-label">
-          {item.label}
-          {item.starred ? (
-            <Star className="pdv-menu-star" size={14} fill="currentColor" aria-hidden="true" />
-          ) : null}
-        </span>
-        {showArrow ? <ChevronRight className="pdv-menu-arrow" size={14} aria-hidden="true" /> : null}
-      </button>
+      {!canOpen && item.href ? (
+        <Link
+          className="pdv-menu-item"
+          to={item.href}
+          aria-label={item.starred ? `${item.label}, favorito` : undefined}
+          onClick={(event) => {
+            event.preventDefault();
+            openMenuHref(item.href!, navigate);
+            setOpenPath([]);
+          }}
+        >
+          <span className="pdv-menu-label">
+            {item.label}
+            {item.starred ? (
+              <Star className="pdv-menu-star" size={14} fill="currentColor" aria-hidden="true" />
+            ) : null}
+          </span>
+        </Link>
+      ) : (
+        <button
+          className="pdv-menu-item"
+          type="button"
+          data-active={flyoutOpen ? "true" : undefined}
+          aria-expanded={canOpen ? flyoutOpen : undefined}
+          aria-haspopup={canOpen ? "true" : undefined}
+          aria-label={item.starred ? `${item.label}, favorito` : undefined}
+          onClick={onClick}
+        >
+          <span className="pdv-menu-label">
+            {item.label}
+            {item.starred ? (
+              <Star className="pdv-menu-star" size={14} fill="currentColor" aria-hidden="true" />
+            ) : null}
+          </span>
+          {showArrow ? <ChevronRight className="pdv-menu-arrow" size={14} aria-hidden="true" /> : null}
+        </button>
+      )}
       <CascadeFlyout open={Boolean(flyoutOpen && item.children)} anchorRef={rowRef}>
         <MenuBranch
           items={item.children ?? []}

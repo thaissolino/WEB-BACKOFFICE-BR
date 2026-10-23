@@ -1,6 +1,7 @@
 import { CSSProperties, FormEvent, ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { ArrowLeft, Ban, Boxes, CircleCheck, ClipboardList, LoaderCircle, PackageX, PartyPopper, ScanLine, Search, ShoppingBag, ShoppingCart, Trash2, Truck, Wallet, X } from "lucide-react";
+import { ArrowLeft, Ban, Boxes, CircleCheck, ClipboardList, LoaderCircle, PackageX, PartyPopper, Search, ShoppingBag, ShoppingCart, Trash2, Wallet, X } from "lucide-react";
 import { api, parseError } from "../../../services/api";
 import { isOpenStoreCategory, openCategoryRank } from "../cadastros/produtos/categoryModel";
 function supplierOrderPrice(product: { tableSalePrice?: number | null; salePrice?: number | null }) {
@@ -15,6 +16,15 @@ import PdvShell from "../dashboard/PdvShell";
 import { useClientAuth } from "../../../hooks/clientAuth";
 import "../dashboard/dashboard.css";
 import "./pedidos.css";
+
+function LojaScrim({ children, onClick }: { children: ReactNode; onClick?: () => void }) {
+  return createPortal(
+    <div className="loja-confirm" role="presentation" onClick={onClick}>
+      {children}
+    </div>,
+    document.body,
+  )
+}
 
 type CatalogProduct = {
   id: string;
@@ -82,8 +92,6 @@ const NAV = [
   { to: "/client/pedidos/venda", label: "Novo pedido" },
   { to: "/client/pedidos/historico", label: "Histórico" },
   { to: "/client/pedidos/financeiro", label: "Financeiro" },
-  { to: "/client/pedidos/rastreio", label: "Rastreio" },
-  { to: "/client/pedidos/observacao", label: "Busca IMEI/serial" },
 ];
 
 function orderDone(value?: string) {
@@ -275,7 +283,6 @@ function LojaFrame({ children }: { children: ReactNode }) {
                 {cart.count > 0 ? <b>{cart.count}</b> : null}
               </button>
             ) : null}
-            <Link to="/client/dashboard">Painel da loja</Link>
           </div>
         </div>
         <nav className="loja-nav" aria-label="Pedidos do lojista">
@@ -342,20 +349,6 @@ function Home() {
             </span>
             <strong>Financeiro</strong>
             <span>Conta da loja com o atacado.</span>
-          </Link>
-          <Link className="loja-action" to="/client/pedidos/rastreio">
-            <span className="loja-action-ico" aria-hidden="true">
-              <Truck size={30} strokeWidth={1.75} />
-            </span>
-            <strong>Rastreio</strong>
-            <span>Entrega do pedido.</span>
-          </Link>
-          <Link className="loja-action" to="/client/pedidos/observacao">
-            <span className="loja-action-ico" aria-hidden="true">
-              <ScanLine size={30} strokeWidth={1.75} />
-            </span>
-            <strong>IMEI / serial</strong>
-            <span>Achar uma compra desta loja.</span>
           </Link>
         </div>
       </div>
@@ -666,7 +659,7 @@ function Venda() {
 
   return (
     <div className={showCategories && !cartOpen ? "loja-split loja-split-cats" : "loja-split loja-split-full"} ref={splitRef}>
-      <section>
+      <section className={cartOpen ? "loja-cart-section" : undefined}>
         <h1 className="loja-title">{cartOpen ? "Carrinho" : showCategories ? "Categoria" : "Pedido"}</h1>
         <p className="loja-lede">
           {cartOpen
@@ -714,6 +707,7 @@ function Venda() {
                     <ProductPhoto productId={line.id} photoFileId={line.photoFileId} name={line.name} />
                     <div className="loja-cart-row-body">
                       <strong>{line.name}</strong>
+                      {line.code ? <small>Cód. {line.code}</small> : null}
                       <div className="loja-step">
                         <button type="button" aria-label={`Diminuir ${line.name}`} onClick={() => setQty(line.id, line.qty - 1)}>
                           −
@@ -729,7 +723,14 @@ function Venda() {
                         </button>
                       </div>
                     </div>
-                    {line.price > 0 ? <span className="loja-money">{money(line.price * line.qty)}</span> : <span />}
+                    {line.price > 0 ? (
+                      <div className="loja-cart-price">
+                        <span className="loja-money">{money(line.price * line.qty)}</span>
+                        {line.qty > 1 ? <small>{money(line.price)} un.</small> : null}
+                      </div>
+                    ) : (
+                      <span />
+                    )}
                     <button type="button" className="loja-cart-remove" aria-label={`Remover ${line.name}`} onClick={() => setQty(line.id, 0)}>
                       <Trash2 size={18} strokeWidth={1.7} />
                     </button>
@@ -885,7 +886,7 @@ function Venda() {
         )}
       </section>
       {blockedNotice.length ? (
-        <div className="loja-confirm" role="presentation" onClick={() => setBlockedNotice([])}>
+        <LojaScrim onClick={() => setBlockedNotice([])}>
           <div
             className="loja-confirm-card"
             role="dialog"
@@ -914,10 +915,10 @@ function Venda() {
               </div>
             </div>
           </div>
-        </div>
+        </LojaScrim>
       ) : null}
       {addedPopup ? (
-        <div className="loja-confirm" role="presentation" onClick={() => setAddedPopup(null)}>
+        <LojaScrim onClick={() => setAddedPopup(null)}>
           <div
             className="loja-confirm-card loja-added-card"
             role="dialog"
@@ -948,12 +949,10 @@ function Venda() {
               </button>
             </div>
           </div>
-        </div>
+        </LojaScrim>
       ) : null}
       {confirmClose ? (
-        <div
-          className="loja-confirm"
-          role="presentation"
+        <LojaScrim
           onClick={() => {
             if (closeStep === "ask") setConfirmClose(false);
           }}
@@ -1034,7 +1033,7 @@ function Venda() {
               </>
             ) : null}
           </div>
-        </div>
+        </LojaScrim>
       ) : null}
     </div>
   );
@@ -1074,12 +1073,24 @@ function Historico() {
   const location = useLocation();
   const justClosed = (location.state as { justClosed?: { id: string; total: number; qty: number } } | null)?.justClosed || null;
   const [orders, setOrders] = useState<SavedOrder[]>([]);
+  const [faixa, setFaixa] = useState<"separacao" | "concluidas" | "estornadas">("separacao");
   useEffect(() => {
     api
       .get("/clients/pre-vendas/fechadas")
       .then(({ data }) => setOrders((data?.orders || []) as SavedOrder[]))
       .catch(() => setOrders([]));
   }, []);
+  const grupos = useMemo(() => ({
+    separacao: orders.filter((order) => !order.estornada && !orderDone(order.dispatchStatus)),
+    concluidas: orders.filter((order) => !order.estornada && orderDone(order.dispatchStatus)),
+    estornadas: orders.filter((order) => order.estornada),
+  }), [orders]);
+  const visiveis = grupos[faixa];
+  const cards = [
+    ["separacao", "Em separação", grupos.separacao.length, "hist-card-separacao"],
+    ["concluidas", "Concluídas", grupos.concluidas.length, "hist-card-concluidas"],
+    ["estornadas", "Estornadas", grupos.estornadas.length, "hist-card-estornadas"],
+  ] as const;
   return (
     <section className="loja-panel">
       {justClosed ? (
@@ -1099,12 +1110,19 @@ function Historico() {
         </div>
       ) : null}
       <h1 className="loja-title">Histórico de pedido</h1>
-      <p className="loja-lede">
-        {justClosed
-          ? "Ele aparece aqui embaixo. A compra no atacado, pelo IMEI, fica em Busca IMEI/serial."
-          : "Pedidos fechados gravados no banco. A compra no atacado, pelo IMEI, fica em Busca IMEI/serial."}
-      </p>
-      {orders.length === 0 ? <p>Nenhum pedido fechado ainda.</p> : null}
+      <div className="hist-cards">
+        {cards.map(([id, label, total, tone]) => (
+          <button
+            key={id}
+            type="button"
+            className={`hist-card ${tone}${faixa === id ? " is-on" : ""}`}
+            onClick={() => setFaixa(id)}
+          >
+            <span>{label}</span>
+            <strong>{total}</strong>
+          </button>
+        ))}
+      </div>
       <table className="loja-table">
         <thead>
           <tr>
@@ -1117,7 +1135,7 @@ function Historico() {
           </tr>
         </thead>
         <tbody>
-          {orders.map((order) => (
+          {visiveis.map((order) => (
             <tr
               key={order.id}
               className="loja-row-link"
@@ -1125,7 +1143,7 @@ function Historico() {
             >
               <td>{order.id.slice(0, 8)}</td>
               <td>{when(order.closedAt || order.createdAt)}</td>
-              <td>{order.estornada ? when(order.estornadaAt) : "—"}</td>
+              <td>{order.estornada ? when(order.estornadaAt) : ""}</td>
               <td className="loja-money">{money(order.total)}</td>
               <td><StatusLabel value={order.dispatchStatus} estornada={order.estornada} /></td>
               <td>
@@ -1394,7 +1412,7 @@ function Financeiro() {
         <p className={`loja-ledger-final ${groups.balance < 0 ? "neg" : "pos"}`}>{signedMoney(groups.balance)}</p>
       ) : null}
       {openOrder ? (
-        <div className="loja-confirm" onClick={() => setOpenId(null)}>
+        <LojaScrim onClick={() => setOpenId(null)}>
           <div
             className="loja-confirm-card loja-order-modal"
             role="dialog"
@@ -1419,7 +1437,7 @@ function Financeiro() {
             <p>Status: <StatusLabel value={openOrder.dispatchStatus} estornada={openOrder.estornada} /></p>
             <p>Obs: {shown(openOrder.observacao || openOrder.address?.obs)}</p>
           </div>
-        </div>
+        </LojaScrim>
       ) : null}
     </section>
   );
@@ -1740,7 +1758,7 @@ export default function LojistaPedidos() {
     );
 
   return (
-    <PdvShell className="loja-vitrine" showStrip={false}>
+    <PdvShell className="loja-vitrine">
       <LojaFrame>{view}</LojaFrame>
     </PdvShell>
   );

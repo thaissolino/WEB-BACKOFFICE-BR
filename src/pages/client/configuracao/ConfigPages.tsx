@@ -13,6 +13,7 @@ import {
 } from "../cadastros/catalog/catalogApi"
 import { parseError } from "../../../services/api"
 import { avisarSalvo } from "../avisoSalvo"
+import { garantirTextosRecibo } from "../pdv/ReciboNota"
 import { AtivoToggle } from "../cadastros/produtos/QuickCadWindows"
 import { usePdvSession } from "../dashboard/PdvShell"
 import { PLAN } from "../dashboard/mockData"
@@ -177,6 +178,7 @@ const LETTER_LIST: CatalogListConfig = {
   cadastrarLabel: "Cadastrar Carta/Página/Impressão",
   cadastrarPath: "/client/configuracao/impressao/cadastrar",
   listPath: "/client/configuracao/impressao",
+  pageClass: "pdv-cli-page",
   filters: [
     { key: "nome", label: "Nome", from: "name" },
     { key: "titulo", label: "Título", from: "payload", payloadKey: "titulo" },
@@ -186,13 +188,34 @@ const LETTER_LIST: CatalogListConfig = {
     { key: "tipo", label: "Tipo", payloadKey: "tipo" },
     { key: "nome", label: "Nome", from: "name" },
     { key: "titulo", label: "Título", payloadKey: "titulo" },
+    { key: "categoria", label: "Categoria", payloadKey: "categoria" },
     { key: "ordem", label: "Ordem", payloadKey: "ordem" },
     { key: "ativo", label: "Ativo", from: "active" },
     { key: "atualizar", label: "Atualizar", from: "action" },
   ],
+  renderCell: (item, column) => {
+    if (column.key !== "categoria") return undefined
+    const valor = String(item.payload.categoria || "").trim()
+    return valor || "Não vinculada"
+  },
 }
 
 export function CartaList() {
+  const [pronto, setPronto] = useState(false)
+  useEffect(() => {
+    garantirTextosRecibo().finally(() => setPronto(true))
+  }, [])
+  if (!pronto) {
+    return (
+      <CadastroShell>
+        <section className="pdv-cad-page pdv-cli-page">
+          <div className="pdv-cad-sheet">
+            <p>Carregando impressões...</p>
+          </div>
+        </section>
+      </CadastroShell>
+    )
+  }
   return <CatalogList config={LETTER_LIST} />
 }
 
@@ -206,7 +229,16 @@ export function CartaForm() {
   const [ordem, setOrdem] = useState("1")
   const [ativo, setAtivo] = useState(true)
   const [corpo, setCorpo] = useState("")
+  const [categoria, setCategoria] = useState("")
+  const [chave, setChave] = useState("")
+  const [categorias, setCategorias] = useState<string[]>([])
   const [status, setStatus] = useState("")
+
+  useEffect(() => {
+    listCatalog("product_category")
+      .then((items) => setCategorias(items.map((item) => item.name).filter(Boolean)))
+      .catch(() => setCategorias([]))
+  }, [])
 
   useEffect(() => {
     if (!editId) return
@@ -218,6 +250,8 @@ export function CartaForm() {
         setOrdem(String(item.payload.ordem ?? "1"))
         setAtivo(item.active)
         setCorpo(String(item.payload.corpo ?? ""))
+        setCategoria(String(item.payload.categoria ?? ""))
+        setChave(String(item.payload.chave ?? ""))
       })
       .catch(() => setStatus("Não foi possível carregar."))
   }, [editId])
@@ -229,7 +263,7 @@ export function CartaForm() {
       return
     }
     try {
-      const payload = { titulo, tipo, ordem, corpo }
+      const payload = { titulo, tipo, ordem, corpo, categoria, chave }
       if (editId) await updateCatalog("letter", editId, { name: nome, active: ativo, payload })
       else await createCatalog("letter", { name: nome, active: ativo, payload })
       avisarSalvo("Impressão salva.")
@@ -241,48 +275,70 @@ export function CartaForm() {
 
   return (
     <CadastroShell>
-      <section className="pdv-cad-page" aria-labelledby="pdv-carta-form">
-        <div className="pdv-cad-sheet">
-          <h1 id="pdv-carta-form">CADASTRAR CARTA/PÁGINA/IMPRESSÃO</h1>
-          <button
-            className="pdv-cad-btn pdv-cad-btn-back pdv-voltar"
-            type="button"
-            onClick={() => navigate("/client/configuracao/impressao")}
-          >
-            Voltar
-          </button>
-          <form className="pdv-cad-form" onSubmit={onSubmit}>
-            <FormRow label="Nome" required>
-              <input value={nome} onChange={(event) => setNome(event.target.value)} autoComplete="off" />
-            </FormRow>
-            <FormRow label="Título">
-              <input value={titulo} onChange={(event) => setTitulo(event.target.value)} autoComplete="off" />
-            </FormRow>
-            <FormRow label="Tipo">
-              <select value={tipo} onChange={(event) => setTipo(event.target.value)}>
-                {LETTER_TYPES.map((opt) => (
-                  <option key={opt}>{opt}</option>
-                ))}
-              </select>
-            </FormRow>
-            <FormRow label="Ordem">
-              <input value={ordem} onChange={(event) => setOrdem(event.target.value)} autoComplete="off" />
-            </FormRow>
-            <FormRow label="Ativo">
-              <RadioSimNao name="carta-ativo" value={ativo} onChange={setAtivo} />
-            </FormRow>
-            <FormRow label="Corpo">
-              <textarea rows={8} value={corpo} onChange={(event) => setCorpo(event.target.value)} />
-            </FormRow>
-            {status ? (
-              <p className="pdv-prod-status" role="status">
-                {status}
-              </p>
-            ) : null}
-            <div className="pdv-cad-form-go">
+      <section className="pdv-cad-page pdv-cli-page" aria-labelledby="pdv-carta-form">
+        <div className="pdv-cad-sheet cli-edit">
+          <div className="cli-edit-head">
+            <h1 id="pdv-carta-form">{editId ? "ATUALIZAR IMPRESSÃO" : "CADASTRAR IMPRESSÃO"}</h1>
+            <button
+              className="pdv-cad-btn pdv-cad-btn-back pdv-voltar"
+              type="button"
+              onClick={() => navigate("/client/configuracao/impressao")}
+            >
+              Voltar
+            </button>
+          </div>
+          {status ? <p className="pdv-cad-error" role="status">{status}</p> : null}
+          <form className="cli-edit-scroll" onSubmit={onSubmit}>
+            <fieldset>
+              <legend>Dados</legend>
+              <div className="cli-edit-grid">
+                <label className="cli-edit-span">
+                  Nome
+                  <input value={nome} onChange={(event) => setNome(event.target.value)} autoComplete="off" required />
+                </label>
+                <label>
+                  Título
+                  <input value={titulo} onChange={(event) => setTitulo(event.target.value)} autoComplete="off" />
+                </label>
+                <label>
+                  Tipo
+                  <select value={tipo} onChange={(event) => setTipo(event.target.value)}>
+                    {LETTER_TYPES.map((opt) => (
+                      <option key={opt}>{opt}</option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  Ordem
+                  <input value={ordem} onChange={(event) => setOrdem(event.target.value)} autoComplete="off" />
+                </label>
+                <label>
+                  Categoria
+                  <select value={categoria} onChange={(event) => setCategoria(event.target.value)}>
+                    <option value="">Não vinculada</option>
+                    {(categoria && !categorias.includes(categoria) ? [categoria, ...categorias] : categorias).map((nomeOpcao) => (
+                      <option key={nomeOpcao} value={nomeOpcao}>{nomeOpcao}</option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  Ativo
+                  <RadioSimNao name="carta-ativo" value={ativo} onChange={setAtivo} />
+                </label>
+              </div>
+            </fieldset>
+            <fieldset>
+              <legend>Texto do recibo</legend>
+              <div className="cli-edit-grid">
+                <label className="cli-edit-span">
+                  Corpo
+                  <textarea rows={14} value={corpo} onChange={(event) => setCorpo(event.target.value)} />
+                </label>
+              </div>
+            </fieldset>
+            <div className="cli-edit-save">
               <button className="pdv-cad-btn pdv-cad-btn-green" type="submit">
-                <Plus size={16} strokeWidth={2.6} aria-hidden="true" />
-                Cadastrar
+                {editId ? "Salvar" : "Cadastrar"}
               </button>
             </div>
           </form>

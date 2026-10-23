@@ -64,7 +64,7 @@ export default function GerenciarClienteModal({
     <div
       className="pdv-cad-manage-scrim"
       onMouseDown={(event) => {
-        if (event.target === event.currentTarget) onClose();
+        if (event.target === event.currentTarget) event.preventDefault();
       }}
     >
       <div

@@ -79,6 +79,17 @@ export function lojaProductName(product: { name?: string | null; lojaName?: stri
   return custom || String(product.name || "")
 }
 
+export function produtoRotulo(code?: string | null, name?: string | null) {
+  const codigo = String(code || "").trim()
+  const nome = String(name || "").trim()
+  if (!codigo) return nome
+  if (!nome) return codigo
+  const baixo = nome.toLocaleLowerCase("pt-BR")
+  const prefixo = codigo.toLocaleLowerCase("pt-BR")
+  if (baixo === prefixo || baixo.startsWith(`${prefixo} `) || baixo.startsWith(`${prefixo}·`) || baixo.startsWith(`${prefixo}-`)) return nome
+  return `${codigo} ${nome}`
+}
+
 export function lojaProductTitle(product: { name?: string | null; lojaName?: string | null }) {
   const official = String(product.name || "").trim()
   const store = String(product.lojaName || "").trim()

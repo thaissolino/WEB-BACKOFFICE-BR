@@ -13,6 +13,7 @@ export default function GroupEventosPage() {
   const [rules, setRules] = useState<Record<string, string>>({})
   const [filtro, setFiltro] = useState("")
   const [status, setStatus] = useState("")
+  const [salvando, setSalvando] = useState(false)
   const regras = useRef<Record<string, string>>({})
   const grupo = useRef<{ name: string; active: boolean; payload: Record<string, unknown> } | null>(null)
 
@@ -36,9 +37,10 @@ export default function GroupEventosPage() {
     [termo],
   )
 
-  async function gravar(next: Record<string, string>) {
+  async function gravar(next: Record<string, string>, avisar = false) {
     const atual = grupo.current
-    if (!code || !atual) return
+    if (!code || !atual || salvando) return
+    setSalvando(true)
     try {
       await updateCatalog("group", code, {
         name: atual.name,
@@ -46,16 +48,18 @@ export default function GroupEventosPage() {
         payload: { ...atual.payload, eventos: next },
       })
       atual.payload = { ...atual.payload, eventos: next }
-      setStatus("")
+      setStatus(avisar ? "Salvo." : "")
     } catch (err) {
       setStatus(parseError(err).friend || "Não foi possível gravar.")
+    } finally {
+      setSalvando(false)
     }
   }
 
   function aplicar(next: Record<string, string>) {
     regras.current = next
     setRules(next)
-    void gravar(next)
+    setStatus("")
   }
 
   function marcar(key: string, ligado: boolean) {
@@ -82,20 +86,21 @@ export default function GroupEventosPage() {
 
   return (
     <CadastroShell>
-      <section className="pdv-cad-page pdv-group-events-page" aria-labelledby="grp-ev-page-title">
+      <section className="pdv-cad-page pdv-cli-page pdv-group-events-page" aria-labelledby="grp-ev-page-title">
         <div className="wm-ev">
           <header className="wm-ev-head">
-            <h1 id="grp-ev-page-title">EVENTOS DO GRUPO [{(groupName || "…").toLocaleUpperCase("pt-BR")}]</h1>
+            <h1 id="grp-ev-page-title">Eventos do grupo {groupName || "…"}</h1>
             <div className="wm-ev-tools">
-              <button className="wm-ev-back" type="button" onClick={() => navigate("/client/usuarios/grupos")}>
-                <span aria-hidden="true">←</span> Voltar
+              <button className="pdv-cad-btn wm-ev-back" type="button" onClick={() => navigate("/client/usuarios/grupos")}>
+                Voltar
               </button>
               <label className="wm-ev-search">
-                Pesquisar:
+                Pesquisar
                 <input value={filtro} onChange={(event) => setFiltro(event.target.value)} autoComplete="off" />
               </label>
             </div>
           </header>
+          <div className="wm-ev-scroll">
           <div className="wm-ev-grid">
             {GROUP_EVENT_AREAS.map((area) => {
               const itens = visiveis.filter((event) => event.area === area)
@@ -131,7 +136,13 @@ export default function GroupEventosPage() {
             })}
           </div>
           {visiveis.length === 0 ? <p className="wm-ev-empty">Nenhum evento com esse nome.</p> : null}
-          {status ? <p className="wm-ev-status" role="status">{status}</p> : null}
+          </div>
+          <footer className="wm-ev-foot">
+            {status ? <p className="wm-ev-status" role="status">{status}</p> : null}
+            <button className="pdv-cad-btn pdv-cad-btn-green" type="button" disabled={salvando || !groupName} onClick={() => void gravar(regras.current, true)}>
+              {salvando ? "Salvando…" : "Salvar"}
+            </button>
+          </footer>
         </div>
       </section>
     </CadastroShell>

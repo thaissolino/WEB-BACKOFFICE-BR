@@ -4,6 +4,7 @@ import {
   AlertTriangle,
   AlignJustify,
   Camera,
+  Check,
   ChevronDown,
   Info,
   LayoutGrid,
@@ -331,6 +332,9 @@ export default function CadastrarProduto() {
   const [suppliers, setSuppliers] = useState<string[]>([]);
   const [quick, setQuick] = useState<QuickKind>(null);
   const [status, setStatus] = useState("");
+  const [aviso, setAviso] = useState("");
+  const avisoTimer = useRef<number | undefined>(undefined);
+  const codeRef = useRef(opened?.code || "");
   const [photo1, setPhoto1] = useState<File | null>(null);
   const [photo2, setPhoto2] = useState<File | null>(null);
   const [balanca, setBalanca] = useState({
@@ -353,6 +357,15 @@ export default function CadastrarProduto() {
     if (!editingId) navigate("/client/produtos", { replace: true });
   }, [editingId, navigate]);
 
+  useEffect(() => () => window.clearTimeout(avisoTimer.current), []);
+
+  function mostrarAviso(message: string, sumir: boolean) {
+    window.clearTimeout(avisoTimer.current);
+    setAviso(message);
+    if (!sumir) return;
+    avisoTimer.current = window.setTimeout(() => setAviso(""), 3000);
+  }
+
   useEffect(() => {
     if (!editingId) return;
     api
@@ -364,6 +377,7 @@ export default function CadastrarProduto() {
         formRef.current = next;
         loadedForm.current = next;
         categoryNameRef.current = product.category || "";
+        codeRef.current = product.code || codeRef.current;
         savedKey.current = JSON.stringify(productBody(next, categoriesRef.current, categoryNameRef.current));
         setCategories((current) => {
           const seed = categorySeed(product);
@@ -439,6 +453,8 @@ export default function CadastrarProduto() {
       return;
     }
     saving.current = true;
+    const code = codeRef.current;
+    mostrarAviso(code ? `Salvando o produto ${code}...` : "Salvando...", false);
     try {
       if (key !== savedKey.current) {
         await api.put(`/clients/products/${editingId}`, body);
@@ -451,8 +467,11 @@ export default function CadastrarProduto() {
         sentPhoto.current = photo;
       }
       setStatus("");
+      mostrarAviso(code ? `Produto ${code} atualizado com sucesso!` : "Produto atualizado com sucesso!", true);
     } catch (err) {
       const parsed = parseError(err);
+      window.clearTimeout(avisoTimer.current);
+      setAviso("");
       setStatus(parsed.friend || parsed.message || "Não foi possível salvar o produto.");
     } finally {
       saving.current = false;
@@ -473,7 +492,16 @@ export default function CadastrarProduto() {
     void saveIfDirty();
   }
 
+  function onFormFocus(event: FocusEvent<HTMLFormElement>) {
+    const node = event.target;
+    if (!(node instanceof HTMLElement)) return;
+    if (node instanceof HTMLInputElement && ["radio", "checkbox", "file"].includes(node.type)) return;
+    node.classList.add("pdv-prod-editing");
+  }
+
   function onFormBlur(event: FocusEvent<HTMLFormElement>) {
+    const node = event.target;
+    if (node instanceof HTMLElement) node.classList.remove("pdv-prod-editing");
     const next = event.relatedTarget;
     if (next instanceof Node && event.target instanceof Node && event.target.contains(next)) return;
     void saveIfDirty();
@@ -502,6 +530,12 @@ export default function CadastrarProduto() {
           </div>
 
           <div className="pdv-prod-box">
+          {aviso ? (
+            <p className="pdv-prod-save-flash" role="status">
+              <Check size={16} aria-hidden="true" />
+              {aviso}
+            </p>
+          ) : null}
           <div className="pdv-prod-tabs" role="tablist" aria-label="Cadastro de produto">
             <button
               className="pdv-prod-tab"
@@ -530,6 +564,7 @@ export default function CadastrarProduto() {
             id="pdv-prod-cad-form"
             className="pdv-prod-cad-form"
             onSubmit={onSubmit}
+            onFocus={onFormFocus}
             onBlur={onFormBlur}
             onChange={(event) => {
               const target = event.target;

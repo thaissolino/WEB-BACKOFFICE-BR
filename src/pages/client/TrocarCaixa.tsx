@@ -6,7 +6,7 @@ import { CODIGO_CRIAR_CAIXA, EVENTO_CRIAR_CAIXA, eventoPermitido } from "./cadas
 import { listCatalog } from "./cadastros/catalog/catalogApi";
 import PdvShell, { PdvLoading } from "./dashboard/PdvShell";
 import PdvTip from "./dashboard/PdvTip";
-import { CAIXA_STORAGE_KEY, NENHUM_CAIXA } from "./dashboard/mockData";
+import { CAIXA_SNAP_KEY, CAIXA_STORAGE_KEY, NENHUM_CAIXA } from "./dashboard/mockData";
 import { createLojaCaixa, listLojaCaixas, type LojaCaixa } from "./cadastros/financeiro/caixaApi";
 import { parseError } from "../../services/api";
 
@@ -205,6 +205,12 @@ function TrocarCaixaBoard() {
     if (persist) {
       setActive(name);
       sessionStorage.setItem(CAIXA_STORAGE_KEY, name);
+      const item = rows.find((row) => row.name === name);
+      if (item) {
+        const payload = { ...item.payload };
+        delete payload.senhaAcesso;
+        sessionStorage.setItem(CAIXA_SNAP_KEY, JSON.stringify({ code: item.code, name: item.name, payload }));
+      }
       setNotice("");
     }
     return true;
@@ -217,10 +223,7 @@ function TrocarCaixaBoard() {
 
   function runAfterAuth(name: string, action: "select" | "pdv") {
     if (!applyCaixa(name)) return;
-    if (action === "select") {
-      setNotice(`Caixa ${name} selecionado.`);
-      return;
-    }
+    if (action === "select") return;
     navigate("/client/pdv");
   }
 
@@ -243,10 +246,11 @@ function TrocarCaixaBoard() {
       setError("Senha do caixa incorreta.");
       return;
     }
-    setPassAsk(false);
     setError("");
-    if (pendingAction) runAfterAuth(picked, pendingAction);
     setPendingAction(null);
+    if (!applyCaixa(picked)) return;
+    setPassAsk(false);
+    navigate("/client/pdv");
   }
 
   return (
@@ -336,10 +340,6 @@ function TrocarCaixaBoard() {
           </p>
         ) : null}
       </div>
-
-      <p className="pdv-caixa-foot">
-        Caixa: <strong>{active}</strong>
-      </p>
 
       {passAsk ? (
         <div className="pdv-caixa-confirm">

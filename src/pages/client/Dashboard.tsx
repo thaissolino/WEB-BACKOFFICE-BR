@@ -303,7 +303,7 @@ function ActivitiesCalendar() {
 
 function DashboardBoard({ client }: { client: ClientUser }) {
   const navigate = useNavigate();
-  const { query, storeName } = usePdvSession();
+  const { query } = usePdvSession();
   const uiConfig = usePdvUiConfig();
   const boardRef = useRef<HTMLDivElement>(null);
 
@@ -337,12 +337,6 @@ function DashboardBoard({ client }: { client: ClientUser }) {
         {showWelcome ? (
           <header className="pdvc-page-head">
             <h1 className="pdvc-page-title">Seja bem vindo, {client.name}</h1>
-            <p className="pdvc-page-sub">
-              <span>
-                Loja Atual: <strong>{storeName}</strong>
-              </span>
-              <span className="pdvc-chip">Visualiza preço de compra: Sim</span>
-            </p>
           </header>
         ) : null}
 
@@ -392,12 +386,6 @@ function DashboardBoard({ client }: { client: ClientUser }) {
         {showWelcome ? (
         <div className="pdv-welcome-block">
           <p className="pdv-welcome">Seja bem vindo, {client.name}</p>
-          <div className="pdv-shop-bar">
-            <span>
-              Loja Atual: <strong>{storeName}</strong>
-            </span>
-            <span>Visualiza preço de compra: Sim</span>
-          </div>
         </div>
         ) : null}
 

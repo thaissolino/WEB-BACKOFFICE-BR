@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react"
 import FilterPage, { type FilterPageProps } from "../pdv/FilterPage"
 import { VendasRelatorio } from "../movimentacoes/LojaVendasPainel"
+import { BuscarImei } from "../movimentacoes/BuscarImei"
+import { RelatorioItensVenda } from "./RelatorioItensVenda"
 import { lancamentoDaLoja, listCatalog } from "../cadastros/catalog/catalogApi"
 import DreGerencial from "../../gestor/DreGerencial"
 import { api, parseError } from "../../../services/api"
@@ -76,6 +78,8 @@ function AuditoriaEstoque() {
 }
 
 export function RelatorioScreen({ def }: { def: FilterPageProps & { path?: string } }) {
+  if (def.path === "imei") return <BuscarImei escopo="tudo" />
+  if (def.path === "venda/itens") return <RelatorioItensVenda />
   if (def.path && (def.path.startsWith("venda/") || def.path.startsWith("venda-gerencial/"))) {
     return <VendasRelatorio def={{ ...def, path: def.path }} />
   }

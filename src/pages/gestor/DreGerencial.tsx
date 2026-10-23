@@ -5,6 +5,7 @@ import { todayIso } from "../../utils/todayIso";
 import { clientIdDoLojista, lancamentoDaLoja, listCatalog, type CatalogItem } from "../client/cadastros/catalog/catalogApi";
 import { DatePreset } from "../client/cadastros/catalog/FormBits";
 import { CadastroFrame } from "../client/cadastros/CadastroShell";
+import SearchableSelect from "../client/cadastros/produtos/SearchableSelect";
 import GestaoShell from "./GestaoShell";
 import "./gestao-pages.css";
 
@@ -352,13 +353,16 @@ export default function DreGerencial({ scope = "backoffice" }: { scope?: DreScop
         {scope === "backoffice" ? (
           <label>
             Loja
-            <select value={draft.loja} onChange={(event) => setCampo("loja", event.target.value)}>
-              <option value="todas">Todas</option>
-              <option value="estoque">Estoque</option>
-              {lojistas.map((item) => (
-                <option key={item.id} value={item.id}>{item.name}</option>
-              ))}
-            </select>
+            <SearchableSelect
+              hideEmpty
+              value={draft.loja === "estoque" ? "Estoque" : draft.loja === "todas" ? "Todas" : lojistas.find((item) => item.id === draft.loja)?.name || "Todas"}
+              options={["Todas", "Estoque", ...lojistas.map((item) => item.name)]}
+              onChange={(nome) => {
+                if (nome === "Estoque") setCampo("loja", "estoque")
+                else if (nome === "Todas") setCampo("loja", "todas")
+                else setCampo("loja", lojistas.find((item) => item.name === nome)?.id || "todas")
+              }}
+            />
           </label>
         ) : null}
         <label>
@@ -377,26 +381,30 @@ export default function DreGerencial({ scope = "backoffice" }: { scope?: DreScop
         </label>
         <label>
           Visualização
-          <select value={draft.visualizacao} onChange={(event) => setCampo("visualizacao", event.target.value as Filtros["visualizacao"])}>
-            <option value="completo">Completo</option>
-            <option value="resumido">Resumido</option>
-          </select>
+          <SearchableSelect
+            hideEmpty
+            value={draft.visualizacao === "resumido" ? "Resumido" : "Completo"}
+            options={["Completo", "Resumido"]}
+            onChange={(nome) => setCampo("visualizacao", nome === "Resumido" ? "resumido" : "completo")}
+          />
         </label>
         <label>
           Mostrar despesas
-          <select value={draft.despesas} onChange={(event) => setCampo("despesas", event.target.value as Filtros["despesas"])}>
-            <option value="recolhido">Recolhido</option>
-            <option value="aberto">Aberto</option>
-          </select>
+          <SearchableSelect
+            hideEmpty
+            value={draft.despesas === "aberto" ? "Aberto" : "Recolhido"}
+            options={["Recolhido", "Aberto"]}
+            onChange={(nome) => setCampo("despesas", nome === "Aberto" ? "aberto" : "recolhido")}
+          />
         </label>
         <label>
           Plano de conta
-          <select value={draft.plano} onChange={(event) => setCampo("plano", event.target.value)}>
-            <option value="">Todos</option>
-            {planos.map((nome) => (
-              <option key={nome} value={nome}>{nome}</option>
-            ))}
-          </select>
+          <SearchableSelect
+            hideEmpty
+            value={draft.plano || "Todos"}
+            options={["Todos", ...planos]}
+            onChange={(nome) => setCampo("plano", nome === "Todos" ? "" : nome)}
+          />
         </label>
         <div className="iv-acoes">
           <button type="button" className="iv-limpar" onClick={ultimo} disabled={carregando}>Último filtro</button>
@@ -508,8 +516,12 @@ export default function DreGerencial({ scope = "backoffice" }: { scope?: DreScop
   if (scope === "loja") {
     return (
       <CadastroFrame>
-        <h1 className="dre-titulo">DRE GERENCIAL</h1>
-        {corpo}
+        <section className="pdv-cad-page pdv-cli-page" aria-labelledby="dre-titulo">
+          <div className="pdv-cad-sheet">
+            <h1 id="dre-titulo" className="dre-titulo">DRE GERENCIAL</h1>
+            {corpo}
+          </div>
+        </section>
       </CadastroFrame>
     );
   }

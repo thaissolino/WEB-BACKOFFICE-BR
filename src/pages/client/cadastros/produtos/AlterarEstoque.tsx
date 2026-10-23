@@ -299,7 +299,6 @@ function EstoqueProdutos({ categoryId }: { categoryId: string }) {
           </div>
           <p className="pdv-cad-kicker">{categoryName}</p>
           {error ? <p className="pdv-cad-error">{error}</p> : null}
-          {loading ? <p className="pdv-cad-kicker">Carregando produtos…</p> : null}
 
           <form className="pdv-cad-filters pdv-cad-filters-stock" onSubmit={onSearch}>
             <label>

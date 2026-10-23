@@ -61,13 +61,11 @@ export function searchMenus(query: string): MenuSearchHit[] {
   return hits.slice(0, 12);
 }
 
-export function openMenuHref(href: string, navigate: (to: string) => void) {
+export function openMenuHref(href: string, navigate: (to: string, options?: { replace?: boolean; state?: unknown }) => void) {
   const path = href.split("?")[0];
-  if (path === window.location.pathname) {
-    window.location.assign(href);
-    return;
-  }
-  navigate(href);
+  if (path.startsWith("/gestao")) return;
+  const here = `${window.location.pathname}${window.location.search}`;
+  navigate(href, { replace: here === href, state: { menuAt: Date.now() } });
 }
 
 /**
@@ -295,11 +293,24 @@ export const PDV_MENUS: PdvMenuRoot[] = [
         label: "Vendas",
         hasSubmenu: true,
         children: [
-          { id: "mov-vendas-pdv", label: "PDV", href: "/client/pdv" },
-          { id: "mov-vendas-pre", label: "Pré Vendas", href: "/client/movimentacoes/vendas/pre" },
-          { id: "mov-vendas-entregas", label: "Painel de Entregas", starred: true, href: "/client/movimentacoes/vendas/entregas" },
-          { id: "mov-vendas-abertas", label: "Abertas", href: "/client/movimentacoes/vendas/abertas" },
+          { id: "mov-vendas-todas", label: "Todas", href: "/client/movimentacoes/vendas/todas" },
           { id: "mov-vendas-concluidas", label: "Concluídas", href: "/client/movimentacoes/vendas/concluidas" },
+          { id: "mov-vendas-abertas", label: "Abertas", href: "/client/movimentacoes/vendas/abertas" },
+          { id: "mov-vendas-estornadas", label: "Estornadas", href: "/client/movimentacoes/vendas/estornadas" },
+          { id: "mov-vendas-imei", label: "Buscar IMEI", href: "/client/movimentacoes/vendas/imei" },
+        ],
+      },
+      {
+        id: "mov-compras",
+        label: "Compras",
+        hasSubmenu: true,
+        children: [
+          { id: "mov-compras-novas", label: "Novas compras", href: "/client/movimentacoes/compras" },
+          { id: "mov-compras-abertas", label: "Abertas", href: "/client/movimentacoes/compras/abertas" },
+          { id: "mov-compras-concluidas", label: "Concluídas", href: "/client/movimentacoes/compras/concluidas" },
+          { id: "mov-compras-estornadas", label: "Estornadas", href: "/client/movimentacoes/compras/estornadas" },
+          { id: "mov-compras-imei", label: "Buscar IMEI", href: "/client/movimentacoes/compras/imei" },
+          { id: "mov-compras-xml", label: "Importar XML", href: "/client/movimentacoes/compras/xml" },
         ],
       },
       {
@@ -356,7 +367,6 @@ export const PDV_MENUS: PdvMenuRoot[] = [
           { id: "mov-caixa-conciliacao", label: "Conciliação Bancária", href: "/client/movimentacoes/caixa/conciliacao" },
         ],
       },
-      { id: "mov-compra", label: "Compra", hasSubmenu: true, mvpHidden: true },
       {
         id: "mov-solicitacao",
         label: "Solicitação de Compra",
@@ -374,10 +384,6 @@ export const PDV_MENUS: PdvMenuRoot[] = [
         hasSubmenu: true,
         children: [
           { id: "mov-fin-plano", label: "Plano de Conta", href: "/client/financeiro/plano-conta" },
-          { id: "mov-fin-receber", label: "Contas a Receber", href: "/client/movimentacoes/financeiro/receber" },
-          { id: "mov-fin-pagar", label: "Contas a Pagar", href: "/client/movimentacoes/financeiro/pagar" },
-          { id: "mov-fin-fluxo", label: "Fluxo de Caixa", href: "/client/movimentacoes/financeiro/fluxo" },
-          { id: "mov-fin-previsao", label: "Previsão de Fluxo de Caixa", href: "/client/movimentacoes/financeiro/previsao" },
           {
             id: "mov-fin-despesas",
             label: "Despesas / Receitas",
@@ -386,18 +392,6 @@ export const PDV_MENUS: PdvMenuRoot[] = [
               { id: "mov-fin-despesas-cadastrar-despesa", label: "Cadastrar Despesa", href: "/client/movimentacoes/financeiro/despesas/cadastrar" },
               { id: "mov-fin-despesas-cadastrar-receita", label: "Cadastrar Receita", href: "/client/movimentacoes/financeiro/receitas/cadastrar" },
               { id: "mov-fin-despesas-listar", label: "Listar Receitas / Despesas", href: "/client/movimentacoes/financeiro/despesas" },
-            ],
-          },
-          { id: "mov-fin-caixa-clientes", label: "Relatório Caixa de Clientes", href: "/client/movimentacoes/financeiro/caixa-clientes" },
-          {
-            id: "mov-fin-boletos",
-            label: "Boletos",
-            hasSubmenu: true,
-            children: [
-              { id: "mov-fin-boletos-recorrentes", label: "Boletos Recorrentes", href: "/client/movimentacoes/financeiro/boletos/recorrentes" },
-              { id: "mov-fin-boletos-contas", label: "Contas Bancárias", href: "/client/movimentacoes/financeiro/boletos/contas" },
-              { id: "mov-fin-boletos-gerenciar", label: "Gerenciar Boletos", href: "/client/movimentacoes/financeiro/boletos/gerenciar" },
-              { id: "mov-fin-boletos-arquivos", label: "Gerenciar Arquivos", href: "/client/movimentacoes/financeiro/boletos/arquivos" },
             ],
           },
         ],
@@ -454,6 +448,7 @@ export const PDV_MENUS: PdvMenuRoot[] = [
     id: "relatorios",
     label: "RELATÓRIOS",
     items: [
+      { id: "rel-imei", label: "Buscar IMEI", href: "/client/relatorios/imei" },
       {
         id: "rel-auditoria",
         label: "Auditoria",
