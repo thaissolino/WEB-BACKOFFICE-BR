@@ -15,18 +15,21 @@ function flushPhotoUrls() {
   const fileIds = [...pending];
   pending.clear();
   if (!fileIds.length) return;
-  api
-    .post("/clients/products/photo-urls", { fileIds })
-    .then(({ data }) => {
-      const urls = (data?.urls || {}) as Record<string, string>;
-      for (const fileId of fileIds) {
-        if (urls[fileId]) cache.set(fileId, urls[fileId]);
-      }
-      notify();
-    })
-    .catch(() => {
-      notify();
-    });
+  const lotes: string[][] = [];
+  for (let i = 0; i < fileIds.length; i += 80) lotes.push(fileIds.slice(i, i + 80));
+  Promise.all(
+    lotes.map((lote) =>
+      api
+        .post("/clients/products/photo-urls", { fileIds: lote })
+        .then(({ data }) => {
+          const urls = (data?.urls || {}) as Record<string, string>;
+          for (const fileId of lote) {
+            if (urls[fileId]) cache.set(fileId, urls[fileId]);
+          }
+        })
+        .catch(() => undefined),
+    ),
+  ).finally(notify);
 }
 
 export function useProductPhotoUrl(photoFileId?: string | null) {
