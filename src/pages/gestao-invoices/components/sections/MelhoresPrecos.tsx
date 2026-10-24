@@ -422,6 +422,35 @@ function montarCotacoes(
   return saida;
 }
 
+async function arquivoJson(url: string) {
+  const resposta = await fetch(`${url}?t=${Date.now()}`);
+  return resposta.ok ? resposta.json() : null;
+}
+
+async function carregarPainel() {
+  try {
+    const { data } = await api.get("/backoffice/painel-precos");
+    const melhores = data?.melhores;
+    const listas = data?.listas;
+    if (Array.isArray(melhores?.cotacoes) || Array.isArray(listas?.listas)) {
+      return {
+        melhores: melhores || { cotacoes: [] },
+        listas: listas || { listas: [] },
+      };
+    }
+  } catch {
+    /* o arquivo local cobre enquanto o servidor ainda não tem a lista */
+  }
+  const [melhores, listas] = await Promise.all([
+    arquivoJson("/melhores-precos.json"),
+    arquivoJson("/listas-fornecedor.json"),
+  ]);
+  return {
+    melhores: melhores || { cotacoes: [] },
+    listas: listas || { listas: [] },
+  };
+}
+
 export function MelhoresPrecos() {
   const [produtos, setProdutos] = useState<Catalogo[]>([]);
   const [ordemCategorias, setOrdemCategorias] = useState<string[]>([]);
@@ -443,10 +472,11 @@ export function MelhoresPrecos() {
     Promise.all([
       api.get("/clients/products", { params: { ativo: "true" } }),
       loadProductCategories().catch(() => []),
-      fetch(`/melhores-precos.json?t=${Date.now()}`).then((resposta) => (resposta.ok ? resposta.json() : { cotacoes: [] })),
-      fetch(`/listas-fornecedor.json?t=${Date.now()}`).then((resposta) => (resposta.ok ? resposta.json() : { listas: [] })),
+      carregarPainel(),
     ])
-      .then(([produtosRes, categorias, precosRes, listasRes]) => {
+      .then(([produtosRes, categorias, painel]) => {
+        const precosRes = painel.melhores;
+        const listasRes = painel.listas;
         if (cancel) return;
         const lista = ((Array.isArray(produtosRes.data) ? produtosRes.data : produtosRes.data?.products || []) as Catalogo[]).filter(
           (item) => item?.name || item?.lojaName
@@ -474,14 +504,12 @@ export function MelhoresPrecos() {
   const listasProntas = minutoEmSaoPaulo() >= 12 * 60 && (listasFechadas || listasDoDiaProntas(listas, hoje));
 
   useEffect(() => {
-    if (listasProntas) return;
     let cancel = false;
     const timer = window.setInterval(() => {
-      Promise.all([
-        fetch(`/melhores-precos.json?t=${Date.now()}`).then((resposta) => (resposta.ok ? resposta.json() : null)),
-        fetch(`/listas-fornecedor.json?t=${Date.now()}`).then((resposta) => (resposta.ok ? resposta.json() : null)),
-      ])
-        .then(([precosRes, listasRes]) => {
+      carregarPainel()
+        .then((painel) => {
+          const precosRes = painel.melhores;
+          const listasRes = painel.listas;
           if (cancel || !precosRes || !listasRes) return;
           const quando = typeof listasRes.atualizadoEm === "string"
             ? listasRes.atualizadoEm
@@ -501,7 +529,7 @@ export function MelhoresPrecos() {
       cancel = true;
       window.clearInterval(timer);
     };
-  }, [listasProntas, atualizadoEm, precosEm]);
+  }, [atualizadoEm, precosEm]);
 
   function gravarPreferencia(proxima: PreferenciaLista) {
     setPreferencia(proxima);
