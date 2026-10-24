@@ -1877,17 +1877,21 @@
 .pdv-prod-grade-photo {
   display: grid;
   place-items: center;
-  width: 64px;
-  height: 48px;
+  width: auto;
+  height: auto;
+  max-width: 64px;
+  max-height: 48px;
   padding: 0;
   border: 0;
-  background: #fff;
+  background: transparent;
   cursor: pointer;
 }
 
 .pdv-prod-grade-photo img {
-  width: 64px;
-  height: 48px;
+  width: auto;
+  height: auto;
+  max-width: 64px;
+  max-height: 48px;
   object-fit: contain;
 }
 
@@ -1942,7 +1946,13 @@
 }
 
 .pdv-prod-name .pdv-prod-grade-photo,
-.pdv-prod-name .pdv-prod-grade-photo img,
+.pdv-prod-name .pdv-prod-grade-photo img {
+  width: auto;
+  height: auto;
+  max-width: 36px;
+  max-height: 36px;
+}
+
 .pdv-prod-name .pdv-prod-grade-ph {
   width: 28px;
   height: 28px;
@@ -3301,8 +3311,10 @@
 }
 
 .pdv-prod-photo-preview-img {
-  width: 150px;
-  height: 150px;
+  width: auto;
+  height: auto;
+  max-width: 150px;
+  max-height: 150px;
   object-fit: contain;
   background: #fff;
   border: 1px solid #d7d0c4;

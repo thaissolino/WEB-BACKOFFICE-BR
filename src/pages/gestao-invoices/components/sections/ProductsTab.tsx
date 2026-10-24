@@ -193,14 +193,15 @@ function ProductThumb({
 }) {
   const src = useProductPhotoUrl(photoFileId);
   const box = large ? "h-28 w-28" : "h-14 w-14";
+  const fit = large ? "max-h-28 max-w-28" : "max-h-14 max-w-14";
 
   return (
     <label
-      className={`relative inline-flex shrink-0 cursor-pointer ${box}`}
+      className="relative inline-flex shrink-0 cursor-pointer items-center justify-center"
       title={photoFileId ? "Clique para trocar a foto" : "Clique para adicionar a foto"}
     >
       {src ? (
-        <img src={src} alt="" decoding="async" className={`${box} rounded-lg border border-gray-200 bg-white object-contain`} />
+        <img src={src} alt="" decoding="async" className={`${fit} h-auto w-auto rounded-lg border border-gray-200 bg-white object-contain`} />
       ) : (
         <span
           className={`flex ${box} items-center justify-center rounded-lg border border-dashed border-gray-300 bg-gray-50 text-[11px] text-gray-400`}

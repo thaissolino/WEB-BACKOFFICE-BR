@@ -99,7 +99,7 @@ export default function GradePhotoThumb({
       }}
       aria-label={`Foto ${name}`}
     >
-      {src ? <img src={src} alt="" width={64} height={48} decoding="async" /> : <span className="pdv-prod-grade-ph" />}
+      {src ? <img src={src} alt="" decoding="async" /> : <span className="pdv-prod-grade-ph" />}
     </button>
   );
 }
