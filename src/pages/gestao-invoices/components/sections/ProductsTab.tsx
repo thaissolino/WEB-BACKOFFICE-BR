@@ -200,7 +200,7 @@ function ProductThumb({
       title={photoFileId ? "Clique para trocar a foto" : "Clique para adicionar a foto"}
     >
       {src ? (
-        <img src={src} alt="" decoding="async" className={`${box} rounded-lg border border-gray-200 object-cover`} />
+        <img src={src} alt="" decoding="async" className={`${box} rounded-lg border border-gray-200 bg-white object-contain`} />
       ) : (
         <span
           className={`flex ${box} items-center justify-center rounded-lg border border-dashed border-gray-300 bg-gray-50 text-[11px] text-gray-400`}

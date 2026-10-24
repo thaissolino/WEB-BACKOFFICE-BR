@@ -1888,7 +1888,7 @@
 .pdv-prod-grade-photo img {
   width: 64px;
   height: 48px;
-  object-fit: cover;
+  object-fit: contain;
 }
 
 .pdv-prod-name {
@@ -3303,7 +3303,8 @@
 .pdv-prod-photo-preview-img {
   width: 150px;
   height: 150px;
-  object-fit: cover;
+  object-fit: contain;
+  background: #fff;
   border: 1px solid #d7d0c4;
 }
 
