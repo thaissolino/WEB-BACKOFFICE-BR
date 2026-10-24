@@ -57,6 +57,20 @@ type TablePriceRow = {
   price: number | null;
 };
 
+function pinProduct(rows: Product[], leadId: string, lead: Product | null, page: number) {
+  if (!leadId || page !== 1) return rows;
+  const index = rows.findIndex((item) => item.id === leadId);
+  if (index === 0) return rows;
+  if (index > 0) {
+    const next = rows.slice();
+    const [item] = next.splice(index, 1);
+    next.unshift(item);
+    return next;
+  }
+  if (lead?.id === leadId) return [lead, ...rows];
+  return rows;
+}
+
 function parseMoneyDraft(raw: string) {
   const text = raw.trim();
   if (!text) return null;
@@ -218,6 +232,9 @@ export function ProductsTab() {
   const [facets, setFacets] = useState<ProductFacets>({ brands: [], collections: [], genders: [], suppliers: [] });
   const [showModal, setShowModal] = useState(false);
   const [duplicateAsk, setDuplicateAsk] = useState(false);
+  const [copyNotice, setCopyNotice] = useState("");
+  const leadIdRef = useRef("");
+  const leadProductRef = useRef<Product | null>(null);
   const [newCategoryOpen, setNewCategoryOpen] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
   const [currentProduct, setCurrentProduct] = useState<Product | null>(null);
@@ -288,7 +305,7 @@ export function ProductsTab() {
           order: sortRef.current,
         }),
       });
-      const rows = (data.products || []) as Product[];
+      const rows = pinProduct((data.products || []) as Product[], leadIdRef.current, leadProductRef.current, nextPage);
       setAllProducts(rows);
       void loadGridPrices(rows.map((product) => product.id));
       setTotal(Number(data.total) || 0);
@@ -330,6 +347,8 @@ export function ProductsTab() {
   const suppliers = facets.suppliers.length ? facets.suppliers : fieldOptions(allProducts, "supplierName");
 
   function runSearch(filters: ProductFilters) {
+    leadIdRef.current = "";
+    leadProductRef.current = null;
     sessionStorage.setItem(OFFICE_PRODUCT_FILTER_KEY, JSON.stringify(filters));
     setApplied(filters);
     searchedRef.current = true;
@@ -343,6 +362,8 @@ export function ProductsTab() {
   }
 
   function onClear() {
+    leadIdRef.current = "";
+    leadProductRef.current = null;
     setDraft(EMPTY_PRODUCT_FILTERS);
     setApplied(EMPTY_PRODUCT_FILTERS);
     searchedRef.current = false;
@@ -357,6 +378,34 @@ export function ProductsTab() {
     const last = readProductFilters(OFFICE_PRODUCT_FILTER_KEY);
     setDraft(last);
     runSearch(last);
+  }
+
+  async function showSavedProduct(id: string, fallback: Product) {
+    let product = fallback;
+    try {
+      const { data } = await api.get(`/clients/products/${id}`);
+      if (data?.product?.id) product = data.product as Product;
+    } catch (error) {
+      console.error("Erro ao abrir o produto salvo:", error);
+    }
+    const filters: ProductFilters = {
+      ...EMPTY_PRODUCT_FILTERS,
+      codProduto: String(product.code || fallback.code || "").trim(),
+    };
+    leadIdRef.current = "";
+    leadProductRef.current = null;
+    setCopyNotice("");
+    setDraft(filters);
+    setApplied(filters);
+    searchedRef.current = true;
+    setSearched(true);
+    sessionStorage.setItem(OFFICE_PRODUCT_FILTER_KEY, JSON.stringify(filters));
+    setAllProducts([product]);
+    setTotal(1);
+    setPage(1);
+    setSelectedProducts([]);
+    void loadGridPrices([product.id]);
+    scrollPageToTop();
   }
 
   const loadTablePrices = async (product: Product | null) => {
@@ -379,8 +428,30 @@ export function ProductsTab() {
     }
   };
 
+  function closeProduct() {
+    setShowModal(false);
+    setDuplicateAsk(false);
+    setCopyNotice("");
+    setCurrentProduct(null);
+    if (leadIdRef.current && searchedRef.current) {
+      void fetchData(appliedRef.current, 1, true);
+    }
+  }
+
+  useEffect(() => {
+    if (!showModal) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      closeProduct();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [showModal]);
+
   const handleEdit = (product: Product) => {
     setDuplicateAsk(false);
+    setCopyNotice("");
     setNewCategoryOpen(false);
     setNewCategoryName("");
     setCurrentProduct(product);
@@ -675,7 +746,7 @@ export function ProductsTab() {
       if (currentProduct.id) {
         const categoryId = currentProduct.categoryId || "";
         const category = categoryOptions.find((item) => item.id === categoryId)?.label || "";
-        const { data: updated } = await api.patch(`/invoice/product/${currentProduct.id}`, currentProduct);
+        await api.patch(`/invoice/product/${currentProduct.id}`, currentProduct);
         const padrao = tablePrices.find((table) => table.isDefault);
         const salePrice = padrao ? parseMoneyDraft(tableDrafts[padrao.id] || "") : null;
         const nextCost = parseMoneyDraft(costDraft) ?? 0;
@@ -695,9 +766,6 @@ export function ProductsTab() {
             price: parseMoneyDraft(tableDrafts[table.id] || ""),
           })),
         });
-        setAllProducts((prev) =>
-          prev.map((p) => (p.id === currentProduct.id ? { ...p, ...updated, ...currentProduct, categoryId, category } : p))
-        );
         setOpenNotification({
           type: "success",
           title: "Sucesso!",
@@ -722,10 +790,6 @@ export function ProductsTab() {
             })),
           });
         }
-        setAllProducts((prev) => {
-          if (prev.some((p) => p.id === created.id)) return prev;
-          return [...prev, created];
-        });
         setOpenNotification({
           type: "success",
           title: "Sucesso!",
@@ -733,15 +797,13 @@ export function ProductsTab() {
         });
       }
         window.dispatchEvent(new Event("productsUpdated"));
-        await fetchData();
-        if (createdProduct) {
-          setAllProducts((prev) => {
-            if (prev.some((p) => p.id === createdProduct!.id)) return prev;
-            return [...prev, createdProduct!];
-          });
-        }
+        const savedId = currentProduct.id || createdProduct?.id || "";
         setShowModal(false);
+        setDuplicateAsk(false);
         setCurrentProduct(null);
+        if (savedId) {
+          await showSavedProduct(savedId, { ...currentProduct, ...(createdProduct || {}), id: savedId });
+        }
       } catch (error: any) {
         console.error("Erro ao salvar produto:", error);
         const errorMessage = error?.response?.data?.message || error?.message || "Não foi possível salvar o produto.";
@@ -789,7 +851,7 @@ export function ProductsTab() {
       const category = categoryOptions.find((item) => item.id === categoryId)?.label || currentProduct.category || "";
       try {
         const payload = {
-          description: currentProduct.description || "",
+          description: "",
           priceweightAverage: Number(currentProduct.priceweightAverage) || 0,
           weightAverage: Number(currentProduct.weightAverage) || 0,
           salePrice: Number(currentProduct.salePrice) || 0,
@@ -828,17 +890,37 @@ export function ProductsTab() {
             console.error("Erro ao copiar a foto do produto:", error);
           }
         }
-        setAllProducts((prev) => (prev.some((item) => item.id === created.id) ? prev : [...prev, created]));
+        try {
+          const { data: tablesData } = await api.get(`/clients/products/${currentProduct.id}/table-prices`);
+          const tables = (tablesData?.tables || []) as TablePriceRow[];
+          if (tables.length) {
+            await api.put(`/clients/products/${created.id}/table-prices`, {
+              prices: tables.map((table) => ({
+                priceTableId: table.id,
+                price: table.price ?? null,
+              })),
+            });
+          }
+        } catch (error) {
+          console.error("Erro ao copiar as tabelas de preço:", error);
+        }
+        let opened = { ...created, description: "" };
+        try {
+          await api.put(`/clients/products/${created.id}`, { description: "" });
+          const { data: loaded } = await api.get(`/clients/products/${created.id}`);
+          if (loaded?.product?.id) opened = { ...(loaded.product as Product), description: "" };
+        } catch (error) {
+          console.error("Erro ao abrir a cópia:", error);
+        }
+        leadIdRef.current = opened.id;
+        leadProductRef.current = opened;
+        setAllProducts((prev) => [opened, ...prev.filter((item) => item.id !== opened.id)]);
+        setPage(1);
         setDuplicateAsk(false);
-        setShowModal(false);
-        setCurrentProduct(null);
+        setCopyNotice("Produto duplicado. Altere o que precisar e salve.");
+        setCurrentProduct(opened);
+        void loadTablePrices(opened);
         window.dispatchEvent(new Event("productsUpdated"));
-        await fetchData();
-        setOpenNotification({
-          type: "success",
-          title: "Sucesso!",
-          notification: withStock ? "Produto duplicado com estoque." : "Produto duplicado sem estoque.",
-        });
       } catch (error: any) {
         const errorMessage = error?.response?.data?.message || error?.message || "Não foi possível duplicar o produto.";
         Swal.fire({
@@ -1076,6 +1158,7 @@ export function ProductsTab() {
               });
 
               setDuplicateAsk(false);
+              setCopyNotice("");
               setCurrentProduct({
                 id: "",
                 name: "",
@@ -1435,22 +1518,27 @@ export function ProductsTab() {
 
       {showModal && currentProduct && (
         <div
-          onClick={() => setShowModal(false)}
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) event.preventDefault();
+          }}
           className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 backdrop-blur-sm"
         >
-          <div onClick={(e) => e.stopPropagation()} className="bg-white p-6 rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-xl border border-gray-100">
+          <div className="bg-white p-6 rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-xl border border-gray-100">
             <div className="mb-4 flex items-center justify-between gap-3">
-              <h3 className="text-lg font-medium">{currentProduct.id ? "Editar Produto" : "Novo Produto"}</h3>
+              <h3 className="text-lg font-medium">{copyNotice ? "Produto duplicado" : currentProduct.id ? "Editar Produto" : "Novo Produto"}</h3>
               <button
                 type="button"
                 aria-label="Fechar"
-                onClick={() => setShowModal(false)}
+                onClick={closeProduct}
                 className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-gray-500 hover:bg-gray-100"
               >
                 <X size={18} aria-hidden />
               </button>
             </div>
             <div className="space-y-4">
+              {copyNotice ? (
+                <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950">{copyNotice}</p>
+              ) : null}
               {currentProduct.id ? (
                 <div>
                   <span className="mb-2 block text-sm font-medium text-gray-700">Foto</span>
@@ -1695,7 +1783,7 @@ export function ProductsTab() {
                 )
               ) : null}
               <button
-                onClick={() => setShowModal(false)}
+                onClick={closeProduct}
                 className="px-4 py-2 border border-gray-200 rounded-xl hover:bg-gray-50"
                 disabled={isActionLoading}
               >
