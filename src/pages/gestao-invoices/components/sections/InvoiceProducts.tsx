@@ -41,7 +41,7 @@ interface InvoiceProductsProps {
   /** Quando múltiplas invoices vêm do modal (Enviar para a tela), preencher drafts e abas */
   onAddDraftInvoices?: (invoices: Invoice[]) => void;
   /** Após salvar uma invoice que era draft (aba), remover da lista de drafts e ir para a próxima */
-  onDraftSaved?: () => void;
+  onDraftSaved?: (number?: string) => void;
   [key: string]: any;
 }
 type CarrierEnum = "percentage" | "perKg" | "perUnit";
@@ -677,14 +677,15 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
           params: { number: currentInvoice.number.trim() }
         });
         if (checkResponse.data?.exists) {
+          props.onDraftSaved?.(currentInvoice.number);
           Swal.fire({
-            icon: "error",
-            title: "Número Duplicado",
-            text: `Já existe uma invoice com o número "${currentInvoice.number}". Por favor, use um número diferente.`,
+            icon: "info",
+            title: "Invoice já salva",
+            text: `A invoice ${currentInvoice.number} já está gravada e saiu da lista.`,
             confirmButtonText: "Ok",
             buttonsStyling: false,
             customClass: {
-              confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
+              confirmButton: "bg-blue-600 text-white hover:bg-blue-700 px-4 py-2 rounded font-semibold",
             },
           });
           return;
@@ -764,7 +765,7 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
 
       // Se estamos em modo multi-draft (abas), avisar o pai para remover esta draft e mostrar a próxima; não resetar o form
       if (props.onDraftSaved) {
-        props.onDraftSaved();
+        props.onDraftSaved(currentInvoice.number);
         window.dispatchEvent(new Event("invoiceUpdated"));
         if (props.onInvoiceSaved) props.onInvoiceSaved();
         return;

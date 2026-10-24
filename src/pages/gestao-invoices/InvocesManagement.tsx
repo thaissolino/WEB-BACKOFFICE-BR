@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import "../gestor/gestao-pages.css";
 import { InvoicesTab } from "./components/sections/InvoicesTab";
@@ -112,6 +112,8 @@ export default function InvocesManagement({ area = "compras" }: { area?: GestaoA
   });
   const [draftInvoices, setDraftInvoices] = useState<Invoice[]>([defaultEmptyInvoice()]);
   const [activeDraftIndex, setActiveDraftIndex] = useState(0);
+  const activeDraftIndexRef = useRef(0);
+  activeDraftIndexRef.current = activeDraftIndex;
   const currentInvoice = draftInvoices[activeDraftIndex] ?? defaultEmptyInvoice();
   const setCurrentInvoice = (inv: Invoice | ((prev: Invoice) => Invoice)) => {
     setDraftInvoices((prev) => {
@@ -128,18 +130,48 @@ export default function InvocesManagement({ area = "compras" }: { area?: GestaoA
     setDraftInvoices((prev) => [...prev, ...invoices]);
     setActiveDraftIndex(firstNewIndex); // foca a primeira das novas
   };
-  const handleDraftSaved = () => {
+  const dropDraft = (number?: string) => {
+    const wanted = String(number || "").trim();
     setDraftInvoices((prev) => {
-      const next = prev.filter((_, i) => i !== activeDraftIndex);
-      if (next.length === 0) return [defaultEmptyInvoice()];
-      return next;
+      const removeAt = wanted
+        ? prev.findIndex((item) => String(item.number || "").trim() === wanted)
+        : activeDraftIndexRef.current;
+      if (removeAt < 0) return prev;
+      const next = prev.filter((_, index) => index !== removeAt);
+      return next.length ? next : [defaultEmptyInvoice()];
     });
-    setActiveDraftIndex((prev) => {
-      const newLen = draftInvoices.length - 1;
-      if (newLen <= 0) return 0;
-      return Math.min(prev, newLen - 1);
-    });
+    setActiveDraftIndex(0);
   };
+
+  const draftNumbers = draftInvoices.map((item) => String(item.number || "").trim()).join("|");
+  useEffect(() => {
+    const numbers = draftNumbers.split("|").filter((number) => number && !number.startsWith("INV-"));
+    if (!numbers.length) return;
+    let cancel = false;
+    void (async () => {
+      const saved: string[] = [];
+      await Promise.all(
+        numbers.map(async (number) => {
+          try {
+            const { data } = await api.get("/invoice/exists-by-number", { params: { number } });
+            if (data?.exists) saved.push(number);
+          } catch {
+            /* número ainda não conferido */
+          }
+        }),
+      );
+      if (cancel || !saved.length) return;
+      const savedSet = new Set(saved);
+      setDraftInvoices((prev) => {
+        const next = prev.filter((item) => !savedSet.has(String(item.number || "").trim()));
+        return next.length ? next : [defaultEmptyInvoice()];
+      });
+      setActiveDraftIndex(0);
+    })();
+    return () => {
+      cancel = true;
+    };
+  }, [draftNumbers]);
 
   /** Remove uma invoice específica das abas pelo índice */
   const handleRemoveDraftInvoice = (indexToRemove: number) => {
@@ -236,7 +268,7 @@ export default function InvocesManagement({ area = "compras" }: { area?: GestaoA
                   activeDraftIndex={activeDraftIndex}
                   setActiveDraftIndex={setActiveDraftIndex}
                   onAddDraftInvoices={handleAddDraftInvoices}
-                  onDraftSaved={handleDraftSaved}
+                  onDraftSaved={dropDraft}
                   onRemoveDraftInvoice={handleRemoveDraftInvoice}
                 />
               )}
