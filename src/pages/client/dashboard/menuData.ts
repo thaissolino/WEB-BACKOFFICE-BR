@@ -573,7 +573,7 @@ export const PDV_MENUS: PdvMenuRoot[] = [
           { id: "rel-venda-custo-x-preco", label: "Custo X Preço de Venda", href: "/client/relatorios/venda/custo-x-preco" },
           { id: "rel-venda-descontos", label: "Descontos em Vendas", href: "/client/relatorios/venda/descontos" },
           { id: "rel-venda-forma-pagamento", label: "Forma de Pagamento", href: "/client/relatorios/venda/forma-pagamento" },
-          { id: "rel-venda-itens", label: "Itens das Vendas", href: "/client/relatorios/venda/itens" },
+          { id: "rel-venda-itens", label: "Itens da Venda", href: "/client/relatorios/venda/itens" },
           { id: "rel-venda-meta", label: "Meta", href: "/client/relatorios/venda/meta" },
           { id: "rel-venda-vale-desconto", label: "Vale Desconto", href: "/client/relatorios/venda/vale-desconto" },
           { id: "rel-venda-vale-presente", label: "Vale Presente", href: "/client/relatorios/venda/vale-presente" },

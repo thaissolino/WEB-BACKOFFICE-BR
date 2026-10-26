@@ -2,11 +2,13 @@ import { FormEvent, Fragment, useEffect, useMemo, useState } from "react";
 import { Minus, Plus } from "lucide-react";
 import { api, parseError } from "../../services/api";
 import { todayIso } from "../../utils/todayIso";
-import { clientIdDoLojista, lancamentoDaLoja, listCatalog, type CatalogItem } from "../client/cadastros/catalog/catalogApi";
+import { clientIdDoLojista, lancamentoDaLoja, lancamentoDoPainel, listCatalog, type CatalogItem } from "../client/cadastros/catalog/catalogApi";
 import { DatePreset } from "../client/cadastros/catalog/FormBits";
 import { CadastroFrame } from "../client/cadastros/CadastroShell";
 import SearchableSelect from "../client/cadastros/produtos/SearchableSelect";
 import GestaoShell from "./GestaoShell";
+import { usePdvSession } from "../client/dashboard/PdvShell";
+import { useVerCusto } from "../client/cadastros/usuarios/useVerCusto";
 import "./gestao-pages.css";
 
 type DreScope = "backoffice" | "loja";
@@ -29,11 +31,12 @@ const GRUPOS_BASE = [
   "RETIRADA DOS SÓCIOS",
 ];
 
-function despesaEntra(item: CatalogItem, scope: DreScope, loja: string, clientId: string) {
-  const origem = String(item.payload.origem || "");
+function despesaEntra(item: CatalogItem, scope: DreScope, loja: string, clientId: string, storeId = "") {
   const dono = String(item.payload.clientId || "");
-  if (scope === "loja") return lancamentoDaLoja(item, clientId);
-  if (loja === "estoque") return origem !== "loja" && !dono;
+  if (scope === "loja") return lancamentoDaLoja(item, clientId, storeId);
+  const painel = lancamentoDoPainel(item);
+  if (loja === "estoque") return painel;
+  if (painel) return loja === "todas";
   if (loja !== "todas") return dono === loja;
   return true;
 }
@@ -186,6 +189,9 @@ function DreLinha({
 }
 
 export default function DreGerencial({ scope = "backoffice" }: { scope?: DreScope }) {
+  const { storeId } = usePdvSession();
+  const podeCusto = useVerCusto();
+  const verCusto = scope !== "loja" || podeCusto;
   const filtroKey = scope === "loja" ? "loja-dre-ultimo-filtro" : "gestao-dre-ultimo-filtro";
   const lojaId = scope === "loja" ? clientIdDoLojista() : "";
   const base = filtrosDoMes();
@@ -263,7 +269,6 @@ export default function DreGerencial({ scope = "backoffice" }: { scope?: DreScop
 
   async function buscar(event?: FormEvent, origem?: Filtros) {
     event?.preventDefault();
-    if (carregando) return;
     const pedido = origem || draft;
     setCarregando(true);
     setErro("");
@@ -285,7 +290,7 @@ export default function DreGerencial({ scope = "backoffice" }: { scope?: DreScop
       for (const nome of GRUPOS_BASE) contas.set(nome, []);
       for (const item of lancamentos) {
         if (String(item.payload.tipo || "despesa") === "receita") continue;
-        if (!despesaEntra(item, scope, pedido.loja, lojaId)) continue;
+        if (!despesaEntra(item, scope, pedido.loja, lojaId, storeId)) continue;
         if (!casaPlano(item, pedido.plano)) continue;
         const data = String(item.payload.data || item.createdAt || "");
         if (!inPeriod(data.length === 10 ? `${data}T12:00:00` : data, pedido)) continue;
@@ -344,7 +349,7 @@ export default function DreGerencial({ scope = "backoffice" }: { scope?: DreScop
     : filtros.loja === "todas"
       ? "Todas"
       : filtros.loja === "estoque"
-        ? "Estoque"
+        ? "ESTOQUE GERAL"
         : lojistas.find((item) => item.id === filtros.loja)?.name || "Loja";
 
   const corpo = (
@@ -355,10 +360,10 @@ export default function DreGerencial({ scope = "backoffice" }: { scope?: DreScop
             Loja
             <SearchableSelect
               hideEmpty
-              value={draft.loja === "estoque" ? "Estoque" : draft.loja === "todas" ? "Todas" : lojistas.find((item) => item.id === draft.loja)?.name || "Todas"}
-              options={["Todas", "Estoque", ...lojistas.map((item) => item.name)]}
+              value={draft.loja === "estoque" ? "ESTOQUE GERAL" : draft.loja === "todas" ? "Todas" : lojistas.find((item) => item.id === draft.loja)?.name || "Todas"}
+              options={["Todas", "ESTOQUE GERAL", ...lojistas.map((item) => item.name)]}
               onChange={(nome) => {
-                if (nome === "Estoque") setCampo("loja", "estoque")
+                if (nome === "ESTOQUE GERAL") setCampo("loja", "estoque")
                 else if (nome === "Todas") setCampo("loja", "todas")
                 else setCampo("loja", lojistas.find((item) => item.name === nome)?.id || "todas")
               }}
@@ -438,24 +443,28 @@ export default function DreGerencial({ scope = "backoffice" }: { scope?: DreScop
               <span>RECEITA BRUTA DE VENDAS (A)</span>
               <strong className={tone(receita)}>{money(receita)}</strong>
             </p>
-            <p>
-              <span>CUSTO DA MERCADORIA VENDIDA (B)</span>
-              <strong className={tone(cmv)}>{money(cmv)}</strong>
-            </p>
-            <p>
-              <span>LUCRO BRUTO (A) − (B)</span>
-              <strong className={tone(lucroBruto)}>{money(lucroBruto)}</strong>
-            </p>
+            {verCusto ? (
+              <>
+                <p>
+                  <span>CUSTO DA MERCADORIA VENDIDA (B)</span>
+                  <strong className={tone(cmv)}>{money(cmv)}</strong>
+                </p>
+                <p>
+                  <span>LUCRO BRUTO (A) − (B)</span>
+                  <strong className={tone(lucroBruto)}>{money(lucroBruto)}</strong>
+                </p>
+              </>
+            ) : null}
             <p>
               <span>DESPESAS</span>
               <strong className={tone(despesas)}>{money(despesas)}</strong>
             </p>
-            <p className="dre-liquido">
+            {verCusto ? <p className="dre-liquido">
               <span>LUCRO LÍQUIDO</span>
               <strong className={tone(lucroLiquido)}>
                 ({percent(pctLiquido)}) {money(lucroLiquido)}
               </strong>
-            </p>
+            </p> : null}
           </div>
 
           {filtros.visualizacao === "completo" ? (
@@ -527,7 +536,7 @@ export default function DreGerencial({ scope = "backoffice" }: { scope?: DreScop
   }
 
   return (
-    <GestaoShell title="DRE GERENCIAL" subtitle="Receita, custo e despesas do período. Inclui o estoque e cada loja.">
+    <GestaoShell title="DRE GERENCIAL" subtitle="Receita, custo e despesas do período. Inclui o ESTOQUE GERAL e cada loja.">
       {corpo}
     </GestaoShell>
   );

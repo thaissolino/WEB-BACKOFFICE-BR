@@ -5,14 +5,16 @@ import { useLocation, useNavigate } from "react-router-dom"
 import { FormEvent, MouseEvent, useRef, useState } from "react"
 import { api } from "../../../services/api"
 import { FormRow, DatePreset } from "../cadastros/catalog/FormBits"
-import { clientIdDoLojista, createCatalog, lancamentoDaLoja, listCatalog, type CatalogItem } from "../cadastros/catalog/catalogApi"
+import { clientIdDoLojista, createCatalog, deleteCatalog, lancamentoDaLoja, lancamentoDoPainel, listCatalog, type CatalogItem } from "../cadastros/catalog/catalogApi"
 import { listLojaCaixas } from "../cadastros/financeiro/caixaApi"
 import { parseError } from "../../../services/api"
 import { avisarSalvo } from "../avisoSalvo"
-import { CheckCircle2, ChevronDown, Clock, Paperclip, Pencil, Plus, RotateCcw, Search, X } from "lucide-react"
+import { CheckCircle2, ChevronDown, Clock, Paperclip, Pencil, Plus, RotateCcw, Search, Trash2, X } from "lucide-react"
 import { useEffect, useMemo } from "react"
 import "../vendas/pedidos.css"
 import { todayIso } from "../../../utils/todayIso"
+import { usePdvSession } from "../dashboard/PdvShell"
+import { STORE_STORAGE_KEY } from "../dashboard/mockData"
 import { filterLojaSales, EMPTY_SALE_FILTERS, type SaleFilters } from "./lojaSalesFilters"
 import { SaleDetailPanel, VendasMovimento, listLojaSales, type LojaPdvSale } from "./LojaVendasPainel"
 import { formatMoneyRs } from "../cadastros/produtos/types"
@@ -685,16 +687,38 @@ export function PrevisaoFluxo() {
   )
 }
 
+type LojaOpcao = { id: string; nome: string; clientId: string; label: string }
+
+const ESTOQUE_GERAL_ID = "geral"
+
+function nomeEhEstoqueGeral(nome: string) {
+  return nome.trim().toLocaleUpperCase("pt-BR") === "ESTOQUE GERAL"
+}
+
+function lojaAtualId(sessionId: string) {
+  if (sessionId) return sessionId
+  try {
+    return sessionStorage.getItem(STORE_STORAGE_KEY) || ""
+  } catch {
+    return ""
+  }
+}
+
 export function CadastrarDespesa({ receita = false }: { receita?: boolean }) {
   const navigate = useNavigate()
   const { pathname } = useLocation()
+  const session = usePdvSession()
   const listPath = pathname.startsWith("/gestao/")
     ? "/gestao/movimentacoes/financeiro/despesas"
     : "/client/movimentacoes/financeiro/despesas"
   const [caixas, setCaixas] = useState<string[]>([])
   const [planos, setPlanos] = useState<string[]>([])
+  const [lojas, setLojas] = useState<LojaOpcao[]>([])
   const [status, setStatus] = useState("")
-  const [form, setForm] = useState({ descricao: "", total: "R$ 0,00", data: todayIso(), caixa: "", plano: "" })
+  const [arquivo, setArquivo] = useState<File | null>(null)
+  const [codigoSalvo, setCodigoSalvo] = useState<number | null>(null)
+  const arquivoRef = useRef<HTMLInputElement>(null)
+  const [form, setForm] = useState({ descricao: "", total: "R$ 0,00", data: todayIso(), caixa: "", plano: "", lojaId: "" })
 
   useEffect(() => {
     listLojaCaixas(true).then((rows) => setCaixas(rows.map((item) => item.name))).catch(() => setCaixas([]))
@@ -703,24 +727,92 @@ export function CadastrarDespesa({ receita = false }: { receita?: boolean }) {
       .catch(() => setPlanos([]))
   }, [])
 
+  useEffect(() => {
+    let ativo = true
+    const backoffice = pathname.startsWith("/gestao/")
+    const pedido = backoffice ? api.get("/backoffice/stores") : api.get("/clients/stores")
+    pedido
+      .then(({ data }) => {
+        if (!ativo) return
+        const raw = (data?.stores || []) as Array<{
+          id: string
+          name: string
+          status?: string
+          storeCode?: string | null
+          clientId?: string | null
+          clientName?: string | null
+        }>
+        const ativas = raw.filter((item) => item.id && String(item.status || "ACTIVE") !== "INACTIVE")
+        const variosClientes = new Set(ativas.map((item) => item.clientId || "")).size > 1
+        const mapeadas = ativas.map((item) => {
+          const code = String(item.storeCode || "").trim()
+          const nome = String(item.name || "").trim()
+          const base = code && nome ? `${code} - ${nome}` : nome || code || "Loja"
+          const label = variosClientes && item.clientName ? `${base} (${item.clientName})` : base
+          return { id: item.id, nome, clientId: String(item.clientId || ""), label }
+        })
+        const preferida = lojaAtualId(session.storeId)
+        let linhas = mapeadas
+        let padrao = linhas.find((item) => item.id === preferida)?.id || linhas[0]?.id || ""
+        if (backoffice) {
+          const existente = mapeadas.find((item) => nomeEhEstoqueGeral(item.nome))
+          const geral: LojaOpcao = existente
+            ? { ...existente, nome: "ESTOQUE GERAL", clientId: "", label: "ESTOQUE GERAL" }
+            : { id: ESTOQUE_GERAL_ID, nome: "ESTOQUE GERAL", clientId: "", label: "ESTOQUE GERAL" }
+          linhas = [geral, ...mapeadas.filter((item) => item.id !== geral.id && !nomeEhEstoqueGeral(item.nome))]
+          padrao = geral.id
+        }
+        setLojas(linhas)
+        setForm((atual) => ({
+          ...atual,
+          lojaId: atual.lojaId && linhas.some((item) => item.id === atual.lojaId) ? atual.lojaId : padrao,
+        }))
+      })
+      .catch(() => {
+        if (ativo) setLojas([])
+      })
+    return () => {
+      ativo = false
+    }
+  }, [pathname, session.storeId])
+
   async function onSubmit(event: FormEvent) {
     event.preventDefault()
     if (!form.descricao.trim() || !parseMoney(form.total)) {
       setStatus("Informe a descrição e o valor.")
       return
     }
+    if (lojas.length && !form.lojaId) {
+      setStatus("Selecione a loja.")
+      return
+    }
     try {
       const backoffice = pathname.startsWith("/gestao/")
-      const clientId = backoffice ? "" : clientIdDoLojista()
-      await createCatalog("expense", {
-        name: form.descricao.trim(),
-        payload: {
-          ...form,
-          tipo: receita ? "receita" : "despesa",
-          origem: backoffice ? "backoffice" : "loja",
-          ...(clientId ? { clientId } : {}),
-        },
-      })
+      const loja = lojas.find((item) => item.id === form.lojaId)
+      const geral = backoffice && Boolean(loja && (loja.id === ESTOQUE_GERAL_ID || nomeEhEstoqueGeral(loja.nome)))
+      const clientId = backoffice ? "" : loja?.clientId || clientIdDoLojista()
+      let code = codigoSalvo
+      if (!code) {
+        const item = await createCatalog("expense", {
+          name: form.descricao.trim(),
+          payload: {
+            ...form,
+            storeId: loja?.id || "",
+            loja: geral ? "ESTOQUE GERAL" : loja?.nome || "",
+            tipo: receita ? "receita" : "despesa",
+            origem: geral || backoffice ? "backoffice" : "loja",
+            ...(arquivo ? { comprovante: arquivo.name } : {}),
+            ...(clientId ? { clientId } : {}),
+          },
+        })
+        code = item.code
+        setCodigoSalvo(code)
+      }
+      if (arquivo && code) {
+        const body = new FormData()
+        body.append("file", arquivo)
+        await api.post(`/clients/catalog/expense/${code}/comprovante`, body)
+      }
       avisarSalvo(receita ? "Receita salva." : "Despesa salva.")
       navigate(listPath)
     } catch (err) {
@@ -739,6 +831,18 @@ export function CadastrarDespesa({ receita = false }: { receita?: boolean }) {
             <h1 id="pdv-desp-form">{receita ? "CADASTRAR RECEITA" : "CADASTRAR DESPESA"}</h1>
           </div>
           <form className="pdv-cad-form" onSubmit={onSubmit}>
+            <FormRow label="Loja">
+              <SearchableSelect
+                value={lojas.find((item) => item.id === form.lojaId)?.label || ""}
+                emptyLabel="Selecione a loja"
+                options={lojas.map((item) => item.label)}
+                hideEmpty={lojas.length > 0}
+                onChange={(next) => {
+                  const escolhida = lojas.find((item) => item.label === next)
+                  setForm({ ...form, lojaId: escolhida?.id || "" })
+                }}
+              />
+            </FormRow>
             <FormRow label="Descrição">
               <input value={form.descricao} onChange={(event) => setForm({ ...form, descricao: event.target.value })} autoComplete="off" />
             </FormRow>
@@ -773,6 +877,45 @@ export function CadastrarDespesa({ receita = false }: { receita?: boolean }) {
                 onChange={(next) => setForm({ ...form, caixa: next === "Sem caixa" ? "" : next })}
               />
             </FormRow>
+            <FormRow label="Comprovante">
+              <div className="pdv-desp-comprovante">
+                <button className="pdv-cad-btn" type="button" onClick={() => arquivoRef.current?.click()}>
+                  <Paperclip size={16} aria-hidden="true" />
+                  Anexar
+                </button>
+                <input
+                  ref={arquivoRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,image/gif,application/pdf,.png,.jpg,.jpeg,.webp,.gif,.pdf"
+                  hidden
+                  onChange={(event) => {
+                    const file = event.target.files?.[0] || null
+                    if (file && file.size > 8 * 1024 * 1024) {
+                      setStatus("O comprovante deve ter no máximo 8 MB.")
+                      event.target.value = ""
+                      setArquivo(null)
+                      return
+                    }
+                    setArquivo(file)
+                    setStatus("")
+                  }}
+                />
+                <span>{arquivo ? arquivo.name : "Nenhum arquivo"}</span>
+                {arquivo ? (
+                  <button
+                    className="pdv-cad-icon-btn"
+                    type="button"
+                    aria-label="Tirar comprovante"
+                    onClick={() => {
+                      setArquivo(null)
+                      if (arquivoRef.current) arquivoRef.current.value = ""
+                    }}
+                  >
+                    <X size={14} />
+                  </button>
+                ) : null}
+              </div>
+            </FormRow>
             {status ? <p className="pdv-prod-status" role="status">{status}</p> : null}
             <div className="pdv-cad-form-go">
               <button className="pdv-cad-btn pdv-cad-btn-green" type="submit">
@@ -789,52 +932,122 @@ export function CadastrarDespesa({ receita = false }: { receita?: boolean }) {
 
 export function ListarDespesas() {
   const { pathname } = useLocation()
+  const { storeId } = usePdvSession()
   const backoffice = pathname.startsWith("/gestao/")
   const base = backoffice ? "/gestao/movimentacoes/financeiro" : "/client/movimentacoes/financeiro"
   const [itens, setItens] = useState<CatalogItem[]>([])
   const [planos, setPlanos] = useState<string[]>([])
   const [busca, setBusca] = useState({ nome: "", plano: "" })
   const [hint, setHint] = useState("Carregando...")
+  const [marcados, setMarcados] = useState<number[]>([])
+  const [pedirExcluir, setPedirExcluir] = useState(false)
+  const [excluindo, setExcluindo] = useState(false)
+  const [erroExcluir, setErroExcluir] = useState("")
+  const [erroArquivo, setErroArquivo] = useState("")
+  const [detalhe, setDetalhe] = useState<CatalogItem | null>(null)
   useEffect(() => {
     listCatalog("account_plan", true)
       .then((rows) => setPlanos(rows.map((item) => item.name.trim()).filter(Boolean)))
       .catch(() => setPlanos([]))
     listCatalog("expense")
       .then((items) => {
-        const visiveis = backoffice ? items : items.filter((item) => lancamentoDaLoja(item))
+        const visiveis = backoffice
+          ? items.filter(lancamentoDoPainel)
+          : items.filter((item) => lancamentoDaLoja(item, clientIdDoLojista(), storeId || lojaAtualId("")))
         setItens(visiveis)
         setHint(visiveis.length ? "" : "Nenhuma despesa ou receita lançada.")
       })
       .catch(() => setHint("Não foi possível carregar."))
-  }, [backoffice])
-  const rows = useMemo(() => {
+  }, [backoffice, storeId])
+  const filtrados = useMemo(() => {
     const nome = busca.nome.trim().toLowerCase()
     const plano = busca.plano.trim()
-    return itens
-      .filter((item) => {
-        if (nome && !item.name.toLowerCase().includes(nome)) return false
-        if (plano && plano !== "Todos" && String(item.payload.plano || "") !== plano) return false
-        return true
-      })
-      .map((item) => [
-        String(item.code),
-        item.name,
-        String(item.payload.plano || "—"),
-        String(item.payload.tipo || "despesa"),
-        String(item.payload.data || "—"),
-        String(item.payload.caixa || "—"),
-        formatValorLista(item.payload.total),
-      ])
+    return itens.filter((item) => {
+      if (nome && !item.name.toLowerCase().includes(nome)) return false
+      if (plano && plano !== "Todos" && String(item.payload.plano || "") !== plano) return false
+      return true
+    })
   }, [busca.nome, busca.plano, itens])
+  const rows = filtrados.map((item) => [
+    String(item.code),
+    item.name,
+    String(item.payload.plano || "—"),
+    String(item.payload.tipo || "despesa"),
+    String(item.payload.data || "—"),
+    String(item.payload.caixa || "—"),
+    String(item.payload.loja || (String(item.payload.origem || "") === "backoffice" && !item.payload.clientId ? "ESTOQUE GERAL" : "—")),
+    formatValorLista(item.payload.total),
+  ])
+  const alvos = filtrados.filter((item) => marcados.includes(item.code))
+  const tiposAlvo = new Set(alvos.map((item) => String(item.payload.tipo || "despesa")))
+  const tituloExcluir = tiposAlvo.size === 1 && tiposAlvo.has("receita")
+    ? "Excluir receitas"
+    : tiposAlvo.size === 1
+      ? "Excluir despesas"
+      : "Excluir lançamentos"
+  const todosMarcados = filtrados.length > 0 && filtrados.every((item) => marcados.includes(item.code))
+
+  function alternarMarca(code: number) {
+    setMarcados((atual) => atual.includes(code) ? atual.filter((item) => item !== code) : [...atual, code])
+  }
+
+  function alternarTodos() {
+    const codes = filtrados.map((item) => item.code)
+    setMarcados((atual) => todosMarcados ? atual.filter((code) => !codes.includes(code)) : [...new Set([...atual, ...codes])])
+  }
+
+  async function abrirComprovante(item: CatalogItem) {
+    setErroArquivo("")
+    try {
+      const { data } = await api.get(`/clients/catalog/expense/${item.code}/comprovante`, { responseType: "blob" })
+      const blob = data as Blob
+      const url = URL.createObjectURL(blob)
+      window.open(url, "_blank", "noopener")
+      window.setTimeout(() => URL.revokeObjectURL(url), 60_000)
+    } catch (err) {
+      setErroArquivo(parseError(err).friend || "Não foi possível abrir o comprovante.")
+    }
+  }
+
+  async function confirmarExclusao() {
+    const codes = alvos.map((item) => item.code)
+    if (!codes.length || excluindo) return
+    setExcluindo(true)
+    setErroExcluir("")
+    try {
+      await deleteCatalog("expense", codes)
+      setItens((atual) => atual.filter((item) => !codes.includes(item.code)))
+      setMarcados((atual) => atual.filter((code) => !codes.includes(code)))
+      setDetalhe((atual) => (atual && codes.includes(atual.code) ? null : atual))
+      setPedirExcluir(false)
+      avisarSalvo(codes.length === 1
+        ? (tiposAlvo.has("receita") ? "Receita excluída." : "Despesa excluída.")
+        : `${codes.length} lançamentos excluídos.`)
+    } catch (err) {
+      setErroExcluir(parseError(err).friend || "Não foi possível excluir.")
+    } finally {
+      setExcluindo(false)
+    }
+  }
+
   return (
+    <>
     <FilterPage
       title="RECEITA / DESPESAS REGISTRADA"
       actions={[
-        { label: "Cadastrar Despesa", tone: "green", href: `${base}/despesas/cadastrar` },
-        { label: "Cadastrar Receita", tone: "blue", href: `${base}/receitas/cadastrar` },
+        ...(marcados.length ? [{
+          label: `Excluir marcados (${marcados.length})`,
+          tone: "red" as const,
+          onClick: () => {
+            setErroExcluir("")
+            setPedirExcluir(true)
+          },
+        }] : []),
+        { label: "Cadastrar Despesa", tone: "green" as const, href: `${base}/despesas/cadastrar` },
+        { label: "Cadastrar Receita", tone: "blue" as const, href: `${base}/receitas/cadastrar` },
         {
           label: "Cadastrar Plano de Conta",
-          tone: "ink",
+          tone: "ink" as const,
           href: backoffice ? "/gestao/cadastro/financeiro/plano-conta/cadastrar" : "/client/financeiro/plano-conta/cadastrar",
         },
       ]}
@@ -842,14 +1055,116 @@ export function ListarDespesas() {
         { key: "nome", label: "Descrição" },
         { key: "plano", label: "Plano de Conta", kind: "search", options: ["Todos", ...planos] },
       ]}
-      columns={["Código", "Descrição", "Plano de Conta", "Tipo", "Data", "Caixa", "Valor"]}
+      columns={["Código", "Descrição", "Plano de Conta", "Tipo", "Data", "Caixa", "Loja", "Valor"]}
       rows={rows}
+      extra={erroArquivo ? <p className="pdv-prod-status" role="alert">{erroArquivo}</p> : undefined}
+      rowLeadLabel="Comprovante"
+      rowLeadCenter
+      closedCenter
+      rowLead={(index) => {
+        const item = filtrados[index]
+        const nome = String(item?.payload.comprovante || "").trim()
+        if (!item || !nome) return "—"
+        return (
+          <button
+            className="pdv-cad-icon-btn"
+            type="button"
+            aria-label={`Abrir comprovante ${nome}`}
+            title={nome}
+            onClick={(event) => {
+              event.stopPropagation()
+              void abrirComprovante(item)
+            }}
+          >
+            <Paperclip size={16} aria-hidden="true" />
+          </button>
+        )
+      }}
       hint={rows.length ? undefined : hint || "Nenhuma despesa ou receita lançada."}
       submitLabel="Filtrar"
       pageClass="pdv-cli-page"
       filtersClass="pdv-cad-filters-linha"
       onSearch={(values) => setBusca({ nome: values.nome || "", plano: values.plano || "" })}
+      markAll={(
+        <input
+          type="checkbox"
+          aria-label="Marcar todos"
+          checked={todosMarcados}
+          onChange={alternarTodos}
+        />
+      )}
+      rowMark={(index) => {
+        const item = filtrados[index]
+        if (!item) return null
+        return (
+          <input
+            type="checkbox"
+            aria-label={`Marcar ${item.name}`}
+            checked={marcados.includes(item.code)}
+            onClick={(event) => event.stopPropagation()}
+            onChange={() => alternarMarca(item.code)}
+          />
+        )
+      }}
+      closedLabel="Visualizar"
+      closedAction={(index) => {
+        const item = filtrados[index]
+        if (!item) return null
+        return (
+          <button
+            className="venda-lupa"
+            type="button"
+            aria-label={`Ver lançamento ${item.code}`}
+            onClick={(event) => {
+              event.stopPropagation()
+              setDetalhe(item)
+            }}
+          >
+            <Search size={15} />
+          </button>
+        )
+      }}
     />
+    <PdvOverlayModal
+      open={pedirExcluir}
+      title={tituloExcluir}
+      size="form"
+      icon={<Trash2 size={18} strokeWidth={2.2} />}
+      onClose={() => {
+        if (excluindo) return
+        setPedirExcluir(false)
+        setErroExcluir("")
+      }}
+      footer={
+        <>
+          {erroExcluir ? <p className="pdv-logo-msg" role="alert">{erroExcluir}</p> : null}
+          <div className="pdv-modal-actions">
+            <button className="pdv-cad-btn" type="button" disabled={excluindo} onClick={() => { setPedirExcluir(false); setErroExcluir("") }}>
+              Cancelar
+            </button>
+            <button className="pdv-cad-btn pdv-cad-btn-red" type="button" disabled={excluindo} onClick={() => void confirmarExclusao()}>
+              {excluindo ? "Excluindo..." : "Excluir"}
+            </button>
+          </div>
+        </>
+      }
+    >
+      <p>
+        {alvos.length === 1
+          ? `Excluir ${alvos[0]?.name || "este lançamento"}?`
+          : `Excluir ${alvos.length} lançamentos marcados?`}
+      </p>
+    </PdvOverlayModal>
+    <PdvOverlayModal
+      open={Boolean(detalhe)}
+      title={String(detalhe?.payload.tipo || "despesa") === "receita" ? "Receita" : "Despesa"}
+      size="form"
+      icon={<Search size={18} strokeWidth={2.2} />}
+      onClose={() => setDetalhe(null)}
+    >
+      {detalhe ? <FichaLancamento item={detalhe} onAbrir={() => void abrirComprovante(detalhe)} /> : null}
+    </PdvOverlayModal>
+    </>
   )
 }
 
@@ -919,6 +1234,50 @@ function maskValorReais(previous: string, raw: string) {
   const comma = cleaned.indexOf(",")
   if (comma === -1) return formatReais(cleaned, "00")
   return formatReais(cleaned.slice(0, comma), cleaned.slice(comma + 1))
+}
+
+function dataLancamento(value: unknown) {
+  const raw = String(value || "")
+  const match = raw.match(/^(\d{4})-(\d{2})-(\d{2})/)
+  if (!match) return raw || "—"
+  return `${match[3]}/${match[2]}/${match[1]}`
+}
+
+function FichaLancamento({ item, onAbrir }: { item: CatalogItem; onAbrir: () => void }) {
+  const tipo = String(item.payload.tipo || "despesa")
+  const comprovante = String(item.payload.comprovante || "").trim()
+  const loja = String(item.payload.loja || (String(item.payload.origem || "") === "backoffice" && !item.payload.clientId ? "ESTOQUE GERAL" : "—"))
+  const linhas: Array<[string, string]> = [
+    ["Código", String(item.code)],
+    ["Tipo", tipo === "receita" ? "Receita" : "Despesa"],
+    ["Descrição", item.name || "—"],
+    ["Plano de conta", String(item.payload.plano || "—")],
+    ["Valor", formatValorLista(item.payload.total)],
+    ["Data", dataLancamento(item.payload.data)],
+    ["Caixa", String(item.payload.caixa || "—")],
+    ["Loja", loja || "—"],
+  ]
+  return (
+    <dl className="pdv-desp-ficha">
+      {linhas.map(([rotulo, valor]) => (
+        <div key={rotulo}>
+          <dt>{rotulo}</dt>
+          <dd>{valor}</dd>
+        </div>
+      ))}
+      <div>
+        <dt>Comprovante</dt>
+        <dd>
+          {comprovante ? (
+            <button className="pdv-cad-btn" type="button" onClick={onAbrir}>
+              <Paperclip size={15} aria-hidden="true" />
+              {comprovante}
+            </button>
+          ) : "—"}
+        </dd>
+      </div>
+    </dl>
+  )
 }
 
 function formatValorLista(value: unknown) {

@@ -8,6 +8,7 @@ export type GroupEvent = {
 
 export const EVENTO_DESCONTO = "pdv.desconto"
 export const EVENTO_CRIAR_CAIXA = "caixa.criar"
+export const EVENTO_VER_CUSTO = "wm10.82"
 export const CODIGO_CRIAR_CAIXA = "901"
 
 type Item = [code: string, label: string, key?: string]
@@ -459,9 +460,9 @@ export const GROUP_EVENT_AREAS = [...new Set(GROUP_EVENTS.map((event) => event.a
 export function regraDoEvento(salvo: unknown, event: GroupEvent) {
   if (salvo && typeof salvo === "object") {
     const mapa = salvo as Record<string, unknown>
-    if (mapa["*"] === "permitir") return "permitir"
     const value = String(mapa[event.key] || "")
     if (value === "permitir" || value === "bloquear") return value
+    if (mapa["*"] === "permitir") return "permitir"
   }
   return event.padrao
 }

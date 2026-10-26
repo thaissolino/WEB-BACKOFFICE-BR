@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ChevronDown, ChevronUp, Copy, Loader2, Smartphone, Trash2 } from "lucide-react";
 import { api } from "../../../services/api";
 import { useNotification } from "../../../hooks/notification";
@@ -17,23 +17,26 @@ export function ProductImeis({ invoiceProductId, productName }: ProductImeisProp
   const [draftInput, setDraftInput] = useState("");
   const { setOpenNotification } = useNotification();
 
-  const fetchImeis = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      const response = await api.get(`/invoice/imeis/invoice-product/${invoiceProductId}`);
-      setImeis(response.data.imeis || []);
-    } catch (error) {
-      console.error("Erro ao buscar IMEIs:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [invoiceProductId]);
-
   useEffect(() => {
-    if (isExpanded) {
-      fetchImeis();
-    }
-  }, [isExpanded, fetchImeis]);
+    let active = true;
+    setImeis([]);
+    setDraftInput("");
+    setIsLoading(true);
+    api
+      .get(`/invoice/imeis/invoice-product/${invoiceProductId}`)
+      .then((response) => {
+        if (active) setImeis(response.data.imeis || []);
+      })
+      .catch((error) => {
+        console.error("Erro ao buscar IMEIs:", error);
+      })
+      .finally(() => {
+        if (active) setIsLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [invoiceProductId]);
 
   const isWatch = /WATCH|SMART\s*WATCH/i.test(productName || "");
   const hasNonImei = imeis.some((i) => !/^\d{15}$/.test(String(i?.imei ?? "")));

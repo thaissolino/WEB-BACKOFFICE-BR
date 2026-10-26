@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react"
-import { useNavigate } from "react-router-dom"
-import { CheckCircle2, Clock, Copy, Mail, Printer, RotateCcw, Search, Settings, Share2, X } from "lucide-react"
+import { useLocation, useNavigate } from "react-router-dom"
+import { CheckCircle2, Clock, Copy, Mail, Printer, RotateCcw, Search, Settings, Share2, Trash2, X } from "lucide-react"
 import { useClientAuth } from "../../../hooks/clientAuth"
 import { STORE_STORAGE_KEY } from "../dashboard/mockData"
 import FilterPage, { type FilterPageProps } from "../pdv/FilterPage"
@@ -8,8 +8,9 @@ import { api, parseError } from "../../../services/api"
 import { formatMoneyRs, produtoRotulo } from "../cadastros/produtos/types"
 import { carregarTextosRecibo, destinatarioPorNome, ReciboNota, type ReciboDestinatario, type TextoImpressao } from "../pdv/ReciboNota"
 import { emitenteDaLoja } from "../pdv/emitenteLoja"
-import { ALL_SALE_FILTERS, EMPTY_SALE_FILTERS, filterLojaSales, type SaleFilters } from "./lojaSalesFilters"
+import { ALL_SALE_FILTERS, EMPTY_SALE_FILTERS, filterLojaSales, filtroVendaAtivo, mesAtualSaleFilters, type SaleFilters } from "./lojaSalesFilters"
 import { DatePreset } from "../cadastros/catalog/FormBits"
+import PdvOverlayModal from "../dashboard/PdvOverlayModal"
 
 export type LojaPdvLine = {
   productId: string
@@ -38,6 +39,7 @@ export type LojaPdvSale = {
   customerName: string
   sellerName: string
   notes?: string
+  lojaNome?: string
   lines: LojaPdvLine[]
   payments: LojaPdvPayment[]
   total: number
@@ -53,6 +55,27 @@ export async function listLojaSales(status?: "espera" | "finalizada" | "estornad
   return (data.sales || []) as LojaPdvSale[]
 }
 
+async function listVendasGestao(status?: "espera" | "finalizada" | "estornada") {
+  const { data } = await api.get("/backoffice/lojistas")
+  const lojistas = (data.lojistas || []) as Array<{ id: string; name: string; stores?: Array<{ name?: string }> }>
+  const listas = await Promise.all(lojistas.map(async (loja) => {
+    try {
+      const resposta = await api.get(`/backoffice/lojistas/${loja.id}/vendas`, {
+        params: { status: status || "todas" },
+      })
+      const nome = loja.stores?.find((item) => item.name)?.name || loja.name
+      return ((resposta.data.sales || []) as LojaPdvSale[]).map((sale) => ({ ...sale, lojaNome: nome }))
+    } catch {
+      return [] as LojaPdvSale[]
+    }
+  }))
+  return listas.flat().sort((a, b) => {
+    const da = new Date(a.finalizedAt || a.createdAt).getTime()
+    const db = new Date(b.finalizedAt || b.createdAt).getTime()
+    return db - da
+  })
+}
+
 function when(value?: string | null) {
   if (!value) return "—"
   const date = new Date(value)
@@ -60,20 +83,6 @@ function when(value?: string | null) {
   const dia = date.toLocaleDateString("pt-BR")
   const hora = date.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })
   return `${dia} ${hora}`
-}
-
-function imeisNoTexto(texto: string) {
-  return [...texto.matchAll(/\d{15}/g)].map((item) => item[0])
-}
-
-function imeisDaLinha(line: LojaPdvLine) {
-  const salvos = (line.serials || []).map((item) => item.trim()).filter(Boolean)
-  return [...new Set([...salvos, ...imeisNoTexto(`${line.name} ${line.code}`)])]
-}
-
-function divisaoParcelas(total: number, vezes: number) {
-  if (!(total > 0) || vezes <= 1) return vezes > 1 ? `${vezes}x` : "1x"
-  return `${vezes}x de ${formatMoneyRs(total / vezes)}`
 }
 
 function payText(sale: LojaPdvSale) {
@@ -84,102 +93,128 @@ function payText(sale: LojaPdvSale) {
   }).join(" · ")
 }
 
-export function SaleDetailPanel({ sale, emitente, onClose }: { sale: LojaPdvSale; emitente?: Emitente; onClose: () => void }) {
+export function SaleDetailPanel({ sale, onClose }: { sale: LojaPdvSale; emitente?: Emitente; onClose: () => void }) {
+  const [cliente, setCliente] = useState<ReciboDestinatario>({ nome: sale.customerName || "Consumidor final" })
+
+  useEffect(() => {
+    let vivo = true
+    destinatarioPorNome(sale.customerName || "").then((achou) => {
+      if (vivo) setCliente(achou)
+    })
+    return () => {
+      vivo = false
+    }
+  }, [sale.id, sale.customerName])
+
+  useEffect(() => {
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "Escape") onClose()
+    }
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+  }, [onClose])
+
+  const qtd = sale.lines.reduce((soma, line) => soma + line.qty, 0)
+  const bruto = sale.lines.reduce((soma, line) => soma + line.qty * line.price, 0)
+  const desconto = sale.lines.reduce((soma, line) => soma + Math.max(0, line.discount) * line.qty, 0)
+  const cidade = [cliente.cidade, cliente.uf].filter(Boolean).join(" - ")
+
   return (
-    <div className="pdv-caixa-confirm">
+    <div className="pdv-caixa-confirm venda-popup-overlay" onMouseDown={(event) => { if (event.target === event.currentTarget) event.preventDefault() }}>
       <div
-        className="pdv-caixa-confirm-card venda-folha"
+        className="pdv-caixa-confirm-card venda-popup"
         role="dialog"
         aria-modal="true"
         aria-labelledby="loja-venda-detail-title"
-        onClick={(event) => event.stopPropagation()}
+        onMouseDown={(event) => event.stopPropagation()}
       >
-        <header className="venda-folha-head">
-          <div>
-            <p>Venda</p>
-            <h2 id="loja-venda-detail-title">{sale.code}</h2>
-          </div>
-          <button className="pdv-cad-icon-btn" type="button" aria-label="Fechar" onClick={onClose}>
+        <header className="venda-popup-head">
+          <button className="venda-popup-ico" type="button" aria-label="Imprimir" onClick={() => window.print()}>
+            <Printer size={16} />
+          </button>
+          <h2 id="loja-venda-detail-title">VENDA Nº {sale.code}</h2>
+          <p>ABERTURA: {when(sale.createdAt)}</p>
+          <p>ATUALIZOU: {when(sale.finalizedAt || sale.createdAt)}</p>
+          <button className="venda-popup-ico" type="button" aria-label="Fechar" onClick={onClose}>
             <X size={16} />
           </button>
         </header>
-        <dl className="venda-folha-meta">
-          {emitente?.name ? <div><dt>Empresa</dt><dd>{emitente.name}</dd></div> : null}
-          {emitente?.document ? <div><dt>CNPJ/CPF</dt><dd>{emitente.document}</dd></div> : null}
-          <div><dt>Cliente</dt><dd>{sale.customerName}</dd></div>
-          <div><dt>Caixa</dt><dd>{sale.caixaName || "—"}</dd></div>
-          <div><dt>Usuário</dt><dd>{sale.sellerName || "—"}</dd></div>
-          <div><dt>Abertura</dt><dd>{when(sale.createdAt)}</dd></div>
-          <div><dt>Conclusão</dt><dd>{sale.status === "finalizada" ? when(sale.finalizedAt) : "Em aberto"}</dd></div>
-          <div><dt>Status</dt><dd>{sale.status === "finalizada" ? "Concluída" : "Em aberto"}</dd></div>
-        </dl>
-        <h3>Itens</h3>
-        <table className="venda-folha-table">
-          <thead>
-            <tr>
-              <th>Produto</th>
-              <th>IMEI</th>
-              <th>Qtd</th>
-              <th>Unitário</th>
-              <th>Desconto</th>
-              <th>Total</th>
-            </tr>
-          </thead>
-          <tbody>
-            {sale.lines.map((line, index) => {
-              const seriais = imeisDaLinha(line)
-              return (
-                <tr key={`${line.productId}-${index}`}>
-                  <td className="venda-folha-prod">
-                    {line.code ? <b>{line.code}</b> : null}
-                    <strong>{line.name}</strong>
-                  </td>
-                  <td>{seriais.length ? seriais.join(", ") : ""}</td>
-                  <td>{line.qty}</td>
-                  <td>{formatMoneyRs(line.price)}</td>
-                  <td>{line.discount < 0 ? `+ ${formatMoneyRs(-line.discount)}` : line.discount > 0 ? formatMoneyRs(line.discount) : ""}</td>
-                  <td>{formatMoneyRs(line.qty * Math.max(0, line.price - line.discount))}</td>
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
-        <h3>Pagamento</h3>
-        <table className="venda-folha-table">
-          <thead>
-            <tr>
-              <th>Forma</th>
-              <th>Parcelas</th>
-              <th>Valor</th>
-            </tr>
-          </thead>
-          <tbody>
-            {sale.payments.length === 0 ? (
-              <tr><td colSpan={3}>Nenhuma forma lançada</td></tr>
-            ) : sale.payments.map((pay, index) => (
-              <tr key={`${pay.method}-${index}`}>
-                <td>
-                  {pay.method}
-                  {pay.troca ? (
-                    <span>
-                      {pay.troca.code ? `Cód. ${pay.troca.code} · ` : ""}
-                      {pay.troca.name}
-                      {pay.troca.imei ? ` · IMEI ${pay.troca.imei}` : ""}
-                    </span>
-                  ) : null}
-                </td>
-                <td>{divisaoParcelas(pay.amount, pay.parcelas || 1)}</td>
-                <td>{formatMoneyRs(pay.amount)}</td>
+
+        <section className="venda-popup-cliente">
+          <p className="largo"><span>Nome</span><b>{cliente.nome || sale.customerName || ""}</b></p>
+          <p><span>CPF</span><b>{cliente.documento || ""}</b></p>
+          <p><span>RG</span><b></b></p>
+          <p className="largo"><span>Endereço</span><b>{cliente.endereco || ""}</b></p>
+          <p><span>CEP</span><b>{cliente.cep || ""}</b></p>
+          <p className="venda-popup-vazio" aria-hidden="true" />
+          <p className="largo"><span>Cidade</span><b>{cidade}</b></p>
+          <p><span>Fone</span><b>{cliente.telefone || ""}</b></p>
+          <p><span>E-mail</span><b>{cliente.email || ""}</b></p>
+        </section>
+
+        <div className="venda-popup-grade">
+          <table className="venda-popup-itens">
+            <thead>
+              <tr>
+                <th>Cód.</th>
+                <th>Produto</th>
+                <th>Vend.</th>
+                <th className="num">Valor orig.</th>
+                <th className="num">Valor unit.</th>
+                <th className="num">Qtd</th>
+                <th className="num">Valor</th>
+                <th className="num">Desc.</th>
+                <th className="num">Total</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-        <p className="venda-folha-totais">
-          <span>Total {formatMoneyRs(sale.total)}</span>
-          <span>Recebido {formatMoneyRs(sale.received)}</span>
-          <span>Troco {formatMoneyRs(sale.changeAmount)}</span>
-        </p>
-        {sale.notes?.trim() ? <p className="venda-folha-obs"><b>Observação.</b> {sale.notes}</p> : null}
+            </thead>
+            <tbody>
+              {sale.lines.map((line, index) => {
+                const unitario = Math.max(0, line.price - Math.max(0, line.discount))
+                const brutoLinha = line.qty * line.price
+                const descLinha = Math.max(0, line.discount) * line.qty
+                const total = line.qty * unitario
+                return (
+                  <tr key={`${line.productId}-${index}`}>
+                    <td className="cod">{line.code || ""}</td>
+                    <td className="prod">{line.name}</td>
+                    <td>{sale.sellerName || ""}</td>
+                    <td className="num">{formatMoneyRs(line.price)}</td>
+                    <td className="num">{formatMoneyRs(unitario)}</td>
+                    <td className="num">{line.qty}</td>
+                    <td className="num">{formatMoneyRs(brutoLinha)}</td>
+                    <td className="num">{line.discount < 0 ? `+ ${formatMoneyRs(-line.discount)}` : formatMoneyRs(descLinha)}</td>
+                    <td className="num">{formatMoneyRs(total)}</td>
+                  </tr>
+                )
+              })}
+            </tbody>
+            <tfoot>
+              <tr>
+                <td colSpan={5}>Total</td>
+                <td className="num">{qtd}</td>
+                <td className="num">{formatMoneyRs(bruto)}</td>
+                <td className="num">{formatMoneyRs(desconto)}</td>
+                <td className="num">{formatMoneyRs(sale.total)}</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+
+        <section className="venda-popup-totais">
+          <h3>TOTAIS</h3>
+          <div>
+            <p><span>Total sem desconto</span><strong>{formatMoneyRs(bruto)}</strong></p>
+            <p><span>Total descontos</span><strong>{formatMoneyRs(desconto)}</strong></p>
+            <p><span>Total outras despesas</span><strong>{formatMoneyRs(0)}</strong></p>
+            <p><span>Total frete</span><strong>{formatMoneyRs(0)}</strong></p>
+            <p><span>Total seguro</span><strong>{formatMoneyRs(0)}</strong></p>
+            <p><span>Total itens</span><strong>{qtd}</strong></p>
+            <p><span>Total desconto tabela de preço</span><strong>{formatMoneyRs(0)}</strong></p>
+            <p className="venda-popup-grande"><span>Total da Venda</span><strong>{formatMoneyRs(sale.total)}</strong></p>
+          </div>
+          {sale.payments.length ? <p className="venda-popup-pag"><span>Pagamento</span><strong>{payText(sale)}</strong>{sale.changeAmount > 0 ? <span>Troco {formatMoneyRs(sale.changeAmount)}</span> : null}</p> : null}
+        </section>
+        {sale.notes?.trim() ? <p className="venda-popup-obs"><b>Observação.</b> {sale.notes}</p> : null}
       </div>
     </div>
   )
@@ -202,8 +237,9 @@ type GearAnchor = {
 
 const EMITENTE_VAZIO: Emitente = { name: "", document: "", phone: "", address: "", city: "" }
 
-export function gearAnchor(button: HTMLButtonElement): GearAnchor {
-  const rect = button.getBoundingClientRect()
+export function gearAnchor(button: HTMLButtonElement | null): GearAnchor {
+  const rect = button?.getBoundingClientRect()
+  if (!rect) return { top: 80, bottom: 80, right: 16, up: false }
   const menuHeight = 228
   const up = rect.bottom + 8 + menuHeight > window.innerHeight && rect.top > menuHeight
   return {
@@ -484,29 +520,52 @@ function SaleFilterBar({
 }: {
   draft: SaleFilters
   onDraft: (next: SaleFilters) => void
-  onApply: (event: FormEvent) => void
+  onApply: (next: SaleFilters) => void
   onClear: () => void
 }) {
+  function escolherPeriodo(inicio: string, fim: string) {
+    const next = { ...draft, inicio, fim }
+    onDraft(next)
+    onApply(next)
+  }
+
+  function aplicar(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const data = new FormData(event.currentTarget)
+    const next = {
+      ...draft,
+      inicio: String(data.get("inicio") || ""),
+      fim: String(data.get("fim") || ""),
+      cod: String(data.get("cod") || ""),
+      nome: String(data.get("nome") || ""),
+    }
+    onDraft(next)
+    onApply(next)
+  }
+
   return (
-    <form className="pdv-cad-filters" onSubmit={onApply}>
+    <form className="pdv-cad-filters pdv-cad-filters-vendas" onSubmit={aplicar}>
       <label>
         Data início
         <span className="pdv-date-field">
-          <input type="date" value={draft.inicio} onChange={(event) => onDraft({ ...draft, inicio: event.target.value })} />
-          <DatePreset onPick={(inicio, fim) => onDraft({ ...draft, inicio, fim })} />
+          <input name="inicio" type="date" value={draft.inicio} onChange={(event) => onDraft({ ...draft, inicio: event.target.value })} />
+          <DatePreset onPick={escolherPeriodo} />
         </span>
       </label>
       <label>
         Data fim
-        <input type="date" value={draft.fim} onChange={(event) => onDraft({ ...draft, fim: event.target.value })} />
+        <span className="pdv-date-field">
+          <input name="fim" type="date" value={draft.fim} onChange={(event) => onDraft({ ...draft, fim: event.target.value })} />
+          <DatePreset onPick={escolherPeriodo} />
+        </span>
       </label>
       <label>
         Cod. venda
-        <input value={draft.cod} onChange={(event) => onDraft({ ...draft, cod: event.target.value })} autoComplete="off" />
+        <input name="cod" value={draft.cod} onChange={(event) => onDraft({ ...draft, cod: event.target.value })} autoComplete="off" />
       </label>
       <label>
         Cliente
-        <input value={draft.nome} onChange={(event) => onDraft({ ...draft, nome: event.target.value })} autoComplete="off" />
+        <input name="nome" value={draft.nome} onChange={(event) => onDraft({ ...draft, nome: event.target.value })} autoComplete="off" />
       </label>
       <div className="pdv-cad-filters-go">
         <button className="pdv-cad-btn" type="button" onClick={onClear}>Limpar</button>
@@ -577,6 +636,8 @@ function rotuloStatus(status: LojaPdvSale["status"]) {
 
 export function VendasMovimento({ status }: { status: "espera" | "finalizada" | "estornada" | "todas" }) {
   const navigate = useNavigate()
+  const { pathname } = useLocation()
+  const gestao = pathname.startsWith("/gestao")
   const { client } = useClientAuth()
   const { lojaNome, emitente, emitentePronto } = useEmitenteLoja(client?.name || "")
   const [sales, setSales] = useState<LojaPdvSale[]>([])
@@ -584,8 +645,13 @@ export function VendasMovimento({ status }: { status: "espera" | "finalizada" | 
   const [actions, setActions] = useState<{ sale: LojaPdvSale; anchor: GearAnchor } | null>(null)
   const [aviso, setAviso] = useState("")
   const [hint, setHint] = useState("Carregando...")
-  const [draft, setDraft] = useState<SaleFilters>(ALL_SALE_FILTERS)
-  const [filters, setFilters] = useState<SaleFilters>(ALL_SALE_FILTERS)
+  const filtrosIniciais = status === "finalizada" ? mesAtualSaleFilters() : ALL_SALE_FILTERS
+  const [draft, setDraft] = useState<SaleFilters>(filtrosIniciais)
+  const [filters, setFilters] = useState<SaleFilters>(filtrosIniciais)
+  const [marcadas, setMarcadas] = useState<string[]>([])
+  const [pedirExcluir, setPedirExcluir] = useState(false)
+  const [excluindo, setExcluindo] = useState(false)
+  const [erroExcluir, setErroExcluir] = useState("")
   const todas = status === "todas"
   const concluida = status !== "espera"
   const titulo = todas ? "VENDAS" : status === "espera" ? "VENDAS ABERTAS" : status === "estornada" ? "VENDAS ESTORNADAS" : "VENDAS CONCLUÍDAS"
@@ -595,16 +661,64 @@ export function VendasMovimento({ status }: { status: "espera" | "finalizada" | 
   const concluidas = sales.filter((sale) => sale.status === "finalizada").length
   const estornadas = sales.filter((sale) => sale.status === "estornada").length
 
-  useEffect(() => {
-    listLojaSales(todas ? undefined : status)
+  function recarregar() {
+    const pedido = gestao ? listVendasGestao(todas ? undefined : status) : listLojaSales(todas ? undefined : status)
+    setHint("Carregando...")
+    pedido
       .then((rows) => {
         setSales(rows)
         setHint(rows.length ? "" : vazio)
       })
       .catch((err) => setHint(parseError(err).friend || "Não foi possível carregar as vendas."))
-  }, [status])
+  }
+
+  useEffect(() => {
+    recarregar()
+  }, [status, gestao])
 
   const visible = useMemo(() => filterLojaSales(sales, filters), [sales, filters])
+  const podeMarcar = !gestao && status === "finalizada"
+  const idsVisiveis = visible.map((sale) => sale.id)
+  const todasMarcadas = idsVisiveis.length > 0 && idsVisiveis.every((id) => marcadas.includes(id))
+  const filtroAtivo = filtroVendaAtivo(filters)
+
+  function alternarMarca(id: string) {
+    setMarcadas((atual) => atual.includes(id) ? atual.filter((item) => item !== id) : [...atual, id])
+  }
+
+  function alternarTodas() {
+    setMarcadas((atual) => todasMarcadas
+      ? atual.filter((id) => !idsVisiveis.includes(id))
+      : [...new Set([...atual, ...idsVisiveis])])
+  }
+
+  async function excluirMarcadas() {
+    if (excluindo || !marcadas.length) return
+    setExcluindo(true)
+    setErroExcluir("")
+    const ok: string[] = []
+    let falha = ""
+    for (const id of marcadas) {
+      try {
+        await api.delete(`/clients/pdv-vendas/${id}`)
+        ok.push(id)
+      } catch (err) {
+        falha = parseError(err).friend || "Não foi possível excluir."
+        break
+      }
+    }
+    if (ok.length) {
+      setSales((atual) => atual.filter((sale) => !ok.includes(sale.id)))
+      setMarcadas((atual) => atual.filter((id) => !ok.includes(id)))
+      setDetail((atual) => (atual && ok.includes(atual.id) ? null : atual))
+    }
+    if (falha) setErroExcluir(falha)
+    else {
+      setPedirExcluir(false)
+      setAviso(ok.length === 1 ? "Venda excluída. O estoque voltou para a loja." : `${ok.length} vendas excluídas. O estoque voltou para a loja.`)
+    }
+    setExcluindo(false)
+  }
 
   useEffect(() => {
     if (!aviso) return
@@ -618,6 +732,14 @@ export function VendasMovimento({ status }: { status: "espera" | "finalizada" | 
         title={titulo}
         pageClass="pdv-cli-page"
         fields={[]}
+        actions={podeMarcar && marcadas.length ? [{
+          label: `Excluir marcados (${marcadas.length})`,
+          tone: "red",
+          onClick: () => {
+            setErroExcluir("")
+            setPedirExcluir(true)
+          },
+        }] : undefined}
         lead={todas ? (
           <div className="pdv-compra-cards pdv-compra-cards-3">
             <button type="button" className="pdv-compra-card pdv-compra-card-abertas" onClick={() => navigate("/client/movimentacoes/vendas/abertas")}>
@@ -643,8 +765,12 @@ export function VendasMovimento({ status }: { status: "espera" | "finalizada" | 
             <SaleFilterBar
             draft={draft}
             onDraft={setDraft}
-            onApply={(event) => { event.preventDefault(); setFilters(draft) }}
-            onClear={() => { setDraft(ALL_SALE_FILTERS); setFilters(ALL_SALE_FILTERS) }}
+            onApply={(next) => { setFilters(next); recarregar() }}
+            onClear={() => {
+              const limpo = status === "finalizada" ? mesAtualSaleFilters() : ALL_SALE_FILTERS
+              setDraft(limpo)
+              setFilters(limpo)
+            }}
           />
           </>
         )}
@@ -653,7 +779,7 @@ export function VendasMovimento({ status }: { status: "espera" | "finalizada" | 
           : ["Código", "Caixa", "Cliente", "Vendedor", "Abertura", "Conclusão", "Total", "Pagamento", "Status"]}
         rows={visible.map((sale) => concluida ? [
           sale.code,
-          lojaNome || "—",
+          sale.lojaNome || lojaNome || "—",
           sale.caixaName || "—",
           sale.sellerName || sale.caixaName || "—",
           sale.customerName,
@@ -674,7 +800,25 @@ export function VendasMovimento({ status }: { status: "espera" | "finalizada" | 
           payText(sale),
           "Em aberto",
         ])}
-        hint={visible.length ? hint || undefined : filters.inicio || filters.fim || filters.cod.trim() || filters.nome.trim() ? "Nenhuma venda para o filtro atual." : hint || vazio}
+        hint={visible.length
+          ? (filtroAtivo ? `${visible.length} ${visible.length === 1 ? "venda neste filtro." : "vendas neste filtro."}` : hint || undefined)
+          : filtroAtivo ? "Nenhuma venda para o filtro atual." : hint || vazio}
+        markAll={podeMarcar ? (
+          <input type="checkbox" aria-label="Marcar todas" checked={todasMarcadas} onChange={alternarTodas} />
+        ) : undefined}
+        rowMark={podeMarcar ? (index) => {
+          const sale = visible[index]
+          if (!sale) return null
+          return (
+            <input
+              type="checkbox"
+              aria-label={`Marcar venda ${sale.code}`}
+              checked={marcadas.includes(sale.id)}
+              onClick={(event) => event.stopPropagation()}
+              onChange={() => alternarMarca(sale.id)}
+            />
+          )
+        } : undefined}
         rowLead={concluida ? (index) => (
           <button
             className="venda-lupa"
@@ -697,15 +841,44 @@ export function VendasMovimento({ status }: { status: "espera" | "finalizada" | 
               event.stopPropagation()
               const sale = visible[index]
               if (!sale) return
-              setActions((current) => (
-                current?.sale.id === sale.id ? null : { sale, anchor: gearAnchor(event.currentTarget) }
-              ))
+              const anchor = gearAnchor(event.currentTarget)
+              setActions((current) => (current?.sale.id === sale.id ? null : { sale, anchor }))
             }}
           >
             <Settings size={16} aria-hidden="true" />
           </button>
         )}
       />
+      <PdvOverlayModal
+        open={pedirExcluir}
+        title="Excluir vendas"
+        size="form"
+        icon={<Trash2 size={18} strokeWidth={2.2} />}
+        onClose={() => {
+          if (excluindo) return
+          setPedirExcluir(false)
+          setErroExcluir("")
+        }}
+        footer={
+          <>
+            {erroExcluir ? <p className="pdv-logo-msg" role="alert">{erroExcluir}</p> : null}
+            <div className="pdv-modal-actions">
+              <button className="pdv-cad-btn" type="button" disabled={excluindo} onClick={() => { setPedirExcluir(false); setErroExcluir("") }}>
+                Cancelar
+              </button>
+              <button className="pdv-cad-btn pdv-cad-btn-red" type="button" disabled={excluindo} onClick={() => void excluirMarcadas()}>
+                {excluindo ? "Excluindo..." : "Excluir"}
+              </button>
+            </div>
+          </>
+        }
+      >
+        <p>
+          {marcadas.length === 1
+            ? "Excluir a venda marcada? O estoque dos produtos volta para a loja."
+            : `Excluir ${marcadas.length} vendas marcadas? O estoque dos produtos volta para a loja.`}
+        </p>
+      </PdvOverlayModal>
       {detail ? <SaleDetailPanel sale={detail} emitente={emitente} onClose={() => setDetail(null)} /> : null}
       {actions ? (
         <SaleActionsMenu
@@ -831,13 +1004,18 @@ export function VendasRelatorio({ def }: { def: FilterPageProps & { path: string
   const [draft, setDraft] = useState<SaleFilters>(EMPTY_SALE_FILTERS)
   const [filters, setFilters] = useState<SaleFilters>(EMPTY_SALE_FILTERS)
 
-  useEffect(() => {
+  function carregar() {
+    setHint("Carregando...")
     listLojaSales("finalizada")
       .then((list) => {
         setSales(list)
         setHint(list.length ? "" : "Nenhuma venda da loja neste relatório.")
       })
       .catch((err) => setHint(parseError(err).friend || "Não foi possível carregar o relatório."))
+  }
+
+  useEffect(() => {
+    carregar()
   }, [def.path])
 
   const filtered = useMemo(() => filterLojaSales(sales, filters), [sales, filters])
@@ -861,7 +1039,7 @@ export function VendasRelatorio({ def }: { def: FilterPageProps & { path: string
             <SaleFilterBar
             draft={draft}
             onDraft={setDraft}
-            onApply={(event) => { event.preventDefault(); setFilters(draft) }}
+            onApply={(next) => { setFilters(next); carregar() }}
             onClear={() => { setDraft(EMPTY_SALE_FILTERS); setFilters(EMPTY_SALE_FILTERS) }}
           />
           </>
@@ -869,7 +1047,7 @@ export function VendasRelatorio({ def }: { def: FilterPageProps & { path: string
         columns={view.columns}
         rows={view.rows}
         hint={view.rows.length ? hint || def.hint : "Nenhuma venda para o filtro atual."}
-        onRowClick={view.linked ? (index) => {
+        saleLink={view.linked ? (index) => {
           const code = view.rows[index]?.[0]
           const sale = code ? saleByCode.get(code) : undefined
           if (sale) setDetail(sale)
@@ -885,9 +1063,8 @@ export function VendasRelatorio({ def }: { def: FilterPageProps & { path: string
               aria-label={`Ações da venda ${sale.code}`}
               onClick={(event) => {
                 event.stopPropagation()
-                setActions((current) => (
-                  current?.sale.id === sale.id ? null : { sale, anchor: gearAnchor(event.currentTarget) }
-                ))
+                const anchor = gearAnchor(event.currentTarget)
+                setActions((current) => (current?.sale.id === sale.id ? null : { sale, anchor }))
               }}
             >
               <Settings size={16} aria-hidden="true" />

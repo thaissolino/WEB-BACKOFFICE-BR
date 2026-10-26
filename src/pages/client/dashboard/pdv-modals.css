@@ -174,9 +174,35 @@
   display: grid;
   gap: 10px;
   padding: 12px 18px 16px;
-  border-top: 1px solid #1a1511;
-  background: #1a1511;
-  box-shadow: 0 -10px 18px rgba(26, 21, 17, 0.18);
+  border-top: 1px solid #ddd4c6;
+  background: #f4f1ea;
+}
+
+.pdv-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.pdv-modal-card .pdv-modal-foot .pdv-modal-actions > button.pdv-cad-btn {
+  min-height: 2.6rem;
+  min-width: 7.5rem;
+  padding: 0 16px;
+  border-radius: 999px;
+  background: #fff !important;
+  background-color: #fff !important;
+  border: 1px solid #cfc6b8 !important;
+  color: #1a1511 !important;
+  -webkit-text-fill-color: #1a1511 !important;
+  font-weight: 800;
+}
+
+.pdv-modal-card .pdv-modal-foot .pdv-modal-actions > button.pdv-cad-btn-red {
+  background: #e57373 !important;
+  background-color: #e57373 !important;
+  border-color: #d32f2f !important;
+  color: #fff !important;
+  -webkit-text-fill-color: #fff !important;
 }
 
 .pdv-cfg-grid {

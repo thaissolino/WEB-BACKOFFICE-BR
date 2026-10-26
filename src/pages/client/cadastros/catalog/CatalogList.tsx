@@ -195,6 +195,7 @@ export default function CatalogList({
   function onFilter(event: FormEvent) {
     event.preventDefault()
     setApplied(draft)
+    load()
   }
 
   async function toggleActive(item: CatalogItem, next: boolean) {

@@ -83,11 +83,21 @@ export function clientIdDoLojista() {
   }
 }
 
-/** Despesa ou receita lançada nesta loja. O que veio do backoffice ou de outra loja não entra. */
-export function lancamentoDaLoja(item: CatalogItem, clientId = clientIdDoLojista()) {
+/** Gasto do painel. Não entra na loja. */
+export function lancamentoDoPainel(item: CatalogItem) {
   const origem = String(item.payload.origem || "")
+  const loja = String(item.payload.storeId || "")
+  return origem === "backoffice" || loja === "geral"
+}
+
+/** Despesa ou receita desta loja. O lançamento do painel fica só no backoffice. */
+export function lancamentoDaLoja(item: CatalogItem, clientId = clientIdDoLojista(), storeId = "") {
+  if (lancamentoDoPainel(item)) return false
   const dono = String(item.payload.clientId || "")
-  return origem !== "backoffice" && dono !== "" && dono === clientId
+  const loja = String(item.payload.storeId || "")
+  if (clientId && dono && dono !== clientId) return false
+  if (storeId && loja && loja !== storeId) return false
+  return true
 }
 
 export function formatCadDate(iso: string) {

@@ -298,6 +298,8 @@ export function ProductsTab() {
   const fetchData = async (filters: ProductFilters, nextPage: number, scrollTop = false) => {
     if (scrollTop) scrollPageToTop();
     setIsLoading(true);
+    setAllProducts([]);
+    setTotal(0);
     setPage(nextPage);
     try {
       const { data } = await api.get("/clients/products", {
@@ -1093,6 +1095,7 @@ export function ProductsTab() {
         collections={collections}
         genders={genders}
         suppliers={suppliers}
+        busy={isLoading}
       />
 
       <div className="flex justify-between items-center mb-6">

@@ -61,7 +61,7 @@ export const RELATORIOS: Array<FilterPageProps & { path: string }> = [
   rel("venda/custo-x-preco", "CUSTO X PREÇO DE VENDA", [txt("produto", "Produto")], ["Produto", "Custo", "Preço"]),
   rel("venda/descontos", "DESCONTOS EM VENDAS", [date("inicio", "Data inicio")], ["Venda", "Produto", "Desconto"]),
   rel("venda/forma-pagamento", "FORMA DE PAGAMENTO", [date("inicio", "Data inicio")], ["Forma", "Quantidade", "Total"]),
-  rel("venda/itens", "ITENS DAS VENDAS", [date("inicio", "Data inicio")], ["Venda", "Produto", "Qtd", "Total"]),
+  rel("venda/itens", "ITENS DA VENDA", [date("inicio", "Data inicio")], ["Venda", "Produto", "Qtd", "Total"]),
   rel("venda/meta", "META", [date("inicio", "Data inicio")], ["Loja", "Meta", "Realizado"]),
   rel("venda/vale-desconto", "VALE DESCONTO", [date("inicio", "Data inicio")], ["Código", "Cliente", "Valor"]),
   rel("venda/vale-presente", "VALE PRESENTE", [date("inicio", "Data inicio")], ["Código", "Cliente", "Valor"]),

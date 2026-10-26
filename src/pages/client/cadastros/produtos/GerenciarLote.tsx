@@ -14,6 +14,7 @@ import {
   type ProductFilters,
 } from "./productFilters"
 import { formatMoneyBr, moneyWidthCh, parseMoneyBr, type PdvProduct } from "./types"
+import { useVerCusto } from "../usuarios/useVerCusto"
 
 const LOTE_FILTER_KEY = "pdv-lote-last-filter"
 
@@ -133,6 +134,8 @@ function filled(rows: PdvProduct[], key: keyof PdvProduct) {
 
 export default function GerenciarLote() {
   const gestao = useLocation().pathname.startsWith("/gestao/")
+  const podeCusto = useVerCusto()
+  const verCusto = gestao || podeCusto
   const [draft, setDraft] = useState<ProductFilters>(EMPTY_PRODUCT_FILTERS)
   const [rows, setRows] = useState<PdvProduct[]>([])
   const [total, setTotal] = useState(0)
@@ -398,6 +401,7 @@ export default function GerenciarLote() {
               collections={collections}
               genders={genders}
               suppliers={suppliers}
+              busy={busy}
             />
           </div>
 
@@ -433,7 +437,7 @@ export default function GerenciarLote() {
                   {gestao ? <th>Nome</th> : <th>Categoria</th>}
                   <th className="pdv-lote-price pdv-lote-sale"><span className="pdv-lote-price-title">Preço de venda</span></th>
                   {gestao ? <th className="pdv-lote-price pdv-lote-lojas"><span className="pdv-lote-price-title">Tabela lojas</span></th> : null}
-                  <th className="pdv-lote-price pdv-lote-cost"><span className="pdv-lote-price-title">Preço de custo</span></th>
+                  {verCusto ? <th className="pdv-lote-price pdv-lote-cost"><span className="pdv-lote-price-title">Preço de custo</span></th> : null}
                   <th className="pdv-lote-mid">Qtd</th>
                   {gestao ? null : (
                     <th className="pdv-lote-mid">
@@ -482,12 +486,14 @@ export default function GerenciarLote() {
                             </span>
                           </td>
                         ) : null}
-                        <td className="pdv-lote-price pdv-lote-cost">
-                          <span className="pdv-lote-price-line">
-                            <span className="pdv-lote-rs">R$</span>
-                            <span>{formatMoneyBr(Number(row.costPrice) || 0)}</span>
-                          </span>
-                        </td>
+                        {verCusto ? (
+                          <td className="pdv-lote-price pdv-lote-cost">
+                            <span className="pdv-lote-price-line">
+                              <span className="pdv-lote-rs">R$</span>
+                              <span>{formatMoneyBr(Number(row.costPrice) || 0)}</span>
+                            </span>
+                          </td>
+                        ) : null}
                         <td className="pdv-lote-mid">{Number(gestao ? row.stockQuantity : row.lojaStock) || 0}</td>
                         {gestao ? null : (
                           <td className="pdv-lote-mid">
@@ -528,7 +534,7 @@ export default function GerenciarLote() {
                 </label>
                 <button className="pdv-cad-btn" type="button" disabled={busy} onClick={() => apply("sale")}>Aplicar</button>
               </article>
-              <article>
+              {verCusto ? <article>
                 <h2>Reajuste do preço de custo</h2>
                 <label>
                   Valor
@@ -545,7 +551,7 @@ export default function GerenciarLote() {
                   </span>
                 </label>
                 <button className="pdv-cad-btn" type="button" disabled={busy} onClick={() => apply("cost")}>Aplicar</button>
-              </article>
+              </article> : null}
               <article>
                 <h2>Alterar quantidade</h2>
                 <label>

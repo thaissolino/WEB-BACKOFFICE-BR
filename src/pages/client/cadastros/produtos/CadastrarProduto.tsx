@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { api, parseError } from "../../../../services/api";
 import CadastroShell from "../CadastroShell";
+import { useVerCusto } from "../usuarios/useVerCusto";
 import PdvTip from "../../dashboard/PdvTip";
 import CategorySelect from "./CategorySelect";
 import SearchableSelect from "./SearchableSelect";
@@ -309,6 +310,7 @@ function categorySeed(product: PdvProduct | null): FlatOption[] {
 }
 
 export default function CadastrarProduto() {
+  const verCusto = useVerCusto();
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const editingId = params.get("id") || "";
@@ -682,17 +684,19 @@ export default function CadastrarProduto() {
                 </PlusField>
                 */}
 
-                <div className="pdv-prod-costs">
-                  <p>
-                    <span>Último custo</span>
-                    <strong>{formatMoneyRs(parseMoneyBr(form.precoCusto))}</strong>
-                  </p>
-                  <span className="pdv-prod-costs-pipe" aria-hidden="true" />
-                  <p>
-                    <span>Custo médio</span>
-                    <strong>{formatMoneyRs(parseMoneyBr(form.custoMedio))}</strong>
-                  </p>
-                </div>
+                {verCusto ? (
+                  <div className="pdv-prod-costs">
+                    <p>
+                      <span>Último custo</span>
+                      <strong>{formatMoneyRs(parseMoneyBr(form.precoCusto))}</strong>
+                    </p>
+                    <span className="pdv-prod-costs-pipe" aria-hidden="true" />
+                    <p>
+                      <span>Custo médio</span>
+                      <strong>{formatMoneyRs(parseMoneyBr(form.custoMedio))}</strong>
+                    </p>
+                  </div>
+                ) : null}
 
                 <div className="pdv-prod-row">
                   <span>
@@ -759,23 +763,25 @@ export default function CadastrarProduto() {
                         autoComplete="off"
                       />
                     </div>
-                    <div className="pdv-prod-row">
-                      <span>
-                        Lucro
-                        <Settings size={13} aria-hidden="true" />
-                        <Hint text="Lucro" />
-                      </span>
-                      <div className="pdv-prod-suffix">
-                        <input
-                          value={form.lucro}
-                          onChange={(event) => patch("lucro", event.target.value)}
-                          inputMode="decimal"
-                          autoComplete="off"
-                          aria-label="Lucro"
-                        />
-                        <span>%</span>
+                    {verCusto ? (
+                      <div className="pdv-prod-row">
+                        <span>
+                          Lucro
+                          <Settings size={13} aria-hidden="true" />
+                          <Hint text="Lucro" />
+                        </span>
+                        <div className="pdv-prod-suffix">
+                          <input
+                            value={form.lucro}
+                            onChange={(event) => patch("lucro", event.target.value)}
+                            inputMode="decimal"
+                            autoComplete="off"
+                            aria-label="Lucro"
+                          />
+                          <span>%</span>
+                        </div>
                       </div>
-                    </div>
+                    ) : null}
                     <div className="pdv-prod-row">
                       <label htmlFor="pdv-prod-est">Estoque</label>
                       <input
@@ -796,16 +802,18 @@ export default function CadastrarProduto() {
                         autoComplete="off"
                       />
                     </div>
-                    <div className="pdv-prod-row">
-                      <label htmlFor="pdv-prod-pc">Preço Custo</label>
-                      <input
-                        id="pdv-prod-pc"
-                        value={form.precoCusto}
-                        onChange={(event) => patch("precoCusto", event.target.value)}
-                        inputMode="decimal"
-                        autoComplete="off"
-                      />
-                    </div>
+                    {verCusto ? (
+                      <div className="pdv-prod-row">
+                        <label htmlFor="pdv-prod-pc">Preço Custo</label>
+                        <input
+                          id="pdv-prod-pc"
+                          value={form.precoCusto}
+                          onChange={(event) => patch("precoCusto", event.target.value)}
+                          inputMode="decimal"
+                          autoComplete="off"
+                        />
+                      </div>
+                    ) : null}
                     <div className="pdv-prod-row pdv-prod-row-top">
                       <label htmlFor="pdv-prod-desc">Descrição</label>
                       <textarea

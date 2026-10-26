@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom"
 import CadastroShell from "../CadastroShell"
 import { getCatalog, updateCatalog } from "../catalog/catalogApi"
 import { parseError } from "../../../../services/api"
+import { avisarSalvo } from "../../avisoSalvo"
 import { GROUP_EVENT_AREAS, GROUP_EVENTS, regraDoEvento } from "./groupEvents"
 
 export default function GroupEventosPage() {
@@ -48,7 +49,8 @@ export default function GroupEventosPage() {
         payload: { ...atual.payload, eventos: next },
       })
       atual.payload = { ...atual.payload, eventos: next }
-      setStatus(avisar ? "Salvo." : "")
+      setStatus("")
+      if (avisar) avisarSalvo("Eventos salvos.")
     } catch (err) {
       setStatus(parseError(err).friend || "Não foi possível gravar.")
     } finally {

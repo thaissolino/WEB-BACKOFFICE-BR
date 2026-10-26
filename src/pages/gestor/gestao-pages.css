@@ -1351,12 +1351,64 @@
 }
 
 .iv-sheet .iv-grupo-espaco td {
-  height: 22px;
+  height: auto !important;
   padding: 0 !important;
   border: 0 !important;
-  background: #f3efe8 !important;
+  background: transparent !important;
   font-size: 0;
   line-height: 0;
+}
+
+.iv-grupo-faixa {
+  display: block;
+  height: 18px;
+  background: #fffdf8;
+}
+
+.pdv-root .iv-sheet button.iv-venda-abre[type="button"],
+.gestao-page .iv-sheet button.iv-venda-abre[type="button"],
+.pdv-root .pdv-cad-table button.iv-venda-abre[type="button"],
+.pdv-cli-page .pdv-cad-table button.iv-venda-abre[type="button"] {
+  display: inline;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid transparent;
+  border-radius: 0;
+  background: transparent !important;
+  background-color: transparent !important;
+  box-shadow: none;
+  color: #1a1511 !important;
+  -webkit-text-fill-color: #1a1511 !important;
+  font: inherit;
+  font-weight: 700;
+  line-height: inherit;
+  cursor: pointer;
+}
+
+.pdv-root .iv-sheet button.iv-venda-abre[type="button"]:hover,
+.gestao-page .iv-sheet button.iv-venda-abre[type="button"]:hover,
+.pdv-root .pdv-cad-table button.iv-venda-abre[type="button"]:hover,
+.pdv-cli-page .pdv-cad-table button.iv-venda-abre[type="button"]:hover,
+.pdv-root .iv-sheet button.iv-venda-abre[type="button"]:focus-visible,
+.gestao-page .iv-sheet button.iv-venda-abre[type="button"]:focus-visible,
+.pdv-root .pdv-cad-table button.iv-venda-abre[type="button"]:focus-visible,
+.pdv-cli-page .pdv-cad-table button.iv-venda-abre[type="button"]:focus-visible {
+  border-bottom-color: #1a1511;
+  background: transparent !important;
+  background-color: transparent !important;
+  color: #1a1511 !important;
+  -webkit-text-fill-color: #1a1511 !important;
+  outline: none;
+}
+
+.pdv-chrome .gestao-page .iv-sheet tbody tr:hover,
+.pdv-chrome:not([data-theme="light"]) .gestao-page .iv-sheet tbody tr:hover,
+.pdv-cli-page .pdv-cad-table tbody tr:has(button.iv-venda-abre):hover,
+.pdv-cad-premium .pdv-cad-table tbody tr:has(button.iv-venda-abre):hover,
+.pdv-cad-table tbody tr:has(button.iv-venda-abre):hover {
+  background: transparent !important;
+  background-color: transparent !important;
 }
 
 .iv-linhas {
@@ -1473,6 +1525,56 @@ button.iv-imprimir:disabled {
   padding: 28px 14px !important;
   text-align: center !important;
   color: #6f675e;
+}
+
+.iv-sheet tr.iv-total-grupo th,
+.iv-sheet tr.iv-total-grupo td {
+  background: #d6e6f5;
+  color: #1a4f86;
+  font-weight: 800;
+}
+
+.iv-totalizadores {
+  width: min(560px, 100%);
+  margin: 18px 0 8px auto;
+  border: 1px solid #c5d4e8;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #fff;
+}
+
+.iv-totalizadores h2 {
+  margin: 0;
+  padding: 10px 16px;
+  background: #d6e6f5;
+  color: #1a4f86;
+  font-size: 1.05rem;
+  font-weight: 800;
+  text-align: center;
+}
+
+.iv-totalizadores p {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 24px;
+  align-items: center;
+  margin: 0;
+  padding: 7px 22px;
+  color: #1a4f86;
+  font-weight: 700;
+}
+
+.iv-totalizadores strong {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.iv-totalizadores .iv-total-pct {
+  padding-top: 0;
+}
+
+.iv-totalizadores .iv-total-pct strong {
+  grid-column: 2;
 }
 
 @media (max-width: 900px) {

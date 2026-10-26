@@ -11,6 +11,7 @@ import { listCatalog } from "../cadastros/catalog/catalogApi"
 import { categoryFromCatalog, type ProductCategory } from "../cadastros/produtos/categoryModel"
 import { CAIXA_STORAGE_KEY } from "../dashboard/mockData"
 import PdvOverlayModal from "../dashboard/PdvOverlayModal"
+import { useVerCusto } from "../cadastros/usuarios/useVerCusto"
 
 type Linha = {
   productId: string
@@ -213,6 +214,7 @@ function serialIncompleto(linha: Linha, flags: ProductCategory[]) {
 }
 
 export function NovaCompra() {
+  const verCusto = useVerCusto()
   const navigate = useNavigate()
   const [params] = useSearchParams()
   const id = params.get("id") || ""
@@ -675,7 +677,7 @@ export function NovaCompra() {
                   <colgroup>
                     <col className="pdv-col-cod" />
                     <col className="pdv-col-nome" />
-                    <col className="pdv-col-money" />
+                    {verCusto ? <col className="pdv-col-money" /> : null}
                     <col className="pdv-col-qtd" />
                     <col className="pdv-col-money" />
                     <col className="pdv-col-acao" />
@@ -684,7 +686,7 @@ export function NovaCompra() {
                     <tr>
                       <th>Código</th>
                       <th>Nome</th>
-                      <th className="pdv-compra-mid">Preço de custo</th>
+                      {verCusto ? <th className="pdv-compra-mid">Preço de custo</th> : null}
                       <th className="pdv-compra-mid">Quantidade</th>
                       <th className="pdv-compra-mid">Valor de compra</th>
                       <th className="pdv-compra-mid">Incluir</th>
@@ -697,12 +699,14 @@ export function NovaCompra() {
                         <tr key={item.product.id}>
                           <td>{item.product.code || ""}</td>
                           <td className="pdv-compra-nome-cell">{nome}</td>
-                          <td className="pdv-compra-money">
-                            <span className="pdv-compra-valor">
-                              <span>R$</span>
-                              <b>{formatarMoeda(custoLoja(item.product))}</b>
-                            </span>
-                          </td>
+                          {verCusto ? (
+                            <td className="pdv-compra-money">
+                              <span className="pdv-compra-valor">
+                                <span>R$</span>
+                                <b>{formatarMoeda(custoLoja(item.product))}</b>
+                              </span>
+                            </td>
+                          ) : null}
                           <td className="pdv-compra-mid">
                             <input
                               className="pdv-compra-num"

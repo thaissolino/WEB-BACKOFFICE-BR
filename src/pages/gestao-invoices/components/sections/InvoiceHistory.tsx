@@ -282,6 +282,17 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
     setShowAddProductForm(false);
   };
 
+  useEffect(() => {
+    if (!isModalOpen) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      closeModal();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [isModalOpen]);
+
   const saveCarrierRate = async (
     invoice: InvoiceData,
     field: "carrierRateSnapshot" | "carrier2RateSnapshot",
@@ -664,7 +675,9 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
           className="fixed inset-0 z-[80] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
           role="dialog"
           aria-modal="true"
-          onClick={closeModal}
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) event.preventDefault();
+          }}
         >
           <div className="max-h-[90vh] w-full max-w-5xl overflow-hidden rounded-2xl bg-white shadow-xl">
           <div
@@ -955,8 +968,8 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
                   <tbody id="modalInvoicePendingProducts" className="bg-white divide-y divide-gray-200">
                     {selectedInvoice.products
                       .filter((item) => !item.received)
-                      .map((product, index) => (
-                        <tr key={index}>
+                      .map((product) => (
+                        <tr key={product.id}>
                           <td className="px-4 py-2 text-sm text-gray-700">
                             <div>
                               {products.find((item) => item.id === product.productId)?.name}

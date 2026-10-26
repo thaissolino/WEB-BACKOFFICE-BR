@@ -34,25 +34,61 @@ export const ALL_SALE_FILTERS: SaleFilters = {
   estornadas: true,
 }
 
+export function mesAtualSaleFilters(): SaleFilters {
+  const hoje = new Date()
+  const inicio = new Date(hoje.getFullYear(), hoje.getMonth(), 1)
+  const fim = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0)
+  const iso = (data: Date) => {
+    const mes = String(data.getMonth() + 1).padStart(2, "0")
+    const dia = String(data.getDate()).padStart(2, "0")
+    return `${data.getFullYear()}-${mes}-${dia}`
+  }
+  return { ...ALL_SALE_FILTERS, inicio: iso(inicio), fim: iso(fim) }
+}
+
+export function filtroVendaAtivo(filters: SaleFilters) {
+  return Boolean(
+    filters.inicio
+    || filters.fim
+    || filters.cod.trim()
+    || filters.nome.trim()
+    || (filters.obs || "").trim()
+    || (filters.forma || "").trim()
+    || (filters.caixa.trim() && filters.caixa.trim() !== "Todos")
+    || filters.estornadas === false,
+  )
+}
+
 export function filterLojaSales(sales: LojaPdvSale[], filters: SaleFilters) {
-  const cod = filters.cod.trim()
+  const cod = filters.cod.trim().toLowerCase()
+  const digitos = cod.replace(/\D/g, "")
   const nome = filters.nome.trim().toLowerCase()
   const caixa = filters.caixa.trim()
   const obs = (filters.obs || "").trim().toLowerCase()
   const forma = (filters.forma || "").trim().toLowerCase()
-  const inicio = filters.inicio ? new Date(`${filters.inicio}T00:00:00`) : null
-  const fim = filters.fim ? new Date(`${filters.fim}T23:59:59`) : null
-
+  const porData = Boolean(filters.inicio || filters.fim)
   return sales.filter((sale) => {
     if (filters.estornadas === false && sale.status === "estornada") return false
-    if (cod && !sale.code.includes(cod.replace(/\D/g, "") || cod)) return false
-    if (nome && !sale.customerName.toLowerCase().includes(nome)) return false
-    if (obs && !(sale.notes || "").toLowerCase().includes(obs)) return false
-    if (forma && !sale.payments.some((pay) => pay.method.trim().toLowerCase() === forma)) return false
-    if (caixa && caixa !== "Todos" && sale.caixaName !== caixa) return false
-    const at = new Date(sale.finalizedAt || sale.createdAt)
-    if (inicio && !Number.isNaN(inicio.getTime()) && at < inicio) return false
-    if (fim && !Number.isNaN(fim.getTime()) && at > fim) return false
+    const code = String(sale.code ?? "").toLowerCase()
+    if (cod && !code.includes(digitos || cod) && !code.includes(cod)) return false
+    if (nome && !String(sale.customerName ?? "").toLowerCase().includes(nome)) return false
+    if (obs && !String(sale.notes || "").toLowerCase().includes(obs)) return false
+    const payments = Array.isArray(sale.payments) ? sale.payments : []
+    if (forma && !payments.some((pay) => String(pay?.method || "").trim().toLowerCase() === forma)) return false
+    if (caixa && caixa !== "Todos" && String(sale.caixaName || "") !== caixa) return false
+    const dia = diaLocal(sale.finalizedAt || sale.createdAt)
+    if (porData && !dia) return false
+    if (filters.inicio && dia < filters.inicio) return false
+    if (filters.fim && dia > filters.fim) return false
     return true
   })
+}
+
+function diaLocal(value?: string | null) {
+  if (!value) return ""
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return value.slice(0, 10)
+  const mes = String(date.getMonth() + 1).padStart(2, "0")
+  const dia = String(date.getDate()).padStart(2, "0")
+  return `${date.getFullYear()}-${mes}-${dia}`
 }

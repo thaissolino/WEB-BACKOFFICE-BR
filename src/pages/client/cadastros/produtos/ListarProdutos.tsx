@@ -24,6 +24,7 @@ import {
   type ProductFilters,
 } from "./productFilters";
 import { formatMoneyBr, lojaProductTitle, parseMoneyBr, type PdvProduct } from "./types";
+import { useVerCusto } from "../usuarios/useVerCusto";
 
 type ProdutoTab = "produto" | "grade" | "kits" | "grade-beta";
 
@@ -231,6 +232,7 @@ function takeReturnedProduct(fromBack: boolean, stateId: string) {
 }
 
 function ProdutosBoard() {
+  const verCusto = useVerCusto();
   const navigate = useNavigate();
   const location = useLocation();
   const backState = location.state as { returnedProductId?: string } | null;
@@ -271,26 +273,33 @@ function ProdutosBoard() {
     setParams(nextParams, { replace: true });
   }
 
+  const buscaRef = useRef(0);
+
   function load(nextPage: number, filters: ProductFilters, remember = true, scrollTop = false) {
+    const token = ++buscaRef.current;
     if (scrollTop) scrollPageToTop();
     if (remember) rememberProductList(filters, nextPage);
     setLoading(true);
+    setError("");
     setPage(nextPage);
     api
       .get("/clients/products", { params: productFilterParams(filters, nextPage, "loja") })
       .then(({ data }) => {
+        if (token !== buscaRef.current) return;
         setRows((data.products as PdvProduct[]) ?? []);
         setTotal(Number(data.total) || 0);
         if (data.facets) setFacets(data.facets as ProductFacets);
         setError("");
       })
       .catch((err) => {
+        if (token !== buscaRef.current) return;
         const parsed = parseError(err);
         setError(parsed.friend || parsed.message || "Não foi possível carregar os produtos.");
         setRows([]);
         setTotal(0);
       })
       .finally(() => {
+        if (token !== buscaRef.current) return;
         setLoading(false);
         if (scrollTop) requestAnimationFrame(() => scrollPageToTop());
       });
@@ -442,6 +451,7 @@ function ProdutosBoard() {
               collections={collections}
               genders={genders}
               suppliers={suppliers}
+              busy={loading}
             />
           ) : null}
           {error ? <p className="pdv-cad-error">{error}</p> : null}
@@ -452,7 +462,7 @@ function ProdutosBoard() {
                 <p className="pdv-cad-kicker">Nenhum produto para esse filtro.</p>
               ) : null}
               {searched && visible.length > 0 ? (
-                <div className="pdv-cad-table-wrap">
+                <div className={`pdv-cad-table-wrap${loading ? " pdv-prod-refreshing" : ""}`}>
                   <table className="pdv-cad-table">
                     <thead>
                       <tr>
@@ -461,7 +471,7 @@ function ProdutosBoard() {
                         <th className="pdv-prod-cat-head">Categoria</th>
                         <th className="pdv-prod-edit-head">Estoque</th>
                         <th className="pdv-prod-edit-head">Venda</th>
-                        <th className="pdv-prod-edit-head">Custo médio</th>
+                        {verCusto ? <th className="pdv-prod-edit-head">Custo médio</th> : null}
                         <th className="pdv-prod-actions-head">Ações</th>
                       </tr>
                     </thead>
@@ -519,14 +529,16 @@ function ProdutosBoard() {
                               onSave={(next) => saveAmount(item, "sale", next)}
                             />
                           </td>
-                          <td className="pdv-prod-edit-cell">
-                            <EditableAmount
-                              money
-                              value={Number(item.lojaCostAverage) || 0}
-                              label={`Custo médio de ${title.main}`}
-                              onSave={(next) => saveAmount(item, "cost", next)}
-                            />
-                          </td>
+                          {verCusto ? (
+                            <td className="pdv-prod-edit-cell">
+                              <EditableAmount
+                                money
+                                value={Number(item.lojaCostAverage) || 0}
+                                label={`Custo médio de ${title.main}`}
+                                onSave={(next) => saveAmount(item, "cost", next)}
+                              />
+                            </td>
+                          ) : null}
                           <td className="pdv-prod-actions-cell">
                             <div className="pdv-prod-row-actions">
                               <button
@@ -658,7 +670,7 @@ function ProdutosBoard() {
 
           {tab === "kits" || tab === "grade-beta" ? <div className="pdv-prod-stub" /> : null}
 
-          {showForm && searched && !loading ? (
+          {showForm && searched && (rows.length > 0 || !loading) ? (
             <p className="pdv-cad-record">
               {total === 0
                 ? "Nenhum registro"

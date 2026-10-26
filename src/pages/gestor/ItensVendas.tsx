@@ -1,10 +1,13 @@
-import { Fragment, FormEvent, useEffect, useMemo, useState } from "react";
+import { Component, Fragment, FormEvent, ReactNode, useEffect, useMemo, useState } from "react";
 import { api, parseError } from "../../services/api";
 import { todayIso } from "../../utils/todayIso";
 import GestaoShell from "./GestaoShell";
 import { DatePreset } from "../client/cadastros/catalog/FormBits";
 import SearchableSelect from "../client/cadastros/produtos/SearchableSelect";
 import "./gestao-pages.css";
+import { PainelTotalizadores, type ResumoVenda } from "./TotalizadoresVenda";
+import { SaleDetailPanel, type LojaPdvSale } from "../client/movimentacoes/LojaVendasPainel";
+import "../client/cadastros/cadastros.css";
 
 type Line = { name: string; code: string; price: number; qty: number; cost?: number; category?: string; discount?: number };
 type Buyer = { name: string; document?: string };
@@ -50,6 +53,8 @@ type ItemVenda = {
   lucro: number;
   vendedor: string;
   estornada: boolean;
+  aberta: string;
+  folha: LojaPdvSale;
 };
 
 type TipoRelatorio =
@@ -122,11 +127,18 @@ const VAZIO: Filtros = {
 
 function filtrosDoDia(): Filtros {
   const hoje = todayIso();
-  return { ...VAZIO, inicio: hoje, fim: hoje };
+  return { ...VAZIO, inicio: `${hoje.slice(0, 8)}01`, fim: hoje };
 }
 
 function money(value: number) {
-  return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+  const numero = Number(value);
+  if (!Number.isFinite(numero)) return "R$ 0,00";
+  return numero.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+}
+
+function texto(value: unknown) {
+  if (value === null || value === undefined) return "";
+  return typeof value === "string" ? value : String(value);
 }
 
 function when(value: string) {
@@ -139,10 +151,10 @@ function termos(valor: string) {
   return valor.split(/[,;]/).map((item) => item.trim().toLowerCase()).filter(Boolean);
 }
 
-function casaLista(texto: string, valor: string) {
-  const lista = termos(valor);
+function casaLista(textoCampo: string, valor: string) {
+  const lista = termos(texto(valor));
   if (!lista.length) return true;
-  const hay = texto.toLowerCase();
+  const hay = texto(textoCampo).toLowerCase();
   return lista.some((termo) => hay.includes(termo));
 }
 
@@ -160,15 +172,29 @@ function inPeriod(at: string, filtros: Filtros) {
   return true;
 }
 
+function nomesDe(lista: unknown, extra: unknown[]) {
+  const nomes = new Set<string>();
+  const origem = Array.isArray(lista) ? [...lista, ...extra] : extra;
+  for (const item of origem) {
+    const nome = texto(item).trim();
+    if (nome && nome !== "—") nomes.add(nome);
+  }
+  return [...nomes].sort((a, b) => a.localeCompare(b, "pt-BR"));
+}
+
+function pedidoCompleto(parcial: Partial<Filtros>): Filtros {
+  return { ...VAZIO, ...parcial, tipo: parcial.tipo || VAZIO.tipo };
+}
+
 function passa(item: ItemVenda, filtros: Filtros) {
   if (!inPeriod(item.at, filtros)) return false;
-  if (!casaLista(item.codigo, filtros.codigo)) return false;
-  if (!casaLista(item.produto, filtros.produto)) return false;
-  if (filtros.categoria !== "Todas" && item.categoria !== filtros.categoria) return false;
-  if (!casaLista(item.venda, filtros.venda)) return false;
-  if (!casaLista(item.cliente, filtros.cliente)) return false;
-  if (filtros.vendedor !== "Todos" && item.vendedor !== filtros.vendedor) return false;
-  if (filtros.caixa !== "Todos" && item.caixa !== filtros.caixa) return false;
+  if (!casaLista(texto(item.codigo), texto(filtros.codigo))) return false;
+  if (!casaLista(texto(item.produto), texto(filtros.produto))) return false;
+  if (filtros.categoria !== "Todas" && texto(item.categoria) !== filtros.categoria) return false;
+  if (!casaLista(texto(item.venda), texto(filtros.venda))) return false;
+  if (!casaLista(texto(item.cliente), texto(filtros.cliente))) return false;
+  if (filtros.vendedor !== "Todos" && texto(item.vendedor) !== filtros.vendedor) return false;
+  if (filtros.caixa !== "Todos" && texto(item.caixa) !== filtros.caixa) return false;
   return true;
 }
 
@@ -182,6 +208,71 @@ function ajusteDe(item: { desconto: number; acrescimo: number }) {
   return (Number(item.acrescimo) || 0) - (Number(item.desconto) || 0);
 }
 
+function folhaDaLoja(sale: LojaSale): LojaPdvSale {
+  const bruto = sale as LojaSale & Partial<LojaPdvSale>;
+  const lines = comoLista<Line & { productId?: string; serials?: string[] }>(sale.lines).map((line, index) => ({
+    productId: texto(line.productId) || `${texto(line.code)}-${index}`,
+    code: texto(line.code),
+    name: texto(line.name) || "—",
+    qty: Number(line.qty) || 0,
+    price: Number(line.price) || 0,
+    discount: Number(line.discount) || 0,
+    category: texto(line.category),
+    serials: line.serials,
+  }));
+  const totalLinhas = lines.reduce((soma, line) => soma + line.qty * Math.max(0, line.price - line.discount), 0);
+  const total = Number(bruto.total) || totalLinhas;
+  return {
+    id: texto(sale.id),
+    code: texto(sale.code) || texto(sale.id).slice(0, 8).toUpperCase() || "—",
+    caixaCode: Number(bruto.caixaCode) || 0,
+    caixaName: texto(sale.caixaName),
+    status: bruto.status || "finalizada",
+    customerName: texto(sale.customerName) || "Consumidor final",
+    sellerName: texto(sale.sellerName),
+    notes: bruto.notes,
+    lojaNome: bruto.lojaNome,
+    lines,
+    payments: Array.isArray(bruto.payments) ? bruto.payments : [],
+    total,
+    received: Number(bruto.received) || total,
+    changeAmount: Number(bruto.changeAmount) || 0,
+    stockPosted: bruto.stockPosted !== false,
+    createdAt: texto(sale.createdAt),
+    finalizedAt: sale.finalizedAt,
+  };
+}
+
+function folhaDoPedido(order: Order): LojaPdvSale {
+  const lines = comoLista<Line>(order.lines).map((line, index) => ({
+    productId: `${texto(line.code)}-${index}`,
+    code: texto(line.code),
+    name: texto(line.name) || "—",
+    qty: Number(line.qty) || 0,
+    price: Number(line.price) || 0,
+    discount: Number(line.discount) || 0,
+    category: texto(line.category),
+  }));
+  const total = Number(order.total) || lines.reduce((soma, line) => soma + line.qty * Math.max(0, line.price - line.discount), 0);
+  return {
+    id: texto(order.id),
+    code: texto(order.id).slice(0, 8).toUpperCase() || "—",
+    caixaCode: 0,
+    caixaName: "",
+    status: order.estornada ? "estornada" : "finalizada",
+    customerName: texto(order.address?.nome) || "Consumidor final",
+    sellerName: "",
+    lines,
+    payments: [],
+    total,
+    received: total,
+    changeAmount: 0,
+    stockPosted: true,
+    createdAt: texto(order.createdAt),
+    finalizedAt: texto(order.closedAt) || null,
+  };
+}
+
 function montarLinha(base: Omit<ItemVenda, "lucro" | "qtd" | "compra" | "vendaValor" | "desconto" | "acrescimo"> & {
   qtd: number;
   compra: number;
@@ -193,25 +284,41 @@ function montarLinha(base: Omit<ItemVenda, "lucro" | "qtd" | "compra" | "vendaVa
   return { ...base, lucro };
 }
 
+function comoLista<T>(value: unknown): T[] {
+  if (Array.isArray(value)) return value as T[];
+  if (typeof value === "string") {
+    try {
+      const parsed = JSON.parse(value) as unknown;
+      return Array.isArray(parsed) ? parsed as T[] : [];
+    } catch {
+      return [];
+    }
+  }
+  return [];
+}
+
 function flatten(orders: Order[]): ItemVenda[] {
-  return orders.flatMap((order) => {
-    const lojista = order.client?.name || "—";
-    return (order.lines || []).map((line) => {
-      const qtd = Number(line.qty) || 0;
-      const vendaValor = Number(line.price) || 0;
-      const compra = Number(line.cost) || 0;
+  return comoLista<Order>(orders).flatMap((order) => {
+    if (!order) return [];
+    const lojista = texto(order.client?.name) || "—";
+    const folha = folhaDoPedido(order);
+    return comoLista<Line>(order.lines).map((line) => {
+      const qtd = Number(line?.qty) || 0;
+      const vendaValor = Number(line?.price) || 0;
+      const compra = Number(line?.cost) || 0;
       return montarLinha({
-        at: order.closedAt || order.createdAt,
-        venda: order.id.slice(0, 8).toUpperCase(),
+        at: texto(order.closedAt || order.createdAt),
+        venda: texto(order.id).slice(0, 8).toUpperCase() || "—",
         cliente: "—",
         clienteCodigo: "",
         caixa: "—",
         operador: "—",
-        loja: "Estoque",
+        loja: "ESTOQUE GERAL",
+        aberta: texto(order.createdAt),
         canal: lojista,
-        categoria: line.category || "—",
-        codigo: line.code || "—",
-        produto: line.name || "—",
+        categoria: texto(line?.category) || "—",
+        codigo: texto(line?.code) || "—",
+        produto: texto(line?.name) || "—",
         qtd,
         compra,
         vendaValor,
@@ -219,39 +326,44 @@ function flatten(orders: Order[]): ItemVenda[] {
         acrescimo: 0,
         vendedor: "—",
         estornada: !!order.estornada,
+        folha,
       });
     });
   });
 }
 
 function flattenLoja(sales: LojaSale[], loja: string): ItemVenda[] {
-  return sales.flatMap((sale) =>
-    (sale.lines || []).map((line) => {
-      const qtd = Number(line.qty) || 0;
-      const vendaValor = Number(line.price) || 0;
-      const desconto = (Number(line.discount) || 0) * qtd;
+  return comoLista<LojaSale>(sales).flatMap((sale) => {
+    if (!sale) return [];
+    const folha = folhaDaLoja(sale);
+    return comoLista<Line>(sale?.lines).map((line) => {
+      const qtd = Number(line?.qty) || 0;
+      const vendaValor = Number(line?.price) || 0;
+      const desconto = (Number(line?.discount) || 0) * qtd;
       return montarLinha({
-        at: sale.finalizedAt || sale.createdAt,
-        venda: sale.code || sale.id.slice(0, 8).toUpperCase(),
-        cliente: sale.customerName || "Consumidor final",
+        at: texto(sale.finalizedAt || sale.createdAt),
+        venda: texto(sale?.code) || texto(sale?.id).slice(0, 8).toUpperCase() || "—",
+        cliente: texto(sale?.customerName) || "Consumidor final",
         clienteCodigo: "",
-        caixa: sale.caixaName || "—",
+        caixa: texto(sale?.caixaName) || "—",
         operador: "—",
         loja,
         canal: loja,
-        categoria: line.category || "—",
-        codigo: line.code || "—",
-        produto: line.name || "—",
+        categoria: texto(line?.category) || "—",
+        codigo: texto(line?.code) || "—",
+        produto: texto(line?.name) || "—",
         qtd,
-        compra: Number(line.cost) || 0,
+        compra: Number(line?.cost) || 0,
         vendaValor,
         desconto,
         acrescimo: 0,
-        vendedor: sale.sellerName || "—",
+        vendedor: texto(sale?.sellerName) || "—",
         estornada: false,
+        aberta: texto(sale?.createdAt),
+        folha,
       });
-    }),
-  );
+    });
+  });
 }
 
 function chaveGrupo(item: ItemVenda, tipo: TipoRelatorio) {
@@ -261,10 +373,30 @@ function chaveGrupo(item: ItemVenda, tipo: TipoRelatorio) {
   if (tipo === "loja-grade") return item.loja || "Sem loja";
   if (tipo === "kits") return "Itens";
   if (tipo === "global") return "Vendas";
-  return item.venda;
+  return texto(item.venda) || "—";
 }
 
-export default function ItensVendas() {
+class RelatorioErro extends Component<{ children: ReactNode }, { erro: string }> {
+  state = { erro: "" };
+
+  static getDerivedStateFromError(error: unknown) {
+    const mensagem = error instanceof Error ? error.message : "";
+    return { erro: mensagem || "Não foi possível montar o relatório." };
+  }
+
+  render() {
+    if (this.state.erro) {
+      return (
+        <GestaoShell title="ITENS DAS VENDAS" subtitle="Venda detalhada, no mesmo quadro do WM10.">
+          <p className="iv-vazio">{this.state.erro}</p>
+        </GestaoShell>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+function ItensVendasTela() {
   const [itens, setItens] = useState<ItemVenda[]>([]);
   const [hint, setHint] = useState("Clique em Buscar para carregar.");
   const [carregando, setCarregando] = useState(false);
@@ -277,6 +409,7 @@ export default function ItensVendas() {
     caixas: string[];
     categorias: string[];
   }>({ vendedores: [], caixas: [], categorias: [] });
+  const [detail, setDetail] = useState<LojaPdvSale | null>(null);
 
   useEffect(() => {
     api.get("/backoffice/lojistas")
@@ -299,27 +432,18 @@ export default function ItensVendas() {
       .catch(() => setOpcoes({ vendedores: [], caixas: [], categorias: [] }));
   }, [draft.loja]);
 
-  const categorias = useMemo(() => {
-    const nomes = new Set(opcoes.categorias);
-    for (const item of itens) {
-      if (item.categoria && item.categoria !== "—") nomes.add(item.categoria);
-    }
-    return ["Todas", ...[...nomes].sort((a, b) => a.localeCompare(b, "pt-BR"))];
-  }, [opcoes.categorias, itens]);
-  const vendedores = useMemo(() => {
-    const nomes = new Set(opcoes.vendedores);
-    for (const item of itens) {
-      if (item.vendedor && item.vendedor !== "—") nomes.add(item.vendedor);
-    }
-    return ["Todos", ...[...nomes].sort((a, b) => a.localeCompare(b, "pt-BR"))];
-  }, [opcoes.vendedores, itens]);
-  const caixas = useMemo(() => {
-    const nomes = new Set(opcoes.caixas);
-    for (const item of itens) {
-      if (item.caixa && item.caixa !== "—") nomes.add(item.caixa);
-    }
-    return ["Todos", ...[...nomes].sort((a, b) => a.localeCompare(b, "pt-BR"))];
-  }, [opcoes.caixas, itens]);
+  const categorias = useMemo(
+    () => ["Todas", ...nomesDe(opcoes.categorias, itens.map((item) => item.categoria))],
+    [opcoes.categorias, itens],
+  );
+  const vendedores = useMemo(
+    () => ["Todos", ...nomesDe(opcoes.vendedores, itens.map((item) => item.vendedor))],
+    [opcoes.vendedores, itens],
+  );
+  const caixas = useMemo(
+    () => ["Todos", ...nomesDe(opcoes.caixas, itens.map((item) => item.caixa))],
+    [opcoes.caixas, itens],
+  );
 
   const visiveis = useMemo(
     () => (pronto ? itens.filter((item) => passa(item, filtros)) : []),
@@ -335,37 +459,28 @@ export default function ItensVendas() {
     }
     return Array.from(map.entries()).sort((a, b) => a[0].localeCompare(b[0], "pt-BR"));
   }, [visiveis, filtros.tipo]);
+  const resumo = useMemo<ResumoVenda>(() => {
+    const venda = visiveis.reduce((sum, item) => sum + item.vendaValor * item.qtd, 0);
+    const custo = visiveis.reduce((sum, item) => sum + item.compra * item.qtd, 0);
+    const lucro = visiveis.reduce((sum, item) => sum + item.lucro, 0);
+    const itensQtd = visiveis.reduce((sum, item) => sum + item.qtd, 0);
+    return { venda, custo, lucro, itens: itensQtd };
+  }, [visiveis]);
 
   function setCampo<K extends keyof Filtros>(key: K, value: Filtros[K]) {
     setDraft((atual) => ({ ...atual, [key]: value }));
   }
 
   async function linhasDoEstoque() {
-    let lista = lojistas;
-    if (!lista.length) {
-      const cadastro = await api.get("/backoffice/lojistas");
-      lista = ((cadastro.data?.lojistas || []) as LojistaOpcao[]).filter((item) => item.id && item.name);
-      setLojistas(lista);
-    }
     const { data } = await api.get("/backoffice/vendas-concluidas");
-    const atacado = flatten((data?.orders || []) as Order[]);
-    const daLoja = await Promise.all(
-      lista.map(async (lojista) => {
-        try {
-          const resposta = await api.get(`/backoffice/lojistas/${lojista.id}/vendas`);
-          return flattenLoja((resposta.data?.sales || []) as LojaSale[], lojista.name);
-        } catch {
-          return [];
-        }
-      }),
-    );
-    return [...atacado, ...daLoja.flat()];
+    return flatten((data?.orders || []) as Order[]);
   }
 
   async function buscar(event: FormEvent) {
     event.preventDefault();
-    if (carregando) return;
     setCarregando(true);
+    setItens([]);
+    setPronto(false);
     setHint("Carregando...");
     try {
       const rows = draft.loja === "estoque"
@@ -375,7 +490,7 @@ export default function ItensVendas() {
           lojistas.find((item) => item.id === draft.loja)?.name || "Loja",
         );
       setItens(rows);
-      setFiltros(draft);
+      setFiltros(pedidoCompleto(draft));
       setPronto(true);
       setHint(rows.length ? "" : "Nenhuma venda concluída.");
     } catch (err) {
@@ -449,11 +564,11 @@ export default function ItensVendas() {
           Loja
           <SearchableSelect
             hideEmpty
-            value={draft.loja === "estoque" ? "Estoque" : (lojistas.find((item) => item.id === draft.loja)?.name || "Estoque")}
-            options={["Estoque", ...lojistas.map((item) => item.name)]}
+            value={draft.loja === "estoque" ? "ESTOQUE GERAL" : (lojistas.find((item) => item.id === draft.loja)?.name || "ESTOQUE GERAL")}
+            options={["ESTOQUE GERAL", ...lojistas.map((item) => item.name)]}
             onChange={(nome) => setDraft((atual) => ({
               ...atual,
-              loja: nome === "Estoque" ? "estoque" : (lojistas.find((item) => item.name === nome)?.id || "estoque"),
+              loja: nome === "ESTOQUE GERAL" ? "estoque" : (lojistas.find((item) => item.name === nome)?.id || "estoque"),
               vendedor: "Todos",
               caixa: "Todos",
               categoria: "Todas",
@@ -514,7 +629,7 @@ export default function ItensVendas() {
                   <Fragment key={nome}>
                     {grupo > 0 ? (
                       <tr className="iv-grupo-espaco" aria-hidden="true">
-                        <td colSpan={13}>&nbsp;</td>
+                        <td colSpan={13}><span className="iv-grupo-faixa" /></td>
                       </tr>
                     ) : null}
                     <tr className="dre-group">
@@ -523,10 +638,20 @@ export default function ItensVendas() {
                     {resumido ? null : linhas.map((item, index) => {
                       const ajuste = money(ajusteDe(item));
                       const lucro = money(item.lucro);
+                      const anterior = index > 0 ? linhas[index - 1] : null;
+                      const quebra = !!anterior && (anterior.venda !== item.venda || anterior.cliente !== item.cliente);
                       return (
-                      <tr key={`${nome}-${item.venda}-${item.codigo}-${index}`}>
+                      <Fragment key={`${nome}-${item.venda}-${item.codigo}-${index}`}>
+                      {quebra ? (
+                        <tr className="iv-grupo-espaco" aria-hidden="true">
+                          <td colSpan={13}><span className="iv-grupo-faixa" /></td>
+                        </tr>
+                      ) : null}
+                      <tr>
                         <td className={classeCelula(when(item.at))}>{when(item.at)}</td>
-                        <td className={classeCelula(item.venda)}>{item.venda}</td>
+                        <td className={classeCelula(item.venda)}>
+                          <button className="iv-venda-abre" type="button" onClick={() => setDetail(item.folha)}>{item.venda}</button>
+                        </td>
                         <td className={classeCelula(item.cliente)}>{item.cliente}</td>
                         <td className={classeCelula(item.caixa)}>{item.caixa}</td>
                         <td className={classeCelula(item.vendedor)}>{item.vendedor}</td>
@@ -539,9 +664,10 @@ export default function ItensVendas() {
                         <td className={classeCelula(money(item.compra), true)}>{money(item.compra)}</td>
                         <td className={classeCelula(lucro, true, item.lucro < 0 ? "dre-neg" : "dre-pos")}>{lucro}</td>
                       </tr>
+                      </Fragment>
                       );
                     })}
-                    <tr className="dre-strong">
+                    <tr className="dre-strong iv-total-grupo">
                       <th colSpan={8}>Total ({nome})</th>
                       <td className="iv-num">{qtd}</td>
                       <td className="iv-num">{money(vendaValor)}</td>
@@ -556,6 +682,16 @@ export default function ItensVendas() {
           </tbody>
         </table>
       </div>
+      {grupos.length ? <PainelTotalizadores resumo={resumo} mostrarCusto /> : null}
+      {detail ? <SaleDetailPanel sale={detail} onClose={() => setDetail(null)} /> : null}
     </GestaoShell>
+  );
+}
+
+export default function ItensVendas() {
+  return (
+    <RelatorioErro>
+      <ItensVendasTela />
+    </RelatorioErro>
   );
 }

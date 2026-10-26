@@ -1,6 +1,6 @@
 // components/modals/ModalAnaliseProduct.tsx
 import { X, Loader2 } from "lucide-react";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 
 type Props = {
@@ -19,6 +19,16 @@ export function ModalAnaliseProduct({ product, onClose, onConfirm }: Props) {
     product.quantity - (product.receivedQuantity || 0) - (product.quantityAnalizer || 0);
   const [quantity, setQuantity] = useState<number | "">(maxAvailable > 0 ? maxAvailable : "");
   const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== "Escape" || isLoading) return;
+      event.preventDefault();
+      onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose, isLoading]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
@@ -45,12 +55,11 @@ export function ModalAnaliseProduct({ product, onClose, onConfirm }: Props) {
   return createPortal(
     <div
       className="fixed inset-0 bg-black/60 flex justify-center items-center z-[120] p-4"
-      onClick={onClose}
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) event.preventDefault();
+      }}
     >
-      <div
-        className="bg-white p-6 rounded-2xl shadow-xl w-full max-w-md border border-gray-200"
-        onClick={(e) => e.stopPropagation()}
-      >
+      <div className="bg-white p-6 rounded-2xl shadow-xl w-full max-w-md border border-gray-200">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-lg font-bold text-gray-800">Enviar para Análise</h2>
           <button onClick={onClose} className="text-gray-500 hover:text-red-500 transition-colors">

@@ -753,6 +753,26 @@ export function InvoiceHistoryReport({
     setEtiquetaList(null);
   };
 
+  useEffect(() => {
+    if (!isModalOpen && !receiptHistoryModal.open && !viewingEntry) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      if (selectedProductToAnalyze) return;
+      event.preventDefault();
+      if (viewingEntry) {
+        setViewingEntry(null);
+        return;
+      }
+      if (receiptHistoryModal.open) {
+        setReceiptHistoryModal({ open: false, invoiceProductId: null, productName: "" });
+        return;
+      }
+      closeModal();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [isModalOpen, receiptHistoryModal.open, viewingEntry, selectedProductToAnalyze]);
+
   const lineName = (line: InvoiceData["products"][number]) =>
     line.product?.name || products.find((item) => item.id === line.productId)?.name || "";
 
@@ -1130,7 +1150,9 @@ export function InvoiceHistoryReport({
           className="fixed inset-0 z-[80] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
           role="dialog"
           aria-modal="true"
-          onClick={closeModal}
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) event.preventDefault();
+          }}
         >
           <div className="max-h-[90vh] w-full max-w-5xl overflow-hidden rounded-2xl bg-white shadow-xl">
           <div
@@ -1247,8 +1269,8 @@ export function InvoiceHistoryReport({
                         const nameB = productB?.name || "";
                         return nameA.localeCompare(nameB, "pt-BR", { sensitivity: "base" });
                       })
-                      .map((product, index) => (
-                        <tr key={index}>
+                      .map((product) => (
+                        <tr key={product.id}>
                           <td className="px-4 py-2 text-sm text-gray-700">
                             <div>
                               {products.find((item) => item.id === product.productId)?.name}
@@ -1559,8 +1581,8 @@ export function InvoiceHistoryReport({
                         const nameB = productB?.name || "";
                         return nameA.localeCompare(nameB, "pt-BR", { sensitivity: "base" });
                       })
-                      .map((product, index) => (
-                        <tr key={index}>
+                      .map((product) => (
+                        <tr key={product.id}>
                           <td className="px-4 py-2 text-sm text-gray-700">
                             {products.find((item) => item.id === product.productId)?.name}
                           </td>
@@ -2003,8 +2025,8 @@ export function InvoiceHistoryReport({
                         const nameB = productB?.name || "";
                         return nameA.localeCompare(nameB, "pt-BR", { sensitivity: "base" });
                       })
-                      .map((product, index) => (
-                        <tr key={index}>
+                      .map((product) => (
+                        <tr key={product.id}>
                           <td className="px-4 py-2 text-sm text-gray-700">
                             {lineName(product)}
                           </td>
@@ -2335,7 +2357,9 @@ export function InvoiceHistoryReport({
       {receiptHistoryModal.open && (
         <div
           className="fixed inset-0 z-[90] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
-          onClick={() => setReceiptHistoryModal({ open: false, invoiceProductId: null, productName: "" })}
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) event.preventDefault();
+          }}
         >
           <div
             onClick={(e) => e.stopPropagation()}
@@ -2488,7 +2512,9 @@ export function InvoiceHistoryReport({
       {viewingEntry && (
         <div
           className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
-          onClick={() => setViewingEntry(null)}
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) event.preventDefault();
+          }}
         >
           <div
             onClick={(e) => e.stopPropagation()}

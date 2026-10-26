@@ -12,6 +12,11 @@ export function colunaNumero(titulo: string) {
   return COLUNA_NUMERO.some((chave) => texto.includes(chave))
 }
 
+function colunaVenda(titulo: string) {
+  const texto = titulo.normalize("NFD").replace(/\p{M}/gu, "").trim().toLowerCase()
+  return texto === "venda"
+}
+
 export type FilterField = {
   key: string
   label: string
@@ -21,7 +26,7 @@ export type FilterField = {
 
 export type FilterPageProps = {
   title: string
-  actions?: { label: string; href?: string; tone?: "green" | "red" | "blue" | "ink" }[]
+  actions?: { label: string; href?: string; tone?: "green" | "red" | "blue" | "ink"; onClick?: () => void }[]
   fields: FilterField[]
   columns: string[]
   submitLabel?: string
@@ -29,15 +34,22 @@ export type FilterPageProps = {
   extra?: ReactNode
   lead?: ReactNode
   rows?: string[][]
+  totals?: string[]
   onRowClick?: (index: number) => void
+  saleLink?: (rowIndex: number) => void
   hideList?: boolean
   expandedIndex?: number | null
   expanded?: ReactNode
   premium?: boolean
   closedAction?: (index: number) => ReactNode
-  closedLabel?: string
+  closedLabel?: ReactNode
+  closedMark?: boolean
   rowLead?: (index: number) => ReactNode
-  rowLeadLabel?: string
+  rowLeadLabel?: ReactNode
+  rowLeadCenter?: boolean
+  closedCenter?: boolean
+  rowMark?: (index: number) => ReactNode
+  markAll?: ReactNode
   pageClass?: string
   filtersClass?: string
   onSearch?: (values: Record<string, string>) => void
@@ -53,15 +65,22 @@ export default function FilterPage({
   extra,
   lead,
   rows,
+  totals,
   onRowClick,
+  saleLink,
   hideList = false,
   expandedIndex = null,
   expanded,
   premium = false,
   closedAction,
   closedLabel = "",
+  closedMark = false,
   rowLead,
   rowLeadLabel = "",
+  rowLeadCenter = false,
+  closedCenter = false,
+  rowMark,
+  markAll,
   pageClass = "",
   filtersClass = "",
   onSearch,
@@ -125,7 +144,10 @@ export default function FilterPage({
                   key={action.label}
                   className={`pdv-cad-btn ${action.tone === "green" ? "pdv-cad-btn-green" : action.tone === "red" ? "pdv-cad-btn-red" : action.tone === "blue" ? "pdv-cad-btn-blue" : action.tone === "ink" ? "pdv-cad-btn-ink" : ""}`}
                   type="button"
-                  onClick={() => go(action.href)}
+                  onClick={() => {
+                    if (action.onClick) action.onClick()
+                    else go(action.href)
+                  }}
                 >
                   {action.label}
                 </button>
@@ -150,14 +172,10 @@ export default function FilterPage({
                     ))}
                   </select>
                 ) : field.kind === "date" ? (
-                  field.key === dateKeys[0] ? (
-                    <span className="pdv-date-field">
-                      <input type="date" value={values[field.key] ?? ""} onChange={(event) => setValue(field.key, event.target.value)} autoComplete="off" />
-                      <DatePreset onPick={applyPeriod} />
-                    </span>
-                  ) : (
+                  <span className="pdv-date-field">
                     <input type="date" value={values[field.key] ?? ""} onChange={(event) => setValue(field.key, event.target.value)} autoComplete="off" />
-                  )
+                    <DatePreset onPick={applyPeriod} />
+                  </span>
                 ) : (
                   <input value={values[field.key] ?? ""} onChange={(event) => setValue(field.key, event.target.value)} autoComplete="off" />
                 )}
@@ -173,11 +191,12 @@ export default function FilterPage({
             <table className="pdv-cad-table">
               <thead>
                 <tr>
-                  {rowLead ? <th>{rowLeadLabel}</th> : null}
+                  {rowMark ? <th className="pdv-col-mark">{markAll}</th> : null}
+                  {rowLead ? <th className={rowLeadCenter ? "pdv-col-centro" : undefined}>{rowLeadLabel}</th> : null}
                   {columns.map((column) => (
                     <th key={column} className={colunaNumero(column) ? "pdv-col-num" : undefined}>{column}</th>
                   ))}
-                  {closedAction ? <th>{closedLabel}</th> : null}
+                  {closedAction ? <th className={closedCenter ? "pdv-col-centro" : closedMark ? "pdv-col-mark" : undefined}>{closedLabel}</th> : null}
                 </tr>
               </thead>
               <tbody>
@@ -191,12 +210,17 @@ export default function FilterPage({
                       aria-expanded={onRowClick ? expandedIndex === index : undefined}
                       onClick={onRowClick ? () => onRowClick(index) : undefined}
                     >
+                      {rowMark ? (
+                        <td className="pdv-col-mark">{rowMark(index)}</td>
+                      ) : null}
                       {rowLead ? (
-                        <td className="pdv-cad-row-action">{rowLead(index)}</td>
+                        <td className={rowLeadCenter ? "pdv-col-centro" : "pdv-cad-row-action"}>{rowLead(index)}</td>
                       ) : null}
                       {row.map((cell, cellIndex) => (
                         <td key={cellIndex} className={colunaNumero(columns[cellIndex] || "") ? "pdv-col-num" : undefined}>
-                          {cellIndex === 0 && onRowClick ? (
+                          {saleLink && colunaVenda(columns[cellIndex] || "") ? (
+                            <button className="iv-venda-abre" type="button" onClick={(event) => { event.stopPropagation(); saleLink(index) }}>{cell}</button>
+                          ) : cellIndex === 0 && onRowClick ? (
                             <span className="pdv-cad-code">
                               <span className={`pdv-cad-chevron${expandedIndex === index ? " is-open" : ""}`} aria-hidden="true" />
                               {cell}
@@ -205,17 +229,29 @@ export default function FilterPage({
                         </td>
                       ))}
                       {closedAction ? (
-                        <td className="pdv-cad-row-action">{closedAction(index)}</td>
+                        <td className={closedCenter ? "pdv-col-centro" : closedMark ? "pdv-col-mark" : "pdv-cad-row-action"}>{closedAction(index)}</td>
                       ) : null}
                     </tr>
                     {expandedIndex === index && expanded ? (
                       <tr className="pdv-cad-accordion">
-                        <td colSpan={columns.length + (rowLead ? 1 : 0) + (closedAction ? 1 : 0)}>{expanded}</td>
+                        <td colSpan={columns.length + (rowMark ? 1 : 0) + (rowLead ? 1 : 0) + (closedAction ? 1 : 0)}>{expanded}</td>
                       </tr>
                     ) : null}
                   </Fragment>
                 ))}
               </tbody>
+              {totals && rows?.length ? (
+                <tfoot>
+                  <tr className="pdv-cad-totals">
+                    {rowMark ? <td className="pdv-col-mark" /> : null}
+                    {rowLead ? <td /> : null}
+                    {totals.map((cell, cellIndex) => (
+                      <td key={cellIndex} className={colunaNumero(columns[cellIndex] || "") ? "pdv-col-num" : undefined}>{cell}</td>
+                    ))}
+                    {closedAction ? <td /> : null}
+                  </tr>
+                </tfoot>
+              ) : null}
             </table>
           </div>}
           {hideList ? null : rows && rows.length ? (

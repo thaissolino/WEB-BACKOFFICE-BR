@@ -156,6 +156,7 @@ export function productFilterParams(
     estoque: filters.estoque.op === "Todos" ? undefined : filters.estoque.value,
     comEstoque: filters.comEstoque ? "1" : undefined,
     light: "1",
+    _t: Date.now(),
   };
 }
 
@@ -257,6 +258,7 @@ export function ProductFilterForm({
   collections,
   genders,
   suppliers,
+  busy = false,
 }: {
   draft: ProductFilters;
   onChange: (next: ProductFilters) => void;
@@ -270,6 +272,7 @@ export function ProductFilterForm({
   collections: string[];
   genders: string[];
   suppliers: string[];
+  busy?: boolean;
 }) {
   const [moreOpen, setMoreOpen] = useState(false);
   const [catalogOpen, setCatalogOpen] = useState(false);
@@ -462,7 +465,7 @@ export function ProductFilterForm({
             </ul>
           ) : null}
         </div> : null}
-        <button className="pdv-prod-btn pdv-prod-btn-blue" type="submit">
+        <button className={`pdv-prod-btn pdv-prod-btn-blue${busy ? " is-busy" : ""}`} type="submit" aria-busy={busy || undefined}>
           <Search size={15} strokeWidth={2.2} aria-hidden="true" />
           Buscar
         </button>

@@ -6,6 +6,8 @@ import { RelatorioItensVenda } from "./RelatorioItensVenda"
 import { lancamentoDaLoja, listCatalog } from "../cadastros/catalog/catalogApi"
 import DreGerencial from "../../gestor/DreGerencial"
 import { api, parseError } from "../../../services/api"
+import { usePdvSession } from "../dashboard/PdvShell"
+import { useVerCusto } from "../cadastros/usuarios/useVerCusto"
 
 function brl(value: string) {
   const clean = value.trim().replace(/[R$\s]/g, "")
@@ -17,6 +19,7 @@ function brl(value: string) {
 }
 
 function LancamentosRelatorio({ title, tipo }: { title: string; tipo: "despesa" | "receita" }) {
+  const { storeId } = usePdvSession()
   const [rows, setRows] = useState<string[][]>([])
   const [hint, setHint] = useState("Carregando...")
   useEffect(() => {
@@ -24,7 +27,7 @@ function LancamentosRelatorio({ title, tipo }: { title: string; tipo: "despesa" 
       .then((items) => {
         const filtered = items
           .filter((item) => String(item.payload.tipo || "despesa") === tipo)
-          .filter((item) => lancamentoDaLoja(item))
+          .filter((item) => lancamentoDaLoja(item, undefined, storeId))
         setRows(filtered.map((item) => [
           item.name,
           String(item.payload.data || "—"),
@@ -34,7 +37,7 @@ function LancamentosRelatorio({ title, tipo }: { title: string; tipo: "despesa" 
         setHint(filtered.length ? "" : tipo === "despesa" ? "Nenhuma despesa lançada." : "Nenhuma receita lançada.")
       })
       .catch(() => setHint("Não foi possível carregar."))
-  }, [tipo])
+  }, [tipo, storeId])
   return (
     <FilterPage
       title={title}
@@ -77,7 +80,14 @@ function AuditoriaEstoque() {
   )
 }
 
+function semPrecoCusto<T extends { columns?: string[] }>(def: T, verCusto: boolean): T {
+  if (verCusto || !def.columns) return def
+  const columns = def.columns.filter((coluna) => !/custo|lucro|margem/i.test(coluna))
+  return { ...def, columns }
+}
+
 export function RelatorioScreen({ def }: { def: FilterPageProps & { path?: string } }) {
+  const verCusto = useVerCusto()
   if (def.path === "imei") return <BuscarImei escopo="tudo" />
   if (def.path === "venda/itens") return <RelatorioItensVenda />
   if (def.path && (def.path.startsWith("venda/") || def.path.startsWith("venda-gerencial/"))) {
@@ -87,5 +97,5 @@ export function RelatorioScreen({ def }: { def: FilterPageProps & { path?: strin
   if (def.path === "despesa") return <LancamentosRelatorio title={def.title} tipo="despesa" />
   if (def.path === "financeiro/recebimento") return <LancamentosRelatorio title="RECEITAS" tipo="receita" />
   if (def.path === "auditoria/estoque") return <AuditoriaEstoque />
-  return <FilterPage {...def} />
+  return <FilterPage {...semPrecoCusto(def, verCusto)} />
 }

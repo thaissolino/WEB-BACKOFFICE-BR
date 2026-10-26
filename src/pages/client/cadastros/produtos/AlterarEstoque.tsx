@@ -218,6 +218,7 @@ function EstoqueProdutos({ categoryId }: { categoryId: string }) {
   function onSearch(event: FormEvent) {
     event.preventDefault();
     setApplied(draft);
+    load();
   }
 
   async function saveStock(productId: string, value: string) {
