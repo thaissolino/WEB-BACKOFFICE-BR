@@ -736,6 +736,8 @@ export const CaixasTab = () => {
     }
   }
 
+  const saldoVisivel = loadingFetch2 ? null : getTotalBalance()
+
   return (
     <div className="fade-in">
       {/* Seletor de usuário total acumulado de fornecedores, outros, fretes e total geral */}
@@ -756,12 +758,12 @@ export const CaixasTab = () => {
                     {selectedEntity.name.toUpperCase()} - FORNECEDOR
                   </h3>
                 </div>
-                <p className="text-2xl font-bold text-yellow-600 truncate" title={formatCurrency(filteredBalances.suppliers || 0)}>
-                  {formatCurrency(filteredBalances.suppliers || 0)}
+                <p className="text-2xl font-bold text-yellow-600 truncate" title={saldoVisivel == null ? undefined : formatCurrency(saldoVisivel)}>
+                  {saldoVisivel == null ? <Loader2 className="inline w-6 h-6 animate-spin" /> : formatCurrency(saldoVisivel)}
                 </p>
-                {formatCurrency(filteredBalances.suppliers || 0).length > 12 && (
+                {saldoVisivel != null && formatCurrency(saldoVisivel).length > 12 && (
                   <div className="absolute hidden group-hover:block bg-gray-800 text-white text-xs p-2 rounded z-10 bottom-full mb-2 whitespace-nowrap">
-                    {formatCurrency(filteredBalances.suppliers || 0)}
+                    {formatCurrency(saldoVisivel)}
                   </div>
                 )}
               </motion.div>
@@ -774,12 +776,12 @@ export const CaixasTab = () => {
                     {selectedEntity.name.toUpperCase()} - TRANSPORTADORA
                   </h3>
                 </div>
-                <p className="text-2xl font-bold text-blue-600 truncate" title={formatCurrency(filteredBalances.carriers || 0)}>
-                  {formatCurrency(filteredBalances.carriers || 0)}
+                <p className="text-2xl font-bold text-blue-600 truncate" title={saldoVisivel == null ? undefined : formatCurrency(saldoVisivel)}>
+                  {saldoVisivel == null ? <Loader2 className="inline w-6 h-6 animate-spin" /> : formatCurrency(saldoVisivel)}
                 </p>
-                {formatCurrency(filteredBalances.carriers || 0).length > 5 && (
+                {saldoVisivel != null && formatCurrency(saldoVisivel).length > 5 && (
                   <div className="absolute hidden group-hover:block bg-gray-800 text-white text-xs p-2 rounded z-10 bottom-full mb-2 whitespace-nowrap">
-                    {formatCurrency(filteredBalances.carriers || 0)}
+                    {formatCurrency(saldoVisivel)}
                   </div>
                 )}
               </motion.div>
@@ -792,12 +794,14 @@ export const CaixasTab = () => {
                     {selectedEntity.name.toUpperCase()} - PARCEIRO
                   </h3>
                 </div>
-                <p className="text-2xl font-bold text-teal-600 truncate" title={formatCurrency(filteredBalances.partners || 0)}>
-                  {formatCurrency(filteredBalances.partners || 0)}
+                <p className="text-2xl font-bold text-teal-600 truncate" title={saldoVisivel == null ? undefined : formatCurrency(saldoVisivel)}>
+                  {saldoVisivel == null ? <Loader2 className="inline w-6 h-6 animate-spin" /> : formatCurrency(saldoVisivel)}
                 </p>
-                <div className="absolute hidden group-hover:block bg-gray-800 text-white text-xs p-2 rounded z-10 bottom-full mb-2 whitespace-nowrap">
-                  {formatCurrency(filteredBalances.partners || 0)}
-                </div>
+                {saldoVisivel != null ? (
+                  <div className="absolute hidden group-hover:block bg-gray-800 text-white text-xs p-2 rounded z-10 bottom-full mb-2 whitespace-nowrap">
+                    {formatCurrency(saldoVisivel)}
+                  </div>
+                ) : null}
               </motion.div>
             )}
           </>

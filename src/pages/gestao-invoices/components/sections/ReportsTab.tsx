@@ -1,10 +1,18 @@
 import { useEffect, useMemo, useState } from "react";
-import { ChartBar } from "lucide-react";
 import { formatCurrency } from "../../../cambiobackoffice/formatCurrencyUtil";
 import { InvoiceData, InvoiceHistory } from "./InvoiceHistory";
 import { api } from "../../../../services/api";
 import { InvoiceHistoryReport, saoPauloDay } from "./InvoiceHistoryReport";
 import { DatePreset } from "../../../client/cadastros/catalog/FormBits";
+import SearchableSelect from "../../../client/cadastros/produtos/SearchableSelect";
+
+const STATUS_OPCOES = [
+  { id: "all", label: "Pendentes + Pagas" },
+  { id: "pending", label: "Apenas Pendentes" },
+  { id: "paid", label: "Apenas Pagas" },
+  { id: "completed", label: "Apenas Concluídas" },
+  { id: "finalized", label: "Apenas Impressas" },
+];
 
 function isFinalizedInvoice(invoice: InvoiceData) {
   return Boolean(invoice.completed && invoice.paid && invoice.labelsPrintedAt);
@@ -149,122 +157,85 @@ export function ReportsTab() {
   }, [labelQueue, markTick]);
   const finalizedCount = invoices.filter(isFinalizedInvoice).length;
 
+  const statusLabel = STATUS_OPCOES.find((item) => item.id === filters.status)?.label || "Pendentes + Pagas";
+  const supplierName = filters.supplier === "all" ? "" : suppliers.find((item) => item.id === filters.supplier)?.name || "";
+
   return (
-    <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-      <h2 className="text-xl font-semibold mb-6 text-blue-700 border-b pb-2">
-        <ChartBar className="mr-2 inline" size={18} />
-        Relatórios
-      </h2>
+    <div className="pdv-cli-page pdv-relatorio-compra">
+      <form className="pdv-cad-filters pdv-rel-filters" onSubmit={(event) => event.preventDefault()}>
+        <label>
+          Data inicial
+          <span className="pdv-date-field">
+            <input
+              type="date"
+              value={filters.startDate}
+              onChange={(event) => setFilters({ ...filters, startDate: event.target.value })}
+            />
+            <DatePreset onPick={(startDate, endDate) => setFilters({ ...filters, startDate, endDate })} />
+          </span>
+        </label>
+        <label>
+          Data final
+          <span className="pdv-date-field">
+            <input
+              type="date"
+              value={filters.endDate}
+              onChange={(event) => setFilters({ ...filters, endDate: event.target.value })}
+            />
+            <DatePreset onPick={(startDate, endDate) => setFilters({ ...filters, startDate, endDate })} />
+          </span>
+        </label>
+        <label>
+          Status
+          <SearchableSelect
+            value={filters.status === "all" ? "" : statusLabel}
+            emptyLabel="Pendentes + Pagas"
+            options={STATUS_OPCOES.filter((item) => item.id !== "all").map((item) => item.label)}
+            onChange={(next) => {
+              const achado = STATUS_OPCOES.find((item) => item.label === next);
+              pickStatus(achado?.id || "all");
+            }}
+          />
+        </label>
+        <label>
+          Fornecedor
+          <SearchableSelect
+            value={supplierName}
+            emptyLabel="Todos"
+            options={suppliers.map((item) => item.name)}
+            onChange={(next) => {
+              const achado = suppliers.find((item) => item.name === next);
+              setFilters({ ...filters, supplier: achado?.id || "all" });
+            }}
+          />
+        </label>
+      </form>
 
-      {/* Filtros */}
-      <div className="bg-gray-50 p-6 rounded-lg border mb-8">
-        <h3 className="text-lg font-medium mb-4 text-blue-700 border-b pb-2">Filtrar Relatório</h3>
-        <div className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Data Inicial</label>
-              <span className="pdv-date-field">
-                <input
-                  type="date"
-                  value={filters.startDate}
-                  onChange={(e) => setFilters({ ...filters, startDate: e.target.value })}
-                  className="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500"
-                />
-                <DatePreset onPick={(startDate, endDate) => setFilters({ ...filters, startDate, endDate })} />
-              </span>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Data Final</label>
-              <input
-                type="date"
-                value={filters.endDate}
-                onChange={(e) => setFilters({ ...filters, endDate: e.target.value })}
-                className="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500"
-              />
-            </div>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-            <select
-              value={filters.status}
-              onChange={(e) => setFilters({ ...filters, status: e.target.value })}
-              className="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500"
-            >
-              <option value="all">Pendentes + Pagas (padrão)</option>
-              <option value="pending">Apenas Pendentes</option>
-              <option value="paid">Apenas Pagas</option>
-              <option value="completed">Apenas Concluídas</option>
-              <option value="finalized">Apenas Impressas</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Fornecedor</label>
-            <select
-              value={filters.supplier}
-              onChange={(e) => setFilters({ ...filters, supplier: e.target.value })}
-              className="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500"
-            >
-              <option value="all">Todos</option>
-              {suppliers.map((supplier) => (
-                <option key={supplier.id} value={supplier.id}>
-                  {supplier.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          {/* <button
-            onClick={() => setFilters({ ...filters })}
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded"
-          >
-            Gerar Relatório
-          </button> */}
-        </div>
-      </div>
-
-      {/* Dashboard de Status */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
-        <button
-          onClick={() => pickStatus("pending")}
-          className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm text-center"
-        >
-          <h3 className="text-lg font-medium mb-2 text-blue-700">Pendentes</h3>
-          <p className="text-3xl font-bold text-yellow-600">{pendingCount}</p>
-          <p className="text-sm text-gray-600">Invoices aguardando pagamento</p>
+      <div className="pdv-compra-cards pdv-rel-cards">
+        <button type="button" className={`pdv-compra-card pdv-compra-card-abertas${filters.status === "pending" && !showReceipts ? " is-on" : ""}`} onClick={() => pickStatus("pending")}>
+          <span>Pendentes</span>
+          <strong>{pendingCount}</strong>
+          <em>Aguardando pagamento</em>
         </button>
-        <button
-          onClick={() => pickStatus("paid")}
-          className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm text-center"
-        >
-          <h3 className="text-lg font-medium mb-2 text-blue-700">Pagas</h3>
-          <p className="text-3xl font-bold text-green-600">{paidCount}</p>
-          <p className="text-sm text-gray-600">Invoices pagas</p>
+        <button type="button" className={`pdv-compra-card pdv-compra-card-concluidas${filters.status === "paid" && !showReceipts ? " is-on" : ""}`} onClick={() => pickStatus("paid")}>
+          <span>Pagas</span>
+          <strong>{paidCount}</strong>
+          <em>Invoices pagas</em>
         </button>
-        <button
-          onClick={() => pickStatus("completed")}
-          className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm text-center"
-        >
-          <h3 className="text-lg font-medium mb-2 text-blue-700">Concluídas</h3>
-          <p className="text-3xl font-bold text-blue-600">{completedCount}</p>
-          <p className="text-sm text-gray-600">Recebidas, aguardando impressão</p>
+        <button type="button" className={`pdv-compra-card pdv-compra-card-nova${filters.status === "completed" && !showReceipts ? " is-on" : ""}`} onClick={() => pickStatus("completed")}>
+          <span>Concluídas</span>
+          <strong>{completedCount}</strong>
+          <em>Aguardando impressão</em>
         </button>
-        <button
-          type="button"
-          onClick={() => setShowReceipts(true)}
-          className={`bg-white p-6 rounded-2xl border shadow-sm text-center ${
-            showReceipts ? "border-gray-900" : "border-gray-100"
-          }`}
-        >
-          <h3 className="text-lg font-medium mb-2 text-blue-700">Gerar etiquetas</h3>
-          <p className="text-3xl font-bold text-gray-900">{printCount}</p>
-          <p className="text-sm text-gray-600">Recebimento do dia, mesmo parcial</p>
+        <button type="button" className={`pdv-compra-card pdv-compra-card-estornadas${showReceipts ? " is-on" : ""}`} onClick={() => setShowReceipts(true)}>
+          <span>Etiquetas</span>
+          <strong>{printCount}</strong>
+          <em>Recebimento do dia</em>
         </button>
-        <button
-          onClick={() => pickStatus("finalized")}
-          className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm text-center"
-        >
-          <h3 className="text-lg font-medium mb-2 text-teal-700">Impressas</h3>
-          <p className="text-3xl font-bold text-teal-600">{finalizedCount}</p>
-          <p className="text-sm text-gray-600">Depois da impressão</p>
+        <button type="button" className={`pdv-compra-card pdv-rel-card-impressas${filters.status === "finalized" && !showReceipts ? " is-on" : ""}`} onClick={() => pickStatus("finalized")}>
+          <span>Impressas</span>
+          <strong>{finalizedCount}</strong>
+          <em>Depois da impressão</em>
         </button>
       </div>
 

@@ -304,6 +304,7 @@ type InvoiceHistoryReportProps = {
   printTable?: boolean;
   printInvoiceIds?: string[];
   reprint?: boolean;
+  listReady?: boolean;
   onLabelsPrinted?: (row: { invoiceId: string; invoiceNumber: string; day?: string; historyIds?: string[] }) => void | Promise<void>;
 };
 
@@ -313,6 +314,7 @@ export function InvoiceHistoryReport({
   printTable = false,
   printInvoiceIds,
   reprint = false,
+  listReady = true,
   onLabelsPrinted,
 }: InvoiceHistoryReportProps) {
   const [receiptHistoryModal, setReceiptHistoryModal] = useState<{
@@ -332,14 +334,14 @@ export function InvoiceHistoryReport({
   }>({ grouped: [], all: [] });
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [receiptEntries, setReceiptEntries] = useState<ReceiptPrintEntry[]>([]);
-  const [receiptLoading, setReceiptLoading] = useState(false);
+  const [receiptLoading, setReceiptLoading] = useState(printTable);
   const [receiptReload, setReceiptReload] = useState(0);
   const [etiquetaList, setEtiquetaList] = useState<LabelRow | null>(null);
   const [expandedDate, setExpandedDate] = useState<string | null>(null);
   const [viewingEntry, setViewingEntry] = useState<any | null>(null);
   // const [invoices, setInvoices] = useState<InvoiceData[]>([]);
   const [suppliers, setSuppliers] = useState<{ id: string; name: string }[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!printTable);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [products, setProducts] = useState<Product[]>([]);
@@ -375,7 +377,7 @@ export function InvoiceHistoryReport({
 
   const fetchInvoicesAndSuppliers = async () => {
     try {
-      setLoading(true);
+      if (!printTable) setLoading(true);
       const [invoiceResponse, supplierResponse, productsResponse, exchangeResponse] = await Promise.all([
         api.get("/invoice/get"),
         api.get("/invoice/supplier"),
@@ -390,10 +392,11 @@ export function InvoiceHistoryReport({
     } catch (error) {
       console.error("Erro ao buscar dados:", error);
     } finally {
-      setLoading(false);
+      if (!printTable) setLoading(false);
     }
   };
   useEffect(() => {
+    if (printTable) return;
     fetchInvoicesAndSuppliers();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only fetch
   }, []);
@@ -866,8 +869,8 @@ export function InvoiceHistoryReport({
         </div>
         <button
           onClick={() => {
-            fetchInvoicesAndSuppliers();
             if (printTable) setReceiptReload((value) => value + 1);
+            else fetchInvoicesAndSuppliers();
           }}
           className="flex justify-center items-center"
         >
@@ -876,8 +879,8 @@ export function InvoiceHistoryReport({
       </h2>
 
       <div className="iv-linhas overflow-x-auto">
-        {loading || (printTable && receiptLoading) ? (
-          <p className="text-center text-gray-500 py-6">Carregando invoices...</p>
+        {(printTable ? receiptLoading || !listReady : loading) ? (
+          <p className="text-center text-gray-500 py-6">{printTable ? "Carregando etiquetas..." : "Carregando invoices..."}</p>
         ) : printTable ? (
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
@@ -957,6 +960,7 @@ export function InvoiceHistoryReport({
                                 invoices.find((item) => item.id === row.invoiceId) ||
                                 invoices.find((item) => String(item.number) === String(row.invoiceNumber));
                               if (!invoice) return;
+                              if (printTable && products.length === 0) fetchInvoicesAndSuppliers();
                               setEtiquetaList(row);
                               openModal(invoice, false);
                             }}

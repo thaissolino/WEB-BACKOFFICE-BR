@@ -466,7 +466,7 @@ export function ProductFilterForm({
           ) : null}
         </div> : null}
         <button className={`pdv-prod-btn pdv-prod-btn-blue${busy ? " is-busy" : ""}`} type="submit" aria-busy={busy || undefined}>
-          <Search size={15} strokeWidth={2.2} aria-hidden="true" />
+          {busy ? <span className="pdv-cad-spin" aria-hidden="true" /> : <Search size={15} strokeWidth={2.2} aria-hidden="true" />}
           Buscar
         </button>
       </div>

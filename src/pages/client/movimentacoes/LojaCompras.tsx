@@ -3,6 +3,8 @@ import { useLocation, useNavigate } from "react-router-dom"
 import { CheckCircle2, Clock, Plus, RotateCcw, Search, UserRound } from "lucide-react"
 import { api, parseError } from "../../../services/api"
 import { CadastroFrame } from "../cadastros/CadastroShell"
+import { AVISO_ESTORNAR_COMPRA } from "../cadastros/usuarios/groupEvents"
+import { usePodeEstornarCompra } from "../cadastros/usuarios/useVerCusto"
 import PdvOverlayModal from "../dashboard/PdvOverlayModal"
 import { EMPTY_FORNECEDOR, FornecedorFields, nomeDoFornecedor, type FornecedorPayload } from "../cadastros/fornecedores/FornecedorForm"
 import type { PdvSupplier } from "../cadastros/fornecedores/types"
@@ -138,6 +140,8 @@ export function NovasCompras() {
   const [compras, setCompras] = useState<Compra[]>(() => comprasCache ?? [])
   const [aviso, setAviso] = useState(() => (comprasCache ? "" : "Carregando..."))
   const [modal, setModal] = useState(false)
+  const podeEstornar = usePodeEstornarCompra()
+  const podeMarcar = faixa === "concluidas" && podeEstornar === true
 
   function aplicar(rows: Compra[]) {
     setCompras(rows)
@@ -167,6 +171,10 @@ export function NovasCompras() {
   const visiveis = grupos[faixa]
 
   async function estornar(compra: Compra) {
+    if (podeEstornar !== true) {
+      setAviso(AVISO_ESTORNAR_COMPRA)
+      return
+    }
     if (!window.confirm(`Estornar a compra ${rotuloPedido(compra.code)}?`)) return
     try {
       await api.post(`/clients/compras/${compra.id}/estornar`)
@@ -215,6 +223,9 @@ export function NovasCompras() {
             </button>
           </div>
           {aviso ? <p className="pdv-compra-aviso">{aviso}</p> : null}
+          {faixa === "concluidas" && podeEstornar === false ? (
+            <p className="pdv-compra-aviso">{AVISO_ESTORNAR_COMPRA}</p>
+          ) : null}
           {!aviso && visiveis.length === 0 ? <p className="pdv-compra-aviso">Nenhuma compra nesta lista.</p> : null}
           {visiveis.length > 0 ? (
             <div className="pdv-cad-table-wrap">
@@ -250,7 +261,7 @@ export function NovasCompras() {
                         <td>{reais(compra.total)}</td>
                         <td>{statusTexto(compra.status)}</td>
                         <td>
-                          {compra.status === "concluida" ? (
+                          {podeMarcar && compra.status === "concluida" ? (
                             <button
                               type="button"
                               className="pdv-cad-btn"

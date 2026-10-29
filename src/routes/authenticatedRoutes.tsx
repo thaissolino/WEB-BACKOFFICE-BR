@@ -1,6 +1,7 @@
 import { Navigate, Outlet, Route, Routes, useLocation } from "react-router-dom";
 import { Layout as BackofficeLayout } from "../pages/backoffice/Layout/base";
 import { SignIn as BackofficeSignIn } from "../pages/backoffice/SignIn";
+import { BackofficeForgotPassword } from "../pages/backoffice/SignIn/ForgotPassword";
 import { SessionExpiredBackoffice } from "../pages/backoffice/SessionExpiredBackoffice";
 import { useAuthBackoffice } from "../hooks/authBackoffice";
 import { Logout } from "../pages/backoffice/Logout";
@@ -80,6 +81,7 @@ import GestorVendasConcluidas from "../pages/gestor/GestorVendasConcluidas";
 import GestorEtiquetasEntrada from "../pages/gestor/GestorEtiquetasEntrada";
 import DreGerencial from "../pages/gestor/DreGerencial";
 import ItensVendas from "../pages/gestor/ItensVendas";
+import { AuditoriaEstoque } from "../pages/client/relatorios/RelatorioScreen";
 import FormaPagamentoForm from "../pages/client/cadastros/financeiro/FormaPagamentoForm";
 import CaixaPage, { PlanoContaForm } from "../pages/client/cadastros/financeiro/CaixaPage";
 import { PayList, PlanList } from "../pages/client/cadastros/catalogLists";
@@ -96,6 +98,8 @@ import {
   RelatorioCaixaClientes,
   VendasAbertas,
   VendasConcluidas,
+  VendasEstornadas,
+  VendasTodas,
 } from "../pages/client/movimentacoes/MovPages";
 import TrocarSenhaCliente from "../pages/client/TrocarSenha";
 import CreateCommercialClient from "../pages/commercial-clients/CreateCommercialClient";
@@ -262,6 +266,7 @@ export function Router() {
         }
       >
         <Route path="signin/backoffice" element={<BackofficeSignIn />} />
+        <Route path="signin/backoffice/recuperar" element={<BackofficeForgotPassword />} />
       </Route>
 
       <Route
@@ -326,8 +331,10 @@ export function Router() {
           <Route path="gestao/compras" element={<InvocesManagement area="compras" />} />
           <Route path="gestao/movimentacoes/vendas/pre" element={<PreVendas />} />
           <Route path="gestao/movimentacoes/vendas/entregas" element={<PainelEntregas />} />
+          <Route path="gestao/movimentacoes/vendas/todas" element={<VendasTodas />} />
           <Route path="gestao/movimentacoes/vendas/abertas" element={<VendasAbertas />} />
           <Route path="gestao/movimentacoes/vendas/concluidas" element={<VendasConcluidas />} />
+          <Route path="gestao/movimentacoes/vendas/estornadas" element={<VendasEstornadas />} />
           <Route path="gestao/movimentacoes/financeiro/receber" element={<ContasReceber />} />
           <Route path="gestao/movimentacoes/financeiro/pagar" element={<ContasPagar />} />
           <Route path="gestao/movimentacoes/financeiro/fluxo" element={<FluxoCaixa />} />
@@ -343,6 +350,7 @@ export function Router() {
           <Route path="gestao/caixas" element={<InvocesManagement area="caixas" />} />
           <Route path="gestao/relatorios/dre" element={<DreGerencial />} />
           <Route path="gestao/relatorios/itens-vendas" element={<ItensVendas />} />
+          <Route path="gestao/relatorios/auditoria/estoque" element={<AuditoriaEstoque />} />
           <Route path="invoices-management" element={<InvocesManagement area="compras" />} />
           <Route path="vendas-concluidas" element={<GestorVendasConcluidas />} />
           <Route path="etiquetas-entrada" element={<GestorEtiquetasEntrada />} />

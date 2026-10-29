@@ -5,7 +5,7 @@ import { DatePreset } from "../cadastros/catalog/FormBits"
 import SearchableSelect from "../cadastros/produtos/SearchableSelect"
 import { todayIso } from "../../../utils/todayIso"
 
-const COLUNA_NUMERO = ["cod", "qtd", "quant", "valor", "preco", "total", "data", "ordem", "numero", "subtotal", "saldo", "estoque", "unit"]
+const COLUNA_NUMERO = ["cod", "qtd", "quant", "valor", "preco", "custo", "comiss", "total", "data", "ordem", "numero", "subtotal", "saldo", "estoque", "unit", "movimentou"]
 
 export function colunaNumero(titulo: string) {
   const texto = titulo.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase()
@@ -15,6 +15,17 @@ export function colunaNumero(titulo: string) {
 function colunaVenda(titulo: string) {
   const texto = titulo.normalize("NFD").replace(/\p{M}/gu, "").trim().toLowerCase()
   return texto === "venda"
+}
+
+function colunaCentro(titulo: string) {
+  const texto = titulo.normalize("NFD").replace(/\p{M}/gu, "").trim().toLowerCase()
+  return texto === "visualizar"
+}
+
+function classeDaColuna(titulo: string) {
+  if (colunaNumero(titulo)) return "pdv-col-num"
+  if (colunaCentro(titulo)) return "pdv-col-centro"
+  return undefined
 }
 
 export type FilterField = {
@@ -37,6 +48,7 @@ export type FilterPageProps = {
   totals?: string[]
   onRowClick?: (index: number) => void
   saleLink?: (rowIndex: number) => void
+  renderCell?: (rowIndex: number, columnIndex: number, value: string) => ReactNode | null | undefined
   hideList?: boolean
   expandedIndex?: number | null
   expanded?: ReactNode
@@ -52,7 +64,22 @@ export type FilterPageProps = {
   markAll?: ReactNode
   pageClass?: string
   filtersClass?: string
+  initialValues?: Record<string, string>
+  foot?: ReactNode
+  busy?: boolean
   onSearch?: (values: Record<string, string>) => void
+}
+
+function valoresDoFiltro(fields: FilterField[], initial?: Record<string, string>) {
+  const next: Record<string, string> = {}
+  for (const field of fields) {
+    if (initial && Object.prototype.hasOwnProperty.call(initial, field.key)) {
+      next[field.key] = initial[field.key]
+      continue
+    }
+    next[field.key] = field.kind === "date" ? todayIso() : field.kind === "select" || field.kind === "search" ? field.options?.[0] || "" : ""
+  }
+  return next
 }
 
 export default function FilterPage({
@@ -68,6 +95,7 @@ export default function FilterPage({
   totals,
   onRowClick,
   saleLink,
+  renderCell,
   hideList = false,
   expandedIndex = null,
   expanded,
@@ -83,18 +111,16 @@ export default function FilterPage({
   markAll,
   pageClass = "",
   filtersClass = "",
+  initialValues,
+  foot,
+  busy = false,
   onSearch,
 }: FilterPageProps) {
   const navigate = useNavigate()
   const { pathname } = useLocation()
   const dateKeys = fields.filter((field) => field.kind === "date").map((field) => field.key)
-  const [values, setValues] = useState<Record<string, string>>(() => {
-    const next: Record<string, string> = {}
-    for (const field of fields) {
-      next[field.key] = field.kind === "date" ? todayIso() : field.kind === "select" || field.kind === "search" ? field.options?.[0] || "" : ""
-    }
-    return next
-  })
+  const colunas = columns.length + (rowMark ? 1 : 0) + (rowLead ? 1 : 0) + (closedAction ? 1 : 0)
+  const [values, setValues] = useState<Record<string, string>>(() => valoresDoFiltro(fields, initialValues))
 
   function setValue(key: string, value: string) {
     setValues((current) => ({ ...current, [key]: value }))
@@ -110,10 +136,7 @@ export default function FilterPage({
   }
 
   function clearValues() {
-    const next: Record<string, string> = {}
-    for (const field of fields) {
-      next[field.key] = field.kind === "date" ? todayIso() : field.kind === "select" || field.kind === "search" ? field.options?.[0] || "" : ""
-    }
+    const next = valoresDoFiltro(fields, initialValues)
     setValues(next)
     onSearch?.(next)
   }
@@ -154,7 +177,7 @@ export default function FilterPage({
               ))}
             </div>
           ) : null}
-          {hideList || fields.length === 0 ? null : <form className={["pdv-cad-filters", filtersClass].filter(Boolean).join(" ")} onSubmit={onSubmit}>
+          {hideList || fields.length === 0 ? null : <form className={["pdv-cad-filters", filtersClass].filter(Boolean).join(" ")} onSubmit={onSubmit} noValidate>
             {fields.map((field) => (
               <label key={field.key}>
                 {field.label}
@@ -183,18 +206,21 @@ export default function FilterPage({
             ))}
             <div className="pdv-cad-filters-go">
               <button className="pdv-cad-btn" type="button" onClick={clearValues}>Limpar</button>
-              <button className="pdv-cad-btn pdv-cad-btn-blue" type="submit">{submitLabel}</button>
+              <button className={`pdv-cad-btn pdv-cad-btn-blue${busy ? " is-busy" : ""}`} type="button" onClick={() => onSearch?.(values)}>
+                {busy ? <span className="pdv-cad-spin" aria-hidden="true" /> : null}
+                {submitLabel}
+              </button>
             </div>
           </form>}
           {extra}
-          {hideList ? null : <div className="pdv-cad-table-wrap">
+          {hideList ? null : <div className={`pdv-cad-table-wrap${busy ? " pdv-prod-refreshing" : ""}`}>
             <table className="pdv-cad-table">
               <thead>
                 <tr>
                   {rowMark ? <th className="pdv-col-mark">{markAll}</th> : null}
                   {rowLead ? <th className={rowLeadCenter ? "pdv-col-centro" : undefined}>{rowLeadLabel}</th> : null}
                   {columns.map((column) => (
-                    <th key={column} className={colunaNumero(column) ? "pdv-col-num" : undefined}>{column}</th>
+                    <th key={column} className={classeDaColuna(column)}>{column}</th>
                   ))}
                   {closedAction ? <th className={closedCenter ? "pdv-col-centro" : closedMark ? "pdv-col-mark" : undefined}>{closedLabel}</th> : null}
                 </tr>
@@ -216,9 +242,11 @@ export default function FilterPage({
                       {rowLead ? (
                         <td className={rowLeadCenter ? "pdv-col-centro" : "pdv-cad-row-action"}>{rowLead(index)}</td>
                       ) : null}
-                      {row.map((cell, cellIndex) => (
-                        <td key={cellIndex} className={colunaNumero(columns[cellIndex] || "") ? "pdv-col-num" : undefined}>
-                          {saleLink && colunaVenda(columns[cellIndex] || "") ? (
+                      {row.map((cell, cellIndex) => {
+                        const custom = renderCell?.(index, cellIndex, cell)
+                        return (
+                        <td key={cellIndex} className={classeDaColuna(columns[cellIndex] || "")}>
+                          {custom != null ? custom : saleLink && colunaVenda(columns[cellIndex] || "") ? (
                             <button className="iv-venda-abre" type="button" onClick={(event) => { event.stopPropagation(); saleLink(index) }}>{cell}</button>
                           ) : cellIndex === 0 && onRowClick ? (
                             <span className="pdv-cad-code">
@@ -227,7 +255,8 @@ export default function FilterPage({
                             </span>
                           ) : cell}
                         </td>
-                      ))}
+                        )
+                      })}
                       {closedAction ? (
                         <td className={closedCenter ? "pdv-col-centro" : closedMark ? "pdv-col-mark" : "pdv-cad-row-action"}>{closedAction(index)}</td>
                       ) : null}
@@ -239,6 +268,11 @@ export default function FilterPage({
                     ) : null}
                   </Fragment>
                 ))}
+                {rows?.length ? null : (
+                  <tr>
+                    <td className="pdv-cad-vazio" colSpan={colunas}>{hint || "Nenhum registro para o filtro atual."}</td>
+                  </tr>
+                )}
               </tbody>
               {totals && rows?.length ? (
                 <tfoot>
@@ -254,11 +288,8 @@ export default function FilterPage({
               ) : null}
             </table>
           </div>}
-          {hideList ? null : rows && rows.length ? (
-            hint ? <p className="pdv-cad-kicker">{hint}</p> : null
-          ) : hideList ? null : (
-            <p className="pdv-cad-kicker">{hint || "Nenhum registro para o filtro atual."}</p>
-          )}
+          {foot}
+          {hideList || !rows?.length || !hint ? null : <p className="pdv-cad-kicker">{hint}</p>}
         </div>
       </section>
     </CadastroFrame>

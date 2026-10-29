@@ -178,6 +178,9 @@ export function SignIn() {
       </form>
 
       <div className="adm-signin-foot">
+        <Link className="adm-signin-link" to="/signin/backoffice/recuperar">
+          Esqueci minha senha
+        </Link>
         <Link className="adm-signin-link" to="/signin/lojista">
           Acesso do lojista
         </Link>

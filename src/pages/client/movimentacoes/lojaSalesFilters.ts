@@ -10,6 +10,7 @@ export type SaleFilters = {
   obs?: string
   forma?: string
   estornadas?: boolean
+  vendedor?: string
 }
 
 export const EMPTY_SALE_FILTERS: SaleFilters = {
@@ -54,6 +55,7 @@ export function filtroVendaAtivo(filters: SaleFilters) {
     || filters.nome.trim()
     || (filters.obs || "").trim()
     || (filters.forma || "").trim()
+    || (filters.vendedor || "").trim()
     || (filters.caixa.trim() && filters.caixa.trim() !== "Todos")
     || filters.estornadas === false,
   )
@@ -66,12 +68,14 @@ export function filterLojaSales(sales: LojaPdvSale[], filters: SaleFilters) {
   const caixa = filters.caixa.trim()
   const obs = (filters.obs || "").trim().toLowerCase()
   const forma = (filters.forma || "").trim().toLowerCase()
+  const vendedor = (filters.vendedor || "").trim().toLowerCase()
   const porData = Boolean(filters.inicio || filters.fim)
   return sales.filter((sale) => {
     if (filters.estornadas === false && sale.status === "estornada") return false
     const code = String(sale.code ?? "").toLowerCase()
     if (cod && !code.includes(digitos || cod) && !code.includes(cod)) return false
     if (nome && !String(sale.customerName ?? "").toLowerCase().includes(nome)) return false
+    if (vendedor && !String(sale.sellerName ?? "").toLowerCase().includes(vendedor)) return false
     if (obs && !String(sale.notes || "").toLowerCase().includes(obs)) return false
     const payments = Array.isArray(sale.payments) ? sale.payments : []
     if (forma && !payments.some((pay) => String(pay?.method || "").trim().toLowerCase() === forma)) return false

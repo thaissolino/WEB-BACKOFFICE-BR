@@ -1711,8 +1711,25 @@
   background: #1e88e5;
 }
 
-.pdv-prod-btn.is-busy svg {
+.pdv-prod-btn.is-busy svg,
+.pdv-cad-btn.is-busy svg {
   animation: pdv-prod-spin 0.7s linear infinite;
+}
+
+.pdv-cad-btn.is-busy {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pdv-cad-spin {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  border-top-color: #fff;
+  animation: pdv-prod-spin 0.7s linear infinite;
+  flex: 0 0 auto;
 }
 
 @keyframes pdv-prod-spin {
@@ -8146,6 +8163,14 @@
   padding-left: 22px;
 }
 
+.pdv-cad-table td.pdv-cad-vazio,
+.pdv-cli-page .pdv-cad-table td.pdv-cad-vazio {
+  padding: 18px 22px;
+  text-align: center;
+  color: #6f675e;
+  border-bottom: 0;
+}
+
 .pdv-cli-page .pdv-cad-table th.pdv-col-mark,
 .pdv-cli-page .pdv-cad-table td.pdv-col-mark,
 .pdv-cli-page .pdv-cad-table th.pdv-col-centro,
@@ -8338,6 +8363,25 @@
   -webkit-text-fill-color: #1c140c !important;
 }
 
+.pdv-cli-page .pdv-cad-table th.pdv-col-centro,
+.pdv-cli-page .pdv-cad-table td.pdv-col-centro,
+.pdv-chrome .gestao-page .pdv-cli-page .pdv-cad-table th.pdv-col-centro,
+.pdv-chrome .gestao-page .pdv-cli-page .pdv-cad-table td.pdv-col-centro {
+  text-align: center !important;
+}
+
+.pdv-cli-page .pdv-cad-table td.pdv-col-centro .venda-lupa,
+.pdv-chrome .gestao-page .pdv-cli-page .pdv-cad-table td.pdv-col-centro button.venda-lupa {
+  display: flex !important;
+  width: 28px !important;
+  height: 28px !important;
+  margin: 0 auto !important;
+  padding: 0 !important;
+  position: static;
+  left: auto;
+  transform: none;
+}
+
 .pdv-cli-page .venda-gear-aviso {
   border-radius: 14px;
   background: #e8f5e9;
@@ -8359,6 +8403,35 @@
 .pdv-root[data-surface="cream"] .pdv-main .pdv-venda-round button.venda-gear-item,
 .pdv-root[data-surface="cream"] .pdv-main .pdv-venda-round button.venda-gear-item[type="button"] {
   border-radius: 12px !important;
+}
+
+.venda-gear-tip {
+  position: relative;
+  display: block;
+}
+
+.venda-gear-tip-box {
+  display: none;
+  position: absolute;
+  right: calc(100% + 8px);
+  top: 50%;
+  transform: translateY(-50%);
+  width: 250px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: #fffdf8;
+  border: 1px solid #ddd4c6;
+  color: #1a1511;
+  font-size: 13px;
+  line-height: 1.35;
+  text-align: left;
+  box-shadow: 0 10px 28px rgba(28, 24, 20, 0.16);
+  z-index: 2;
+}
+
+.venda-gear-tip:hover .venda-gear-tip-box,
+.venda-gear-tip:focus-within .venda-gear-tip-box {
+  display: block;
 }
 
 .pdv-root[data-surface="cream"] .pdv-main .pdv-cli-page button.pdv-cad-btn,
@@ -8913,11 +8986,11 @@
 .pdv-main-form .pdv-cli-page:has(.pdv-compra-sheet) {
   flex: 1 1 auto;
   min-height: 0;
-  overflow: hidden;
+  overflow: auto;
 }
 
 .pdv-main.pdv-main-form:has(.pdv-compra-sheet) {
-  overflow: hidden;
+  overflow: auto;
 }
 
 .cli-edit {
@@ -9188,7 +9261,7 @@
 .pdv-compra-pdv {
   display: flex;
   flex-direction: column;
-  flex: 1 1 auto;
+  flex: 0 0 auto;
   min-height: 0;
   padding: 12px 16px 10px;
 }
@@ -9197,15 +9270,16 @@
 .pdv-cli-page .pdv-cad-sheet.pdv-compra-sheet {
   display: flex;
   flex-direction: column;
-  flex: 1 1 auto;
+  flex: 0 0 auto;
   min-height: 0;
   overflow: hidden;
   gap: 12px;
-  padding: 0;
-  border-radius: 0;
-  border: 0;
-  background: transparent;
-  height: 100%;
+  padding: 16px 16px 12px;
+  border-radius: 22px;
+  border: 1px solid #ddd4c6;
+  background: #fffdf8;
+  height: auto;
+  overflow: visible;
 }
 
 .pdv-compra-head {
@@ -9214,7 +9288,7 @@
   gap: 14px;
   flex: 0 0 auto;
   min-height: 52px;
-  padding: 0 12px;
+  padding: 0 4px;
   background: transparent;
   border: 0;
 }
@@ -9223,11 +9297,11 @@
   display: flex;
   flex-direction: column;
   gap: 14px;
-  flex: 1 1 auto;
+  flex: 0 1 auto;
   min-height: 0;
   overflow-x: hidden;
   overflow-y: auto;
-  padding: 4px 12px 12px;
+  padding: 0;
   background: transparent;
   border: 0;
 }
@@ -9241,13 +9315,14 @@
   max-width: 100%;
   min-width: 0;
   box-sizing: border-box;
-  border: 1px solid #c4b8a6;
-  border-radius: 18px;
-  background: #fff;
+  border: 1px solid #ddd4c6;
+  border-radius: 22px;
+  background: #fffdf8;
 }
 
 .pdv-compra-head h1 {
   margin: 0;
+  color: #1a1511;
   font-size: 0.98rem;
   font-weight: 800;
   letter-spacing: 0.02em;
@@ -9301,8 +9376,9 @@
   flex-direction: column;
   gap: 8px;
   flex: 0 0 auto;
-  padding: 10px 16px;
+  padding: 12px 14px;
   overflow: visible;
+  background: #f4f1ea;
 }
 
 .pdv-compra-search-bar {
@@ -9310,9 +9386,9 @@
   align-items: center;
   gap: 8px;
   margin: 0;
-  padding: 0;
-  border: 0;
-  border-radius: 0;
+  padding: 0 8px 0 14px;
+  border: 1px solid #cfc6b8;
+  border-radius: 999px;
   background: #fff;
 }
 
@@ -9326,7 +9402,7 @@
 
 .pdv-compra-search-bar svg {
   flex: none;
-  color: #8b3d12;
+  color: #1a1511;
 }
 
 .pdv-compra-search-bar input {
@@ -9405,7 +9481,8 @@
   top: 0;
   z-index: 1;
   background: #f4f1ea;
-  border-bottom: 2px solid #fff;
+  color: #1a1511;
+  border-bottom: 1px solid #ddd4c6;
 }
 
 .pdv-compra-head-actions {
@@ -9422,7 +9499,7 @@
   flex-direction: column;
   min-height: 0;
   padding: 0;
-  background: #fff;
+  background: #fffdf8;
 }
 
 .pdv-compra-topo,
@@ -9458,7 +9535,7 @@
   overflow: visible;
   border: 0 !important;
   border-radius: 0 !important;
-  background: #fff !important;
+  background: #fffdf8 !important;
   box-shadow: none;
 }
 
@@ -9471,7 +9548,7 @@
   overflow: visible;
   border: 0 !important;
   border-radius: 0 !important;
-  background: #fff !important;
+  background: #fffdf8 !important;
   box-shadow: none;
 }
 
@@ -9488,13 +9565,13 @@
 .pdv-cli-page .pdv-compra-pdv .pdv-cad-table tbody tr:nth-child(odd),
 .pdv-cli-page .pdv-compra-pdv .pdv-cad-table tbody tr:nth-child(even),
 .pdv-cli-page .pdv-compra-pdv .pdv-cad-table tbody td {
-  background: #fff;
+  background: #fffdf8;
 }
 
 .pdv-cli-page .pdv-compra-pdv .pdv-cad-table tbody tr,
 .pdv-cli-page .pdv-compra-pdv .pdv-cad-table tbody tr:nth-child(odd),
 .pdv-cli-page .pdv-compra-pdv .pdv-cad-table tbody tr:nth-child(even) {
-  background: #fff;
+  background: #fffdf8;
 }
 
 .pdv-cli-page .pdv-compra-pdv .pdv-cad-table th {
@@ -9514,12 +9591,12 @@
   justify-content: center;
   gap: 12px 22px;
   flex: 0 0 auto;
-  margin: 0 12px 12px;
-  padding: 10px 18px;
-  background: #fff;
+  margin: 0;
+  padding: 12px 18px;
+  background: #f4f1ea;
   color: #1a1511;
-  border: 1px solid #c4b8a6;
-  border-radius: 18px;
+  border: 1px solid #ddd4c6;
+  border-radius: 22px;
 }
 
 .pdv-compra-foot-stats {
@@ -9545,7 +9622,7 @@
   font-weight: 800;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: #8b3d12;
+  color: #1a1511;
 }
 
 .pdv-compra-foot-stats b,
@@ -9565,7 +9642,7 @@
   font-weight: 800;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: #8b3d12;
+  color: #1a1511;
 }
 
 .pdv-compra-foot-pay select,
@@ -9735,6 +9812,7 @@
   width: 100%;
   margin: 0;
   padding: 12px 16px;
+  background: #f4f1ea;
 }
 
 .pdv-compra-extra label {
@@ -9763,7 +9841,7 @@
   max-width: 11rem;
   min-height: 38px;
   padding: 6px 12px;
-  border: 1px solid #ddd4c6;
+  border: 1px solid #cfc6b8;
   border-radius: 999px;
   background: #fff;
   color: #1a1511;
@@ -9820,11 +9898,17 @@
   flex: 0 0 auto;
   margin: 0;
   padding: 12px 16px;
+  background: #f4f1ea;
 }
 
-.pdv-compra-obs textarea {
+.pdv-compra-obs textarea,
+.pdv-compra-pdv .pdv-compra-obs textarea,
+.pdv-root[data-surface="cream"] .pdv-main .pdv-compra-obs textarea {
   min-height: 56px;
   resize: vertical;
+  border: 1px solid #cfc6b8 !important;
+  border-radius: 18px !important;
+  background: #fff !important;
 }
 
 .pdv-compra-obs textarea:focus,
@@ -9877,7 +9961,7 @@
   padding: 8px 10px;
   vertical-align: middle;
   text-align: left;
-  border-bottom: 1px solid #e4d9c8;
+  border-bottom: 1px solid #ddd4c6;
 }
 
 .pdv-compra-tabela th:first-child,
@@ -10758,6 +10842,32 @@
   border-radius: 999px !important;
 }
 
+.pdv-cli-page .pdv-cad-sheet.pdv-cad-sheet-wide {
+  overflow: visible;
+}
+
+.pdv-cli-page .pdv-cad-filters-go {
+  position: relative;
+  z-index: 80;
+}
+
+.pdv-cli-page .pdv-prod-select[data-open="true"] {
+  z-index: 40;
+}
+
+.gestao-page .pdv-cli-page .pdv-prod-overlay {
+  z-index: 50;
+  background: #fffdf8 !important;
+  color: #1a1511 !important;
+  border: 1px solid #ddd4c6 !important;
+}
+
+.gestao-page .pdv-cli-page .pdv-prod-opt {
+  background: #fffdf8 !important;
+  color: #1a1511 !important;
+  -webkit-text-fill-color: #1a1511 !important;
+}
+
 .pdv-chrome .gestao-page .pdv-cli-page .pdv-prod-overlay-search input,
 .pdv-chrome:not([data-theme="light"]) .gestao-page .pdv-cli-page .pdv-prod-overlay-search input {
   min-height: 30px !important;
@@ -10877,10 +10987,14 @@
 .pdv-chrome .gestao-page .pdv-cli-page .pdv-cad-table td.pdv-col-num,
 .pdv-chrome .gestao-page .pdv-cli-page .pdv-cad-table th.pdv-col-mark,
 .pdv-chrome .gestao-page .pdv-cli-page .pdv-cad-table td.pdv-col-mark,
+.pdv-chrome .gestao-page .pdv-cli-page .pdv-cad-table th.pdv-col-centro,
+.pdv-chrome .gestao-page .pdv-cli-page .pdv-cad-table td.pdv-col-centro,
 .pdv-chrome:not([data-theme="light"]) .gestao-page .pdv-cli-page .pdv-cad-table th.pdv-col-num,
 .pdv-chrome:not([data-theme="light"]) .gestao-page .pdv-cli-page .pdv-cad-table td.pdv-col-num,
 .pdv-chrome:not([data-theme="light"]) .gestao-page .pdv-cli-page .pdv-cad-table th.pdv-col-mark,
-.pdv-chrome:not([data-theme="light"]) .gestao-page .pdv-cli-page .pdv-cad-table td.pdv-col-mark {
+.pdv-chrome:not([data-theme="light"]) .gestao-page .pdv-cli-page .pdv-cad-table td.pdv-col-mark,
+.pdv-chrome:not([data-theme="light"]) .gestao-page .pdv-cli-page .pdv-cad-table th.pdv-col-centro,
+.pdv-chrome:not([data-theme="light"]) .gestao-page .pdv-cli-page .pdv-cad-table td.pdv-col-centro {
   text-align: center !important;
 }
 
@@ -10930,5 +11044,194 @@
 
 .pdv-desp-ficha dd .pdv-cad-btn {
   max-width: 100%;
+}
+
+.pdv-aud-paginas {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 14px 8px 4px;
+  color: #1a1511;
+  font-size: 0.92rem;
+}
+
+.pdv-aud-paginas .pdv-cad-btn:disabled {
+  opacity: 0.4;
+}
+
+.pdv-aud-vista-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 400;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(26, 21, 17, 0.48);
+}
+
+.pdv-aud-vista {
+  width: min(980px, 100%);
+  max-height: min(90vh, 860px);
+  display: flex;
+  flex-direction: column;
+  overflow: auto;
+  border: 1px solid #ddd4c6;
+  border-radius: 22px;
+  background: #fffdf8;
+  color: #1a1511;
+  box-shadow: 0 24px 60px rgba(28, 20, 12, 0.22);
+}
+
+.pdv-aud-vista-head {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 16px 14px 22px;
+  background: #f4f1ea;
+  border-bottom: 1px solid #ddd4c6;
+  border-radius: 22px 22px 0 0;
+}
+
+.pdv-aud-vista-head h2 {
+  margin: 0;
+  color: #1a1511;
+  font-size: 1.15rem;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+}
+
+.pdv-aud-vista-doc {
+  margin: 4px 0 0;
+  color: #1a1511;
+  font-size: 0.92rem;
+  font-weight: 750;
+}
+
+.pdv-aud-vista-head p {
+  margin: 4px 0 0;
+  color: #6b5e52;
+  font-size: 0.86rem;
+}
+
+.pdv-aud-vista-x {
+  margin-left: auto;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid #cfc6b8;
+  border-radius: 999px;
+  background: #fff;
+  color: #1a1511;
+  cursor: pointer;
+}
+
+.pdv-aud-vista-erro {
+  margin: 16px 22px 0;
+  color: #1a1511;
+}
+
+.pdv-aud-vista-fatos {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+  margin: 0;
+  padding: 16px 22px 4px;
+}
+
+.pdv-aud-vista-fatos p {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  margin: 0;
+  padding: 10px 14px;
+  border: 1px solid #ddd4c6;
+  border-radius: 16px;
+  background: #fff;
+}
+
+.pdv-aud-vista-fatos span {
+  color: #6b5e52;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.pdv-aud-vista-fatos b {
+  overflow: hidden;
+  color: #1a1511;
+  font-weight: 750;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pdv-aud-vista-grade {
+  margin: 14px 22px 8px;
+  overflow: auto;
+  border: 1px solid #ddd4c6;
+  border-radius: 16px;
+  background: #fff;
+}
+
+.pdv-aud-vista-grade table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.pdv-aud-vista-grade th,
+.pdv-aud-vista-grade td {
+  padding: 10px 14px;
+  border-bottom: 1px solid #f4f1ea;
+  color: #1a1511;
+  text-align: left;
+}
+
+.pdv-aud-vista-grade th {
+  background: #f4f1ea;
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.pdv-aud-vista-grade th.num,
+.pdv-aud-vista-grade td.num {
+  text-align: center;
+}
+
+.pdv-aud-vista-grade td.cod {
+  padding-left: 22px;
+  font-weight: 700;
+}
+
+.pdv-aud-vista-grade td small {
+  display: block;
+  margin-top: 2px;
+  color: #6b5e52;
+  font-size: 0.78rem;
+}
+
+.pdv-aud-vista-totais {
+  display: flex;
+  justify-content: flex-end;
+  gap: 18px;
+  margin-top: auto;
+  padding: 12px 22px 18px;
+}
+
+.pdv-aud-vista-totais p {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0;
+  padding: 10px 16px;
+  border-radius: 999px;
+  background: #f4f1ea;
+  color: #1a1511;
+}
+
+.pdv-aud-vista-totais span {
+  color: #6b5e52;
+  font-size: 0.82rem;
+  font-weight: 700;
 }
 

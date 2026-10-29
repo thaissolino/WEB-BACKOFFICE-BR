@@ -9,8 +9,12 @@ import { formatMoneyRs, produtoRotulo } from "../cadastros/produtos/types"
 import { carregarTextosRecibo, destinatarioPorNome, ReciboNota, type ReciboDestinatario, type TextoImpressao } from "../pdv/ReciboNota"
 import { emitenteDaLoja } from "../pdv/emitenteLoja"
 import { ALL_SALE_FILTERS, EMPTY_SALE_FILTERS, filterLojaSales, filtroVendaAtivo, mesAtualSaleFilters, type SaleFilters } from "./lojaSalesFilters"
+import { listCatalog } from "../cadastros/catalog/catalogApi"
+import { categoryFromCatalog } from "../cadastros/produtos/categoryModel"
 import { DatePreset } from "../cadastros/catalog/FormBits"
 import PdvOverlayModal from "../dashboard/PdvOverlayModal"
+import { AVISO_ESTORNAR_VENDA } from "../cadastros/usuarios/groupEvents"
+import { usePodeEstornarVenda } from "../cadastros/usuarios/useVerCusto"
 
 export type LojaPdvLine = {
   productId: string
@@ -51,7 +55,9 @@ export type LojaPdvSale = {
 }
 
 export async function listLojaSales(status?: "espera" | "finalizada" | "estornada") {
-  const { data } = await api.get("/clients/pdv-vendas", { params: status ? { status } : undefined })
+  const { data } = await api.get("/clients/pdv-vendas", {
+    params: { ...(status ? { status } : {}), _t: Date.now() },
+  })
   return (data.sales || []) as LojaPdvSale[]
 }
 
@@ -61,7 +67,7 @@ async function listVendasGestao(status?: "espera" | "finalizada" | "estornada") 
   const listas = await Promise.all(lojistas.map(async (loja) => {
     try {
       const resposta = await api.get(`/backoffice/lojistas/${loja.id}/vendas`, {
-        params: { status: status || "todas" },
+        params: { status: status || "todas", _t: Date.now() },
       })
       const nome = loja.stores?.find((item) => item.name)?.name || loja.name
       return ((resposta.data.sales || []) as LojaPdvSale[]).map((sale) => ({ ...sale, lojaNome: nome }))
@@ -334,6 +340,7 @@ export function SaleActionsMenu({
   emitentePronto,
   onClose,
   onNotice,
+  onChanged,
 }: {
   sale: LojaPdvSale
   anchor: GearAnchor
@@ -341,8 +348,11 @@ export function SaleActionsMenu({
   emitentePronto: boolean
   onClose: () => void
   onNotice: (text: string) => void
+  onChanged?: () => void
 }) {
   const box = useRef<HTMLDivElement>(null)
+  const gestao = useLocation().pathname.startsWith("/gestao")
+  const podeEstornar = usePodeEstornarVenda()
   const [busy, setBusy] = useState(false)
   const [slip, setSlip] = useState<null | "a4" | "cupom">(null)
   const [destinatario, setDestinatario] = useState<ReciboDestinatario>({ nome: sale.customerName })
@@ -470,6 +480,22 @@ export function SaleActionsMenu({
     }
   }
 
+  async function estornar() {
+    if (podeEstornar !== true) return
+    if (!window.confirm(`Estornar a venda ${sale.code}? O estoque volta para a loja.`)) return
+    setBusy(true)
+    try {
+      await api.delete(`/clients/pdv-vendas/${sale.id}`)
+      onNotice(`Venda ${sale.code} estornada. O estoque voltou para a loja.`)
+      onChanged?.()
+      onClose()
+    } catch (err) {
+      onNotice(parseError(err).friend || AVISO_ESTORNAR_VENDA)
+    } finally {
+      setBusy(false)
+    }
+  }
+
   function email() {
     const subject = encodeURIComponent(`Venda ${sale.code}`)
     const body = encodeURIComponent(textoDaVenda(sale))
@@ -496,6 +522,14 @@ export function SaleActionsMenu({
         <button className="venda-gear-item" type="button" role="menuitem" disabled={busy} onClick={() => void duplicar()}>
           <Copy size={15} /> Duplicar Venda
         </button>
+        {!gestao && sale.status === "finalizada" ? (
+          <span className="venda-gear-tip">
+            <button className="venda-gear-item" type="button" role="menuitem" disabled={busy} onClick={() => void estornar()}>
+              <RotateCcw size={15} /> Estornar
+            </button>
+            {podeEstornar === false ? <span className="venda-gear-tip-box" role="tooltip">{AVISO_ESTORNAR_VENDA}</span> : null}
+          </span>
+        ) : null}
         <button className="venda-gear-item" type="button" role="menuitem" onClick={() => void compartilhar()}>
           <Share2 size={15} /> Compartilhar
         </button>
@@ -517,16 +551,16 @@ function SaleFilterBar({
   onDraft,
   onApply,
   onClear,
+  comVendedor = false,
 }: {
   draft: SaleFilters
   onDraft: (next: SaleFilters) => void
   onApply: (next: SaleFilters) => void
   onClear: () => void
+  comVendedor?: boolean
 }) {
   function escolherPeriodo(inicio: string, fim: string) {
-    const next = { ...draft, inicio, fim }
-    onDraft(next)
-    onApply(next)
+    onDraft({ ...draft, inicio, fim })
   }
 
   function aplicar(event: FormEvent<HTMLFormElement>) {
@@ -538,6 +572,7 @@ function SaleFilterBar({
       fim: String(data.get("fim") || ""),
       cod: String(data.get("cod") || ""),
       nome: String(data.get("nome") || ""),
+      vendedor: comVendedor ? String(data.get("vendedor") || "") : draft.vendedor || "",
     }
     onDraft(next)
     onApply(next)
@@ -567,9 +602,15 @@ function SaleFilterBar({
         Cliente
         <input name="nome" value={draft.nome} onChange={(event) => onDraft({ ...draft, nome: event.target.value })} autoComplete="off" />
       </label>
+      {comVendedor ? (
+        <label>
+          Usuário
+          <input name="vendedor" value={draft.vendedor || ""} onChange={(event) => onDraft({ ...draft, vendedor: event.target.value })} autoComplete="off" />
+        </label>
+      ) : null}
       <div className="pdv-cad-filters-go">
         <button className="pdv-cad-btn" type="button" onClick={onClear}>Limpar</button>
-        <button className="pdv-cad-btn pdv-cad-btn-blue" type="submit">Filtrar</button>
+        <button className="pdv-cad-btn pdv-cad-btn-blue" type="submit">Buscar</button>
       </div>
     </form>
   )
@@ -634,17 +675,54 @@ function rotuloStatus(status: LojaPdvSale["status"]) {
   return "Concluída"
 }
 
+type VendaTotais = { abertas: number; concluidas: number; estornadas: number }
+
+type VendaPainelCache = {
+  totais: VendaTotais
+  listas: Partial<Record<LojaPdvSale["status"] | "todas", LojaPdvSale[]>>
+}
+
+const vendaPainelCaches = new Map<string, VendaPainelCache>()
+
+function contarVendas(rows: LojaPdvSale[]): VendaTotais {
+  return {
+    abertas: rows.filter((sale) => sale.status === "espera").length,
+    concluidas: rows.filter((sale) => sale.status === "finalizada").length,
+    estornadas: rows.filter((sale) => sale.status === "estornada").length,
+  }
+}
+
+function vendaPainelCache(chave: string) {
+  let atual = vendaPainelCaches.get(chave)
+  if (!atual) {
+    atual = { totais: { abertas: 0, concluidas: 0, estornadas: 0 }, listas: {} }
+    vendaPainelCaches.set(chave, atual)
+  }
+  return atual
+}
+
+function guardarVendas(cache: VendaPainelCache, rows: LojaPdvSale[]) {
+  cache.listas.todas = rows
+  cache.listas.espera = rows.filter((sale) => sale.status === "espera")
+  cache.listas.finalizada = rows.filter((sale) => sale.status === "finalizada")
+  cache.listas.estornada = rows.filter((sale) => sale.status === "estornada")
+  cache.totais = contarVendas(rows)
+}
+
 export function VendasMovimento({ status }: { status: "espera" | "finalizada" | "estornada" | "todas" }) {
   const navigate = useNavigate()
   const { pathname } = useLocation()
   const gestao = pathname.startsWith("/gestao")
+  const podeEstornar = usePodeEstornarVenda()
   const { client } = useClientAuth()
   const { lojaNome, emitente, emitentePronto } = useEmitenteLoja(client?.name || "")
-  const [sales, setSales] = useState<LojaPdvSale[]>([])
+  const cacheChave = gestao ? "gestao" : (sessionStorage.getItem(STORE_STORAGE_KEY) || "loja")
+  const cache = vendaPainelCache(cacheChave)
+  const [sales, setSales] = useState<LojaPdvSale[]>(() => cache.listas[status] || [])
   const [detail, setDetail] = useState<LojaPdvSale | null>(null)
   const [actions, setActions] = useState<{ sale: LojaPdvSale; anchor: GearAnchor } | null>(null)
   const [aviso, setAviso] = useState("")
-  const [hint, setHint] = useState("Carregando...")
+  const [hint, setHint] = useState("")
   const filtrosIniciais = status === "finalizada" ? mesAtualSaleFilters() : ALL_SALE_FILTERS
   const [draft, setDraft] = useState<SaleFilters>(filtrosIniciais)
   const [filters, setFilters] = useState<SaleFilters>(filtrosIniciais)
@@ -657,19 +735,29 @@ export function VendasMovimento({ status }: { status: "espera" | "finalizada" | 
   const titulo = todas ? "VENDAS" : status === "espera" ? "VENDAS ABERTAS" : status === "estornada" ? "VENDAS ESTORNADAS" : "VENDAS CONCLUÍDAS"
   const vazio = todas ? "Nenhuma venda." : status === "espera" ? "Nenhuma venda em aberto." : status === "estornada" ? "Nenhuma venda estornada." : "Nenhuma venda concluída."
   const statusLabel = status === "espera" ? "Em aberto" : status === "estornada" ? "Estornada" : "Concluída"
+  const [totais, setTotais] = useState<VendaTotais>(() => cache.totais)
   const abertas = sales.filter((sale) => sale.status === "espera").length
   const concluidas = sales.filter((sale) => sale.status === "finalizada").length
   const estornadas = sales.filter((sale) => sale.status === "estornada").length
+  const numeros = todas ? { abertas, concluidas, estornadas } : totais
+  const faixaCard = status === "espera" ? "abertas" : status === "finalizada" ? "concluidas" : status === "estornada" ? "estornadas" : ""
+  const raizVendas = gestao ? "/gestao/movimentacoes/vendas" : "/client/movimentacoes/vendas"
 
   function recarregar() {
     const pedido = gestao ? listVendasGestao(todas ? undefined : status) : listLojaSales(todas ? undefined : status)
-    setHint("Carregando...")
+    const contagem = todas ? null : (gestao ? listVendasGestao() : listLojaSales())
     pedido
       .then((rows) => {
+        if (todas) guardarVendas(cache, rows)
+        else cache.listas[status] = rows
         setSales(rows)
         setHint(rows.length ? "" : vazio)
       })
       .catch((err) => setHint(parseError(err).friend || "Não foi possível carregar as vendas."))
+    contagem?.then((rows) => {
+      guardarVendas(cache, rows)
+      setTotais(cache.totais)
+    }).catch(() => undefined)
   }
 
   useEffect(() => {
@@ -677,7 +765,7 @@ export function VendasMovimento({ status }: { status: "espera" | "finalizada" | 
   }, [status, gestao])
 
   const visible = useMemo(() => filterLojaSales(sales, filters), [sales, filters])
-  const podeMarcar = !gestao && status === "finalizada"
+  const podeMarcar = !gestao && status === "finalizada" && podeEstornar === true
   const idsVisiveis = visible.map((sale) => sale.id)
   const todasMarcadas = idsVisiveis.length > 0 && idsVisiveis.every((id) => marcadas.includes(id))
   const filtroAtivo = filtroVendaAtivo(filters)
@@ -711,11 +799,21 @@ export function VendasMovimento({ status }: { status: "espera" | "finalizada" | 
       setSales((atual) => atual.filter((sale) => !ok.includes(sale.id)))
       setMarcadas((atual) => atual.filter((id) => !ok.includes(id)))
       setDetail((atual) => (atual && ok.includes(atual.id) ? null : atual))
+      setTotais((atual) => {
+        const next = {
+          ...atual,
+          concluidas: Math.max(0, atual.concluidas - ok.length),
+          estornadas: atual.estornadas + ok.length,
+        }
+        cache.totais = next
+        if (cache.listas.finalizada) cache.listas.finalizada = cache.listas.finalizada.filter((sale) => !ok.includes(sale.id))
+        return next
+      })
     }
     if (falha) setErroExcluir(falha)
     else {
       setPedirExcluir(false)
-      setAviso(ok.length === 1 ? "Venda excluída. O estoque voltou para a loja." : `${ok.length} vendas excluídas. O estoque voltou para a loja.`)
+      setAviso(ok.length === 1 ? "Venda estornada. O estoque voltou para a loja." : `${ok.length} vendas estornadas. O estoque voltou para a loja.`)
     }
     setExcluindo(false)
   }
@@ -740,25 +838,25 @@ export function VendasMovimento({ status }: { status: "espera" | "finalizada" | 
             setPedirExcluir(true)
           },
         }] : undefined}
-        lead={todas ? (
+        lead={(
           <div className="pdv-compra-cards pdv-compra-cards-3">
-            <button type="button" className="pdv-compra-card pdv-compra-card-abertas" onClick={() => navigate("/client/movimentacoes/vendas/abertas")}>
+            <button type="button" className={`pdv-compra-card pdv-compra-card-abertas${faixaCard === "abertas" ? " is-on" : ""}`} onClick={() => navigate(`${raizVendas}/abertas`)}>
               <Clock size={22} strokeWidth={2.4} aria-hidden="true" />
               <span>Abertas</span>
-              <strong>{abertas}</strong>
+              <strong>{numeros.abertas}</strong>
             </button>
-            <button type="button" className="pdv-compra-card pdv-compra-card-concluidas" onClick={() => navigate("/client/movimentacoes/vendas/concluidas")}>
+            <button type="button" className={`pdv-compra-card pdv-compra-card-concluidas${faixaCard === "concluidas" ? " is-on" : ""}`} onClick={() => navigate(`${raizVendas}/concluidas`)}>
               <CheckCircle2 size={22} strokeWidth={2.4} aria-hidden="true" />
               <span>Concluídas</span>
-              <strong>{concluidas}</strong>
+              <strong>{numeros.concluidas}</strong>
             </button>
-            <button type="button" className="pdv-compra-card pdv-compra-card-estornadas" onClick={() => navigate("/client/movimentacoes/vendas/estornadas")}>
+            <button type="button" className={`pdv-compra-card pdv-compra-card-estornadas${faixaCard === "estornadas" ? " is-on" : ""}`} onClick={() => navigate(`${raizVendas}/estornadas`)}>
               <RotateCcw size={22} strokeWidth={2.4} aria-hidden="true" />
               <span>Estornadas</span>
-              <strong>{estornadas}</strong>
+              <strong>{numeros.estornadas}</strong>
             </button>
           </div>
-        ) : null}
+        )}
         extra={(
           <>
             {aviso ? <p className="venda-gear-aviso">{aviso}</p> : null}
@@ -770,6 +868,7 @@ export function VendasMovimento({ status }: { status: "espera" | "finalizada" | 
               const limpo = status === "finalizada" ? mesAtualSaleFilters() : ALL_SALE_FILTERS
               setDraft(limpo)
               setFilters(limpo)
+              recarregar()
             }}
           />
           </>
@@ -888,13 +987,29 @@ export function VendasMovimento({ status }: { status: "espera" | "finalizada" | 
           emitentePronto={emitentePronto}
           onClose={() => setActions(null)}
           onNotice={setAviso}
+          onChanged={recarregar}
         />
       ) : null}
     </div>
   )
 }
 
-function reportView(path: string, sales: LojaPdvSale[]) {
+function percentualComissao(value: string) {
+  const clean = value.trim().replace("%", "").replace(/\s/g, "")
+  if (!clean) return 0
+  const number = Number(clean.includes(",") ? clean.replace(/\./g, "").replace(",", ".") : clean)
+  return Number.isFinite(number) ? number : 0
+}
+
+function comissaoDaVenda(sale: LojaPdvSale, taxas: Map<string, number>) {
+  return sale.lines.reduce((sum, line) => {
+    const base = line.qty * Math.max(0, line.price - line.discount)
+    const taxa = taxas.get((line.category || "").trim().toLowerCase()) || 0
+    return sum + (base * taxa) / 100
+  }, 0)
+}
+
+function reportView(path: string, sales: LojaPdvSale[], taxas: Map<string, number> = new Map()) {
   if (path.endsWith("forma-pagamento")) {
     const map = new Map<string, { count: number; total: number }>()
     sales.forEach((sale) => {
@@ -942,7 +1057,19 @@ function reportView(path: string, sales: LojaPdvSale[]) {
       linked: false,
     }
   }
-  if (path.endsWith("vendedores-mes") || path.endsWith("comissao")) {
+  if (path.endsWith("comissao")) {
+    return {
+      columns: ["Usuário", "Venda", "Total", "Comissão"],
+      rows: sales.map((sale) => [
+        sale.sellerName || "Sem vendedor",
+        sale.code,
+        formatMoneyRs(sale.total),
+        formatMoneyRs(comissaoDaVenda(sale, taxas)),
+      ]),
+      linked: true,
+    }
+  }
+  if (path.endsWith("vendedores-mes")) {
     const map = new Map<string, number>()
     sales.forEach((sale) => {
       const key = sale.sellerName || "Sem vendedor"
@@ -995,32 +1122,68 @@ function reportView(path: string, sales: LojaPdvSale[]) {
 }
 
 export function VendasRelatorio({ def }: { def: FilterPageProps & { path: string } }) {
+  const gestao = useLocation().pathname.startsWith("/gestao")
+  const comissao = def.path.endsWith("comissao")
   const { emitente, emitentePronto } = useEmitenteLoja("")
   const [sales, setSales] = useState<LojaPdvSale[]>([])
-  const [hint, setHint] = useState("Carregando...")
+  const [pronto, setPronto] = useState(false)
   const [detail, setDetail] = useState<LojaPdvSale | null>(null)
   const [actions, setActions] = useState<{ sale: LojaPdvSale; anchor: GearAnchor } | null>(null)
   const [aviso, setAviso] = useState("")
-  const [draft, setDraft] = useState<SaleFilters>(EMPTY_SALE_FILTERS)
-  const [filters, setFilters] = useState<SaleFilters>(EMPTY_SALE_FILTERS)
+  const [erro, setErro] = useState("")
+  const [taxas, setTaxas] = useState<Map<string, number>>(() => new Map())
+  const filtrosIniciais = () => (comissao ? mesAtualSaleFilters() : EMPTY_SALE_FILTERS)
+  const [draft, setDraft] = useState<SaleFilters>(filtrosIniciais)
+  const [filters, setFilters] = useState<SaleFilters>(filtrosIniciais)
 
   function carregar() {
-    setHint("Carregando...")
-    listLojaSales("finalizada")
+    const pedido = gestao ? listVendasGestao("finalizada") : listLojaSales("finalizada")
+    pedido
       .then((list) => {
         setSales(list)
-        setHint(list.length ? "" : "Nenhuma venda da loja neste relatório.")
+        setErro("")
+        setPronto(true)
       })
-      .catch((err) => setHint(parseError(err).friend || "Não foi possível carregar o relatório."))
+      .catch((err) => {
+        setErro(parseError(err).friend || "Não foi possível carregar o relatório.")
+        setPronto(true)
+      })
   }
 
   useEffect(() => {
     carregar()
-  }, [def.path])
+  }, [def.path, gestao])
+
+  useEffect(() => {
+    if (!comissao) return
+    let vivo = true
+    listCatalog("product_category")
+      .then((items) => {
+        if (!vivo) return
+        const map = new Map<string, number>()
+        for (const item of items) {
+          const categoria = categoryFromCatalog(item)
+          const nome = categoria.name.trim().toLowerCase()
+          if (nome) map.set(nome, percentualComissao(categoria.commission))
+        }
+        setTaxas(map)
+      })
+      .catch(() => undefined)
+    return () => {
+      vivo = false
+    }
+  }, [comissao])
 
   const filtered = useMemo(() => filterLojaSales(sales, filters), [sales, filters])
-  const view = useMemo(() => reportView(def.path, filtered), [def.path, filtered])
+  const view = useMemo(() => reportView(def.path, filtered, taxas), [def.path, filtered, taxas])
   const saleByCode = useMemo(() => new Map(filtered.map((sale) => [sale.code, sale])), [filtered])
+
+  function vendaDaLinha(index: number) {
+    const colunas = view.columns.map((coluna) => coluna.normalize("NFD").replace(/\p{M}/gu, "").trim().toLowerCase())
+    const coluna = colunas.indexOf("venda")
+    const code = view.rows[index]?.[coluna >= 0 ? coluna : 0]
+    return code ? saleByCode.get(code) : undefined
+  }
 
   useEffect(() => {
     if (!aviso) return
@@ -1032,6 +1195,7 @@ export function VendasRelatorio({ def }: { def: FilterPageProps & { path: string
     <>
       <FilterPage
         {...def}
+        pageClass={comissao ? "pdv-cli-page" : ""}
         fields={[]}
         extra={(
           <>
@@ -1039,22 +1203,26 @@ export function VendasRelatorio({ def }: { def: FilterPageProps & { path: string
             <SaleFilterBar
             draft={draft}
             onDraft={setDraft}
+            comVendedor={comissao}
             onApply={(next) => { setFilters(next); carregar() }}
-            onClear={() => { setDraft(EMPTY_SALE_FILTERS); setFilters(EMPTY_SALE_FILTERS) }}
+            onClear={() => {
+              const limpo = comissao ? mesAtualSaleFilters() : EMPTY_SALE_FILTERS
+              setDraft(limpo)
+              setFilters(limpo)
+              carregar()
+            }}
           />
           </>
         )}
         columns={view.columns}
         rows={view.rows}
-        hint={view.rows.length ? hint || def.hint : "Nenhuma venda para o filtro atual."}
+        hint={view.rows.length ? undefined : erro || (pronto ? (comissao ? "Nenhuma comissão para o filtro atual." : "Nenhuma venda para o filtro atual.") : " ")}
         saleLink={view.linked ? (index) => {
-          const code = view.rows[index]?.[0]
-          const sale = code ? saleByCode.get(code) : undefined
+          const sale = vendaDaLinha(index)
           if (sale) setDetail(sale)
         } : undefined}
         closedAction={view.linked ? (index) => {
-          const code = view.rows[index]?.[0]
-          const sale = code ? saleByCode.get(code) : undefined
+          const sale = vendaDaLinha(index)
           if (!sale) return null
           return (
             <button
@@ -1081,6 +1249,7 @@ export function VendasRelatorio({ def }: { def: FilterPageProps & { path: string
           emitentePronto={emitentePronto}
           onClose={() => setActions(null)}
           onNotice={setAviso}
+          onChanged={carregar}
         />
       ) : null}
     </>

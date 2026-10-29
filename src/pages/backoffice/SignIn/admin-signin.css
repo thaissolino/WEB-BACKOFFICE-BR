@@ -154,6 +154,12 @@
   font-size: 0.875rem;
 }
 
+.adm-signin-alert[data-tone="success"] {
+  border-color: rgba(143, 212, 178, 0.28);
+  background: rgba(143, 212, 178, 0.12);
+  color: #cdecd9;
+}
+
 .adm-signin .adm-signin-btn {
   display: inline-flex;
   align-items: center;
@@ -192,6 +198,8 @@
 }
 
 .adm-signin-foot {
+  display: grid;
+  gap: 0;
   margin-top: 28px;
   padding-top: 18px;
   border-top: 1px solid var(--adm-rule);

@@ -636,6 +636,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebar }) => {
               <LegacySubMenu title="Relatórios" icon={<AssessmentOutlinedIcon />} style={{ color: colors.grey[100] }}>
                 <Item title="DRE GERENCIAL" to="/gestao/relatorios/dre" icon={<AssessmentOutlinedIcon />} selected={selected} setSelected={setSelected} />
                 <Item title="ITENS DAS VENDAS" to="/gestao/relatorios/itens-vendas" icon={<AssessmentOutlinedIcon />} selected={selected} setSelected={setSelected} />
+                <Item title="AUDITORIA ESTOQUE" to="/gestao/relatorios/auditoria/estoque" icon={<AssessmentOutlinedIcon />} selected={selected} setSelected={setSelected} />
               </LegacySubMenu>
             )}
             {(user?.role === "MASTER" || user?.role === "ADMIN" || canShowTab("GERENCIAR_INVOICES") || canShowTab("VENDAS_CONCLUIDAS")) && (

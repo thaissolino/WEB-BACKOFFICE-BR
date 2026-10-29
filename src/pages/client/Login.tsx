@@ -3,13 +3,13 @@ import { Link, useNavigate } from "react-router-dom";
 import { useClientAuth } from "../../hooks/clientAuth";
 import { VitrineAuthLayout } from "./vitrine/VitrineAuthLayout";
 import { VitrineField } from "./vitrine/VitrineField";
-import { digitsOnly } from "./vitrine/signupConfig";
+import { digitsOnly, FALLBACK_SIGNUP_CONFIG } from "./vitrine/signupConfig";
 import { usePdvSignupConfig } from "./vitrine/usePdvSignupConfig";
 
 export default function ClientLogin() {
   const navigate = useNavigate();
   const { clientSignIn } = useClientAuth();
-  const config = usePdvSignupConfig();
+  const config = usePdvSignupConfig() ?? FALLBACK_SIGNUP_CONFIG;
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -70,13 +70,7 @@ export default function ClientLogin() {
           : "Acesso do lojista ao PDV. Entre com e-mail e senha."
       }
     >
-      {!config ? (
-        <div className="vitrine-skeleton" aria-busy="true" aria-live="polite">
-          <span />
-          <span />
-        </div>
-      ) : (
-        <form className="vitrine-form" onSubmit={handleSubmit} noValidate>
+      <form className="vitrine-form" onSubmit={handleSubmit} noValidate>
           {errorMessage ? (
             <p className="vitrine-alert" role="alert">
               {errorMessage}
@@ -137,7 +131,6 @@ export default function ClientLogin() {
             {isSubmitting ? "Entrando..." : "Entrar no PDV"}
           </button>
         </form>
-      )}
 
       <div className="vitrine-foot">
         <Link className="vitrine-link" to="/signup/client">
@@ -148,6 +141,9 @@ export default function ClientLogin() {
             Esqueci minha senha
           </Link>
         ) : null}
+        <Link className="vitrine-link" to="/signin/backoffice">
+          Acesso administrativo
+        </Link>
       </div>
     </VitrineAuthLayout>
   );

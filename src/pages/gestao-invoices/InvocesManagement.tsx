@@ -252,7 +252,7 @@ export default function InvocesManagement({ area = "compras" }: { area?: GestaoA
   return (
     <ActionLoadingProvider>
       <DisableButtonsWrapper>
-        <div className="gestao-page">
+        <div className={`gestao-page${activeTab === "relatorios" ? " gestao-relatorio-cream" : ""}`}>
           <div className="w-full px-2 py-4">
             <header className="mb-4">
               <h1 className="text-3xl font-bold text-blue-800">{SCREEN_TITLE[activeTab] || AREA_COPY[area].title}</h1>

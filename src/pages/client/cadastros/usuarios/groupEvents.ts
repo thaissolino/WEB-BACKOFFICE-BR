@@ -9,6 +9,10 @@ export type GroupEvent = {
 export const EVENTO_DESCONTO = "pdv.desconto"
 export const EVENTO_CRIAR_CAIXA = "caixa.criar"
 export const EVENTO_VER_CUSTO = "wm10.82"
+export const EVENTO_ESTORNAR_VENDA = "wm10.14"
+export const AVISO_ESTORNAR_VENDA = "Para estornar a venda, ative o evento 14 — Venda :Venda Concluída >> Estornar."
+export const EVENTO_ESTORNAR_COMPRA = "wm10.50"
+export const AVISO_ESTORNAR_COMPRA = "Para estornar a compra, ative o evento 50 — Compra: Compra Concluída >> Estornar."
 export const CODIGO_CRIAR_CAIXA = "901"
 
 type Item = [code: string, label: string, key?: string]

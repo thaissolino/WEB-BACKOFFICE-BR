@@ -70,24 +70,26 @@ function NavBranch({
   }, [current]);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open || nested) return;
     function onClick(event: MouseEvent) {
       if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
     }
     document.addEventListener("click", onClick);
     return () => document.removeEventListener("click", onClick);
-  }, [open]);
+  }, [open, nested]);
 
   return (
     <details
       ref={rootRef}
       className={nested ? "pdv-chrome-sub pdv-chrome-sub-nested" : "pdv-chrome-sub"}
       open={open}
+      onToggle={(event) => event.stopPropagation()}
     >
       <summary
         className={current ? "is-current" : undefined}
         onClick={(event) => {
           event.preventDefault();
+          event.stopPropagation();
           setOpen((value) => !value);
         }}
       >
