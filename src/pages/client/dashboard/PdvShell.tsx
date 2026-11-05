@@ -186,12 +186,34 @@ function rememberLogoUrl(storeId: string) {
   return rememberLogo(storeId)?.url || null;
 }
 
-function blobToDataUrl(blob: Blob) {
-  return new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result || ""));
-    reader.onerror = () => reject(reader.error);
-    reader.readAsDataURL(blob);
+function shrinkLogo(blob: Blob) {
+  return new Promise<string | null>((resolve) => {
+    const objectUrl = URL.createObjectURL(blob);
+    const img = new Image();
+    img.onload = () => {
+      const size = 96;
+      const canvas = document.createElement("canvas");
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext("2d");
+      if (!ctx || !img.width || !img.height) {
+        URL.revokeObjectURL(objectUrl);
+        resolve(null);
+        return;
+      }
+      const scale = Math.min(size / img.width, size / img.height);
+      const width = img.width * scale;
+      const height = img.height * scale;
+      ctx.clearRect(0, 0, size, size);
+      ctx.drawImage(img, (size - width) / 2, (size - height) / 2, width, height);
+      URL.revokeObjectURL(objectUrl);
+      resolve(canvas.toDataURL("image/webp", 0.82));
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      resolve(null);
+    };
+    img.src = objectUrl;
   });
 }
 
@@ -283,6 +305,11 @@ function PdvShellView({
         )
           .filter((item) => item?.id)
           .map(toStoreOption);
+        setStores(list);
+        setStoreId((current) => {
+          if (current && list.some((item) => item.id === current)) return current;
+          return list[0]?.id ?? "";
+        });
         const named = await Promise.all(list.map(async (item) => {
           try {
             const loja = await api.get(`/clients/stores/${item.id}/loja`);
@@ -295,10 +322,6 @@ function PdvShellView({
         }));
         if (!active) return;
         setStores(named);
-        setStoreId((current) => {
-          if (current && named.some((item) => item.id === current)) return current;
-          return named[0]?.id ?? "";
-        });
       })
       .catch(() => {
         if (active) setStores([]);
@@ -333,34 +356,33 @@ function PdvShellView({
     let active = true;
 
     api
-      .get("/clients/store-logo", { params: { storeKey: storeId } })
-      .then(async ({ data }) => {
-        const fileId = String(data?.current?.id || "");
+      .get("/clients/store-logo/current", {
+        params: { storeKey: storeId },
+        responseType: "blob",
+      })
+      .then(async (response) => {
         if (!active) return;
-        if (!fileId) {
+        const fileId = String(response.headers?.["x-logo-file"] || "");
+        const blob = response.data as Blob;
+        if (response.status === 204 || !blob?.size) {
           if (!rememberLogo(storeId)) setLogoSrc(null);
           return;
         }
         const cached = logoCache.get(storeId);
-        if (cached?.fileId === fileId && cached.url) {
+        if (cached?.fileId && fileId && cached.fileId === fileId && cached.url.startsWith("blob:")) {
           setLogoSrc(cached.url);
           return;
         }
-        const blob = await api.get(`/clients/store-logo/file/${fileId}`, {
-          params: { storeKey: storeId },
-          responseType: "blob",
-        });
-        if (!active) return;
-        const url = await blobToDataUrl(blob.data);
-        if (!active || !url) return;
-        const next = { url, fileId };
-        logoCache.set(storeId, next);
-        try {
-          localStorage.setItem(LOGO_STORAGE + storeId, JSON.stringify(next));
-        } catch {
-          /* a logo grande fica só nesta sessão */
-        }
+        const url = URL.createObjectURL(blob);
+        logoCache.set(storeId, { url, fileId: fileId || cached?.fileId || "atual" });
         setLogoSrc(url);
+        const preview = await shrinkLogo(blob);
+        if (!active || !preview) return;
+        try {
+          localStorage.setItem(LOGO_STORAGE + storeId, JSON.stringify({ url: preview, fileId: fileId || "atual" }));
+        } catch {
+          /* a prévia fica só nesta sessão */
+        }
       })
       .catch(() => {
         if (active && !rememberLogo(storeId)) setLogoSrc(null);

@@ -12,7 +12,6 @@ export default function GrupoForm() {
   const [params] = useSearchParams()
   const editId = Number(params.get("id") || 0)
   const [nome, setNome] = useState("")
-  const [nivel, setNivel] = useState("")
   const [ativo, setAtivo] = useState(true)
   const [painelEntregas, setPainelEntregas] = useState(false)
   const [status, setStatus] = useState("")
@@ -21,7 +20,6 @@ export default function GrupoForm() {
     if (!editId) return
     getCatalog("group", editId).then((item) => {
       setNome(item.name)
-      setNivel(String(item.payload.nivel ?? ""))
       setAtivo(item.active)
       setPainelEntregas(Boolean(item.payload.painelEntregas))
     }).catch(() => setStatus("Não foi possível carregar o grupo."))
@@ -34,7 +32,7 @@ export default function GrupoForm() {
       return
     }
     try {
-      const payload = { nivel, painelEntregas }
+      const payload = { painelEntregas }
       if (editId) await updateCatalog("group", editId, { name: nome, active: ativo, payload })
       else await createCatalog("group", { name: nome, active: ativo, payload })
       avisarSalvo("Grupo salvo.")
@@ -47,18 +45,18 @@ export default function GrupoForm() {
 
   return (
     <CadastroShell>
-      <section className="pdv-cad-page" aria-labelledby="pdv-grupo-form">
+      <section className="pdv-cad-page pdv-cli-page" aria-labelledby="pdv-grupo-form">
         <div className="pdv-cad-sheet">
-          <h1 id="pdv-grupo-form">{editId ? "ATUALIZAR GRUPO" : "CADASTRAR GRUPO"}</h1>
-          <button className="pdv-cad-btn pdv-cad-btn-back pdv-voltar" type="button" onClick={() => navigate("/client/usuarios/grupos")}>
-            Voltar
-          </button>
+          <div className="pdv-cad-head">
+            <h1 id="pdv-grupo-form">{editId ? "ATUALIZAR GRUPO" : "CADASTRAR GRUPO"}</h1>
+            <button className="pdv-cad-btn pdv-cad-btn-back pdv-voltar" type="button" onClick={() => navigate("/client/usuarios/grupos")}>
+              Voltar
+            </button>
+          </div>
           <form className="pdv-cad-form" onSubmit={onSubmit}>
-            <FormRow label="Nome do Grupo">
+            <div className="pdv-cad-form-bar">{editId ? "Atualizar grupo" : "Cadastrar grupo"}</div>
+            <FormRow label="Nome do Grupo" required>
               <input value={nome} onChange={(event) => setNome(event.target.value)} autoComplete="off" />
-            </FormRow>
-            <FormRow label="Nivel">
-              <input value={nivel} onChange={(event) => setNivel(event.target.value)} autoComplete="off" />
             </FormRow>
             <FormRow label="Ativo">
               <RadioSimNao name="ativo" value={ativo} onChange={setAtivo} />
@@ -70,7 +68,7 @@ export default function GrupoForm() {
             <div className="pdv-cad-form-go">
               <button className="pdv-cad-btn pdv-cad-btn-green" type="submit">
                 <Plus size={16} strokeWidth={2.6} aria-hidden="true" />
-                Cadastrar
+                {editId ? "Salvar" : "Cadastrar"}
               </button>
             </div>
           </form>

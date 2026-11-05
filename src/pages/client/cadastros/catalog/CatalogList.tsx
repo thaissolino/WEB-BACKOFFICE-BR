@@ -70,6 +70,7 @@ export default function CatalogList({
   const showAll = new URLSearchParams(location.search).get("todos") === "1"
   const isInactive = !showAll && (inactive || location.pathname === config.inativosPath)
   const [rows, setRows] = useState<CatalogItem[]>([])
+  const [loading, setLoading] = useState(true)
   const [draft, setDraft] = useState<Record<string, string>>({})
   const [applied, setApplied] = useState<Record<string, string>>({})
   const [error, setError] = useState("")
@@ -79,6 +80,7 @@ export default function CatalogList({
   const [deleting, setDeleting] = useState(false)
 
   function load() {
+    setLoading(true)
     listCatalog(config.kind, showAll ? undefined : isInactive ? false : true)
       .then((items) => {
         setRows(items)
@@ -88,6 +90,7 @@ export default function CatalogList({
         const parsed = parseError(err)
         setError(parsed.friend || parsed.message || "Não foi possível carregar.")
       })
+      .finally(() => setLoading(false))
   }
 
   useEffect(() => {
@@ -350,6 +353,13 @@ export default function CatalogList({
                 </tr>
               </thead>
               <tbody>
+                {loading && visible.length === 0 ? (
+                  <tr>
+                    <td className="pdv-cad-vazio" colSpan={config.columns.length + (picking ? 1 : 0)}>
+                      Carregando…
+                    </td>
+                  </tr>
+                ) : null}
                 {visible.map((item) => (
                   <tr key={item.code}>
                     {picking ? (
@@ -370,7 +380,7 @@ export default function CatalogList({
               </tbody>
             </table>
           </div>
-          {visible.length === 0 ? (
+          {!loading && visible.length === 0 ? (
             <p className="pdv-cad-kicker">{config.emptyHint || "Nenhum registro para o filtro atual."}</p>
           ) : null}
         </div>
@@ -479,6 +489,11 @@ export default function CatalogList({
             </tr>
           </thead>
           <tbody>
+            {loading && visible.length === 0 ? (
+              <tr>
+                <td colSpan={config.columns.length + (picking ? 1 : 0)}>Carregando…</td>
+              </tr>
+            ) : null}
             {visible.map((item) => (
               <tr key={item.code}>
                 {picking ? (
@@ -511,7 +526,7 @@ export default function CatalogList({
           </tbody>
         </table>
       </div>
-      {visible.length === 0 ? (
+      {!loading && visible.length === 0 ? (
         <p className="mt-4 text-sm text-gray-600">{config.emptyHint || "Nenhum registro para o filtro atual."}</p>
       ) : null}
     </div>

@@ -52,6 +52,15 @@ export default function UsuarioForm() {
   }, [])
 
   useEffect(() => {
+    if (editId || !stores.length) return
+    setForm((current) => {
+      if (current.loja && stores.some((store) => store.name === current.loja)) return current
+      const chosen = stores.find((store) => store.name === storeName) || stores[0]
+      return chosen ? { ...current, loja: chosen.name } : current
+    })
+  }, [editId, storeName, stores])
+
+  useEffect(() => {
     if (!editId) return
     getCatalog("user", editId)
       .then((item) => {
@@ -93,8 +102,18 @@ export default function UsuarioForm() {
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault()
-    if (!form.nome.trim() || !form.usuario.trim() || (!editId && !enviarSenha && !form.senha.trim()) || !form.apelido.trim() || !form.email.trim() || !form.celular.trim() || !form.loja || !form.grupo) {
-      setStatus("Preencha os campos obrigatórios.")
+    const faltando = [
+      !form.nome.trim() ? "nome completo" : "",
+      !form.usuario.trim() ? "usuário para logar" : "",
+      !editId && !enviarSenha && !form.senha.trim() ? "senha" : "",
+      !form.apelido.trim() ? "apelido" : "",
+      !form.email.trim() ? "e-mail" : "",
+      !form.celular.trim() ? "celular" : "",
+      !form.loja ? "loja" : "",
+      !form.grupo ? "grupo de acesso" : "",
+    ].filter(Boolean)
+    if (faltando.length) {
+      setStatus(`Preencha: ${faltando.join(", ")}.`)
       return
     }
     setSaving(true)
@@ -106,7 +125,17 @@ export default function UsuarioForm() {
       const saved = editId
         ? await updateCatalog("user", editId, { name: form.nome, payload, active: true })
         : await createCatalog("user", { name: form.nome, payload, active: true })
-      if (enviarSenha) await api.post(`/clients/catalog/user/${saved.code}/senha`)
+      if (enviarSenha) {
+        try {
+          await api.post(`/clients/catalog/user/${saved.code}/senha`)
+        } catch (err) {
+          const parsed = parseError(err)
+          avisarSalvo("Usuário salvo. O e-mail da senha não saiu.")
+          setStatus(parsed.friend || parsed.message || "Usuário salvo. O e-mail da senha não saiu.")
+          navigate("/client/usuarios")
+          return
+        }
+      }
       avisarSalvo("Usuário salvo.")
       navigate("/client/usuarios")
     } catch (err) {
@@ -119,22 +148,24 @@ export default function UsuarioForm() {
 
   return (
     <CadastroShell>
-      <section className="pdv-cad-page" aria-labelledby="pdv-user-form">
+      <section className="pdv-cad-page pdv-cli-page" aria-labelledby="pdv-user-form">
         <div className="pdv-cad-sheet">
-          <h1 id="pdv-user-form">{editId ? "ATUALIZAR USUÁRIO" : "CADASTRAR USUÁRIO"}</h1>
-          <button className="pdv-cad-btn pdv-cad-btn-back pdv-voltar" type="button" onClick={() => navigate("/client/usuarios")}>
-            Voltar
-          </button>
+          <div className="pdv-cad-head">
+            <h1 id="pdv-user-form">{editId ? "ATUALIZAR USUÁRIO" : "CADASTRAR USUÁRIO"}</h1>
+            <button className="pdv-cad-btn pdv-cad-btn-back pdv-voltar" type="button" onClick={() => navigate("/client/usuarios")}>
+              Voltar
+            </button>
+          </div>
           <form className="pdv-cad-form" onSubmit={onSubmit}>
-            <div className="pdv-cad-form-bar">Cadastrar Usuário</div>
+            <div className="pdv-cad-form-bar">{editId ? "Atualizar usuário" : "Cadastrar usuário"}</div>
             <FormRow label="Nome Completo" required>
-              <input value={form.nome} onChange={(event) => setForm({ ...form, nome: event.target.value })} autoComplete="off" />
+              <input value={form.nome} onChange={(event) => setForm((current) => ({ ...current, nome: event.target.value }))} autoComplete="off" />
             </FormRow>
             <FormRow label="Usuário para logar no sistema" required>
-              <input value={form.usuario} onChange={(event) => setForm({ ...form, usuario: event.target.value })} autoComplete="off" />
+              <input value={form.usuario} onChange={(event) => setForm((current) => ({ ...current, usuario: event.target.value }))} autoComplete="off" />
             </FormRow>
             <FormRow label="Senha" required={!enviarSenha && !editId}>
-              <input type="password" value={form.senha} onChange={(event) => setForm({ ...form, senha: event.target.value })} autoComplete="new-password" placeholder={editId ? "Deixe em branco para manter a atual" : undefined} />
+              <input type="password" value={form.senha} onChange={(event) => setForm((current) => ({ ...current, senha: event.target.value }))} autoComplete="new-password" placeholder={editId ? "Deixe em branco para manter a atual" : undefined} />
             </FormRow>
             <FormRow label="Troca no primeiro acesso">
               <label>
@@ -143,30 +174,30 @@ export default function UsuarioForm() {
               </label>
             </FormRow>
             <FormRow label="Apelido" required>
-              <input value={form.apelido} onChange={(event) => setForm({ ...form, apelido: event.target.value })} autoComplete="off" />
+              <input value={form.apelido} onChange={(event) => setForm((current) => ({ ...current, apelido: event.target.value }))} autoComplete="off" />
             </FormRow>
             <FormRow label="E-mail" required>
-              <input value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} autoComplete="off" />
+              <input value={form.email} onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))} autoComplete="off" />
             </FormRow>
             <FormRow label="Celular" required>
-              <input value={form.celular} onChange={(event) => setForm({ ...form, celular: formatPhoneBr(event.target.value) })} autoComplete="off" />
+              <input value={form.celular} onChange={(event) => setForm((current) => ({ ...current, celular: formatPhoneBr(event.target.value) }))} autoComplete="off" />
             </FormRow>
             <FormRow label="Telefone">
-              <input value={form.telefone} onChange={(event) => setForm({ ...form, telefone: formatPhoneBr(event.target.value) })} autoComplete="off" />
+              <input value={form.telefone} onChange={(event) => setForm((current) => ({ ...current, telefone: formatPhoneBr(event.target.value) }))} autoComplete="off" />
             </FormRow>
             <FormRow label="Loja" required>
               <fieldset className="pdv-cad-radios pdv-cad-radios-stack">
                 <legend className="pdv-sr">Loja</legend>
                 {stores.map((store) => (
                   <label key={store.id}>
-                    <input type="radio" name="loja" checked={form.loja === store.name} onChange={() => setForm({ ...form, loja: store.name })} />
+                    <input type="radio" name="loja" checked={form.loja === store.name} onChange={() => setForm((current) => ({ ...current, loja: store.name }))} />
                     {store.name}
                   </label>
                 ))}
               </fieldset>
             </FormRow>
             <FormRow label="Grupo de acesso" required>
-              <select value={form.grupo} onChange={(event) => setForm({ ...form, grupo: event.target.value })}>
+              <select value={form.grupo} onChange={(event) => setForm((current) => ({ ...current, grupo: event.target.value }))}>
                 <option value="">{"Selecione>>"}</option>
                 {groups.map((group) => (
                   <option key={group.code} value={group.name}>{group.name}</option>

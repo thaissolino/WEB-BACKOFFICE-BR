@@ -96,6 +96,7 @@ export const USER_LIST: CatalogListConfig = {
 export const GROUP_LIST: CatalogListConfig = {
   kind: "group",
   title: "GRUPOS",
+  pageClass: "pdv-cli-page",
   cadastrarLabel: "Cadastrar Grupos",
   cadastrarPath: "/client/usuarios/grupos/cadastrar",
   listPath: "/client/usuarios/grupos",
@@ -103,7 +104,6 @@ export const GROUP_LIST: CatalogListConfig = {
     { key: "eventos", label: "Eventos" },
     { key: "code", label: "Código", from: "code" },
     { key: "nome", label: "Nome Grupo", from: "name" },
-    { key: "nivel", label: "Nível", payloadKey: "nivel" },
     { key: "ativo", label: "Ativo", from: "active" },
     { key: "atualizar", label: "Atualizar", from: "action" },
   ],
