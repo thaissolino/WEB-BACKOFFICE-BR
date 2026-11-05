@@ -3167,3 +3167,13 @@
   appearance: none;
   -webkit-appearance: none;
 }
+
+.pdv-evento-aviso {
+  margin: 18px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: #fffdf8;
+  border: 1px solid #ddd4c6;
+  color: #1a1511;
+  font-weight: 600;
+}

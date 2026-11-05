@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import { useAuthBackoffice } from "../hooks/authBackoffice";
 import { usePermissionStore } from "./permissionsStore";
+import { CHAVE_DO_MENU, podeCaixa, podeGestao, podeVendas } from "./acessoGestao";
 
 export type BackofficeNavChild = {
   id: string;
@@ -87,7 +88,9 @@ const COMPRAS_CHILDREN: BackofficeNavChild[] = [
   { id: "compras-invoices", label: "Invoices", to: "/gestao/compras?aba=invoices" },
   { id: "compras-dolar", label: "Média dólar", to: "/gestao/compras?aba=media-dolar" },
   { id: "compras-relatorios", label: "Relatórios", to: "/gestao/compras?aba=relatorios" },
-  { id: "compras-listas", label: "Lista de compras", to: "/gestao/compras?aba=shopping-lists" },
+  { id: "compras-precos", label: "Melhores preços", to: "/gestao/compras?aba=melhores-precos" },
+  { id: "compras-listas", label: "Listas de compras", to: "/gestao/compras?aba=shopping-lists" },
+  { id: "compras-perdidos", label: "Perdidos", to: "/gestao/compras?aba=lost-products" },
   { id: "compras-imei", label: "Buscar IMEI", to: "/gestao/compras?aba=imei-search" },
 ];
 
@@ -191,29 +194,54 @@ export function useBackofficeNavItems() {
     );
   }
 
-  if (!printOnly && !isGestor && canShowTab("GERENCIAR_INVOICES")) {
-    items.push({ id: "gestao-cadastro", label: "Cadastro", to: "/gestao/cadastro", children: cadastroChildren(false, operadoresChild) });
-    items.push({ id: "gestao-compras", label: "Compras", to: "/gestao/compras", children: COMPRAS_CHILDREN });
-    items.push(MOVIMENTACOES_ITEM);
-    items.push({ id: "gestao-caixas", label: "Gestão de caixas", to: "/gestao/caixas", children: CAIXAS_CHILDREN });
-    items.push(RELATORIOS_ITEM);
+  const invoices = activePermissions?.GERENCIAR_INVOICES;
+  const filhoLiberado = (child: BackofficeNavChild): BackofficeNavChild | null => {
+    if (child.id === "cadastro-produtos") return podeGestao(invoices, "PRODUTOS") ? child : null;
+    if (child.id === "cadastro-operadores") return operadoresChild;
+    if (child.id === "mov-vendas-concluidas") return podeVendas(activePermissions) ? child : null;
+    if (child.id === "caixas") return podeCaixa(invoices, "CAIXAS_PERMITIDOS") ? child : null;
+    if (child.id === "caixas-br") return podeCaixa(invoices, "CAIXAS_BR_PERMITIDOS") ? child : null;
+    const chave = CHAVE_DO_MENU[child.id];
+    if (chave) return podeGestao(invoices, chave) ? child : null;
+    if (child.children) {
+      const filhos = child.children.map(filhoLiberado).filter((item): item is BackofficeNavChild => Boolean(item));
+      return filhos.length ? { ...child, children: filhos } : null;
+    }
+    return null;
+  };
+  const modulo = (item: BackofficeNavItem) => {
+    const filhos = (item.children || []).map(filhoLiberado).filter((child): child is BackofficeNavChild => Boolean(child));
+    return filhos.length ? { ...item, children: filhos } : null;
+  };
+
+  if (!printOnly && !isGestor) {
+    const cadastro = modulo({ id: "gestao-cadastro", label: "Cadastro", to: "/gestao/cadastro", children: cadastroChildren(true, operadoresChild) });
+    const compras = modulo({ id: "gestao-compras", label: "Compras", to: "/gestao/compras", children: COMPRAS_CHILDREN });
+    const movimentacoes = modulo(MOVIMENTACOES_ITEM);
+    const caixas = modulo({ id: "gestao-caixas", label: "Gestão de caixas", to: "/gestao/caixas", children: CAIXAS_CHILDREN });
+    const relatorios = modulo(RELATORIOS_ITEM);
+    [cadastro, compras, movimentacoes, caixas, relatorios].forEach((item) => {
+      if (item) items.push(item);
+    });
   }
 
   const loja: BackofficeNavItem[] = [];
   if (isGestor) {
     loja.push({ id: "gerenciar-lojistas", label: "Gerenciar lojistas", to: "/gerenciar-lojistas" });
   }
-  if (!printOnly && (isGestor || canShowTab("GERENCIAR_INVOICES") || canShowTab("VENDAS_CONCLUIDAS"))) {
+  if (!printOnly && (isGestor || podeVendas(activePermissions))) {
     loja.push({ id: "vendas-concluidas", label: "Vendas concluídas", to: "/vendas-concluidas" });
   }
-  if (!printOnly && (isGestor || canShowTab("GERENCIAR_INVOICES"))) {
+  if (!printOnly && (isGestor || podeGestao(activePermissions?.GERENCIAR_INVOICES, "ETIQUETAS"))) {
     loja.push({ id: "etiquetas-entrada", label: "Etiquetas da entrada", to: "/etiquetas-entrada" });
   }
   if (loja[0]) loja[0].moduleStart = true;
   items.push(...loja);
 
-  if (!printOnly && operadoresChild && !items.some((item) => item.id === "gestao-cadastro")) {
-    items.push({ id: "gestao-cadastro", label: "Cadastro", to: "/gestao/cadastro", children: [operadoresChild] });
+  if (!printOnly && operadoresChild && !items.some((item) => item.children?.some((child) => child.id === "cadastro-operadores"))) {
+    const cadastro = items.find((item) => item.id === "gestao-cadastro");
+    if (cadastro?.children) cadastro.children.push(operadoresChild);
+    else items.push({ id: "gestao-cadastro", label: "Cadastro", to: "/gestao/cadastro", children: [operadoresChild] });
   }
 
   // Itens do produto antigo (Black/Mensageria): continuam acessíveis,
@@ -231,6 +259,8 @@ export function useBackofficeNavItems() {
     items.push({ id: "tokens", label: "Gerenciar Tokens", to: "/tokens-management", group: LEGACY_GROUP_LABEL, legacy: true });
   }
 
+  const podeAlterarSenha = isGestor || activePermissions?.ALTERAR_SENHA?.enabled === true;
+
   const displayName = user?.name
     ? `${user.name.split(" ")[0]} ${user.name.split(" ").slice(-1)[0]}`.trim()
     : "Operação";
@@ -244,6 +274,7 @@ export function useBackofficeNavItems() {
     roleLabel,
     onLogout,
     canBackup: user?.role === "MASTER",
+    podeAlterarSenha,
     isActive: (to: string) => {
       const [path, search = ""] = to.split("?");
       if (path === "/gerenciar-lojistas" && location.pathname.startsWith("/gerenciar-lojistas")) return true;

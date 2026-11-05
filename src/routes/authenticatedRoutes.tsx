@@ -18,6 +18,7 @@ import { CambioPage } from "../pages/cambiobackoffice/CambioPage";
 import InvocesManagement from "../pages/gestao-invoices/InvocesManagement";
 import TokensManagement from "../pages/tokens-management/TokensManagement";
 import OperatorsManagement from "../pages/form-operators/OperatorsManagement";
+import TrocarSenhaOperador from "../pages/backoffice/TrocarSenhaOperador";
 import OperatorManager2 from "../pages/form-operators-two/OperatorsManagement2";
 import OperatorManager from "../pages/form-operators/OperatorsManagement";
 import OperatorsManagementPerfilEdit from "../pages/form-operators-perfil-edit/OperatorsManagementPerfilEdit";
@@ -109,11 +110,17 @@ const BACKOFFICE_ROUTE = "/backoffice";
 const LOGIN_ROUTE = "/signin/backoffice";
 
 function RequireAuthBackoffice({ children }: { children: JSX.Element }) {
+  const { user } = useAuthBackoffice();
+  const location = useLocation();
   useEffect(() => {
     if (!sessionStorage.getItem("registerbackoffice")) {
       sessionStorage.setItem("registerbackoffice", "2");
     }
   }, []);
+
+  if (user?.mustChangePassword && location.pathname !== "/backoffice/trocar-senha") {
+    return <Navigate to="/backoffice/trocar-senha" replace />;
+  }
 
   return children;
 }
@@ -285,6 +292,8 @@ export function Router() {
             </RequireAuthBackoffice>
           }
         >
+          <Route path="backoffice/trocar-senha" element={<TrocarSenhaOperador />} />
+          <Route path="backoffice/minha-senha" element={<TrocarSenhaOperador voluntaria />} />
           <Route path="backoffice" element={<Dashboard />} />
           <Route path="cadastro-lojistas" element={<GestorCadastroLojistas />} />
           <Route path="cadastro-planos" element={<GestorCadastroPlanos />} />

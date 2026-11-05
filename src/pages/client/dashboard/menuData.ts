@@ -1,3 +1,5 @@
+import { bloqueioDaRota } from "../cadastros/usuarios/acessoEvento";
+
 export type PdvMenuItem = {
   id: string;
   label: string;
@@ -64,6 +66,11 @@ export function searchMenus(query: string): MenuSearchHit[] {
 export function openMenuHref(href: string, navigate: (to: string, options?: { replace?: boolean; state?: unknown }) => void) {
   const path = href.split("?")[0];
   if (path.startsWith("/gestao")) return;
+  const aviso = bloqueioDaRota(href);
+  if (aviso) {
+    window.dispatchEvent(new CustomEvent("pdv-evento-bloqueado", { detail: aviso }));
+    return;
+  }
   const here = `${window.location.pathname}${window.location.search}`;
   navigate(href, { replace: here === href, state: { menuAt: Date.now() } });
 }

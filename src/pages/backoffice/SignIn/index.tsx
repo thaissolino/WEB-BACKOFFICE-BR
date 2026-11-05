@@ -84,7 +84,11 @@ export function SignIn() {
       setErrorMessage("");
       await onSignIn({ email: emailLower, password });
       const saved = JSON.parse(localStorage.getItem("@backoffice:user") || "{}");
-      const next = isPrintOnlyAccount(saved) ? "/vendas-concluidas" : "/backoffice";
+      const next = saved?.mustChangePassword
+        ? "/backoffice/trocar-senha"
+        : isPrintOnlyAccount(saved)
+          ? "/vendas-concluidas"
+          : "/backoffice";
       setTimeout(() => navigate(next), 0);
     } catch (err: any) {
       setErrorMessage(err?.message || "Não foi possível entrar. Confira o e-mail e a senha.");

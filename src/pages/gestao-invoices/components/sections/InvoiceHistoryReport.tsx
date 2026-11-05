@@ -67,6 +67,7 @@ export type InvoiceData = {
     analising: boolean;
     receivedQuantity: number;
     quantityAnalizer: number;
+    lostQuantity?: number;
     product: {
       id: string;
       name: string;
@@ -131,8 +132,12 @@ function remainingQty(item: {
   quantity: number;
   quantityAnalizer?: number;
   receivedQuantity?: number;
+  lostQuantity?: number;
 }) {
-  return Math.max(0, item.quantity - (item.quantityAnalizer || 0) - (item.receivedQuantity || 0));
+  return Math.max(
+    0,
+    item.quantity - (item.quantityAnalizer || 0) - (item.receivedQuantity || 0) - (item.lostQuantity || 0),
+  );
 }
 
 function remainingTotal(item: {
@@ -305,6 +310,8 @@ type InvoiceHistoryReportProps = {
   printInvoiceIds?: string[];
   reprint?: boolean;
   listReady?: boolean;
+  seedEntries?: ReceiptPrintEntry[];
+  onReload?: () => void;
   onLabelsPrinted?: (row: { invoiceId: string; invoiceNumber: string; day?: string; historyIds?: string[] }) => void | Promise<void>;
 };
 
@@ -315,6 +322,8 @@ export function InvoiceHistoryReport({
   printInvoiceIds,
   reprint = false,
   listReady = true,
+  seedEntries,
+  onReload,
   onLabelsPrinted,
 }: InvoiceHistoryReportProps) {
   const [receiptHistoryModal, setReceiptHistoryModal] = useState<{
@@ -374,6 +383,7 @@ export function InvoiceHistoryReport({
   const [currentPage, setCurrentPage] = useState(0);
   const [picked, setPicked] = useState<string[]>([]);
   const itemsPerPage = 10;
+  const pageSize = printTable ? 25 : itemsPerPage;
 
   const fetchInvoicesAndSuppliers = async () => {
     try {
@@ -499,6 +509,11 @@ export function InvoiceHistoryReport({
 
   useEffect(() => {
     if (!printTable) return;
+    if (seedEntries) {
+      setReceiptEntries(seedEntries);
+      setReceiptLoading(false);
+      return;
+    }
     let cancel = false;
     setReceiptLoading(true);
     api
@@ -518,7 +533,7 @@ export function InvoiceHistoryReport({
     return () => {
       cancel = true;
     };
-  }, [printTable, receiptReload]);
+  }, [printTable, receiptReload, seedEntries]);
 
   const printRows = useMemo(() => {
     const rows = new Map<string, LabelRow>();
@@ -869,7 +884,10 @@ export function InvoiceHistoryReport({
         </div>
         <button
           onClick={() => {
-            if (printTable) setReceiptReload((value) => value + 1);
+            if (printTable) {
+              if (onReload) onReload();
+              else setReceiptReload((value) => value + 1);
+            }
             else fetchInvoicesAndSuppliers();
           }}
           className="flex justify-center items-center"
@@ -908,7 +926,7 @@ export function InvoiceHistoryReport({
                   <td colSpan={8} className="px-6 py-4 text-center text-gray-500">Nenhuma lista para etiqueta</td>
                 </tr>
               ) : (
-                printRows.slice(currentPage * itemsPerPage, (currentPage + 1) * itemsPerPage).map((row) => {
+                printRows.slice(currentPage * pageSize, (currentPage + 1) * pageSize).map((row) => {
                   return (
                     <tr key={row.key} className="odd:bg-blue-50 even:bg-green-50">
                       <td className="px-4 py-4">
@@ -956,13 +974,24 @@ export function InvoiceHistoryReport({
                             className="text-blue-600 hover:text-blue-900"
                             title="Visualizar"
                             onClick={() => {
+                              const abrir = (invoice: InvoiceData) => {
+                                if (printTable && products.length === 0) fetchInvoicesAndSuppliers();
+                                setEtiquetaList(row);
+                                openModal(invoice, false);
+                              };
                               const invoice =
                                 invoices.find((item) => item.id === row.invoiceId) ||
                                 invoices.find((item) => String(item.number) === String(row.invoiceNumber));
-                              if (!invoice) return;
-                              if (printTable && products.length === 0) fetchInvoicesAndSuppliers();
-                              setEtiquetaList(row);
-                              openModal(invoice, false);
+                              if (invoice) {
+                                abrir(invoice);
+                                return;
+                              }
+                              if (!row.invoiceId) return;
+                              api.get(`/invoice/get/${row.invoiceId}`).then(({ data }) => {
+                                if (!data?.id) return;
+                                setInvoices((current) => (current.some((item) => item.id === data.id) ? current : [...current, data]));
+                                abrir(data);
+                              });
                             }}
                           >
                             <Eye size={16} />
@@ -1016,7 +1045,7 @@ export function InvoiceHistoryReport({
                   </td>
                 </tr>
               ) : (
-                invoices.slice(currentPage * itemsPerPage, (currentPage + 1) * itemsPerPage).map((invoice) => {
+                invoices.slice(currentPage * pageSize, (currentPage + 1) * pageSize).map((invoice) => {
                   const supplier = suppliers.find((s) => s.id === invoice.supplierId);
                   const subtotal = invoice.products?.reduce((sum, product) => sum + product.total, 0) || 0;
                   const total = subtotal;
@@ -1121,7 +1150,7 @@ export function InvoiceHistoryReport({
           </table>
         )}
         {/* Paginação */}
-        {(printTable ? printRows.length : invoices.length) > itemsPerPage && (
+        {(printTable ? printRows.length : invoices.length) > pageSize && (
           <div className="flex justify-between items-center px-6 pb-4 mt-4">
             <button
               onClick={() => setCurrentPage((prev) => Math.max(0, prev - 1))}
@@ -1131,15 +1160,15 @@ export function InvoiceHistoryReport({
               Anterior
             </button>
             <span className="text-sm text-gray-600">
-              Página {currentPage + 1} de {Math.ceil((printTable ? printRows.length : invoices.length) / itemsPerPage)}
+              Página {currentPage + 1} de {Math.ceil((printTable ? printRows.length : invoices.length) / pageSize)}
             </span>
             <button
               onClick={() =>
                 setCurrentPage((prev) =>
-                  Math.min(prev + 1, Math.ceil((printTable ? printRows.length : invoices.length) / itemsPerPage) - 1),
+                  Math.min(prev + 1, Math.ceil((printTable ? printRows.length : invoices.length) / pageSize) - 1),
                 )
               }
-              disabled={(currentPage + 1) * itemsPerPage >= (printTable ? printRows.length : invoices.length)}
+              disabled={(currentPage + 1) * pageSize >= (printTable ? printRows.length : invoices.length)}
               className="px-3 py-1 bg-gray-200 text-sm rounded disabled:opacity-50"
             >
               Próxima
@@ -1256,14 +1285,8 @@ export function InvoiceHistoryReport({
                   <tbody id="modalInvoicePendingProducts" className="bg-white divide-y divide-gray-200">
                     {selectedInvoice.products
                       .filter((item) => {
-                        // Não mostrar produtos recebidos
                         if (item.received) return false;
-                        // Não mostrar produtos com quantidade disponível = 0 ou menor
-                        const availableQuantity =
-                          item.quantity - (item.quantityAnalizer || 0) - (item.receivedQuantity || 0);
-                        // Se quantidade disponível for 0 ou menor, não mostrar
-                        // Também verificar se quantity total é 0
-                        if (availableQuantity <= 0 || item.quantity <= 0) return false;
+                        if (remainingQty(item) <= 0 || item.quantity <= 0) return false;
                         return true;
                       })
                       .sort((a, b) => {
@@ -1328,9 +1351,7 @@ export function InvoiceHistoryReport({
                                 </button>
                                 <button
                                   onClick={async () => {
-                                    const maxQuantity = Math.floor(
-                                      product.quantity - product.quantityAnalizer - product.receivedQuantity
-                                    );
+                                    const maxQuantity = remainingQty(product);
                                     const productName =
                                       products.find((item) => item.id === product.productId)?.name || "";
 

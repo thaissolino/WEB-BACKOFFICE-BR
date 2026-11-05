@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react"
 import { useLocation, useNavigate } from "react-router-dom"
-import { CheckCircle2, Clock, Copy, Mail, Printer, RotateCcw, Search, Settings, Share2, Trash2, X } from "lucide-react"
+import { Copy, Mail, Printer, RotateCcw, Search, Settings, Share2, Trash2, X } from "lucide-react"
 import { useClientAuth } from "../../../hooks/clientAuth"
 import { STORE_STORAGE_KEY } from "../dashboard/mockData"
 import FilterPage, { type FilterPageProps } from "../pdv/FilterPage"
@@ -723,7 +723,7 @@ export function VendasMovimento({ status }: { status: "espera" | "finalizada" | 
   const [actions, setActions] = useState<{ sale: LojaPdvSale; anchor: GearAnchor } | null>(null)
   const [aviso, setAviso] = useState("")
   const [hint, setHint] = useState("")
-  const filtrosIniciais = status === "finalizada" ? mesAtualSaleFilters() : ALL_SALE_FILTERS
+  const filtrosIniciais = status === "finalizada" && !gestao ? mesAtualSaleFilters() : ALL_SALE_FILTERS
   const [draft, setDraft] = useState<SaleFilters>(filtrosIniciais)
   const [filters, setFilters] = useState<SaleFilters>(filtrosIniciais)
   const [marcadas, setMarcadas] = useState<string[]>([])
@@ -841,19 +841,19 @@ export function VendasMovimento({ status }: { status: "espera" | "finalizada" | 
         lead={(
           <div className="pdv-compra-cards pdv-compra-cards-3">
             <button type="button" className={`pdv-compra-card pdv-compra-card-abertas${faixaCard === "abertas" ? " is-on" : ""}`} onClick={() => navigate(`${raizVendas}/abertas`)}>
-              <Clock size={22} strokeWidth={2.4} aria-hidden="true" />
               <span>Abertas</span>
               <strong>{numeros.abertas}</strong>
+              <em>Em aberto</em>
             </button>
             <button type="button" className={`pdv-compra-card pdv-compra-card-concluidas${faixaCard === "concluidas" ? " is-on" : ""}`} onClick={() => navigate(`${raizVendas}/concluidas`)}>
-              <CheckCircle2 size={22} strokeWidth={2.4} aria-hidden="true" />
               <span>Concluídas</span>
               <strong>{numeros.concluidas}</strong>
+              <em>Vendas fechadas</em>
             </button>
             <button type="button" className={`pdv-compra-card pdv-compra-card-estornadas${faixaCard === "estornadas" ? " is-on" : ""}`} onClick={() => navigate(`${raizVendas}/estornadas`)}>
-              <RotateCcw size={22} strokeWidth={2.4} aria-hidden="true" />
               <span>Estornadas</span>
               <strong>{numeros.estornadas}</strong>
+              <em>Vendas estornadas</em>
             </button>
           </div>
         )}

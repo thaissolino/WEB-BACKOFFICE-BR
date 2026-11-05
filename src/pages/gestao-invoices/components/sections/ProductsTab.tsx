@@ -1,4 +1,5 @@
-import { CSSProperties, FormEvent, useState, useEffect, useRef } from "react";
+import { CSSProperties, FormEvent, useState, useEffect, useLayoutEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { Plus, Ban, RotateCcw, Boxes, Loader2, Settings, Copy, X } from "lucide-react";
 import Swal from "sweetalert2";
 import { api } from "../../../../services/api";
@@ -179,19 +180,26 @@ function fieldOptions(rows: Product[], key: keyof Product) {
   return Array.from(set).sort((a, b) => a.localeCompare(b, "pt-BR", { sensitivity: "base" }));
 }
 
+function nomeSemCopia(name: string) {
+  return name.trim().toUpperCase().replace(/\s+C[ÓO]PIA(?:\s+\d+)?$/i, "").trim();
+}
+
 function ProductThumb({
   photoFileId,
   onFile,
   disabled,
   large,
+  preview,
 }: {
   productId: string;
   photoFileId?: string | null;
   onFile: (file: File | undefined) => void;
   disabled?: boolean;
   large?: boolean;
+  preview?: string;
 }) {
-  const src = useProductPhotoUrl(photoFileId);
+  const loaded = useProductPhotoUrl(photoFileId);
+  const src = preview || loaded;
   const box = large ? "h-28 w-28" : "h-14 w-14";
   const fit = large ? "max-h-28 max-w-28" : "max-h-14 max-w-14";
 
@@ -232,15 +240,34 @@ export function ProductsTab() {
   const [total, setTotal] = useState(0);
   const [facets, setFacets] = useState<ProductFacets>({ brands: [], collections: [], genders: [], suppliers: [] });
   const [showModal, setShowModal] = useState(false);
-  const [duplicateAsk, setDuplicateAsk] = useState(false);
+  const [duplicando, setDuplicando] = useState(false);
+  const [salvando, setSalvando] = useState(false);
   const [copyNotice, setCopyNotice] = useState("");
+  const [draftPhotoUrl, setDraftPhotoUrl] = useState("");
+  const pendingPhotoRef = useRef<File | null>(null);
   const leadIdRef = useRef("");
   const leadProductRef = useRef<Product | null>(null);
   const [newCategoryOpen, setNewCategoryOpen] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
   const [currentProduct, setCurrentProduct] = useState<Product | null>(null);
+
+  useLayoutEffect(() => {
+    if (!showModal) return;
+    const main = document.querySelector(".pdv-chrome-main") as HTMLElement | null;
+    const top = main?.scrollTop ?? window.scrollY;
+    const prevBody = document.body.style.overflow;
+    const prevMain = main?.style.overflow ?? "";
+    document.body.style.overflow = "hidden";
+    if (main) main.style.overflow = "hidden";
+    if (main) main.scrollTop = top;
+    else window.scrollTo(0, top);
+    return () => {
+      document.body.style.overflow = prevBody;
+      if (main) main.style.overflow = prevMain;
+      if (main) main.scrollTop = top;
+    };
+  }, [showModal]);
   const [isLoading, setIsLoading] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [sortBy, setSortBy] = useState<"name" | "code">("name");
   const [tablePrices, setTablePrices] = useState<TablePriceRow[]>([]);
   const [gridTables, setGridTables] = useState<TablePriceRow[]>([]);
@@ -433,8 +460,14 @@ export function ProductsTab() {
 
   function closeProduct() {
     setShowModal(false);
-    setDuplicateAsk(false);
+    setDuplicando(false);
+    setSalvando(false);
     setCopyNotice("");
+    pendingPhotoRef.current = null;
+    setDraftPhotoUrl((current) => {
+      if (current) URL.revokeObjectURL(current);
+      return "";
+    });
     setCurrentProduct(null);
     if (leadIdRef.current && searchedRef.current) {
       void fetchData(appliedRef.current, 1, true);
@@ -453,8 +486,14 @@ export function ProductsTab() {
   }, [showModal]);
 
   const handleEdit = (product: Product) => {
-    setDuplicateAsk(false);
+    setDuplicando(false);
+    setSalvando(false);
     setCopyNotice("");
+    pendingPhotoRef.current = null;
+    setDraftPhotoUrl((current) => {
+      if (current) URL.revokeObjectURL(current);
+      return "";
+    });
     setNewCategoryOpen(false);
     setNewCategoryName("");
     setCurrentProduct(product);
@@ -652,6 +691,15 @@ export function ProductsTab() {
 
   const saveProductPhoto = async (product: Product, file: File | undefined) => {
     if (!file) return;
+    if (!product.id) {
+      pendingPhotoRef.current = file;
+      setDraftPhotoUrl((current) => {
+        if (current) URL.revokeObjectURL(current);
+        return URL.createObjectURL(file);
+      });
+      setCurrentProduct((current) => (current ? { ...current, photoFileId: null } : current));
+      return;
+    }
     try {
       const body = new FormData();
       body.append("file", file);
@@ -711,7 +759,7 @@ export function ProductsTab() {
     await executeAction(async () => {
       const trimmedName = currentProduct.name.trim();
       const trimmedCode = currentProduct.code.trim();
-      if (trimmedName === "" || trimmedCode === "") {
+      if (trimmedName === "" || (currentProduct.id && trimmedCode === "")) {
         Swal.fire({
           icon: "error",
           title: "Erro",
@@ -724,26 +772,16 @@ export function ProductsTab() {
         return;
       }
 
-      // Validar se já existe produto com o mesmo nome (case-insensitive) ou código
-      const existingProduct = products.find(
-        (p) =>
-          p.id !== currentProduct.id && // Não verificar o próprio produto se estiver editando
-          (p.name.toLowerCase() === trimmedName.toLowerCase() || sameProductCode(p.code, trimmedCode))
+      const cadastrados = allProducts.length ? allProducts : products;
+      const nomeIgual = cadastrados.some(
+        (p) => p.id !== currentProduct.id && p.name.trim().toLowerCase() === trimmedName.toLowerCase(),
       );
-
-      if (existingProduct) {
-        Swal.fire({
-          icon: "error",
-          title: "Produto duplicado!",
-          text: `Já existe um produto com o nome "${existingProduct.name}" ou código "${existingProduct.code}".`,
-          buttonsStyling: false,
-          customClass: {
-            confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
-          },
-        });
+      if (nomeIgual) {
+        setCopyNotice("Produto duplicado. Altere o nome para salvar.");
         return;
       }
 
+      setSalvando(true);
       try {
       let createdProduct: Product | null = null;
       if (currentProduct.id) {
@@ -782,6 +820,11 @@ export function ProductsTab() {
           const salePrice = padrao ? parseMoneyDraft(tableDrafts[padrao.id] || "") : null;
           await api.put(`/clients/products/${created.id}`, {
             name: currentProduct.name,
+            description: currentProduct.description || "",
+            ...(currentProduct.categoryId ? { categoryId: currentProduct.categoryId, category: currentProduct.category || "" } : {}),
+            priceweightAverage: Number(currentProduct.priceweightAverage) || 0,
+            weightAverage: Number(currentProduct.weightAverage) || 0,
+            stockQuantity: 0,
             ...(currentProduct.code ? { code: String(currentProduct.code) } : {}),
             costPrice: parseMoneyDraft(costDraft) ?? 0,
             ...(salePrice != null ? { salePrice } : {}),
@@ -793,6 +836,19 @@ export function ProductsTab() {
             })),
           });
         }
+        if (pendingPhotoRef.current && created?.id) {
+          try {
+            const body = new FormData();
+            body.append("file", pendingPhotoRef.current);
+            const { data: photo } = await api.post(`/clients/products/${created.id}/photo`, body);
+            if (createdProduct) {
+              createdProduct.photoFileId = (photo?.product?.photoFileId as string | undefined) || createdProduct.photoFileId;
+            }
+          } catch (error) {
+            console.error("Erro ao copiar a foto do produto:", error);
+          }
+          pendingPhotoRef.current = null;
+        }
         setOpenNotification({
           type: "success",
           title: "Sucesso!",
@@ -802,7 +858,13 @@ export function ProductsTab() {
         window.dispatchEvent(new Event("productsUpdated"));
         const savedId = currentProduct.id || createdProduct?.id || "";
         setShowModal(false);
-        setDuplicateAsk(false);
+        setDuplicando(false);
+        setCopyNotice("");
+        pendingPhotoRef.current = null;
+        setDraftPhotoUrl((current) => {
+          if (current) URL.revokeObjectURL(current);
+          return "";
+        });
         setCurrentProduct(null);
         if (savedId) {
           await showSavedProduct(savedId, { ...currentProduct, ...(createdProduct || {}), id: savedId });
@@ -811,17 +873,8 @@ export function ProductsTab() {
         console.error("Erro ao salvar produto:", error);
         const errorMessage = error?.response?.data?.message || error?.message || "Não foi possível salvar o produto.";
 
-        // Se o erro for de produto duplicado, mostrar mensagem específica
-        if (error?.response?.status === 409 || errorMessage.includes("já existe")) {
-          Swal.fire({
-            icon: "error",
-            title: "Produto duplicado!",
-            text: errorMessage || "Já existe um produto com este nome ou código.",
-            buttonsStyling: false,
-            customClass: {
-              confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
-            },
-          });
+        if (error?.response?.status === 409 || errorMessage.toLowerCase().includes("já existe")) {
+          setCopyNotice("Produto duplicado. Altere o nome para salvar.");
         } else {
           Swal.fire({
             icon: "error",
@@ -833,112 +886,50 @@ export function ProductsTab() {
             },
           });
         }
+      } finally {
+        setSalvando(false);
       }
     }, "saveProduct").catch((error: any) => {
       console.error("Erro no executeAction:", error);
     });
   };
 
-  const handleDuplicate = async (withStock: boolean) => {
-    if (isActionLoading || !currentProduct?.id) return;
-    await executeAction(async () => {
-      const names = new Set(allProducts.map((item) => item.name.trim().toLowerCase()));
-      const root = currentProduct.name.trim().toUpperCase();
-      let name = `${root} CÓPIA`;
-      let copyNumber = 2;
-      while (names.has(name.toLowerCase())) {
-        name = `${root} CÓPIA ${copyNumber}`;
-        copyNumber += 1;
-      }
-      const categoryId = currentProduct.categoryId || "";
-      const category = categoryOptions.find((item) => item.id === categoryId)?.label || currentProduct.category || "";
-      try {
-        const payload = {
-          description: "",
-          priceweightAverage: Number(currentProduct.priceweightAverage) || 0,
-          weightAverage: Number(currentProduct.weightAverage) || 0,
-          salePrice: Number(currentProduct.salePrice) || 0,
-          costPrice: Number(currentProduct.costPrice) || 0,
-          categoryId,
-          category,
-          stockQuantity: withStock ? Number(currentProduct.stockQuantity) || 0 : 0,
-          active: true,
-        };
-        let created: Product | null = null;
-        for (let attempt = 0; attempt < 20 && !created; attempt += 1) {
-          try {
-            const { data } = await api.post("/clients/products", { ...payload, name });
-            created = (data?.product || data) as Product;
-          } catch (error: any) {
-            const status = error?.response?.status;
-            const message = String(error?.response?.data?.message || "");
-            if (status !== 409 && !message.toLowerCase().includes("já existe")) throw error;
-            name = `${root} CÓPIA ${copyNumber}`;
-            copyNumber += 1;
-          }
-        }
-        if (!created?.id) throw new Error("Não foi possível duplicar o produto.");
-        if (currentProduct.photoFileId && created?.id) {
-          try {
-            const { data: blob } = await api.get(`/clients/products/${currentProduct.id}/photo`, { responseType: "blob" });
-            if (blob instanceof Blob && blob.size > 16) {
-              const type = blob.type || "image/jpeg";
-              const ext = type.includes("png") ? "png" : "jpg";
-              const body = new FormData();
-              body.append("file", new File([blob], `foto.${ext}`, { type }));
-              const { data: photo } = await api.post(`/clients/products/${created.id}/photo`, body);
-              created.photoFileId = (photo?.product?.photoFileId as string | undefined) || created.photoFileId;
-            }
-          } catch (error) {
-            console.error("Erro ao copiar a foto do produto:", error);
-          }
-        }
-        try {
-          const { data: tablesData } = await api.get(`/clients/products/${currentProduct.id}/table-prices`);
-          const tables = (tablesData?.tables || []) as TablePriceRow[];
-          if (tables.length) {
-            await api.put(`/clients/products/${created.id}/table-prices`, {
-              prices: tables.map((table) => ({
-                priceTableId: table.id,
-                price: table.price ?? null,
-              })),
-            });
-          }
-        } catch (error) {
-          console.error("Erro ao copiar as tabelas de preço:", error);
-        }
-        let opened = { ...created, description: "" };
-        try {
-          await api.put(`/clients/products/${created.id}`, { description: "" });
-          const { data: loaded } = await api.get(`/clients/products/${created.id}`);
-          if (loaded?.product?.id) opened = { ...(loaded.product as Product), description: "" };
-        } catch (error) {
-          console.error("Erro ao abrir a cópia:", error);
-        }
-        leadIdRef.current = opened.id;
-        leadProductRef.current = opened;
-        setAllProducts((prev) => [opened, ...prev.filter((item) => item.id !== opened.id)]);
-        setPage(1);
-        setDuplicateAsk(false);
-        setCopyNotice("Produto duplicado. Altere o que precisar e salve.");
-        setCurrentProduct(opened);
-        void loadTablePrices(opened);
-        window.dispatchEvent(new Event("productsUpdated"));
-      } catch (error: any) {
-        const errorMessage = error?.response?.data?.message || error?.message || "Não foi possível duplicar o produto.";
-        Swal.fire({
-          icon: "error",
-          title: "Erro!",
-          text: errorMessage,
-          buttonsStyling: false,
-          customClass: {
-            confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
-          },
-        });
-      }
-    }, "duplicateProduct").catch((error: any) => {
-      console.error("Erro no executeAction:", error);
+  const handleDuplicate = async () => {
+    if (isActionLoading || duplicando || salvando || !currentProduct?.id) return;
+    const source = currentProduct;
+    setDuplicando(true);
+    setCopyNotice("");
+    pendingPhotoRef.current = null;
+    setDraftPhotoUrl((current) => {
+      if (current) URL.revokeObjectURL(current);
+      return "";
     });
+    try {
+      if (source.photoFileId) {
+        try {
+          const { data: blob } = await api.get(`/clients/products/${source.id}/photo`, { responseType: "blob" });
+          if (blob instanceof Blob && blob.size > 16) {
+            const type = blob.type || "image/jpeg";
+            const ext = type.includes("png") ? "png" : "jpg";
+            pendingPhotoRef.current = new File([blob], `foto.${ext}`, { type });
+          }
+        } catch (error) {
+          console.error("Erro ao copiar a foto do produto:", error);
+        }
+      }
+      await loadTablePrices(source);
+      setCurrentProduct({
+        ...source,
+        id: "",
+        code: "",
+        name: nomeSemCopia(source.name),
+        description: "",
+        stockQuantity: 0,
+      });
+      setCopyNotice("Produto duplicado. Altere o que precisar e salve.");
+    } finally {
+      setDuplicando(false);
+    }
   };
 
   const startCellEdit = (product: Product, field: "price" | "weight" | "sale" | "cost" | "stock" | `table:${string}`) => {
@@ -1161,7 +1152,7 @@ export function ProductsTab() {
                 }
               });
 
-              setDuplicateAsk(false);
+              setDuplicando(false);
               setCopyNotice("");
               setCurrentProduct({
                 id: "",
@@ -1461,6 +1452,7 @@ export function ProductsTab() {
                         <div className="flex flex-wrap justify-center gap-2">
                           <button
                             type="button"
+                            onMouseDown={(event) => event.preventDefault()}
                             onClick={() => handleEdit(product)}
                             className="rounded-lg border border-gray-300 p-1.5 text-gray-700 hover:bg-gray-100"
                             title="Abrir produto"
@@ -1520,15 +1512,15 @@ export function ProductsTab() {
         </div>
       ) : null}
 
-      {showModal && currentProduct && (
+      {showModal && currentProduct && createPortal(
         <div
           onMouseDown={(event) => {
             if (event.target === event.currentTarget) event.preventDefault();
           }}
-          className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 backdrop-blur-sm"
+          className="gprod-modal"
         >
-          <div className="bg-white p-6 rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-xl border border-gray-100">
-            <div className="mb-4 flex items-center justify-between gap-3">
+          <div className="gprod-modal-card" role="dialog" aria-modal="true">
+            <div className="gprod-modal-head">
               <h3 className="text-lg font-medium">{copyNotice ? "Produto duplicado" : currentProduct.id ? "Editar Produto" : "Novo Produto"}</h3>
               <button
                 type="button"
@@ -1539,29 +1531,51 @@ export function ProductsTab() {
                 <X size={18} aria-hidden />
               </button>
             </div>
-            <div className="space-y-4">
-              {copyNotice ? (
+            <div className="gprod-modal-body space-y-4">
+              {duplicando ? (
+                <p className="flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-950">
+                  <Loader2 size={16} className="animate-spin" />
+                  Duplicando...
+                </p>
+              ) : salvando ? (
+                <p className="flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-950">
+                  <Loader2 size={16} className="animate-spin" />
+                  Salvando...
+                </p>
+              ) : copyNotice ? (
                 <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950">{copyNotice}</p>
               ) : null}
-              {currentProduct.id ? (
+              {currentProduct.id || currentProduct.photoFileId || draftPhotoUrl ? (
                 <div>
                   <span className="mb-2 block text-sm font-medium text-gray-700">Foto</span>
                   <div className="flex items-center gap-4">
                     <ProductThumb
                       large
-                      productId={currentProduct.id}
+                      preview={draftPhotoUrl}
+                      productId={currentProduct.id || "rascunho"}
                       photoFileId={currentProduct.photoFileId}
-                      disabled={isActionLoading}
+                      disabled={isActionLoading || salvando}
                       onFile={(file) => saveProductPhoto(currentProduct, file)}
                     />
                     <div className="space-y-2">
                       <p className="text-sm text-gray-500">Clique na foto para adicionar ou trocar.</p>
-                      {currentProduct.photoFileId ? (
+                      {currentProduct.photoFileId || draftPhotoUrl ? (
                         <button
                           type="button"
-                          onClick={() => deleteProductPhoto(currentProduct)}
+                          onClick={() => {
+                            if (!currentProduct.id) {
+                              pendingPhotoRef.current = null;
+                              setDraftPhotoUrl((current) => {
+                                if (current) URL.revokeObjectURL(current);
+                                return "";
+                              });
+                              setCurrentProduct({ ...currentProduct, photoFileId: null });
+                              return;
+                            }
+                            void deleteProductPhoto(currentProduct);
+                          }}
                           className="rounded-lg border border-red-200 px-3 py-1.5 text-sm font-semibold text-red-700 hover:bg-red-50"
-                          disabled={isActionLoading}
+                          disabled={isActionLoading || salvando}
                         >
                           Apagar foto
                         </button>
@@ -1752,39 +1766,17 @@ export function ProductsTab() {
                 ></textarea>
               </div>
             </div>
-            <div className="mt-6 flex flex-wrap items-center justify-end gap-3">
+            <div className="gprod-modal-foot">
               {currentProduct.id ? (
-                duplicateAsk ? (
-                  <div className="mr-auto flex flex-wrap items-center gap-2">
-                    <span className="text-sm text-gray-600">Duplicar</span>
-                    <button
-                      type="button"
-                      onClick={() => handleDuplicate(true)}
-                      className="px-4 py-2 border border-gray-200 rounded-xl hover:bg-gray-50"
-                      disabled={isActionLoading}
-                    >
-                      Com estoque
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleDuplicate(false)}
-                      className="px-4 py-2 border border-gray-200 rounded-xl hover:bg-gray-50"
-                      disabled={isActionLoading}
-                    >
-                      Sem estoque
-                    </button>
-                  </div>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => setDuplicateAsk(true)}
-                    className="mr-auto px-4 py-2 border border-gray-200 rounded-xl hover:bg-gray-50 inline-flex items-center gap-2"
-                    disabled={isActionLoading}
-                  >
-                    <Copy size={16} />
-                    Duplicar
-                  </button>
-                )
+                <button
+                  type="button"
+                  onClick={() => void handleDuplicate()}
+                  className="mr-auto px-4 py-2 border border-gray-200 rounded-xl hover:bg-gray-50 inline-flex items-center gap-2"
+                  disabled={isActionLoading || duplicando}
+                >
+                  {duplicando ? <Loader2 size={16} className="animate-spin" /> : <Copy size={16} />}
+                  {duplicando ? "Duplicando..." : "Duplicar"}
+                </button>
               ) : null}
               <button
                 onClick={closeProduct}
@@ -1796,9 +1788,9 @@ export function ProductsTab() {
               <button
                 onClick={handleSave}
                 className="px-4 py-2 bg-blue-500 text-white rounded-xl flex items-center justify-center shadow-sm hover:bg-blue-600"
-                disabled={isActionLoading}
+                disabled={isActionLoading || salvando || duplicando}
               >
-                {isSubmitting ? (
+                {salvando ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     Salvando...
@@ -1809,7 +1801,8 @@ export function ProductsTab() {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
       {cellNotice ? (
         <div className="pdv-chrome-dialog" role="alertdialog" aria-labelledby="cell-notice-title">

@@ -27,7 +27,10 @@ export function ProductSearchSelect({ products, value, onChange, inline = false,
       const searchableText = `${nameLower} ${codeLower}`.trim();
       return matchSearchTerms(searchTerm, searchableText);
     })
-    .slice(0, 20); // Limita a 20 resultados para melhor performance
+    .sort((a, b) => {
+      const mix = (nome: string) => (/(^|\s)MIX$/i.test(nome.trim()) ? 1 : 0);
+      return mix(a.name) - mix(b.name) || a.name.localeCompare(b.name, "pt-BR", { sensitivity: "base" });
+    });
 
   const selectedName = products.find(p => p.id === value)?.name || "";
 

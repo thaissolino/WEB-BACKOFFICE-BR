@@ -21,6 +21,41 @@ const LISTAS_SP = [
   { nome: "Tm Natach 2", chave: "tm natach" },
 ] as const;
 
+/** As cinco lojas do Paraguai, na ordem pedida. A chave casa com o nome no site. */
+const LOJAS_PY = [
+  { nome: "Nissei", chaves: ["nissei"] },
+  { nome: "Mega Eletrônicos", chaves: ["mega"] },
+  { nome: "Cellshop", chaves: ["cellshop", "celshop"] },
+  { nome: "Mario Cell", chaves: ["mario"] },
+  { nome: "Mundo do Celular", chaves: ["mundo do celular", "mundo celular", "mundocelular"] },
+] as const;
+
+function listasDasLojasPy(painel: PainelParaguai): ListaFornecedorDados[] {
+  return LOJAS_PY.map((coluna) => {
+    const blocos: ListaFornecedorDados["blocos"] = [];
+    for (const modelo of painel.modelos || []) {
+      const itens: ListaFornecedorDados["blocos"][number]["itens"] = [];
+      for (const cor of modelo.cores || []) {
+        if (!cor.cor) continue;
+        const nomeCor = semAcento(cor.cor) === "sem cor" ? "Cor não identificada" : cor.cor;
+        let preco: number | null = null;
+        for (const loja of cor.lojas || []) {
+          const base = semAcento(loja.loja);
+          const junto = base.replace(/\s+/g, "");
+          const casa = coluna.chaves.some((chave) => base.includes(chave) || junto.includes(chave.replace(/\s+/g, "")));
+          if (!casa || !Number.isFinite(loja.preco)) continue;
+          if (preco == null || loja.preco < preco) preco = loja.preco;
+        }
+        if (preco != null) itens.push({ cor: nomeCor, preco });
+      }
+      if (!itens.length) continue;
+      const nome = modelo.modelo.trim();
+      blocos.push({ secao: "lacrados", modelo: /^iphone\b/i.test(nome) ? nome : `iPhone ${nome}`, itens });
+    }
+    return { lugar: coluna.nome, quando: "", blocos, moeda: "usd" };
+  });
+}
+
 const MODELOS = [
   "18 pro max 2tb",
   "18 pro max 1tb",
@@ -41,6 +76,8 @@ const MODELOS = [
   "17 256gb",
   "16 128gb",
   "15 128gb",
+  "duo 512gb",
+  "duo 256gb",
 ];
 
 const CORES: [string, string][] = [
@@ -81,6 +118,26 @@ const CORES: [string, string][] = [
   ["lavanda", "roxo"],
   ["roxo", "roxo"],
   ["rosa", "rosa"],
+  ["glacial", "azul"],
+  ["clacier", "azul"],
+  ["night sky", "night sky"],
+  ["ceu noturno", "night sky"],
+  ["lavander", "roxo"],
+  ["lilas", "roxo"],
+  ["burgandy", "bordô"],
+  ["burgu", "bordô"],
+  ["prateado", "prata"],
+  ["negro", "preto"],
+  ["cosmica", "laranja"],
+  ["blue", "azul"],
+  ["black", "preto"],
+  ["white", "branco"],
+  ["pink", "rosa"],
+  ["rose", "rosa"],
+  ["yellow", "amarelo"],
+  ["purple", "roxo"],
+  ["orange", "laranja"],
+  ["gold", "dourado"],
   ["azul", "azul"],
   ["natural", "titânio natural"],
 ];
@@ -422,32 +479,47 @@ function montarCotacoes(
   return saida;
 }
 
+function dolar(valor: number) {
+  return `US$ ${valor.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
 async function arquivoJson(url: string) {
   const resposta = await fetch(`${url}?t=${Date.now()}`);
   return resposta.ok ? resposta.json() : null;
 }
+
+type LojaParaguai = { loja: string; preco: number };
+type ModeloParaguai = { modelo: string; ofertas: number; cores: { cor: string; lojas: LojaParaguai[] }[] };
+type PainelParaguai = { atualizadoEm?: string; fechadas?: boolean; modelos?: ModeloParaguai[] };
 
 async function carregarPainel() {
   try {
     const { data } = await api.get("/backoffice/painel-precos");
     const melhores = data?.melhores;
     const listas = data?.listas;
-    if (Array.isArray(melhores?.cotacoes) || Array.isArray(listas?.listas)) {
+    const paraguaiApi = data?.paraguai;
+    const paraguai = Array.isArray(paraguaiApi?.modelos)
+      ? paraguaiApi
+      : (await arquivoJson("/paraguai-precos.json")) || { modelos: [] };
+    if (Array.isArray(melhores?.cotacoes) || Array.isArray(listas?.listas) || Array.isArray(paraguai?.modelos)) {
       return {
         melhores: melhores || { cotacoes: [] },
         listas: listas || { listas: [] },
+        paraguai,
       };
     }
   } catch {
     /* o arquivo local cobre enquanto o servidor ainda não tem a lista */
   }
-  const [melhores, listas] = await Promise.all([
+  const [melhores, listas, paraguai] = await Promise.all([
     arquivoJson("/melhores-precos.json"),
     arquivoJson("/listas-fornecedor.json"),
+    arquivoJson("/paraguai-precos.json"),
   ]);
   return {
     melhores: melhores || { cotacoes: [] },
     listas: listas || { listas: [] },
+    paraguai: paraguai || { modelos: [] },
   };
 }
 
@@ -460,7 +532,9 @@ export function MelhoresPrecos() {
   const [atualizadoEm, setAtualizadoEm] = useState("");
   const [precosEm, setPrecosEm] = useState("");
   const [listasFechadas, setListasFechadas] = useState(false);
-  const [visao, setVisao] = useState<"estoque" | "fornecedor">("estoque");
+  const [visao, setVisao] = useState<"estoque" | "fornecedor" | "paraguai">("estoque");
+  const [paraguai, setParaguai] = useState<PainelParaguai>({ modelos: [] });
+  const [paraguaiEm, setParaguaiEm] = useState("");
   const [categoriaAtiva, setCategoriaAtiva] = useState("");
   const [busca, setBusca] = useState("");
   const [carregando, setCarregando] = useState(true);
@@ -485,6 +559,8 @@ export function MelhoresPrecos() {
         setOrdemCategorias(toFlatOptions(categorias).map((item) => item.label));
         setBrutas(Array.isArray(precosRes?.cotacoes) ? (precosRes.cotacoes as CotacaoBruta[]) : []);
         setListas(Array.isArray(listasRes?.listas) ? (listasRes.listas as ListaFornecedorDados[]) : []);
+        setParaguai(painel.paraguai && Array.isArray(painel.paraguai.modelos) ? painel.paraguai : { modelos: [] });
+        setParaguaiEm(typeof painel.paraguai?.atualizadoEm === "string" ? painel.paraguai.atualizadoEm : "");
         setListasFechadas(listasRes?.fechadas === true);
         setAtualizadoEm(typeof listasRes?.atualizadoEm === "string" ? listasRes.atualizadoEm : typeof precosRes?.atualizadoEm === "string" ? precosRes.atualizadoEm : "");
         setPrecosEm(typeof precosRes?.atualizadoEm === "string" ? precosRes.atualizadoEm : "");
@@ -516,9 +592,12 @@ export function MelhoresPrecos() {
             : typeof precosRes.atualizadoEm === "string"
               ? precosRes.atualizadoEm
               : "";
-          if (quando && quando === atualizadoEm && precosRes?.atualizadoEm === precosEm) return;
+          const lidoParaguai = typeof painel.paraguai?.atualizadoEm === "string" ? painel.paraguai.atualizadoEm : "";
+          if (quando && quando === atualizadoEm && precosRes?.atualizadoEm === precosEm && lidoParaguai === paraguaiEm) return;
           setBrutas(Array.isArray(precosRes.cotacoes) ? (precosRes.cotacoes as CotacaoBruta[]) : []);
           setListas(Array.isArray(listasRes.listas) ? (listasRes.listas as ListaFornecedorDados[]) : []);
+          setParaguai(painel.paraguai && Array.isArray(painel.paraguai.modelos) ? painel.paraguai : { modelos: [] });
+          setParaguaiEm(lidoParaguai);
           setListasFechadas(listasRes?.fechadas === true);
           if (quando) setAtualizadoEm(quando);
           if (typeof precosRes.atualizadoEm === "string") setPrecosEm(precosRes.atualizadoEm);
@@ -529,7 +608,7 @@ export function MelhoresPrecos() {
       cancel = true;
       window.clearInterval(timer);
     };
-  }, [atualizadoEm, precosEm]);
+  }, [atualizadoEm, precosEm, paraguaiEm]);
 
   function gravarPreferencia(proxima: PreferenciaLista) {
     setPreferencia(proxima);
@@ -537,6 +616,7 @@ export function MelhoresPrecos() {
   }
 
   const listasHoje = useMemo(() => listas.filter((lista) => diaDe(lista.quando) === hoje), [listas, hoje]);
+  const listasParaguai = useMemo(() => listasDasLojasPy(paraguai), [paraguai]);
   const casar = useMemo(() => {
     const cache = new Map<string, Catalogo | null>();
     return (modelo: string, cor: string, secao?: string) => {
@@ -600,6 +680,51 @@ export function MelhoresPrecos() {
 
   const semPreco = linhas.filter((produto) => !LISTAS_SP.some((lista) => precoDe.has(`${produto.id}|${lista.nome}`))).length;
 
+  const tabelaParaguai = useMemo(() => {
+    const porChave = new Map<string, LojaParaguai[]>();
+    for (const modelo of paraguai.modelos || []) {
+      const chave = modeloDoNome(modelo.modelo);
+      if (!chave) continue;
+      for (const cor of modelo.cores) {
+        if (!cor.cor || cor.cor === "sem cor" || !cor.lojas.length) continue;
+        porChave.set(`${chave}|${semAcento(cor.cor)}`, cor.lojas);
+      }
+    }
+    const linhasLojas = linhas.map((produto) => {
+      const id = identificar(nomeDoProduto(produto));
+      const lojas = (() => {
+        if (!id) return [];
+        const vistas = new Set<string>();
+        for (const cor of [id.cor, ...coresAceitas(id.cor)]) {
+          const chave = semAcento(cor);
+          if (vistas.has(chave)) continue;
+          vistas.add(chave);
+          const achado = porChave.get(`${id.produto}|${chave}`);
+          if (achado?.length) return achado;
+        }
+        return [];
+      })();
+      const precos = LOJAS_PY.map((coluna) => {
+        let preco: number | null = null;
+        for (const loja of lojas) {
+          const base = semAcento(loja.loja);
+          const junto = base.replace(/\s+/g, "");
+          const casa = coluna.chaves.some((chave) => base.includes(chave) || junto.includes(chave.replace(/\s+/g, "")));
+          if (!casa) continue;
+          if (preco == null || loja.preco < preco) preco = loja.preco;
+        }
+        return { nome: coluna.nome, preco };
+      });
+      const ganhadora = precos.reduce<{ nome: string; preco: number } | null>((melhor, coluna) => {
+        if (coluna.preco == null) return melhor;
+        if (!melhor || coluna.preco < melhor.preco) return { nome: coluna.nome, preco: coluna.preco };
+        return melhor;
+      }, null);
+      return { produto, precos, ganhadora };
+    });
+    return { linhasLojas, colunas: LOJAS_PY.map((coluna) => coluna.nome) };
+  }, [paraguai, linhas]);
+
   function menor(produtoId: string) {
     let melhor: { lista: string; preco: number } | null = null;
     for (const lista of LISTAS_SP) {
@@ -618,7 +743,14 @@ export function MelhoresPrecos() {
           onClick={() => startTransition(() => setVisao("estoque"))}
           className={`pb-1 text-base font-semibold ${visao === "estoque" ? "border-b-2 border-blue-700 text-blue-700" : "text-gray-400"}`}
         >
-          Nossos produtos
+          Preços SP
+        </button>
+        <button
+          type="button"
+          onClick={() => startTransition(() => setVisao("paraguai"))}
+          className={`pb-1 text-base font-semibold ${visao === "paraguai" ? "border-b-2 border-blue-700 text-blue-700" : "text-gray-400"}`}
+        >
+          Preços Paraguai
         </button>
         <button
           type="button"
@@ -628,12 +760,86 @@ export function MelhoresPrecos() {
           Lista do fornecedor
         </button>
       </div>
+      {visao === "paraguai" ? (
+        <div>
+          <div className="sticky top-0 z-10 mb-4 flex flex-wrap gap-x-5 gap-y-2 border-b border-gray-200 bg-white pb-2">
+            {abas.map((aba) => {
+              const ativa = aba.nome === categoriaSelecionada;
+              return (
+                <button
+                  key={aba.nome}
+                  type="button"
+                  onClick={() => startTransition(() => setCategoriaAtiva(aba.nome))}
+                  className={`pb-1 text-base font-semibold ${ativa ? "border-b-2 border-blue-700 text-blue-700" : "text-gray-400"}`}
+                >
+                  {aba.nome} ({aba.itens.length})
+                </button>
+              );
+            })}
+          </div>
+          <p className="mb-4 text-sm text-gray-600">
+            {paraguai.modelos?.length
+              ? `Preço em dólar, nos mesmos produtos. ${paraguai.fechadas ? "Lista do dia encerrada." : "O motor atualiza das 8h às 13h."} ${tabelaParaguai.linhasLojas.length} produtos, ${tabelaParaguai.linhasLojas.filter((linha) => !linha.ganhadora).length} sem preço.${paraguaiEm ? ` Lido em ${new Date(paraguaiEm).toLocaleString("pt-BR")}.` : ""}`
+              : "Ainda sem lista do Paraguai. O motor lê das 8h às 13h, junto com o WhatsApp."}
+          </p>
+          <input
+            value={busca}
+            onChange={(event) => setBusca(event.target.value)}
+            placeholder="Buscar produto..."
+            className="mb-4 w-full rounded-md border border-gray-300 p-2"
+          />
+          <div className="overflow-x-auto rounded-xl border border-gray-200">
+            <table className="min-w-full divide-y divide-gray-200 text-sm">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-3 py-2 text-left text-xs font-medium uppercase text-gray-500">Código</th>
+                  <th className="px-3 py-2 text-left text-xs font-medium uppercase text-gray-500">Produto</th>
+                  {tabelaParaguai.colunas.map((loja) => (
+                    <th key={loja} className="px-3 py-2 text-center text-xs font-medium uppercase text-gray-500">{loja}</th>
+                  ))}
+                  <th className="border-l border-gray-200 px-3 py-2 text-left text-xs font-medium uppercase text-gray-500">Ganhadora</th>
+                  <th className="px-3 py-2 text-right text-xs font-medium uppercase text-gray-500">Preço</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100 bg-white">
+                {tabelaParaguai.linhasLojas.map((linha) => (
+                  <tr key={linha.produto.id}>
+                    <td className="px-3 py-2 text-left text-gray-500">{linha.produto.code || "—"}</td>
+                    <td className="px-3 py-2 text-left text-gray-800">{linha.produto.name}</td>
+                    {linha.precos.map((coluna) => {
+                      const marcado = linha.ganhadora?.nome === coluna.nome;
+                      return (
+                        <td key={coluna.nome} className={`px-3 py-2 text-center tabular-nums ${marcado ? "font-semibold text-green-700" : "text-gray-700"}`}>
+                          {coluna.preco == null ? "—" : dolar(coluna.preco)}
+                        </td>
+                      );
+                    })}
+                    <td className="border-l border-gray-200 px-3 py-2 text-left text-gray-700">
+                      {linha.ganhadora ? <span className="font-semibold text-green-700">{linha.ganhadora.nome}</span> : "Sem preço"}
+                    </td>
+                    <td className="px-3 py-2 text-right tabular-nums text-gray-700">
+                      {linha.ganhadora ? <span className="font-semibold text-green-700">{dolar(linha.ganhadora.preco)}</span> : "—"}
+                    </td>
+                  </tr>
+                ))}
+                {tabelaParaguai.linhasLojas.length === 0 ? (
+                  <tr>
+                    <td className="px-3 py-4 text-gray-500" colSpan={tabelaParaguai.colunas.length + 4}>
+                      Nenhum produto encontrado.
+                    </td>
+                  </tr>
+                ) : null}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : null}
       {visao === "fornecedor" ? (
         carregando ? (
           <p className="text-sm text-gray-500">Carregando a lista...</p>
         ) : (
           <ListaFornecedor
-            listas={listasHoje}
+            listas={[...listasHoje, ...listasParaguai]}
             produtos={produtos}
             excluidos={preferencia.excluidos}
             vinculos={preferencia.vinculos}

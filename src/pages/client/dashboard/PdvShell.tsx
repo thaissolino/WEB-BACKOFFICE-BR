@@ -1,4 +1,4 @@
-import { createContext, FormEvent, ReactNode, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { createContext, FormEvent, ReactNode, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
   ChevronDown,
@@ -30,6 +30,7 @@ import {
   type PdvUiConfig,
 } from "./pdvUiConfig";
 import { openMenuHref, searchMenus } from "./menuData";
+import { aguardandoEvento, bloqueioDaRota, carregarEventos, observarEventos, publicarSessao } from "../cadastros/usuarios/acessoEvento";
 import "./dashboard.css";
 import "./dashboard-classic.css";
 import "./pdv-modals.css";
@@ -270,9 +271,14 @@ function PdvShellView({
   className?: string;
   showStrip?: boolean;
 }) {
-  const { clientLogout } = useClientAuth();
+  const { client, clientLogout } = useClientAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  useLayoutEffect(() => {
+    const main = document.getElementById("pdv-main");
+    if (main) main.scrollTop = 0;
+    window.scrollTo(0, 0);
+  }, [location.pathname, location.search]);
   const [query, setQuery] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
   const searchRef = useRef<HTMLFormElement>(null);
@@ -288,6 +294,44 @@ function PdvShellView({
   const layoutMode = usePdvLayoutMode((state) => state.mode);
   const isClassic = layoutMode === "classic";
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [avisoEvento, setAvisoEvento] = useState("");
+  const [eventoTick, setEventoTick] = useState(0);
+
+  useEffect(() => {
+    return observarEventos(() => setEventoTick((value) => value + 1));
+  }, []);
+
+  useEffect(() => {
+    let ativo = true;
+    if (!client) {
+      publicarSessao({ pronto: true, catalogo: false, eventos: null });
+      return;
+    }
+    publicarSessao({ pronto: false, catalogo: false, eventos: null });
+    carregarEventos(client.email, client.username)
+      .then((proxima) => {
+        if (ativo) publicarSessao(proxima);
+      })
+      .catch(() => {
+        if (ativo) publicarSessao({ pronto: true, catalogo: false, eventos: null });
+      });
+    return () => {
+      ativo = false;
+    };
+  }, [client]);
+
+  useEffect(() => {
+    function onBloqueio(event: Event) {
+      const texto = (event as CustomEvent<string>).detail;
+      if (texto) setAvisoEvento(texto);
+    }
+    window.addEventListener("pdv-evento-bloqueado", onBloqueio);
+    return () => window.removeEventListener("pdv-evento-bloqueado", onBloqueio);
+  }, []);
+
+  useEffect(() => {
+    setAvisoEvento("");
+  }, [location.pathname]);
 
   const currentStore = stores.find((item) => item.id === storeId) ?? stores[0];
   const storeName = currentStore?.name ?? "";
@@ -734,7 +778,18 @@ function PdvShellView({
           className={variant === "form" ? "pdv-main pdv-main-form" : "pdv-main"}
           id="pdv-main"
         >
-          {children}
+          {(() => {
+            const aqui = `${location.pathname}${location.search}`;
+            if (aguardandoEvento(aqui)) return null;
+            const trava = eventoTick >= 0 ? bloqueioDaRota(aqui) : "";
+            if (trava) return <p className="pdv-evento-aviso">{trava}</p>;
+            return (
+              <>
+                {avisoEvento ? <p className="pdv-evento-aviso">{avisoEvento}</p> : null}
+                {children}
+              </>
+            );
+          })()}
         </main>
         <PageJumps />
 

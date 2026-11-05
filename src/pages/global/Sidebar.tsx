@@ -32,6 +32,8 @@ import AssignmentTurnedInOutlinedIcon from "@mui/icons-material/AssignmentTurned
 import AssessmentOutlinedIcon from "@mui/icons-material/AssessmentOutlined";
 import AccountBalanceWalletOutlinedIcon from "@mui/icons-material/AccountBalanceWalletOutlined";
 import LocalOfferOutlinedIcon from "@mui/icons-material/LocalOfferOutlined";
+import PriceCheckOutlinedIcon from "@mui/icons-material/PriceCheckOutlined";
+import ReportProblemOutlinedIcon from "@mui/icons-material/ReportProblemOutlined";
 import { usePermissionStore } from "../../store/permissionsStore";
 import { api } from "../../services/api";
 
@@ -609,7 +611,9 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebar }) => {
                 <Item title="Invoices" to="/gestao/compras?aba=invoices" icon={<DescriptionOutlinedIcon />} selected={selected} setSelected={setSelected} />
                 <Item title="Média dólar" to="/gestao/compras?aba=media-dolar" icon={<DescriptionOutlinedIcon />} selected={selected} setSelected={setSelected} />
                 <Item title="Relatórios" to="/gestao/compras?aba=relatorios" icon={<DescriptionOutlinedIcon />} selected={selected} setSelected={setSelected} />
-                <Item title="Lista de compras" to="/gestao/compras?aba=shopping-lists" icon={<ListIcon />} selected={selected} setSelected={setSelected} />
+                <Item title="Melhores preços" to="/gestao/compras?aba=melhores-precos" icon={<PriceCheckOutlinedIcon />} selected={selected} setSelected={setSelected} />
+                <Item title="Listas de compras" to="/gestao/compras?aba=shopping-lists" icon={<ListIcon />} selected={selected} setSelected={setSelected} />
+                <Item title="Perdidos" to="/gestao/compras?aba=lost-products" icon={<ReportProblemOutlinedIcon />} selected={selected} setSelected={setSelected} />
                 <Item title="Buscar IMEI" to="/gestao/compras?aba=imei-search" icon={<DescriptionOutlinedIcon />} selected={selected} setSelected={setSelected} />
               </LegacySubMenu>
             )}

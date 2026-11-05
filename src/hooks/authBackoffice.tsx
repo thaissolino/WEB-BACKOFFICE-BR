@@ -21,6 +21,7 @@ export type User = {
   api_key: string;
   accessPassword: string;
   access_token: string | null;
+  mustChangePassword?: boolean;
   permissions: {
     [key: string]: {
       enabled: boolean;

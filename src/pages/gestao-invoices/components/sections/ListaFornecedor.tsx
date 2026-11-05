@@ -4,7 +4,7 @@ import { formatMoneyRs } from "../../../client/cadastros/produtos/types";
 
 export type ItemLista = { cor: string; preco: number | null };
 export type BlocoLista = { secao: "lacrados" | "cpo" | "outros"; modelo: string; itens: ItemLista[] };
-export type ListaFornecedorDados = { lugar: string; quando: string; blocos: BlocoLista[] };
+export type ListaFornecedorDados = { lugar: string; quando: string; blocos: BlocoLista[]; moeda?: "usd" | "brl" };
 export type ProdutoVinculo = { id: string; name: string; code: string; category?: string };
 
 function semAcento(texto: string) {
@@ -151,6 +151,19 @@ const FORNECEDORES = [
   { nome: "Tm Natach 2", chave: "tm natach" },
 ] as const;
 
+const FORNECEDORES_PY = [
+  { nome: "Nissei", chave: "nissei" },
+  { nome: "Mega Eletrônicos", chave: "mega" },
+  { nome: "Cellshop", chave: "cellshop" },
+  { nome: "Mario Cell", chave: "mario" },
+  { nome: "Mundo do Celular", chave: "mundo" },
+] as const;
+
+const GRUPOS_FORNECEDOR = [
+  { titulo: "São Paulo", itens: FORNECEDORES },
+  { titulo: "Paraguai", itens: FORNECEDORES_PY },
+] as const;
+
 export function ehIphone(modelo: string) {
   const base = semAcento(modelo);
   if (/\b(realme|poco|xiaomi|redmi|notes?)\b/.test(base)) return false;
@@ -209,7 +222,15 @@ function faltaVincular(
 
 function fornecedorDaLista(lugar: string) {
   const base = semAcento(lugar).replace(/-/g, " ");
-  return FORNECEDORES.find((fornecedor) => base.includes(semAcento(fornecedor.chave).replace(/-/g, " ")))?.nome || "";
+  const sp = FORNECEDORES.find((fornecedor) => base.includes(semAcento(fornecedor.chave).replace(/-/g, " ")));
+  if (sp) return sp.nome;
+  return FORNECEDORES_PY.find((fornecedor) => base.includes(semAcento(fornecedor.chave)))?.nome || "";
+}
+
+function textoPreco(preco: number | null, moeda?: "usd" | "brl") {
+  if (preco == null) return "não vende";
+  if (moeda === "usd") return `US$ ${preco.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  return formatMoneyRs(preco);
 }
 
 const ROTULO_SECAO: Record<BlocoLista["secao"], string> = {
@@ -231,7 +252,7 @@ type Props = {
 };
 
 export function ListaFornecedor({ listas, produtos, excluidos, vinculos, casar, onExcluir, onVincular }: Props) {
-  const [fornecedor, setFornecedor] = useState<(typeof FORNECEDORES)[number]["nome"]>(FORNECEDORES[0].nome);
+  const [fornecedor, setFornecedor] = useState<string>(FORNECEDORES[0].nome);
   const [filtro, setFiltro] = useState<Filtro>("vincular");
   const [busca, setBusca] = useState("");
   const [aberto, setAberto] = useState("");
@@ -254,13 +275,12 @@ export function ListaFornecedor({ listas, produtos, excluidos, vinculos, casar, 
           return palavras.every((palavra) => nome.includes(palavra));
         })
       : produtos;
-    return [...base]
-      .sort((a, b) => {
-        const seminovo = (item: ProdutoVinculo) => semAcento(`${item.category || ""} ${item.name}`).includes("seminovo");
-        const nota = (item: ProdutoVinculo) => (lacrado && seminovo(item) ? 1 : 0);
-        return nota(a) - nota(b) || a.name.localeCompare(b.name, "pt-BR");
-      })
-      .slice(0, 8);
+    return [...base].sort((a, b) => {
+      const seminovo = (item: ProdutoVinculo) => semAcento(`${item.category || ""} ${item.name}`).includes("seminovo");
+      const nota = (item: ProdutoVinculo) => (lacrado && seminovo(item) ? 1 : 0);
+      const mix = (nome: string) => (/(^|\s)mix$/i.test(nome.trim()) ? 1 : 0);
+      return nota(a) - nota(b) || mix(a.name) - mix(b.name) || a.name.localeCompare(b.name, "pt-BR");
+    });
   }, [produtos, termo, aberto]);
 
   const termoBusca = busca.trim().toLocaleLowerCase("pt-BR");
@@ -344,20 +364,25 @@ export function ListaFornecedor({ listas, produtos, excluidos, vinculos, casar, 
 
   return (
     <div>
-      <div className="mb-4 flex flex-wrap gap-x-5 gap-y-2 border-b border-gray-200 pb-2">
-        {FORNECEDORES.map((item) => (
-          <button
-            key={item.nome}
-            type="button"
-            onClick={() => startTransition(() => setFornecedor(item.nome))}
-            className={`pb-1 text-base font-semibold ${fornecedor === item.nome ? "border-b-2 border-blue-700 text-blue-700" : "text-gray-400"}`}
-          >
-            {item.nome}
-          </button>
+      <div className="mb-4 flex flex-col gap-3 border-b border-gray-200 pb-3">
+        {GRUPOS_FORNECEDOR.map((grupo) => (
+          <div key={grupo.titulo} className="flex flex-wrap items-center gap-x-5 gap-y-2">
+            <span className="w-24 text-xs font-semibold uppercase tracking-wide text-gray-400">{grupo.titulo}</span>
+            {grupo.itens.map((item) => (
+              <button
+                key={item.nome}
+                type="button"
+                onClick={() => startTransition(() => setFornecedor(item.nome))}
+                className={`pb-1 text-base font-semibold ${fornecedor === item.nome ? "border-b-2 border-blue-700 text-blue-700" : "text-gray-400"}`}
+              >
+                {item.nome}
+              </button>
+            ))}
+          </div>
         ))}
       </div>
       <p className="mb-4 text-sm text-gray-600">
-        Por enquanto só os iPhones da {fornecedor}. O que não casar com o estoque, você vincula ou marca que não trabalham. Em Não trabalhamos o vínculo continua disponível. Ativado e CPO só entram no preço quando você vincular.
+        iPhones da {fornecedor}. O que não casar com o estoque fica em Falta vincular para você ligar no cadastro, ou marcar que não trabalham.
       </p>
       <div className="mb-4 flex flex-wrap gap-2">
         {(
@@ -473,7 +498,7 @@ export function ListaFornecedor({ listas, produtos, excluidos, vinculos, casar, 
                           <tr key={`${chave}|${indice}`} className="border-t border-gray-50">
                             <td className="px-3 py-2 capitalize text-gray-800">{item.cor && item.cor !== "único" ? item.cor : "—"}</td>
                             <td className="px-3 py-2 text-center tabular-nums text-gray-700">
-                              {item.preco == null ? "não vende" : formatMoneyRs(item.preco)}
+                              {textoPreco(item.preco, lista.moeda)}
                             </td>
                             <td className="px-3 py-2 text-left">
                               {aberto === chaveLinha ? (

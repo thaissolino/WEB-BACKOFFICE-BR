@@ -133,7 +133,7 @@ export const CaixasTab = () => {
             let invoices: any[] = [];
             if (item.typeInvoice === "fornecedor") {
               try {
-                const { data: listInvoicesBySupplier } = await api.get(`/invoice/list/supplier/${item.id}`);
+                const { data: listInvoicesBySupplier } = await api.get(`/invoice/list/supplier/${item.id}?resumo=1`);
                 invoices = listInvoicesBySupplier.map((invoice: any) => ({
                   value: invoice.subAmount,
                   direction: "OUT",
@@ -143,7 +143,7 @@ export const CaixasTab = () => {
               }
             } else if (item.typeInvoice === "freteiro") {
               try {
-                const { data: listInvoicesByCarrier } = await api.get(`/invoice/list/carrier/${item.id}`);
+                const { data: listInvoicesByCarrier } = await api.get(`/invoice/list/carrier/${item.id}?resumo=1`);
                 invoices = listInvoicesByCarrier.map((invoice: any) => ({
                   value: invoice.subAmount,
                   direction: "OUT",
@@ -195,7 +195,7 @@ export const CaixasTab = () => {
         let invoices: any[] = [];
         if (selectedEntity.typeInvoice === "fornecedor") {
           try {
-            const { data: listInvoicesBySupplier } = await api.get(`/invoice/list/supplier/${selectedEntity.id}`);
+            const { data: listInvoicesBySupplier } = await api.get(`/invoice/list/supplier/${selectedEntity.id}?resumo=1`);
             invoices = listInvoicesBySupplier.map((invoice: any) => ({
               value: invoice.subAmount,
               direction: "OUT",
@@ -205,7 +205,7 @@ export const CaixasTab = () => {
           }
         } else if (selectedEntity.typeInvoice === "freteiro") {
           try {
-            const { data: listInvoicesByCarrier } = await api.get(`/invoice/list/carrier/${selectedEntity.id}`);
+            const { data: listInvoicesByCarrier } = await api.get(`/invoice/list/carrier/${selectedEntity.id}?resumo=1`);
             invoices = listInvoicesByCarrier.map((invoice: any) => ({
               value: invoice.subAmount,
               direction: "OUT",
@@ -273,7 +273,7 @@ export const CaixasTab = () => {
           let invoices: any[] = [];
           if (item.typeInvoice === "fornecedor") {
             try {
-              const { data: listInvoicesBySupplier } = await api.get(`/invoice/list/supplier/${item.id}`);
+              const { data: listInvoicesBySupplier } = await api.get(`/invoice/list/supplier/${item.id}?resumo=1`);
               invoices = listInvoicesBySupplier.map((invoice: any) => ({
                 value: invoice.subAmount,
                 direction: "OUT",
@@ -283,7 +283,7 @@ export const CaixasTab = () => {
             }
           } else if (item.typeInvoice === "freteiro") {
             try {
-              const { data: listInvoicesByCarrier } = await api.get(`/invoice/list/carrier/${item.id}`);
+              const { data: listInvoicesByCarrier } = await api.get(`/invoice/list/carrier/${item.id}?resumo=1`);
               invoices = listInvoicesByCarrier.map((invoice: any) => ({
                 value: invoice.subAmount,
                 direction: "OUT",
@@ -420,9 +420,17 @@ export const CaixasTab = () => {
       setTransactionHistoryList([])
       setLoadingFetch2(true)
 
-      const res = await api.get(`/invoice/box/transaction/${entityId}`)
-      console.log("res", res.data)
       const entity = combinedItems.find((item) => item.id === entityId)
+      const notas = entity?.typeInvoice === "fornecedor"
+        ? api.get(`/invoice/list/supplier/${entityId}?resumo=1`)
+        : entity?.typeInvoice === "freteiro"
+          ? api.get(`/invoice/list/carrier/${entityId}?resumo=1`)
+          : Promise.resolve({ data: [] as any[] })
+      const [res, notasRes] = await Promise.all([
+        api.get(`/invoice/box/transaction/${entityId}`),
+        notas,
+      ])
+      console.log("res", res.data)
       setSelectedEntity({
         ...entity,
         ...res.data,
@@ -441,7 +449,7 @@ export const CaixasTab = () => {
       // Busca invoices baseado no tipo da entidade
       let invoices = []
       if (entity?.typeInvoice === "fornecedor") {
-        const { data: listInvoicesBySupplier } = await api.get(`/invoice/list/supplier/${entityId}`)
+        const listInvoicesBySupplier = notasRes.data
         console.log("istInvoicesBySupplier", listInvoicesBySupplier)
 
         invoices = listInvoicesBySupplier.map((invoice: any) => ({
@@ -453,7 +461,7 @@ export const CaixasTab = () => {
           direction: "OUT", // Invoices são sempre saídas
         }))
       } else if (entity?.typeInvoice === "freteiro") {
-        const { data: listInvoicesByCarrier } = await api.get(`/invoice/list/carrier/${entityId}`)
+        const listInvoicesByCarrier = notasRes.data
         console.log("istInvoicesByCarrier", listInvoicesByCarrier)
 
         invoices = listInvoicesByCarrier.map((invoice: any) => ({

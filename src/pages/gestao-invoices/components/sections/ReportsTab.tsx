@@ -2,7 +2,9 @@ import { useEffect, useMemo, useState } from "react";
 import { formatCurrency } from "../../../cambiobackoffice/formatCurrencyUtil";
 import { InvoiceData, InvoiceHistory } from "./InvoiceHistory";
 import { api } from "../../../../services/api";
-import { InvoiceHistoryReport, saoPauloDay } from "./InvoiceHistoryReport";
+import { InvoiceHistoryReport } from "./InvoiceHistoryReport";
+import { contarEtiquetas, periodoEtiquetas, type LinhaRecebimento } from "./contagemEtiquetas";
+import { carregarGruposEtiqueta, lerGruposEtiqueta } from "./etiquetaCache";
 import { DatePreset } from "../../../client/cadastros/catalog/FormBits";
 import SearchableSelect from "../../../client/cadastros/produtos/SearchableSelect";
 
@@ -50,17 +52,11 @@ export function ReportsTab() {
     fetchData();
   }, []);
 
-  // Range inicial: 3 meses — dia 01 do mês inicial até o dia atual
-  const getThreeMonthsRange = () => {
-    const today = new Date();
-    const start = new Date(today.getFullYear(), today.getMonth() - 3, 1); // dia 1 do mês de 3 meses atrás
-    return {
-      startDate: start.toISOString().split("T")[0],
-      endDate: today.toISOString().split("T")[0],
-    };
+  const faixaEtiquetas = periodoEtiquetas();
+  const initialRange = {
+    startDate: faixaEtiquetas.inicio,
+    endDate: faixaEtiquetas.fim,
   };
-
-  const initialRange = getThreeMonthsRange();
   const [filters, setFilters] = useState({
     startDate: initialRange.startDate,
     endDate: initialRange.endDate,
@@ -68,7 +64,16 @@ export function ReportsTab() {
     supplier: "all",
   });
   const [showReceipts, setShowReceipts] = useState(false);
-  const [printCount, setPrintCount] = useState(0);
+  const contaInicial = (() => {
+    const groups = lerGruposEtiqueta(initialRange.startDate, initialRange.endDate);
+    return groups ? contarEtiquetas(groups as Array<{ entries?: LinhaRecebimento[] }>, initialRange.startDate, initialRange.endDate) : null;
+  })();
+  const [printCount, setPrintCount] = useState(contaInicial?.printCount ?? 0);
+  const [printedCount, setPrintedCount] = useState(contaInicial?.printedCount ?? 0);
+  const [linhasEtiqueta, setLinhasEtiqueta] = useState<LinhaRecebimento[]>(contaInicial?.linhas ?? []);
+  const [idsGerar, setIdsGerar] = useState<string[]>(contaInicial?.idsGerar ?? []);
+  const [idsImpressas, setIdsImpressas] = useState<string[]>(contaInicial?.idsImpressas ?? []);
+  const [etiquetasProntas, setEtiquetasProntas] = useState(Boolean(contaInicial));
   const [markTick, setMarkTick] = useState(0);
 
   const pickStatus = (status: string) => {
@@ -123,39 +128,33 @@ export function ReportsTab() {
   const pendingCount = invoices.filter((inv) => !inv.completed && !inv.paid).length;
   const paidCount = invoices.filter((inv) => inv.paid && !inv.completed).length;
   const awaitingPrint = useMemo(() => invoices.filter(isAwaitingPrint), [invoices]);
-  const labelQueue = useMemo(
-    () => invoices.filter((invoice) => !invoice.labelsPrintedAt),
-    [invoices],
-  );
   const completedCount = awaitingPrint.length;
 
   useEffect(() => {
     let cancel = false;
-    const openIds = new Set(labelQueue.map((invoice) => invoice.id));
-    api
-      .get("/invoice/receipt-history")
-      .then(({ data }) => {
-        if (cancel) return;
-        const keys = new Set<string>();
-        const groups = Array.isArray(data?.grouped) ? data.grouped : [];
-        for (const group of groups) {
-          for (const entry of group.entries || []) {
-            if (entry.labelPrintedAt || !openIds.has(entry.invoiceId)) continue;
-            const day = saoPauloDay(entry.date);
-            if (!day) continue;
-            keys.add(`${entry.invoiceId}|${day}`);
-          }
-        }
-        setPrintCount(keys.size);
+    const aplicar = () => {
+      const groups = lerGruposEtiqueta(filters.startDate, filters.endDate);
+      if (!groups) return;
+      const conta = contarEtiquetas(groups as Array<{ entries?: LinhaRecebimento[] }>, filters.startDate, filters.endDate);
+      setLinhasEtiqueta(conta.linhas);
+      setIdsGerar(conta.idsGerar);
+      setIdsImpressas(conta.idsImpressas);
+      setPrintCount(conta.printCount);
+      setPrintedCount(conta.printedCount);
+      setEtiquetasProntas(true);
+    };
+    aplicar();
+    carregarGruposEtiqueta(filters.startDate, filters.endDate, markTick > 0)
+      .then(() => {
+        if (!cancel) aplicar();
       })
       .catch(() => {
-        if (!cancel) setPrintCount(0);
+        if (!cancel) setEtiquetasProntas(true);
       });
     return () => {
       cancel = true;
     };
-  }, [labelQueue, markTick]);
-  const finalizedCount = invoices.filter(isFinalizedInvoice).length;
+  }, [filters.startDate, filters.endDate, markTick]);
 
   const statusLabel = STATUS_OPCOES.find((item) => item.id === filters.status)?.label || "Pendentes + Pagas";
   const supplierName = filters.supplier === "all" ? "" : suppliers.find((item) => item.id === filters.supplier)?.name || "";
@@ -234,7 +233,7 @@ export function ReportsTab() {
         </button>
         <button type="button" className={`pdv-compra-card pdv-rel-card-impressas${filters.status === "finalized" && !showReceipts ? " is-on" : ""}`} onClick={() => pickStatus("finalized")}>
           <span>Impressas</span>
-          <strong>{finalizedCount}</strong>
+          <strong>{printedCount}</strong>
           <em>Depois da impressão</em>
         </button>
       </div>
@@ -243,12 +242,14 @@ export function ReportsTab() {
       {/* <InvoiceHistoryReport invoiceHistory={filteredInvoices} setInvoiceHistory={setInvoices} /> */}
       <InvoiceHistoryReport
         printTable={showReceipts || filters.status === "finalized"}
+        listReady={etiquetasProntas}
+        seedEntries={linhasEtiqueta}
         reprint={filters.status === "finalized" && !showReceipts}
         printInvoiceIds={
           showReceipts
-            ? labelQueue.map((invoice) => invoice.id)
+            ? idsGerar
             : filters.status === "finalized"
-              ? filteredInvoices.map((invoice) => invoice.id)
+              ? idsImpressas
               : undefined
         }
         onLabelsPrinted={async ({ invoiceId, invoiceNumber, day, historyIds }) => {

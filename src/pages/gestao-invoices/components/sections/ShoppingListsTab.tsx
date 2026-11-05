@@ -7,8 +7,6 @@ import {
   Trash2,
   Check,
   X,
-  ShoppingCart,
-  BadgePercent,
   Package,
   HelpCircle,
   Download,
@@ -28,7 +26,6 @@ import { api } from "../../../../services/api";
 import Swal from "sweetalert2";
 import { useNotification } from "../../../../hooks/notification";
 import { ProductSearchSelect } from "./SupplierSearchSelect";
-import { MelhoresPrecos } from "./MelhoresPrecos";
 import { useActionLoading } from "../../context/ActionLoadingContext";
 
 interface Product {
@@ -86,7 +83,6 @@ export function ShoppingListsTab() {
   const [shoppingLists, setShoppingLists] = useState<ShoppingList[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
-  const [abaPainel, setAbaPainel] = useState<"listas" | "precos">("precos");
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
@@ -3292,30 +3288,7 @@ export function ShoppingListsTab() {
 
   return (
     <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-      <div className="flex justify-between items-center mb-6 gap-4">
-        <div className="flex items-end gap-6 border-b border-gray-200">
-          <button
-            type="button"
-            onClick={() => setAbaPainel("precos")}
-            className={`pb-2 text-xl font-semibold ${
-              abaPainel === "precos" ? "text-blue-700 border-b-2 border-blue-700" : "text-gray-400"
-            }`}
-          >
-            <BadgePercent className="mr-2 inline" size={18} />
-            Melhores preços
-          </button>
-          <button
-            type="button"
-            onClick={() => setAbaPainel("listas")}
-            className={`pb-2 text-xl font-semibold ${
-              abaPainel === "listas" ? "text-blue-700 border-b-2 border-blue-700" : "text-gray-400"
-            }`}
-          >
-            <ShoppingCart className="mr-2 inline" size={18} />
-            Listas de Compras
-          </button>
-        </div>
-        {abaPainel === "listas" ? (
+      <div className="flex justify-end items-center mb-6 gap-4">
         <div className="flex gap-2">
           <Tooltip content="Criar nova lista de compras" position="bottom" maxWidth="150px">
             <button
@@ -3339,12 +3312,8 @@ export function ShoppingListsTab() {
             </button>
           </Tooltip>
         </div>
-        ) : null}
       </div>
 
-      {abaPainel === "precos" ? (
-        <MelhoresPrecos />
-      ) : (
       <>
       {/* Formulário de Nova Lista / Edição */}
       {(isEditing === "new" || isEditing) && (
@@ -5797,7 +5766,6 @@ export function ShoppingListsTab() {
         </div>
       )}
       </>
-      )}
     </div>
   );
 }

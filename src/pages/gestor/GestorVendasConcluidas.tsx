@@ -4,6 +4,7 @@ import Swal from "sweetalert2";
 import { api, parseError } from "../../services/api";
 import { printNotinha } from "../../lib/notinhaZebra";
 import GestaoShell from "./GestaoShell";
+import "../client/cadastros/cadastros.css";
 
 type Line = {
   id: string;
@@ -223,7 +224,7 @@ function addressLine(address?: Address) {
 
 export default function GestorVendasConcluidas() {
   const [orders, setOrders] = useState<ClosedSale[]>([]);
-  const [lane, setLane] = useState<"separacao" | "concluidas" | "estornadas">("separacao");
+  const [lane, setLane] = useState<"separacao" | "concluidas" | "estornadas">("concluidas");
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState("");
   const [conferenceId, setConferenceId] = useState("");
@@ -580,27 +581,26 @@ export default function GestorVendasConcluidas() {
         </div>
       ) : null}
 
-      <div className="mb-4 grid gap-3 sm:grid-cols-4">
-        {(
-          [
-            ["separacao", "Em separação", lanes.separacao.length, "border-yellow-200 bg-yellow-50 text-yellow-950"],
-            ["concluidas", "Concluídas", lanes.concluidas.length, "border-green-200 bg-green-50 text-green-900"],
-            ["estornadas", "Estornadas", lanes.estornadas.length, "border-red-200 bg-red-50 text-red-900"],
-          ] as const
-        ).map(([key, label, count, tone]) => (
-          <button
-            key={key}
-            type="button"
-            onClick={() => setLane(key)}
-            className={`gvc-stat rounded-lg border px-4 py-3 text-left ${tone} ${lane === key ? "ring-2 ring-blue-600" : ""}`}
-          >
-            <p className="text-xs font-semibold uppercase tracking-wide">{label}</p>
-            <p className="mt-1 text-2xl font-bold">{count}</p>
-          </button>
-        ))}
-        <div className="gvc-stat rounded-lg border border-blue-100 bg-blue-50 px-4 py-3">
-          <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">Valor desta lista</p>
-          <p className="mt-1 text-2xl font-bold text-blue-900">{money(total)}</p>
+      <div className="pdv-compra-cards">
+        <button type="button" className={`pdv-compra-card pdv-compra-card-abertas${lane === "separacao" ? " is-on" : ""}`} onClick={() => setLane("separacao")}>
+          <span>Em separação</span>
+          <strong>{lanes.separacao.length}</strong>
+          <em>Falta conferir</em>
+        </button>
+        <button type="button" className={`pdv-compra-card pdv-compra-card-concluidas${lane === "concluidas" ? " is-on" : ""}`} onClick={() => setLane("concluidas")}>
+          <span>Concluídas</span>
+          <strong>{lanes.concluidas.length}</strong>
+          <em>Já enviadas</em>
+        </button>
+        <button type="button" className={`pdv-compra-card pdv-compra-card-estornadas${lane === "estornadas" ? " is-on" : ""}`} onClick={() => setLane("estornadas")}>
+          <span>Estornadas</span>
+          <strong>{lanes.estornadas.length}</strong>
+          <em>Vendas estornadas</em>
+        </button>
+        <div className="pdv-compra-card pdv-compra-card-nova">
+          <span>Valor</span>
+          <strong>{money(total)}</strong>
+          <em>Desta lista</em>
         </div>
       </div>
 
@@ -642,7 +642,6 @@ export default function GestorVendasConcluidas() {
           <div className="p-8 text-center text-gray-500">
             <Truck size={32} className="mx-auto mb-2 opacity-50" />
             <p className="font-medium">Nenhum pedido neste status.</p>
-            <p className="mt-1 text-sm">A tela abre em separação. Concluídas e estornadas ficam nos cards.</p>
           </div>
         ) : (
           <div className="overflow-x-auto">

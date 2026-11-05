@@ -46,7 +46,9 @@
   --font-body: "Plus Jakarta Sans", sans-serif;
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  width: 100%;
+  height: 100dvh;
+  min-height: 100dvh;
   background: var(--chrome-void);
   color: var(--chrome-ink);
   font-family: var(--font-body);

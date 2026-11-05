@@ -1,4 +1,4 @@
-import { useContext, useEffect, useRef, useState } from "react";
+import { useContext, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import {
   ArrowLeftRight,
@@ -6,6 +6,7 @@ import {
   Bell,
   DatabaseBackup,
   FilePenLine,
+  KeyRound,
   List,
   LogOut,
   Menu,
@@ -26,6 +27,7 @@ import { LEGACY_GROUP_LABEL, useBackofficeNavItems, type BackofficeNavChild } fr
 import { api } from "../../../services/api";
 import "./premium-chrome.css";
 import { PageJumps } from "../../client/dashboard/PageJumps";
+import { aquecerEtiquetas } from "../../gestao-invoices/components/sections/etiquetaCache";
 
 const NAV_ICONS: Record<string, LucideIcon> = {
   "gestao-cadastro": FilePenLine,
@@ -162,7 +164,7 @@ function LegacyNav({
 }
 
 export function PremiumChrome() {
-  const { items, roleLabel, onLogout, canBackup, isActive } = useBackofficeNavItems();
+  const { items, roleLabel, onLogout, canBackup, podeAlterarSenha, isActive } = useBackofficeNavItems();
   const mainItems = items.filter((item) => !item.legacy);
   const legacyItems = items.filter((item) => item.legacy);
   const colorMode = useContext(ColorModeContext);
@@ -180,6 +182,16 @@ export function PremiumChrome() {
   useEffect(() => {
     setDrawerOpen(false);
   }, [location.pathname]);
+
+  useEffect(() => {
+    aquecerEtiquetas();
+  }, []);
+
+  useLayoutEffect(() => {
+    const main = document.querySelector<HTMLElement>(".pdv-chrome-main");
+    if (main) main.scrollTop = 0;
+    window.scrollTo(0, 0);
+  }, [location.pathname, location.search]);
 
   async function handleLogout() {
     onLogout();
@@ -261,6 +273,11 @@ export function PremiumChrome() {
       </nav>
       <div className="pdv-chrome-foot">
         <p className="pdv-chrome-kicker">{roleLabel}</p>
+        {podeAlterarSenha ? (
+          <Link className="pdv-chrome-tool" to="/backoffice/minha-senha">
+            <KeyRound size={16} /> Alterar senha
+          </Link>
+        ) : null}
         <button className="pdv-chrome-tool" type="button" onClick={handleLogout}>
           <LogOut size={16} /> Sair
         </button>

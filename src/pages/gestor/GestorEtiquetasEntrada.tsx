@@ -1,100 +1,62 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { api } from "../../services/api";
-import { InvoiceHistoryReport, saoPauloDay } from "../gestao-invoices/components/sections/InvoiceHistoryReport";
+import { InvoiceHistoryReport } from "../gestao-invoices/components/sections/InvoiceHistoryReport";
 import type { InvoiceData } from "../gestao-invoices/components/sections/InvoiceHistory";
-import { fixInvertedDateString } from "../gestao-invoices/components/utils/format";
+import { contarEtiquetas, periodoEtiquetas, type LinhaRecebimento } from "../gestao-invoices/components/sections/contagemEtiquetas";
+import { carregarGruposEtiqueta, lerGruposEtiqueta } from "../gestao-invoices/components/sections/etiquetaCache";
 import { DatePreset } from "../client/cadastros/catalog/FormBits";
 import GestaoShell from "./GestaoShell";
 import "../client/cadastros/cadastros.css";
 
-function isFinalizedInvoice(invoice: InvoiceData) {
-  return Boolean(invoice.completed && invoice.paid && invoice.labelsPrintedAt);
+function periodoInicial() {
+  return periodoEtiquetas();
 }
 
-function isoDoDia(data: Date) {
-  const mes = String(data.getMonth() + 1).padStart(2, "0");
-  const dia = String(data.getDate()).padStart(2, "0");
-  return `${data.getFullYear()}-${mes}-${dia}`;
-}
-
-function mesAtual() {
-  const hoje = new Date();
-  return {
-    inicio: isoDoDia(new Date(hoje.getFullYear(), hoje.getMonth(), 1)),
-    fim: isoDoDia(new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0)),
-  };
-}
-
-function diaDaNota(date: string) {
-  const corrigida = fixInvertedDateString(String(date || "").trim());
-  const soDia = corrigida.match(/^(\d{4}-\d{2}-\d{2})$/);
-  if (soDia) return soDia[1];
-  const data = new Date(corrigida);
-  if (Number.isNaN(data.getTime())) return "";
-  return isoDoDia(data);
-}
-
-function noPeriodo(date: string, inicio: string, fim: string) {
-  const dia = diaDaNota(date);
-  if (!dia) return false;
-  if (inicio && dia < inicio) return false;
-  if (fim && dia > fim) return false;
-  return true;
+function contaDoPeriodo(inicio: string, fim: string) {
+  const groups = lerGruposEtiqueta(inicio, fim);
+  if (!groups) return null;
+  return contarEtiquetas(groups as Array<{ entries?: LinhaRecebimento[] }>, inicio, fim);
 }
 
 export default function GestorEtiquetasEntrada() {
+  const faixaInicial = periodoInicial();
+  const pronta = contaDoPeriodo(faixaInicial.inicio, faixaInicial.fim);
   const [invoices, setInvoices] = useState<InvoiceData[]>([]);
-  const [printCount, setPrintCount] = useState(0);
+  const [linhas, setLinhas] = useState<LinhaRecebimento[]>(pronta?.linhas ?? []);
+  const [printCount, setPrintCount] = useState(pronta?.printCount ?? 0);
+  const [printedCount, setPrintedCount] = useState(pronta?.printedCount ?? 0);
   const [markTick, setMarkTick] = useState(0);
   const [card, setCard] = useState<"gerar" | "finalizadas">("gerar");
-  const [rascunho, setRascunho] = useState(mesAtual);
-  const [periodo, setPeriodo] = useState(mesAtual);
-  const [pronto, setPronto] = useState(false);
-
-  const noMes = (invoice: InvoiceData) => noPeriodo(invoice.date, periodo.inicio, periodo.fim);
-  const labelQueue = useMemo(
-    () => invoices.filter((invoice) => !invoice.labelsPrintedAt && noMes(invoice)),
-    [invoices, periodo],
-  );
-  const finalized = useMemo(
-    () => invoices.filter((invoice) => isFinalizedInvoice(invoice) && noMes(invoice)),
-    [invoices, periodo],
-  );
-
-  useEffect(() => {
-    api
-      .get("/invoice/get")
-      .then(({ data }) => setInvoices((data || []) as InvoiceData[]))
-      .catch(() => setInvoices([]))
-      .finally(() => setPronto(true));
-  }, []);
+  const [rascunho, setRascunho] = useState(periodoInicial);
+  const [periodo, setPeriodo] = useState(periodoInicial);
+  const [pronto, setPronto] = useState(Boolean(pronta));
+  const [idsGerar, setIdsGerar] = useState<string[]>(pronta?.idsGerar ?? []);
+  const [idsImpressas, setIdsImpressas] = useState<string[]>(pronta?.idsImpressas ?? []);
 
   useEffect(() => {
     let cancel = false;
-    const openIds = new Set(invoices.filter((invoice) => !invoice.labelsPrintedAt).map((invoice) => invoice.id));
-    api
-      .get("/invoice/receipt-history")
-      .then(({ data }) => {
-        if (cancel) return;
-        const keys = new Set<string>();
-        const groups = Array.isArray(data?.grouped) ? data.grouped : [];
-        for (const group of groups) {
-          for (const entry of group.entries || []) {
-            if (entry.labelPrintedAt || !openIds.has(entry.invoiceId)) continue;
-            const day = saoPauloDay(entry.date);
-            if (!day || !noPeriodo(day, periodo.inicio, periodo.fim)) continue;
-            keys.add(`${entry.invoiceId}|${day}`);
-          }
-        }
-        setPrintCount(keys.size);
+    const aplicar = (inicio: string, fim: string) => {
+      const conta = contaDoPeriodo(inicio, fim);
+      if (!conta) return;
+      setLinhas(conta.linhas);
+      setIdsGerar(conta.idsGerar);
+      setIdsImpressas(conta.idsImpressas);
+      setPrintCount(conta.printCount);
+      setPrintedCount(conta.printedCount);
+      setPronto(true);
+    };
+    aplicar(periodo.inicio, periodo.fim);
+    carregarGruposEtiqueta(periodo.inicio, periodo.fim, markTick > 0)
+      .then(() => {
+        if (!cancel) aplicar(periodo.inicio, periodo.fim);
       })
       .catch(() => {
-        if (!cancel) setPrintCount(0);
+        if (!cancel) setPronto(true);
       });
     return () => {
       cancel = true;
     };
-  }, [invoices, markTick, periodo]);
+  }, [markTick, periodo]);
 
   return (
     <GestaoShell
@@ -137,9 +99,9 @@ export default function GestorEtiquetasEntrada() {
                 className="pdv-cad-btn"
                 type="button"
                 onClick={() => {
-                  const mes = mesAtual();
-                  setRascunho(mes);
-                  setPeriodo(mes);
+                  const faixa = periodoInicial();
+                  setRascunho(faixa);
+                  setPeriodo(faixa);
                 }}
               >
                 Limpar
@@ -150,38 +112,36 @@ export default function GestorEtiquetasEntrada() {
         </div>
       </section>
 
-      <div className="mb-6 grid grid-cols-1 gap-6 md:grid-cols-2">
+      <div className="pdv-compra-cards pdv-compra-cards-2">
         <button
           type="button"
+          className={`pdv-compra-card pdv-compra-card-estornadas${card === "gerar" ? " is-on" : ""}`}
           onClick={() => setCard("gerar")}
-          className={`rounded-2xl border bg-white p-6 text-center shadow-sm ${
-            card === "gerar" ? "border-gray-900" : "border-gray-100"
-          }`}
         >
-          <h3 className="mb-2 text-lg font-medium text-blue-700">Gerar etiquetas</h3>
-          <p className="text-3xl font-bold text-gray-900">{printCount}</p>
-          <p className="text-sm text-gray-600">Recebimento do dia, mesmo parcial</p>
+          <span>Etiquetas</span>
+          <strong>{printCount}</strong>
+          <em>Recebimento do dia</em>
         </button>
         <button
           type="button"
+          className={`pdv-compra-card pdv-rel-card-impressas${card === "finalizadas" ? " is-on" : ""}`}
           onClick={() => setCard("finalizadas")}
-          className={`rounded-2xl border bg-white p-6 text-center shadow-sm ${
-            card === "finalizadas" ? "border-gray-900" : "border-gray-100"
-          }`}
         >
-          <h3 className="mb-2 text-lg font-medium text-teal-700">Impressas</h3>
-          <p className="text-3xl font-bold text-teal-600">{finalized.length}</p>
-          <p className="text-sm text-gray-600">Depois da impressão</p>
+          <span>Impressas</span>
+          <strong>{printedCount}</strong>
+          <em>Depois da impressão</em>
         </button>
       </div>
 
       <InvoiceHistoryReport
         printTable
         listReady={pronto}
+        seedEntries={linhas}
+        onReload={() => setMarkTick((value) => value + 1)}
         reprint={card === "finalizadas"}
-        printInvoiceIds={(card === "gerar" ? labelQueue : finalized).map((invoice) => invoice.id)}
+        printInvoiceIds={card === "gerar" ? idsGerar : idsImpressas}
         onLabelsPrinted={async ({ invoiceId, invoiceNumber, day, historyIds }) => {
-          const id = invoiceId || invoices.find((invoice) => String(invoice.number) === String(invoiceNumber))?.id;
+          const id = invoiceId || linhas.find((linha) => String(linha.invoiceNumber) === String(invoiceNumber))?.invoiceId;
           if (!id) return;
           const reprint = card === "finalizadas";
           const { data } = await api.post(`/invoice/labels-printed/${id}`, {
@@ -198,7 +158,7 @@ export default function GestorEtiquetasEntrada() {
           );
           setMarkTick((value) => value + 1);
         }}
-        invoiceHistory={(card === "gerar" ? labelQueue : finalized) as unknown as import("../gestao-invoices/components/sections/InvoiceHistoryReport").InvoiceData[]}
+        invoiceHistory={invoices as unknown as import("../gestao-invoices/components/sections/InvoiceHistoryReport").InvoiceData[]}
         setInvoiceHistory={
           setInvoices as unknown as React.Dispatch<
             React.SetStateAction<import("../gestao-invoices/components/sections/InvoiceHistoryReport").InvoiceData[]>

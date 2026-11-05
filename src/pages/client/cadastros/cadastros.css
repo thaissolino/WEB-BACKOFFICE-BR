@@ -7808,6 +7808,111 @@
   margin: 0 0 12px;
 }
 
+.pdv-prod-dup {
+  position: relative;
+  display: inline-flex;
+  align-items: stretch;
+  margin: 0 0 12px;
+}
+
+.pdv-prod-config-head .pdv-prod-dup .pdv-voltar,
+.pdv-prod-dup .pdv-cad-btn {
+  margin: 0;
+}
+
+.pdv-prod-dup-main {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.pdv-prod-dup-caret {
+  min-width: 34px;
+  padding: 0 8px;
+  border-left: 1px solid rgba(255, 255, 255, 0.35);
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+}
+
+.pdv-prod-dup-menu {
+  position: absolute;
+  top: calc(100% + 2px);
+  left: 0;
+  z-index: 40;
+  min-width: 340px;
+  padding: 4px 0;
+  border: 1px solid #d5d5d5;
+  background: #fff;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.12);
+}
+
+.pdv-prod-dup-menu button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 0;
+  padding: 8px 14px;
+  border: 0;
+  background: transparent;
+  color: #333;
+  -webkit-text-fill-color: #333;
+  font-size: 14px;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+}
+
+.pdv-prod-dup-menu button:hover {
+  background: #f3f3f3;
+}
+
+.pdv-prod-dup-menu strong {
+  font-weight: 800;
+}
+
+.pdv-prod-dup-menu svg {
+  color: #666 !important;
+}
+
+.pdv-root[data-surface="cream"] .pdv-main .pdv-prod-dup-menu button {
+  background: transparent !important;
+  background-color: transparent !important;
+  color: #333 !important;
+  -webkit-text-fill-color: #333 !important;
+}
+
+.pdv-root[data-surface="cream"] .pdv-main .pdv-prod-dup-menu button:hover {
+  background: #f3f3f3 !important;
+  background-color: #f3f3f3 !important;
+}
+
+.pdv-prod-aguarde {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin: 0;
+  padding: 10px 16px;
+  background: #fff8dc;
+  color: #c4a035;
+  font-size: 15px;
+}
+
+.pdv-prod-aguarde-spin {
+  width: 16px;
+  height: 16px;
+  border: 2px solid #ead48a;
+  border-top-color: #c4a035;
+  border-radius: 50%;
+  animation: pdv-prod-spin 0.7s linear infinite;
+}
+
+@keyframes pdv-prod-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .pdv-prod-config .pdv-prod-box {
   border: 1px solid #d5d5d5;
   border-radius: 6px;
@@ -9165,6 +9270,10 @@
   margin: 8px 0 18px;
 }
 
+.pdv-compra-cards-2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .pdv-compra-cards-3 {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
@@ -9198,10 +9307,28 @@
   line-height: 1;
 }
 
+.pdv-compra-card em {
+  font-style: normal;
+  font-size: 0.74rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+  line-height: 1.25;
+}
+
 .pdv-compra-card-nova {
   background: #dbeafe;
   border-color: #93c5fd;
   color: #1e3a8a;
+}
+
+div.pdv-compra-card {
+  cursor: default;
+}
+
+.pdv-compra-card-nova strong {
+  font-size: 1.2rem;
+  line-height: 1.15;
 }
 
 .pdv-compra-card-abertas {
@@ -9220,6 +9347,12 @@
   background: #fee2e2;
   border-color: #fca5a5;
   color: #991b1b;
+}
+
+.pdv-rel-card-impressas {
+  background: #ccfbf1;
+  border-color: #5eead4;
+  color: #115e59;
 }
 
 .pdv-compra-card.is-on {
