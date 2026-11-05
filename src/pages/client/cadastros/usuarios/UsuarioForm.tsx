@@ -105,7 +105,7 @@ export default function UsuarioForm() {
     const faltando = [
       !form.nome.trim() ? "nome completo" : "",
       !form.usuario.trim() ? "usuário para logar" : "",
-      !editId && !enviarSenha && !form.senha.trim() ? "senha" : "",
+      !editId && !enviarSenha && form.senha.trim().length < 6 ? "senha com 6 caracteres ou mais" : "",
       !form.apelido.trim() ? "apelido" : "",
       !form.email.trim() ? "e-mail" : "",
       !form.celular.trim() ? "celular" : "",
@@ -120,6 +120,8 @@ export default function UsuarioForm() {
     setStatus("")
     const { senha, ...rest } = form
     const payload: Record<string, unknown> = { ...rest }
+    const store = stores.find((item) => item.name === form.loja)
+    if (store?.id) payload.storeId = store.id
     if (senha.trim()) payload.senha = senha.trim()
     try {
       const saved = editId
