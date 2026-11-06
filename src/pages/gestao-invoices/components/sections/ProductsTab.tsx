@@ -20,7 +20,7 @@ import {
   type ProductFacets,
   type ProductFilters,
 } from "../../../client/cadastros/produtos/productFilters";
-import { useProductPhotoUrl } from "../../../client/cadastros/produtos/GradePhotoThumb";
+import { useProductPhotoUrl, urlFotoProduto } from "../../../client/cadastros/produtos/GradePhotoThumb";
 import { formatMoneyBr, moneyWidthCh, parseMoneyBr } from "../../../client/cadastros/produtos/types";
 
 export interface Product {
@@ -185,6 +185,7 @@ function nomeSemCopia(name: string) {
 }
 
 function ProductThumb({
+  productId,
   photoFileId,
   onFile,
   disabled,
@@ -198,25 +199,35 @@ function ProductThumb({
   large?: boolean;
   preview?: string;
 }) {
-  const loaded = useProductPhotoUrl(photoFileId);
-  const src = preview || loaded;
+  const [remota, setRemota] = useState(false);
+  const direta = preview || remota ? "" : urlFotoProduto(productId, photoFileId);
+  const loaded = useProductPhotoUrl(!preview && remota ? photoFileId : null);
+  const src = preview || direta || loaded;
   const box = large ? "h-28 w-28" : "h-14 w-14";
-  const fit = large ? "max-h-28 max-w-28" : "max-h-14 max-w-14";
 
   return (
     <label
       className="relative inline-flex shrink-0 cursor-pointer items-center justify-center"
       title={photoFileId ? "Clique para trocar a foto" : "Clique para adicionar a foto"}
     >
-      {src ? (
-        <img src={src} alt="" decoding="async" className={`${fit} h-auto w-auto rounded-lg border border-gray-200 bg-white object-contain`} />
-      ) : (
-        <span
-          className={`flex ${box} items-center justify-center rounded-lg border border-dashed border-gray-300 bg-gray-50 text-[11px] text-gray-400`}
-        >
-          {photoFileId ? "" : "Sem foto"}
-        </span>
-      )}
+      <span
+        className={`flex ${box} items-center justify-center overflow-hidden rounded-lg border bg-white ${
+          src ? "border-gray-200" : "border-dashed border-gray-300 bg-gray-50"
+        }`}
+      >
+        {src ? (
+          <img
+            src={src}
+            alt=""
+            className="h-full w-full object-contain"
+            onError={() => {
+              if (!preview && !remota) setRemota(true);
+            }}
+          />
+        ) : (
+          <span className="text-[11px] text-gray-400">{photoFileId ? "" : "Sem foto"}</span>
+        )}
+      </span>
       <input
         type="file"
         accept="image/png,image/jpeg,image/webp,image/gif"
@@ -364,7 +375,12 @@ export function ProductsTab() {
       .catch(() => setCategoryOptions([]));
   }, []);
 
+  const primeiraLista = useRef(true);
   useEffect(() => {
+    if (primeiraLista.current) {
+      primeiraLista.current = false;
+      return;
+    }
     if (!searchedRef.current) return;
     void fetchData(appliedRef.current, 1);
   }, [showInactive, sortBy]);
@@ -402,6 +418,8 @@ export function ProductsTab() {
     setTotal(0);
     setPage(1);
     setSelectedProducts([]);
+    sortRef.current = "name";
+    setSortBy("name");
   }
 
   function onLastFilter() {
@@ -1087,6 +1105,8 @@ export function ProductsTab() {
         genders={genders}
         suppliers={suppliers}
         busy={isLoading}
+        exibirPor={sortBy}
+        onExibirPor={setSortBy}
       />
 
       <div className="flex justify-between items-center mb-6">
@@ -1130,17 +1150,6 @@ export function ProductsTab() {
             />
             Ver desativados
           </label>
-          <div className="flex items-center gap-2">
-            <label className="text-sm font-medium text-gray-700">Ordenar por:</label>
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as "name" | "code")}
-              className="border border-gray-200 rounded-xl bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-300"
-            >
-              <option value="name">Nome (Alfabético)</option>
-              <option value="code">Código</option>
-            </select>
-          </div>
           <button
             onClick={async () => {
               // Sugestão local imediata (evita travar UI), substituída pelo backend em seguida

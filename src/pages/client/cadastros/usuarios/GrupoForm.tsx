@@ -19,7 +19,7 @@ export default function GrupoForm() {
   useEffect(() => {
     if (!editId) return
     getCatalog("group", editId).then((item) => {
-      setNome(item.name)
+      setNome(item.name.toLocaleUpperCase("pt-BR"))
       setAtivo(item.active)
       setPainelEntregas(Boolean(item.payload.painelEntregas))
     }).catch(() => setStatus("Não foi possível carregar o grupo."))
@@ -33,8 +33,9 @@ export default function GrupoForm() {
     }
     try {
       const payload = { painelEntregas }
-      if (editId) await updateCatalog("group", editId, { name: nome, active: ativo, payload })
-      else await createCatalog("group", { name: nome, active: ativo, payload })
+      const name = nome.trim().toLocaleUpperCase("pt-BR")
+      if (editId) await updateCatalog("group", editId, { name, active: ativo, payload })
+      else await createCatalog("group", { name, active: ativo, payload })
       avisarSalvo("Grupo salvo.")
       navigate("/client/usuarios/grupos")
     } catch (err) {
@@ -56,7 +57,7 @@ export default function GrupoForm() {
           <form className="pdv-cad-form" onSubmit={onSubmit}>
             <div className="pdv-cad-form-bar">{editId ? "Atualizar grupo" : "Cadastrar grupo"}</div>
             <FormRow label="Nome do Grupo" required>
-              <input value={nome} onChange={(event) => setNome(event.target.value)} autoComplete="off" />
+              <input value={nome} onChange={(event) => setNome(event.target.value.toLocaleUpperCase("pt-BR"))} autoComplete="off" />
             </FormRow>
             <FormRow label="Ativo">
               <RadioSimNao name="ativo" value={ativo} onChange={setAtivo} />

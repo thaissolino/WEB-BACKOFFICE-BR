@@ -4,6 +4,7 @@ import { CadastroFrame } from "../cadastros/CadastroShell"
 import { useLocation, useNavigate } from "react-router-dom"
 import { FormEvent, MouseEvent, useRef, useState } from "react"
 import { api } from "../../../services/api"
+import { useNomeEstoque } from "../../../services/nomeEstoque"
 import { FormRow, DatePreset } from "../cadastros/catalog/FormBits"
 import { clientIdDoLojista, createCatalog, deleteCatalog, lancamentoDaLoja, lancamentoDoPainel, listCatalog, type CatalogItem } from "../cadastros/catalog/catalogApi"
 import { listLojaCaixas } from "../cadastros/financeiro/caixaApi"
@@ -18,7 +19,7 @@ import { STORE_STORAGE_KEY } from "../dashboard/mockData"
 import { filterLojaSales, EMPTY_SALE_FILTERS, type SaleFilters } from "./lojaSalesFilters"
 import { SaleDetailPanel, VendasMovimento, listLojaSales, type LojaPdvSale } from "./LojaVendasPainel"
 import { formatMoneyRs } from "../cadastros/produtos/types"
-import PdvOverlayModal from "../dashboard/PdvOverlayModal"
+import { buscarTransferencias, gruposTransferencias, lerTransferencias, transferenciaPronta } from "./transferenciasCache"
 
 const VENDA_COLS = [
   "Visualizar",
@@ -691,8 +692,17 @@ type LojaOpcao = { id: string; nome: string; clientId: string; label: string }
 
 const ESTOQUE_GERAL_ID = "geral"
 
-function nomeEhEstoqueGeral(nome: string) {
-  return nome.trim().toLocaleUpperCase("pt-BR") === "ESTOQUE GERAL"
+function nomeEhEstoqueGeral(nome: string, atual = "ESTOQUE GERAL") {
+  const texto = nome.trim().toLocaleUpperCase("pt-BR")
+  return texto === "ESTOQUE GERAL" || texto === atual.trim().toLocaleUpperCase("pt-BR")
+}
+
+function lojaDoLancamento(item: CatalogItem, nomeEstoque: string) {
+  const storeId = String(item.payload.storeId || "")
+  const origem = String(item.payload.origem || "")
+  const loja = String(item.payload.loja || "").trim()
+  const central = storeId === ESTOQUE_GERAL_ID || nomeEhEstoqueGeral(loja, nomeEstoque) || (origem === "backoffice" && !item.payload.clientId && !loja)
+  return central ? nomeEstoque : (loja || "—")
 }
 
 function lojaAtualId(sessionId: string) {
@@ -708,6 +718,8 @@ export function CadastrarDespesa({ receita = false }: { receita?: boolean }) {
   const navigate = useNavigate()
   const { pathname } = useLocation()
   const session = usePdvSession()
+  const backofficeTela = pathname.startsWith("/gestao/")
+  const nomeEstoque = useNomeEstoque(backofficeTela ? "backoffice" : "loja")
   const listPath = pathname.startsWith("/gestao/")
     ? "/gestao/movimentacoes/financeiro/despesas"
     : "/client/movimentacoes/financeiro/despesas"
@@ -755,11 +767,11 @@ export function CadastrarDespesa({ receita = false }: { receita?: boolean }) {
         let linhas = mapeadas
         let padrao = linhas.find((item) => item.id === preferida)?.id || linhas[0]?.id || ""
         if (backoffice) {
-          const existente = mapeadas.find((item) => nomeEhEstoqueGeral(item.nome))
+          const existente = mapeadas.find((item) => nomeEhEstoqueGeral(item.nome, nomeEstoque))
           const geral: LojaOpcao = existente
-            ? { ...existente, nome: "ESTOQUE GERAL", clientId: "", label: "ESTOQUE GERAL" }
-            : { id: ESTOQUE_GERAL_ID, nome: "ESTOQUE GERAL", clientId: "", label: "ESTOQUE GERAL" }
-          linhas = [geral, ...mapeadas.filter((item) => item.id !== geral.id && !nomeEhEstoqueGeral(item.nome))]
+            ? { ...existente, nome: nomeEstoque, clientId: "", label: nomeEstoque }
+            : { id: ESTOQUE_GERAL_ID, nome: nomeEstoque, clientId: "", label: nomeEstoque }
+          linhas = [geral, ...mapeadas.filter((item) => item.id !== geral.id && !nomeEhEstoqueGeral(item.nome, nomeEstoque))]
           padrao = geral.id
         }
         setLojas(linhas)
@@ -774,7 +786,7 @@ export function CadastrarDespesa({ receita = false }: { receita?: boolean }) {
     return () => {
       ativo = false
     }
-  }, [pathname, session.storeId])
+  }, [pathname, session.storeId, nomeEstoque])
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault()
@@ -789,7 +801,7 @@ export function CadastrarDespesa({ receita = false }: { receita?: boolean }) {
     try {
       const backoffice = pathname.startsWith("/gestao/")
       const loja = lojas.find((item) => item.id === form.lojaId)
-      const geral = backoffice && Boolean(loja && (loja.id === ESTOQUE_GERAL_ID || nomeEhEstoqueGeral(loja.nome)))
+      const geral = backoffice && Boolean(loja && (loja.id === ESTOQUE_GERAL_ID || nomeEhEstoqueGeral(loja.nome, nomeEstoque)))
       const clientId = backoffice ? "" : loja?.clientId || clientIdDoLojista()
       let code = codigoSalvo
       if (!code) {
@@ -798,7 +810,7 @@ export function CadastrarDespesa({ receita = false }: { receita?: boolean }) {
           payload: {
             ...form,
             storeId: loja?.id || "",
-            loja: geral ? "ESTOQUE GERAL" : loja?.nome || "",
+            loja: geral ? nomeEstoque : loja?.nome || "",
             tipo: receita ? "receita" : "despesa",
             origem: geral || backoffice ? "backoffice" : "loja",
             ...(arquivo ? { comprovante: arquivo.name } : {}),
@@ -934,6 +946,7 @@ export function ListarDespesas() {
   const { pathname } = useLocation()
   const { storeId } = usePdvSession()
   const backoffice = pathname.startsWith("/gestao/")
+  const nomeEstoque = useNomeEstoque(backoffice ? "backoffice" : "loja")
   const base = backoffice ? "/gestao/movimentacoes/financeiro" : "/client/movimentacoes/financeiro"
   const [itens, setItens] = useState<CatalogItem[]>([])
   const [planos, setPlanos] = useState<string[]>([])
@@ -975,7 +988,7 @@ export function ListarDespesas() {
     String(item.payload.tipo || "despesa"),
     String(item.payload.data || "—"),
     String(item.payload.caixa || "—"),
-    String(item.payload.loja || (String(item.payload.origem || "") === "backoffice" && !item.payload.clientId ? "ESTOQUE GERAL" : "—")),
+    lojaDoLancamento(item, nomeEstoque),
     formatValorLista(item.payload.total),
   ])
   const alvos = filtrados.filter((item) => marcados.includes(item.code))
@@ -1162,7 +1175,7 @@ export function ListarDespesas() {
       icon={<Search size={18} strokeWidth={2.2} />}
       onClose={() => setDetalhe(null)}
     >
-      {detalhe ? <FichaLancamento item={detalhe} onAbrir={() => void abrirComprovante(detalhe)} /> : null}
+      {detalhe ? <FichaLancamento item={detalhe} nomeEstoque={nomeEstoque} onAbrir={() => void abrirComprovante(detalhe)} /> : null}
     </PdvOverlayModal>
     </>
   )
@@ -1243,10 +1256,10 @@ function dataLancamento(value: unknown) {
   return `${match[3]}/${match[2]}/${match[1]}`
 }
 
-function FichaLancamento({ item, onAbrir }: { item: CatalogItem; onAbrir: () => void }) {
+function FichaLancamento({ item, nomeEstoque, onAbrir }: { item: CatalogItem; nomeEstoque: string; onAbrir: () => void }) {
   const tipo = String(item.payload.tipo || "despesa")
   const comprovante = String(item.payload.comprovante || "").trim()
-  const loja = String(item.payload.loja || (String(item.payload.origem || "") === "backoffice" && !item.payload.clientId ? "ESTOQUE GERAL" : "—"))
+  const loja = lojaDoLancamento(item, nomeEstoque)
   const linhas: Array<[string, string]> = [
     ["Código", String(item.code)],
     ["Tipo", tipo === "receita" ? "Receita" : "Despesa"],
@@ -1323,15 +1336,15 @@ export function TransferenciasList({ title }: { title: string }) {
           ? "abertas"
           : ""
   const [orders, setOrders] = useState<TransferOrder[]>([])
-  const [grupos, setGrupos] = useState<Record<TransferFaixa, TransferOrder[]>>({
-    abertas: [],
-    concluidas: [],
-    estornadas: [],
+  const [grupos, setGrupos] = useState<Record<TransferFaixa, TransferOrder[]>>(() => {
+    lerTransferencias()
+    return gruposTransferencias() as Record<TransferFaixa, TransferOrder[]>
   })
   const [detail, setDetail] = useState<TransferDetail | null>(null)
   const [openIndex, setOpenIndex] = useState<number | null>(null)
   const openRef = useRef<number | null>(null)
   const [error, setError] = useState("")
+  const [carregando, setCarregando] = useState(() => recebidas ? !transferenciaPronta(faixa) : true)
   const confirmingRef = useRef<string | null>(null)
   const [openLines, setOpenLines] = useState<Record<string, boolean>>({})
   const [priceDraft, setPriceDraft] = useState<Record<string, string>>({})
@@ -1340,35 +1353,42 @@ export function TransferenciasList({ title }: { title: string }) {
     return Array.isArray(data?.orders) ? data.orders : []
   }
 
+  function kindDaFaixa(item: TransferFaixa) {
+    return item === "concluidas" ? "recebidas" : item
+  }
+
   function load() {
     if (recebidas) {
-      Promise.all([
-        api.get("/clients/transferencias", { params: { kind: "abertas" } }),
-        api.get("/clients/transferencias", { params: { kind: "recebidas" } }),
-        api.get("/clients/transferencias", { params: { kind: "estornadas" } }),
-      ])
-        .then(([abertas, concluidas, estornadasRes]) => {
-          setGrupos({
-            abertas: takeOrders(abertas.data),
-            concluidas: takeOrders(concluidas.data),
-            estornadas: takeOrders(estornadasRes.data),
-          })
-        })
-        .catch(() => setGrupos({ abertas: [], concluidas: [], estornadas: [] }))
+      const aplicar = () => setGrupos(gruposTransferencias() as Record<TransferFaixa, TransferOrder[]>)
+      if (transferenciaPronta(faixa)) {
+        aplicar()
+        setCarregando(false)
+      } else {
+        setCarregando(true)
+      }
+      void buscarTransferencias().then(() => {
+        aplicar()
+        setCarregando(false)
+      }).catch(() => setCarregando(false))
       return
     }
-    if (!kind) return
+    if (!kind) {
+      setCarregando(false)
+      return
+    }
+    setCarregando(true)
     api
       .get("/clients/transferencias", { params: { kind } })
       .then(({ data }) => {
         setOrders(takeOrders(data))
       })
       .catch(() => setOrders([]))
+      .finally(() => setCarregando(false))
   }
 
   useEffect(() => {
     load()
-  }, [recebidas, recebidas ? "recebidas" : kind])
+  }, [recebidas, recebidas ? faixa : kind])
 
   useEffect(() => {
     openRef.current = null
@@ -1610,7 +1630,7 @@ export function TransferenciasList({ title }: { title: string }) {
       lead={cards}
       columns={["Código", "Loja Destino", "Data", "Total"]}
       rows={kind || recebidas ? rows : undefined}
-      hint={error || ((kind || recebidas) && !lista.length ? "Nenhum pedido neste painel." : undefined)}
+      hint={error || (carregando && !lista.length ? "Carregando..." : !carregando && (kind || recebidas) && !lista.length ? "Nenhum pedido neste painel." : undefined)}
       premium
       onRowClick={recebidasAbertas || recebidasConcluidas || (recebidas && faixa === "estornadas") ? openOrder : undefined}
       expandedIndex={openIndex}

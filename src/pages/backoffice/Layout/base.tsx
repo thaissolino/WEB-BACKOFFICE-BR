@@ -14,6 +14,7 @@ import { isPrintOnlyAccount, usePermissionStore } from "../../../store/permissio
 import { useAuthBackoffice } from "../../../hooks/authBackoffice";
 import { PremiumChrome } from "./PremiumChrome";
 import { PageJumps } from "../../client/dashboard/PageJumps";
+import { aquecerOperadores } from "../../form-operators/operadoresCache";
 
 function PrintOnlyGate() {
   const location = useLocation();
@@ -35,6 +36,10 @@ export function Layout() {
   const globalMode = useUiModeStore((state) => state.globalMode);
   const routesWithoutTopbar = ["/invoices-management", "/tokens-management", "/spreadsheets",  "/billets-management", "/scanner-billets", "/operators-management", "/operators-management2"];
   const hideTopbar = routesWithoutTopbar.includes(location.pathname);
+
+  useEffect(() => {
+    aquecerOperadores();
+  }, []);
 
   if (globalMode === "premium") {
     return (

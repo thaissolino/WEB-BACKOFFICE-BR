@@ -64,6 +64,7 @@ import {
   TransportadoraList,
 } from "./configuracao/ConfigPages"
 import ImportacaoPage from "./configuracao/ImportPages"
+import TabelasPrecoLoja from "./configuracao/TabelasPrecoLoja"
 import { BuscarImei, BuscarImeiVenda } from "./movimentacoes/BuscarImei"
 import { BuscarImeiCompra, ImportarXmlCompra, NovaCompra, NovasCompras } from "./movimentacoes/LojaCompras"
 
@@ -160,6 +161,7 @@ export function PdvModuleRoutes() {
       ))}
 
       <Route path="client/configuracao/tipo-atividade" element={<TipoAtividadePage />} />
+      <Route path="client/configuracao/tabelas-preco" element={<TabelasPrecoLoja />} />
       <Route path="client/configuracao/impressao/cadastrar" element={<CartaForm />} />
       <Route path="client/configuracao/impressao" element={<CartaList />} />
       <Route path="client/configuracao/pacotes-sigep/cadastrar" element={<SigepPacoteForm />} />

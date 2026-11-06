@@ -9,6 +9,11 @@ export type GroupEvent = {
 export const EVENTO_DESCONTO = "pdv.desconto"
 export const EVENTO_CRIAR_CAIXA = "caixa.criar"
 export const EVENTO_VER_CUSTO = "wm10.82"
+export const EVENTO_VER_VENDA = "wm10.322"
+export const EVENTO_ALTERAR_PRECO = "wm10.307"
+export const EVENTO_ATUALIZAR_ESTOQUE = "wm10.101"
+export const EVENTO_ESTOQUE_LISTA = "wm10.173"
+export const EVENTO_ATUALIZAR_PESO = "wm10.903"
 export const EVENTO_ESTORNAR_VENDA = "wm10.14"
 export const AVISO_ESTORNAR_VENDA = "Para estornar a venda, ative o evento 14 — Venda :Venda Concluída >> Estornar."
 export const EVENTO_ESTORNAR_COMPRA = "wm10.50"
@@ -247,6 +252,7 @@ const SECOES: Array<[area: string, itens: Item[]]> = [
     ["131", "Produto:Promoção Aplicar"],
     ["134", "Produto: Promoção >> Pesquisar produto em Promoção"],
     ["101", "Produto - Atualizar Estoque"],
+    ["903", "Produto - Atualizar Peso"],
     ["61", "Produto: Inserir/Cadastrar produto"],
     ["62", "Produto Listar"],
     ["63", "Produto Atualizar"],
@@ -258,6 +264,24 @@ const SECOES: Array<[area: string, itens: Item[]]> = [
     ["418", "Editar Atributos do produto na listagem de produtos"],
   ]],
   ["Relatório", [
+    ["904", "Relatório: Buscar IMEI"],
+    ["905", "Relatório: Auditoria Autorização de Venda"],
+    ["906", "Relatório: Auditoria Itens Excluído da Venda"],
+    ["907", "Relatório: Auditoria Preço de Venda"],
+    ["908", "Relatório: Impressão/Carta/E-mail"],
+    ["909", "Relatório: Sugestão de Compra"],
+    ["910", "Relatório: Estoque sem Movimentação"],
+    ["911", "Relatório: Estoque Retroativo"],
+    ["912", "Relatório: Livro de Registro de Inventário"],
+    ["913", "Relatório: Pacotes SIGEP"],
+    ["914", "Relatório: Lote"],
+    ["915", "Relatório: Tabela de Preço Cliente"],
+    ["916", "Relatório: Custo X Preço de Venda"],
+    ["917", "Relatório: Vale Desconto"],
+    ["918", "Relatório: Vale Presente"],
+    ["919", "Relatório: Giro de Mercadorias por Transferência"],
+    ["920", "Relatório: Faturamento Totalizador"],
+    ["921", "Relatório: Aproveitamento de Venda"],
     ["354", "Relatorio de Estoque por Status"],
     ["412", "Relatório Movimentações Cliente"],
     ["430", "Gerar bônus em venda concluída"],
@@ -433,6 +457,9 @@ const SECOES: Array<[area: string, itens: Item[]]> = [
     ["410", "Venda: Liberar lote sob supervisão"],
     ["411", "Painel Entregas: Comprovante de entrega"],
     ["426", "Venda - Troca utilizado Número NF"],
+  ]],
+  ["Gestão de pedidos", [
+    ["902", "Gestão de pedidos: Comprar do fornecedor"],
   ]],
   ["PDV", [
     ["", "Desconto/Acréscimo no caixa", EVENTO_DESCONTO],

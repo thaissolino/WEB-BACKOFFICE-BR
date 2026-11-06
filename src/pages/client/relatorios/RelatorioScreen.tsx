@@ -1,16 +1,57 @@
-import { useEffect, useRef, useState } from "react"
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react"
 import { useLocation } from "react-router-dom"
 import { Search, X } from "lucide-react"
 import FilterPage, { type FilterPageProps } from "../pdv/FilterPage"
+import SearchableSelect from "../cadastros/produtos/SearchableSelect"
 import { VendasRelatorio } from "../movimentacoes/LojaVendasPainel"
 import { BuscarImei } from "../movimentacoes/BuscarImei"
 import { RelatorioItensVenda } from "./RelatorioItensVenda"
 import { lancamentoDaLoja, listCatalog } from "../cadastros/catalog/catalogApi"
 import DreGerencial from "../../gestor/DreGerencial"
 import { api, parseError } from "../../../services/api"
+import { useNomeEstoque } from "../../../services/nomeEstoque"
 import { usePdvSession } from "../dashboard/PdvShell"
 import { useVerCusto } from "../cadastros/usuarios/useVerCusto"
 import { formatMoneyRs, lojaProductName, type PdvProduct } from "../cadastros/produtos/types"
+import { loadProductCategories, toFlatOptions } from "../cadastros/produtos/categoryModel"
+
+type FiltroEstoque = {
+  loja: string
+  codigo: string
+  produto: string
+  categoria: string
+  marca: string
+  colecao: string
+  genero: string
+  fornecedor: string
+  estoque: string
+  ordem: string
+}
+
+const ESTOQUE_LIMPO: FiltroEstoque = {
+  loja: "",
+  codigo: "",
+  produto: "",
+  categoria: "Todas",
+  marca: "Todas",
+  colecao: "Todas",
+  genero: "Todos",
+  fornecedor: "Todos",
+  estoque: "Todos",
+  ordem: "Nome",
+}
+
+function opcoesDe(valores: Array<string | null | undefined>, vazio: string) {
+  const limpos = valores.map((item) => String(item || "").trim()).filter(Boolean)
+  return [vazio, ...[...new Set(limpos)].sort((a, b) => a.localeCompare(b, "pt-BR"))]
+}
+
+function casaLista(texto: string, valor: string) {
+  const lista = valor.split(/[,;]/).map((item) => item.trim().toLowerCase()).filter(Boolean)
+  if (!lista.length) return true
+  const hay = texto.toLowerCase()
+  return lista.some((termo) => hay.includes(termo))
+}
 
 function brl(value: string) {
   const clean = value.trim().replace(/[R$\s]/g, "")
@@ -231,8 +272,10 @@ function nomesDeLoja(lista: string[]) {
 
 export function AuditoriaEstoque() {
   const gestao = useLocation().pathname.startsWith("/gestao")
-  const { storeName, stores } = usePdvSession()
-  const [base] = useState(() => ({ ...mesAtualAuditoria(), loja: gestao ? "Todas" : "Nenhum" }))
+  const { storeId, storeName, stores } = usePdvSession()
+  const lojaAberta = storeName || stores.find((item) => item.id === storeId)?.name || stores[0]?.name || ""
+  const lojaInicial = gestao ? "Estoque" : (lojaAberta || "Nenhum")
+  const [base] = useState(() => ({ ...mesAtualAuditoria(), loja: lojaInicial }))
   const [lojasPainel, setLojasPainel] = useState<string[]>([])
   const [moves, setMoves] = useState<MovimentoEstoque[]>([])
   const [filtro, setFiltro] = useState(base)
@@ -248,6 +291,7 @@ export function AuditoriaEstoque() {
   useEffect(() => {
     const manual = cliqueBusca.current
     cliqueBusca.current = false
+    if (!gestao && !manual) return
     const pedido = ++pedidoLista.current
     const marcou = Date.now()
     if (manual) setAtualizando(true)
@@ -411,9 +455,10 @@ export function AuditoriaEstoque() {
   return (
     <>
       <FilterPage
+        key={gestao ? "gestao-aud" : `loja-aud-${lojaAberta || "sem"}`}
         title="AUDITORIA ESTOQUE"
         pageClass="pdv-cli-page"
-        initialValues={base}
+        initialValues={{ ...base, loja: lojaInicial }}
         busy={atualizando}
         fields={[
           { key: "inicio", label: "Data início", kind: "date" },
@@ -453,7 +498,7 @@ export function AuditoriaEstoque() {
             nome: values.nome || "",
             categoria: values.categoria || "Todas",
             movimento: values.movimento || "Todos",
-            loja: values.loja || (gestao ? "Todas" : "Nenhum"),
+            loja: values.loja || (gestao ? "Estoque" : lojaAberta || "Nenhum"),
           })
           setBusca((atual) => atual + 1)
         }}
@@ -471,44 +516,46 @@ export function AuditoriaEstoque() {
   )
 }
 
-function RelatorioEstoque() {
+export function RelatorioEstoque() {
   const gestao = useLocation().pathname.startsWith("/gestao")
   const podeCusto = useVerCusto()
   const verCusto = gestao || podeCusto
-  const [categorias, setCategorias] = useState<Array<{ id: string; name: string }>>([])
+  const nomeEstoque = useNomeEstoque(gestao ? "backoffice" : "loja")
+  const { storeId, storeName, stores } = usePdvSession()
+  const lojaAberta = storeName || stores.find((item) => item.id === storeId)?.name || stores[0]?.name || ""
+  const lugar = gestao ? (nomeEstoque || "Estoque") : lojaAberta
+  const [donos, setDonos] = useState<Record<string, string>>({})
   const [products, setProducts] = useState<PdvProduct[]>([])
-  const [hint, setHint] = useState(" ")
-  const [filtro, setFiltro] = useState({ produto: "", categoria: "" })
+  const [fornecedorNota, setFornecedorNota] = useState<Record<string, string>>({})
+  const [hint, setHint] = useState("")
+  const [buscou, setBuscou] = useState(false)
+  const [atualizando, setAtualizando] = useState(false)
+  const [categoriasCatalogo, setCategoriasCatalogo] = useState<string[]>([])
+  const [facets, setFacets] = useState({ brands: [] as string[], collections: [] as string[], genders: [] as string[], suppliers: [] as string[] })
+  const [draft, setDraft] = useState<FiltroEstoque>(() => ({ ...ESTOQUE_LIMPO, loja: gestao ? "Estoque" : "" }))
+  const [filtros, setFiltros] = useState<FiltroEstoque>(() => ({ ...ESTOQUE_LIMPO, loja: gestao ? "Estoque" : "" }))
   const pedido = useRef(0)
-  const categoriasRef = useRef(categorias)
-  categoriasRef.current = categorias
 
-  useEffect(() => {
-    api.get("/clients/products/categories")
-      .then(({ data }) => {
-        const lista = ((data.categories || []) as Array<{ id?: string; name?: string }>)
-          .map((item) => ({ id: String(item.id || ""), name: String(item.name || "").trim() }))
-          .filter((item) => item.id && item.name)
-          .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"))
-        setCategorias(lista)
-      })
-      .catch(() => undefined)
-  }, [])
-
-  useEffect(() => {
+  function carregar(ativos: FiltroEstoque) {
     const id = ++pedido.current
-    const categoria = filtro.categoria && filtro.categoria !== "Todas"
-      ? categoriasRef.current.find((item) => item.name === filtro.categoria)
-      : undefined
+    const marcou = Date.now()
+    const central = gestao && (ativos.loja === lugar || ativos.loja === "Estoque")
+    setHint("Carregando...")
+    setBuscou(true)
+    setAtualizando(true)
+    const soltar = () => {
+      const espera = Math.max(0, 400 - (Date.now() - marcou))
+      window.setTimeout(() => {
+        if (id === pedido.current) setAtualizando(false)
+      }, espera)
+    }
     const params = {
       ativo: "1",
       page: "1",
-      limit: "800",
+      limit: "200",
       wide: "1",
-      stockField: "loja",
-      order: "code",
-      search: filtro.produto.trim() || undefined,
-      categorias: categoria?.id,
+      stockField: central ? "backoffice" : "loja",
+      order: ativos.ordem === "Código" ? "code" : "name",
       _t: Date.now(),
     }
     api.get("/clients/products", { params })
@@ -518,7 +565,7 @@ function RelatorioEstoque() {
         const total = Number(data.total) || primeiro.length
         const todos = [...primeiro]
         let page = 1
-        while (todos.length < total && page < 20) {
+        while (todos.length < total && page < 30) {
           page += 1
           const next = await api.get("/clients/products", { params: { ...params, page: String(page), _t: Date.now() } })
           if (id !== pedido.current) return
@@ -527,44 +574,302 @@ function RelatorioEstoque() {
           todos.push(...lote)
         }
         setProducts(todos)
-        setHint(todos.length ? "" : filtro.produto || filtro.categoria ? "Nenhum produto para o filtro atual." : "Nenhum produto no estoque da loja.")
+        setHint(todos.length ? "" : central ? "Nenhum produto no estoque." : "Nenhum produto no estoque da loja.")
+        soltar()
+        const ids = todos
+          .filter((item) => Math.floor(Number(central ? item.stockQuantity : item.lojaStock) || 0) > 0)
+          .map((item) => item.id)
+        if (!ids.length) {
+          setFornecedorNota({})
+        } else {
+          const conta = donos[ativos.loja]
+          const pedidoFornecedor = central
+            ? api.post("/clients/products/fornecedores-estoque", { ids })
+            : api.post("/clients/products/fornecedores-nota", { ids, ...(gestao && conta ? { conta } : {}) })
+          pedidoFornecedor
+            .then(({ data: resposta }) => {
+              if (id !== pedido.current) return
+              setFornecedorNota(resposta?.fornecedores || {})
+            })
+            .catch(() => {
+              if (id === pedido.current) setFornecedorNota({})
+            })
+        }
       })
       .catch((err) => {
         if (id !== pedido.current) return
         setProducts([])
         setHint(parseError(err).friend || "Não foi possível carregar o estoque.")
+        soltar()
       })
-  }, [filtro])
+  }
 
-  const columns = verCusto ? ["Código", "Produto", "Estoque", "Custo"] : ["Código", "Produto", "Estoque"]
-  const rows = products.map((product) => {
-    const estoque = Math.max(0, Math.floor(Number(product.lojaStock) || 0))
-    const base = [
-      product.code || "—",
-      lojaProductName(product),
-      estoque.toLocaleString("pt-BR"),
-    ]
-    if (!verCusto) return base
-    const custo = Number(product.lojaCostAverage ?? product.lojaCostPrice ?? product.costPrice) || 0
-    return [...base, formatMoneyRs(custo)]
-  })
+  useEffect(() => {
+    loadProductCategories(true)
+      .then((rows) => setCategoriasCatalogo(toFlatOptions(rows).map((item) => item.label)))
+      .catch(() => setCategoriasCatalogo([]))
+    api
+      .get("/clients/products", { params: { ativo: "1", page: "1", limit: "1", stockField: gestao ? "backoffice" : "loja" } })
+      .then(({ data }) => {
+        if (data.facets) setFacets(data.facets)
+      })
+      .catch(() => undefined)
+  }, [gestao])
+
+  useEffect(() => {
+    if (!gestao) return
+    api.get("/backoffice/lojistas")
+      .then(({ data }) => {
+        const mapa: Record<string, string> = {}
+        const rows = (data?.lojistas || []) as Array<{ id?: string; stores?: Array<{ name?: string }> }>
+        for (const item of rows) {
+          const dono = String(item.id || "")
+          for (const store of item.stores || []) {
+            const nome = String(store.name || "").trim()
+            if (nome && dono) mapa[nome] = dono
+          }
+        }
+        setDonos(mapa)
+      })
+      .catch(() => setDonos({}))
+  }, [gestao])
+
+  useEffect(() => {
+    if (gestao || !lojaAberta) return
+    setDraft((atual) => (atual.loja ? atual : { ...atual, loja: lojaAberta }))
+    setFiltros((atual) => (atual.loja ? atual : { ...atual, loja: lojaAberta }))
+  }, [gestao, lojaAberta])
+
+  useEffect(() => {
+    if (!gestao || !lugar) return
+    setDraft((atual) => (atual.loja ? atual : { ...atual, loja: "Estoque" }))
+    setFiltros((atual) => (atual.loja ? atual : { ...atual, loja: "Estoque" }))
+  }, [gestao, lugar])
+
+  function setCampo<K extends keyof FiltroEstoque>(chave: K, valor: FiltroEstoque[K]) {
+    setDraft((atual) => ({ ...atual, [chave]: valor }))
+  }
+
+  function aplicar(event: FormEvent) {
+    event.preventDefault()
+    const pedidoFiltro = { ...draft, loja: draft.loja || (gestao ? "Estoque" : lugar) }
+    setFiltros(pedidoFiltro)
+    carregar(pedidoFiltro)
+  }
+
+  const lojas = useMemo(() => {
+    if (gestao) {
+      const nomes = Object.keys(donos).sort((a, b) => a.localeCompare(b, "pt-BR"))
+      return ["Estoque", ...nomes.filter((nome) => nome.localeCompare("Estoque", "pt-BR", { sensitivity: "base" }) !== 0)]
+    }
+    const nomes = stores.map((item) => item.name).filter(Boolean)
+    return [...new Set(nomes.length ? nomes : [lojaAberta].filter(Boolean))].sort((a, b) => a.localeCompare(b, "pt-BR"))
+  }, [gestao, donos, lugar, stores, lojaAberta])
+  const categorias = useMemo(
+    () => opcoesDe([...categoriasCatalogo, ...products.map((item) => item.category || "Sem categoria")], "Todas"),
+    [categoriasCatalogo, products],
+  )
+  const marcas = useMemo(() => opcoesDe([...facets.brands, ...products.map((item) => item.brand)], "Todas"), [facets.brands, products])
+  const colecoes = useMemo(() => opcoesDe([...facets.collections, ...products.map((item) => item.collection)], "Todas"), [facets.collections, products])
+  const generos = useMemo(() => opcoesDe([...facets.genders, ...products.map((item) => item.gender)], "Todos"), [facets.genders, products])
+  const fornecedores = useMemo(() => opcoesDe(
+    products.map((item) => fornecedorNota[item.id]),
+    "Todos",
+  ), [products, fornecedorNota])
+  const central = gestao && (filtros.loja === lugar || filtros.loja === "Estoque")
+  const visiveis = useMemo(() => products.filter((product) => {
+    const estoque = Math.floor(Number(central ? product.stockQuantity : product.lojaStock) || 0)
+    if (!casaLista(product.code || "", filtros.codigo)) return false
+    if (!casaLista(lojaProductName(product), filtros.produto)) return false
+    if (filtros.categoria !== "Todas" && (product.category || "Sem categoria") !== filtros.categoria) return false
+    if (filtros.marca !== "Todas" && (product.brand || "") !== filtros.marca) return false
+    if (filtros.colecao !== "Todas" && (product.collection || "") !== filtros.colecao) return false
+    if (filtros.genero !== "Todos" && (product.gender || "") !== filtros.genero) return false
+    if (filtros.fornecedor !== "Todos" && (fornecedorNota[product.id] || "") !== filtros.fornecedor) return false
+    if (filtros.estoque === "Com estoque" && estoque <= 0) return false
+    if (filtros.estoque === "Sem estoque" && estoque > 0) return false
+    return true
+  }).sort((a, b) => (
+    filtros.ordem === "Código"
+      ? (a.code || "").localeCompare(b.code || "", "pt-BR", { numeric: true })
+      : lojaProductName(a).localeCompare(lojaProductName(b), "pt-BR")
+  )), [products, filtros, fornecedorNota, central])
+  const linhas = useMemo(() => visiveis.map((product) => {
+    const estoque = Math.max(0, Math.floor(Number(central ? product.stockQuantity : product.lojaStock) || 0))
+    const compra = central
+      ? Number(product.costPrice) || 0
+      : Number(product.lojaCostAverage ?? product.lojaCostPrice ?? product.costPrice) || 0
+    const venda = central
+      ? Number(product.salePrice) || 0
+      : Number(product.lojaSalePrice ?? product.salePrice) || 0
+    return {
+      product,
+      estoque,
+      compra,
+      venda,
+      totalCompra: estoque * compra,
+      totalVenda: estoque * venda,
+      lucro: venda > 0 ? ((venda - compra) / venda) * 100 : 0,
+    }
+  }), [visiveis, central])
+  const totais = useMemo(() => linhas.reduce((acc, linha) => {
+    acc.qtd += linha.estoque
+    acc.compra += linha.totalCompra
+    acc.venda += linha.totalVenda
+    if (linha.estoque > 0) acc.comEstoque += 1
+    return acc
+  }, { qtd: 0, compra: 0, venda: 0, comEstoque: 0 }), [linhas])
+  const lucroTotal = totais.venda > 0 ? ((totais.venda - totais.compra) / totais.venda) * 100 : 0
+  const colunas = verCusto ? 10 : 7
+  const chips = [
+    `Loja: ${filtros.loja || lugar || "—"}`,
+    filtros.categoria !== "Todas" ? `Categoria: ${filtros.categoria}` : "",
+    filtros.marca !== "Todas" ? `Marca: ${filtros.marca}` : "",
+    filtros.colecao !== "Todas" ? `Coleção: ${filtros.colecao}` : "",
+    filtros.genero !== "Todos" ? `Gênero: ${filtros.genero}` : "",
+    filtros.fornecedor !== "Todos" ? `Fornecedor: ${filtros.fornecedor}` : "",
+    filtros.estoque !== "Todos" ? `Estoque: ${filtros.estoque}` : "",
+    filtros.codigo.trim() ? `Código: ${filtros.codigo.trim()}` : "",
+    filtros.produto.trim() ? `Produto: ${filtros.produto.trim()}` : "",
+    `Ordenar: ${filtros.ordem || "Nome"}`,
+  ].filter(Boolean)
 
   return (
-    <FilterPage
-      title="ESTOQUE"
-      pageClass="pdv-cli-page"
-      fields={[
-        { key: "produto", label: "Produto" },
-        { key: "categoria", label: "Categoria", kind: "search", options: ["Todas", ...categorias.map((item) => item.name)] },
-      ]}
-      columns={columns}
-      rows={rows}
-      hint={rows.length ? undefined : hint || " "}
-      onSearch={(values) => setFiltro({
-        produto: values.produto || "",
-        categoria: !values.categoria || values.categoria === "Todas" ? "" : values.categoria,
-      })}
-    />
+    <div className="pdv-venda-round">
+      <FilterPage
+        title="ESTOQUE"
+        pageClass="pdv-cli-page"
+        fields={[]}
+        columns={[]}
+        hideList
+        hint={hint || undefined}
+        extra={(
+          <>
+            <form className="pdv-cad-filters pdv-cad-filters-itens" onSubmit={aplicar}>
+              <label>
+                Loja
+                <SearchableSelect
+                  hideEmpty
+                  value={draft.loja || (gestao ? "Estoque" : lugar)}
+                  options={lojas.length ? lojas : [gestao ? "Estoque" : lugar].filter(Boolean)}
+                  onChange={(value) => setCampo("loja", value)}
+                />
+              </label>
+              <label>
+                Código do produto
+                <input value={draft.codigo} placeholder="123,124,125" onChange={(event) => setCampo("codigo", event.target.value)} autoComplete="off" />
+              </label>
+              <label>
+                Nome do produto
+                <input value={draft.produto} onChange={(event) => setCampo("produto", event.target.value)} autoComplete="off" />
+              </label>
+              <label>
+                Categoria
+                <SearchableSelect hideEmpty value={draft.categoria} options={categorias} onChange={(value) => setCampo("categoria", value)} />
+              </label>
+              <label>
+                Marca
+                <SearchableSelect hideEmpty value={draft.marca} options={marcas} onChange={(value) => setCampo("marca", value)} />
+              </label>
+              <label>
+                Coleção
+                <SearchableSelect hideEmpty value={draft.colecao} options={colecoes} onChange={(value) => setCampo("colecao", value)} />
+              </label>
+              <label>
+                Gênero
+                <SearchableSelect hideEmpty value={draft.genero} options={generos} onChange={(value) => setCampo("genero", value)} />
+              </label>
+              <label>
+                Fornecedor
+                <SearchableSelect hideEmpty value={draft.fornecedor} options={fornecedores} onChange={(value) => setCampo("fornecedor", value)} />
+              </label>
+              <label>
+                Estoque
+                <SearchableSelect hideEmpty value={draft.estoque} options={["Todos", "Com estoque", "Sem estoque"]} onChange={(value) => setCampo("estoque", value)} />
+              </label>
+              <label>
+                Ordenar
+                <SearchableSelect hideEmpty value={draft.ordem || "Nome"} options={["Nome", "Código"]} onChange={(value) => setCampo("ordem", value)} />
+              </label>
+              <div className="pdv-cad-filters-go">
+                <button className="pdv-cad-btn" type="button" onClick={() => { const limpo = { ...ESTOQUE_LIMPO, loja: gestao ? "Estoque" : lojaAberta }; setDraft(limpo); setFiltros(limpo); setBuscou(false); setAtualizando(false); setProducts([]); setFornecedorNota({}); setHint("") }}>Limpar</button>
+                <button className={`pdv-cad-btn pdv-cad-btn-blue${atualizando ? " is-busy" : ""}`} type="submit">
+                  {atualizando ? <span className="pdv-cad-spin" aria-hidden="true" /> : null}
+                  {atualizando ? "Buscando..." : "Buscar"}
+                </button>
+              </div>
+            </form>
+            {buscou ? (
+            <div className="pdv-itens-chips">
+              {chips.map((chip) => <span key={chip}>{chip}</span>)}
+            </div>
+            ) : null}
+            {buscou ? (
+            <div className={`dre-sheet iv-sheet est-sheet${atualizando ? " pdv-prod-refreshing" : ""}`}>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Cód do Produto</th>
+                    <th>Produto</th>
+                    <th>Loja</th>
+                    <th>Fornecedor</th>
+                    <th className="iv-num">Estoque</th>
+                    {verCusto ? <th className="iv-num">Pr. Compra</th> : null}
+                    {verCusto ? <th className="iv-num">Total Compra</th> : null}
+                    <th className="iv-num">Pr. Venda</th>
+                    <th className="iv-num">Total Venda</th>
+                    {verCusto ? <th className="iv-num">Lucro Bruto</th> : null}
+                  </tr>
+                </thead>
+                <tbody>
+                  {linhas.length === 0 ? (
+                    <tr>
+                      <td className="iv-vazio" colSpan={colunas}>{hint || "Nenhum produto para o filtro atual."}</td>
+                    </tr>
+                  ) : linhas.map((linha) => (
+                    <tr key={linha.product.id}>
+                      <td>{linha.product.code || "—"}</td>
+                      <td>{lojaProductName(linha.product)}</td>
+                      <td>{filtros.loja || lugar || "—"}</td>
+                      <td className={(fornecedorNota[linha.product.id] || "").trim() ? "est-nome" : "iv-traco"}>{(fornecedorNota[linha.product.id] || "").trim() || "—"}</td>
+                      <td className="iv-num">{linha.estoque.toLocaleString("pt-BR")}</td>
+                      {verCusto ? <td className="iv-num">{formatMoneyRs(linha.compra)}</td> : null}
+                      {verCusto ? <td className="iv-num">{formatMoneyRs(linha.totalCompra)}</td> : null}
+                      <td className="iv-num">{formatMoneyRs(linha.venda)}</td>
+                      <td className="iv-num">{formatMoneyRs(linha.totalVenda)}</td>
+                      {verCusto ? <td className="iv-num">{linha.lucro.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%</td> : null}
+                    </tr>
+                  ))}
+                  {linhas.length ? (
+                    <tr className="dre-strong iv-total-grupo">
+                      <th colSpan={4}>Subtotal</th>
+                      <td className="iv-num">{totais.qtd.toLocaleString("pt-BR")}</td>
+                      {verCusto ? <td className="iv-num" /> : null}
+                      {verCusto ? <td className="iv-num">{formatMoneyRs(totais.compra)}</td> : null}
+                      <td className="iv-num" />
+                      <td className="iv-num">{formatMoneyRs(totais.venda)}</td>
+                      {verCusto ? <td className="iv-num">{lucroTotal.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%</td> : null}
+                    </tr>
+                  ) : null}
+                  {linhas.length ? (
+                    <tr className="dre-strong iv-total-grupo">
+                      <th colSpan={4}>Total de produtos com estoque: {totais.comEstoque}</th>
+                      <td className="iv-num">{totais.qtd.toLocaleString("pt-BR")}</td>
+                      {verCusto ? <td className="iv-num" /> : null}
+                      {verCusto ? <td className="iv-num">{formatMoneyRs(totais.compra)}</td> : null}
+                      <td className="iv-num" />
+                      <td className="iv-num">{formatMoneyRs(totais.venda)}</td>
+                      {verCusto ? <td className="iv-num">{lucroTotal.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%</td> : null}
+                    </tr>
+                  ) : null}
+                </tbody>
+              </table>
+            </div>
+            ) : null}
+          </>
+        )}
+      />
+    </div>
   )
 }
 

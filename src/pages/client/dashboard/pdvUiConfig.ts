@@ -117,6 +117,7 @@ const CONFIG_MODAL_SOURCE: { title: string; items: ConfigModalSourceItem[] }[][]
       title: "PARÂMETROS DA LOJA",
       items: [
         "Configurações da Loja",
+        "Tabelas de preço",
         "Integrações",
         "Grupos de Loja",
         "Estoque Compartilhado",

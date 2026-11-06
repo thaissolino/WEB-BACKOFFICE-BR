@@ -31,6 +31,7 @@ import {
   periodLabels,
 } from "./dashboard/mockData";
 import { DASHBOARD_SHORTCUTS } from "./dashboard/menuData";
+import { bloqueioDaRota } from "./cadastros/usuarios/acessoEvento";
 import PdvShell, { PdvLoading, usePdvSession, usePdvUiConfig } from "./dashboard/PdvShell";
 import { accordionWidgetId, isDashboardVisible } from "./dashboard/pdvUiConfig";
 import { usePdvLayoutMode } from "../../store/pdvLayoutMode";
@@ -303,7 +304,8 @@ function ActivitiesCalendar() {
 
 function DashboardBoard({ client }: { client: ClientUser }) {
   const navigate = useNavigate();
-  const { query } = usePdvSession();
+  const { query, storeOwner } = usePdvSession();
+  const lojista = storeOwner || client.name;
   const uiConfig = usePdvUiConfig();
   const boardRef = useRef<HTMLDivElement>(null);
 
@@ -336,7 +338,7 @@ function DashboardBoard({ client }: { client: ClientUser }) {
       <div className="pdvc-board">
         {showWelcome ? (
           <header className="pdvc-page-head">
-            <h1 className="pdvc-page-title">Seja bem vindo, {client.name}</h1>
+            <h1 className="pdvc-page-title">Seja bem vindo, {lojista}</h1>
           </header>
         ) : null}
 
@@ -385,7 +387,7 @@ function DashboardBoard({ client }: { client: ClientUser }) {
 
         {showWelcome ? (
         <div className="pdv-welcome-block">
-          <p className="pdv-welcome">Seja bem vindo, {client.name}</p>
+          <p className="pdv-welcome">Seja bem vindo, {lojista}</p>
         </div>
         ) : null}
 
@@ -394,12 +396,19 @@ function DashboardBoard({ client }: { client: ClientUser }) {
           <div className="pdv-home-shortcuts-grid">
             {shortcuts.map((item) => {
               const feature = item.id === "meus-pedidos";
+              const aviso = bloqueioDaRota(item.href);
               return (
                 <button
                   key={item.id}
                   type="button"
                   className={feature ? "pdv-home-shortcut pdv-home-shortcut-feature" : "pdv-home-shortcut"}
-                  onClick={() => navigate(item.href)}
+                  title={aviso || undefined}
+                  data-locked={aviso ? "true" : undefined}
+                  aria-disabled={aviso ? true : undefined}
+                  onClick={() => {
+                    if (aviso) return;
+                    navigate(item.href);
+                  }}
                 >
                   {feature ? null : (
                     <span className="pdv-home-shortcut-ico" aria-hidden="true">

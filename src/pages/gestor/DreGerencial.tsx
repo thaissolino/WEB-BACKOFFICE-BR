@@ -1,6 +1,7 @@
 import { FormEvent, Fragment, useEffect, useMemo, useState } from "react";
 import { Minus, Plus } from "lucide-react";
 import { api, parseError } from "../../services/api";
+import { useNomeEstoque } from "../../services/nomeEstoque";
 import { todayIso } from "../../utils/todayIso";
 import { clientIdDoLojista, lancamentoDaLoja, lancamentoDoPainel, listCatalog, type CatalogItem } from "../client/cadastros/catalog/catalogApi";
 import { DatePreset } from "../client/cadastros/catalog/FormBits";
@@ -16,7 +17,16 @@ type DreScope = "backoffice" | "loja";
 type Line = { name: string; code: string; price: number; qty: number; cost?: number; discount?: number };
 type Order = { id: string; lines: Line[]; total: number; createdAt: string; closedAt: string | null; estornada?: boolean };
 type LojaSale = { id: string; lines: Line[]; createdAt: string; finalizedAt: string | null; status?: string };
-type Lojista = { id: string; name: string };
+type Lojista = { id: string; name: string; stores?: Array<{ name: string }> };
+
+function donosDeLoja(rows: Lojista[]) {
+  return rows.filter((item) => item.id && item.name && (item.stores || []).some((store) => store.name.trim()));
+}
+
+function rotuloDaLoja(item: Lojista) {
+  const lojas = (item.stores || []).map((store) => store.name.trim()).filter(Boolean);
+  return lojas.length ? `${item.name} / ${lojas.join(", ")}` : "";
+}
 
 type Conta = { nome: string; planejado: number; realizado: number };
 type Grupo = { nome: string; contas: Conta[] };
@@ -190,6 +200,7 @@ function DreLinha({
 
 export default function DreGerencial({ scope = "backoffice" }: { scope?: DreScope }) {
   const { storeId } = usePdvSession();
+  const nomeEstoque = useNomeEstoque(scope === "loja" ? "loja" : "backoffice");
   const podeCusto = useVerCusto();
   const verCusto = scope !== "loja" || podeCusto;
   const filtroKey = scope === "loja" ? "loja-dre-ultimo-filtro" : "gestao-dre-ultimo-filtro";
@@ -213,7 +224,7 @@ export default function DreGerencial({ scope = "backoffice" }: { scope?: DreScop
       api.get("/backoffice/lojistas")
         .then(({ data }) => {
           const rows = (data?.lojistas || []) as Lojista[];
-          setLojistas(rows.filter((item) => item.id && item.name));
+          setLojistas(donosDeLoja(rows));
         })
         .catch(() => setLojistas([]));
     }
@@ -276,7 +287,7 @@ export default function DreGerencial({ scope = "backoffice" }: { scope?: DreScop
       let lista = lojistas;
       if (scope === "backoffice" && pedido.loja === "todas" && !lista.length) {
         const cadastro = await api.get("/backoffice/lojistas");
-        lista = ((cadastro.data?.lojistas || []) as Lojista[]).filter((item) => item.id && item.name);
+        lista = donosDeLoja((cadastro.data?.lojistas || []) as Lojista[]);
         setLojistas(lista);
       }
       const [movimentos, lancamentos] = await Promise.all([
@@ -349,8 +360,8 @@ export default function DreGerencial({ scope = "backoffice" }: { scope?: DreScop
     : filtros.loja === "todas"
       ? "Todas"
       : filtros.loja === "estoque"
-        ? "ESTOQUE GERAL"
-        : lojistas.find((item) => item.id === filtros.loja)?.name || "Loja";
+        ? nomeEstoque
+        : rotuloDaLoja(lojistas.find((item) => item.id === filtros.loja) || { id: "", name: "" }) || "Loja";
 
   const corpo = (
     <>
@@ -360,12 +371,12 @@ export default function DreGerencial({ scope = "backoffice" }: { scope?: DreScop
             Loja
             <SearchableSelect
               hideEmpty
-              value={draft.loja === "estoque" ? "ESTOQUE GERAL" : draft.loja === "todas" ? "Todas" : lojistas.find((item) => item.id === draft.loja)?.name || "Todas"}
-              options={["Todas", "ESTOQUE GERAL", ...lojistas.map((item) => item.name)]}
+              value={draft.loja === "estoque" ? nomeEstoque : draft.loja === "todas" ? "Todas" : rotuloDaLoja(lojistas.find((item) => item.id === draft.loja) || { id: "", name: "" }) || "Todas"}
+              options={["Todas", nomeEstoque, ...lojistas.map((item) => rotuloDaLoja(item)).filter(Boolean)]}
               onChange={(nome) => {
-                if (nome === "ESTOQUE GERAL") setCampo("loja", "estoque")
+                if (nome === nomeEstoque) setCampo("loja", "estoque")
                 else if (nome === "Todas") setCampo("loja", "todas")
-                else setCampo("loja", lojistas.find((item) => item.name === nome)?.id || "todas")
+                else setCampo("loja", lojistas.find((item) => rotuloDaLoja(item) === nome)?.id || "todas")
               }}
             />
           </label>
@@ -536,7 +547,7 @@ export default function DreGerencial({ scope = "backoffice" }: { scope?: DreScop
   }
 
   return (
-    <GestaoShell title="DRE GERENCIAL" subtitle="Receita, custo e despesas do período. Inclui o ESTOQUE GERAL e cada loja.">
+    <GestaoShell title="DRE GERENCIAL" subtitle={`Receita, custo e despesas do período. Inclui ${nomeEstoque} e cada loja.`}>
       {corpo}
     </GestaoShell>
   );

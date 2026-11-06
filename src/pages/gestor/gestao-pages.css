@@ -1398,9 +1398,86 @@
   text-align: right !important;
 }
 
+.est-sheet.pdv-prod-refreshing {
+  opacity: 0.45;
+}
+
+.est-sheet th:first-child,
+.est-sheet td:first-child,
+.est-sheet thead th:first-child {
+  min-width: 8.5rem;
+  width: 8.5rem;
+  text-align: center;
+}
+
+.est-sheet th:nth-child(2),
+.est-sheet td:nth-child(2) {
+  min-width: 240px;
+  text-align: left;
+}
+
+.est-sheet th:nth-child(3),
+.est-sheet td:nth-child(3) {
+  width: 12%;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.est-sheet th:nth-child(4),
+.est-sheet td:nth-child(4),
+.est-sheet thead th:nth-child(4),
+.est-sheet td.est-nome,
+.est-sheet td.iv-traco {
+  width: 16%;
+  text-align: center !important;
+}
+
+.est-sheet thead th.iv-num,
+.est-sheet .iv-num {
+  min-width: 8.5rem;
+  text-align: center !important;
+}
+
+.est-sheet tr.iv-total-grupo th {
+  width: auto;
+  min-width: 0;
+  text-align: left !important;
+}
+
 .iv-sheet td.iv-traco {
   text-align: center !important;
   vertical-align: middle;
+}
+
+.imei-sheet th,
+.imei-sheet td {
+  padding: 12px 22px;
+}
+
+.imei-sheet th:first-child,
+.imei-sheet td:first-child,
+.imei-sheet thead th:first-child {
+  min-width: 0;
+  padding-left: 28px;
+}
+
+.imei-sheet th:last-child,
+.imei-sheet td:last-child {
+  padding-right: 28px;
+}
+
+.imei-sheet thead th.iv-num,
+.imei-sheet td.iv-num,
+.imei-sheet td.iv-traco {
+  text-align: center !important;
+}
+
+.imei-sheet td.imei-nome {
+  text-align: left !important;
+}
+
+.imei-sheet thead th.iv-num {
+  text-align: center !important;
 }
 
 .iv-sheet .iv-grupo-espaco td {
@@ -1911,6 +1988,15 @@ button.iv-imprimir:disabled {
 .pdv-chrome .gestao-page.gestao-relatorio-cream header p,
 .gestao-page.gestao-relatorio-cream header p {
   color: #6f675e !important;
+}
+
+.gestao-page.gestao-relatorio-cream .iv-total-valor td,
+.pdv-chrome .gestao-page.gestao-relatorio-cream .iv-total-valor td {
+  background: #f3ecdf;
+  color: #1a1511;
+  font-weight: 700;
+  border-top: 1px solid #ddd4c6;
+  padding: 14px 24px;
 }
 
 .gestao-page.gestao-relatorio-cream .pdv-rel-filters,

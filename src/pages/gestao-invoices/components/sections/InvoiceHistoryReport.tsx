@@ -864,6 +864,24 @@ export function InvoiceHistoryReport({
     }
   };
 
+  const totaisValor = useMemo(() => {
+    let usd = 0;
+    let brl = 0;
+    let temUsd = false;
+    let temBrl = false;
+    for (const invoice of invoices) {
+      const total = invoice.products?.reduce((sum, product) => sum + (Number(product.total) || 0), 0) || 0;
+      if (isBrlSupplierCurrency(invoice.supplier?.currency)) {
+        brl += total;
+        temBrl = true;
+      } else {
+        usd += total;
+        temUsd = true;
+      }
+    }
+    return { usd, brl, temUsd, temBrl };
+  }, [invoices]);
+
   return (
     <div className="mt-8 min-w-0 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
       <h2 className="text-xl w-full justify-between items-center flex flex-row font-semibold mb-4 border-b px-6 pt-4 pb-2 text-blue-700">
@@ -1147,6 +1165,21 @@ export function InvoiceHistoryReport({
                 })
               )}
             </tbody>
+            {invoices.length ? (
+              <tfoot>
+                <tr className="iv-total-valor">
+                  <td colSpan={5}>Valor total</td>
+                  <td className="text-right">
+                    {totaisValor.temUsd && totaisValor.temBrl
+                      ? `${formatProductMoney(totaisValor.usd, "USD")} · ${formatProductMoney(totaisValor.brl, "BRL")}`
+                      : totaisValor.temBrl
+                        ? formatProductMoney(totaisValor.brl, "BRL")
+                        : formatProductMoney(totaisValor.usd, "USD")}
+                  </td>
+                  <td colSpan={3} />
+                </tr>
+              </tfoot>
+            ) : null}
           </table>
         )}
         {/* Paginação */}

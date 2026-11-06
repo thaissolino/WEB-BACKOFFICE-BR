@@ -6,7 +6,6 @@ import {
   Camera,
   Check,
   ChevronDown,
-  Copy,
   Info,
   LayoutGrid,
   Plus,
@@ -16,7 +15,7 @@ import {
 } from "lucide-react";
 import { api, parseError } from "../../../../services/api";
 import CadastroShell from "../CadastroShell";
-import { useVerCusto } from "../usuarios/useVerCusto";
+import { usePermissoesProduto, useVerCusto } from "../usuarios/useVerCusto";
 import PdvTip from "../../dashboard/PdvTip";
 import CategorySelect from "./CategorySelect";
 import SearchableSelect from "./SearchableSelect";
@@ -30,8 +29,7 @@ import {
 import { createCatalog, listCatalog } from "../catalog/catalogApi";
 import { loadProductCategories, toFlatOptions, type FlatOption } from "./categoryModel";
 import { PRODUCT_GENDERS, PRODUCT_ORIGINS, PRODUCT_UNITS } from "./productOptions";
-import { CLIENT_PRODUCT_OPEN_KEY, CLIENT_PRODUCT_RETURN_CODE_KEY, CLIENT_PRODUCT_RETURN_ID_KEY } from "./productFilters";
-import { useDismissable } from "./SelectOverlay";
+import { CLIENT_PRODUCT_OPEN_KEY } from "./productFilters";
 import { formatMoneyBr, formatMoneyRs, parseMoneyBr, type PdvProduct } from "./types";
 import type { PdvSupplier } from "../fornecedores/types";
 
@@ -313,6 +311,7 @@ function categorySeed(product: PdvProduct | null): FlatOption[] {
 
 export default function CadastrarProduto() {
   const verCusto = useVerCusto();
+  const { verVenda, editarVenda, editarEstoque, editarPeso } = usePermissoesProduto();
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const editingId = params.get("id") || "";
@@ -340,12 +339,6 @@ export default function CadastrarProduto() {
   const avisoTimer = useRef<number | undefined>(undefined);
   const codeRef = useRef(opened?.code || "");
   const productRef = useRef<PdvProduct | null>(opened);
-  const copiando = useRef(false);
-  const menuRef = useRef<HTMLDivElement>(null);
-  const [menuAberto, setMenuAberto] = useState(false);
-  const [carregandoCopia, setCarregandoCopia] = useState(false);
-  const fecharMenu = () => setMenuAberto(false);
-  useDismissable(menuAberto, fecharMenu, menuRef);
   const [photo1, setPhoto1] = useState<File | null>(null);
   const [photo2, setPhoto2] = useState<File | null>(null);
   const [balanca, setBalanca] = useState({
@@ -403,11 +396,6 @@ export default function CadastrarProduto() {
       .catch((err) => {
         const parsed = parseError(err);
         setStatus(parsed.friend || parsed.message || "Não foi possível abrir o produto.");
-      })
-      .finally(() => {
-        if (cancel) return;
-        copiando.current = false;
-        setCarregandoCopia(false);
       });
     return () => {
       cancel = true;
@@ -455,7 +443,7 @@ export default function CadastrarProduto() {
   }
 
   async function saveIfDirty() {
-    if (copiando.current || !editingId || !savedKey.current) return;
+    if (!editingId || !savedKey.current) return;
     const current = formRef.current;
     if (current.categorias.length === 0) {
       setStatus("Selecione uma categoria.");
@@ -509,95 +497,6 @@ export default function CadastrarProduto() {
     void saveIfDirty();
   }
 
-  async function duplicar(comEstoque: boolean) {
-    if (copiando.current || !editingId) return;
-    setMenuAberto(false);
-    copiando.current = true;
-    setCarregandoCopia(true);
-    const origemId = editingId;
-    try {
-      const current = formRef.current;
-      if (!current.nome.trim()) throw new Error("O produto precisa de um nome.");
-      if (current.categorias.length === 0) throw new Error("Selecione uma categoria.");
-      const atual = productBody(current, categoriesRef.current, categoryNameRef.current);
-      const key = JSON.stringify(atual);
-      if (savedKey.current && key !== savedKey.current) {
-        await api.put(`/clients/products/${origemId}`, atual);
-        savedKey.current = key;
-      }
-      const base = atual.name;
-      let name = `${base} CÓPIA`;
-      let numero = 2;
-      let created: PdvProduct | null = null;
-      const precos = comEstoque
-        ? {
-            salePrice: productRef.current?.salePrice || 0,
-            costPrice: productRef.current?.costPrice || 0,
-            priceweightAverage: productRef.current?.priceweightAverage || 0,
-            stockQuantity: productRef.current?.stockQuantity || 0,
-          }
-        : {
-            lojaStock: 0,
-            lojaSalePrice: 0,
-            lojaCostPrice: 0,
-            lojaCostAverage: 0,
-            salePrice: 0,
-            costPrice: 0,
-            priceweightAverage: 0,
-            stockQuantity: 0,
-          };
-      for (let tentativa = 0; tentativa < 20 && !created; tentativa += 1) {
-        try {
-          const { data } = await api.post("/clients/products", { ...atual, ...precos, name, lojaName: "" });
-          created = (data?.product || null) as PdvProduct | null;
-        } catch (err) {
-          const response = (err as { response?: { status?: number; data?: { message?: string } } }).response;
-          const message = String(response?.data?.message || "");
-          if (response?.status !== 409 && !message.toLowerCase().includes("já existe")) throw err;
-          name = `${base} CÓPIA ${numero}`;
-          numero += 1;
-        }
-      }
-      if (!created?.id) throw new Error("Não foi possível duplicar o produto.");
-      if (comEstoque) {
-        try {
-          const { data: tablesData } = await api.get(`/clients/products/${origemId}/table-prices`);
-          const tables = (tablesData?.tables || []) as { id: string; price: number | null }[];
-          if (tables.length) {
-            await api.put(`/clients/products/${created.id}/table-prices`, {
-              prices: tables.map((table) => ({ priceTableId: table.id, price: table.price ?? null })),
-            });
-          }
-        } catch {
-          /* o preço da loja já foi no cadastro */
-        }
-      }
-      if (productRef.current?.photoFileId) {
-        try {
-          const { data: blob } = await api.get(`/clients/products/${origemId}/photo`, { responseType: "blob" });
-          if (blob instanceof Blob && blob.size > 16) {
-            const type = blob.type || "image/jpeg";
-            const ext = type.includes("png") ? "png" : "jpg";
-            const body = new FormData();
-            body.append("file", new File([blob], `foto.${ext}`, { type }));
-            await api.post(`/clients/products/${created.id}/photo`, body);
-          }
-        } catch {
-          /* a cópia abre mesmo se a foto não vier */
-        }
-      }
-      sessionStorage.setItem(CLIENT_PRODUCT_OPEN_KEY, JSON.stringify(created));
-      sessionStorage.setItem(CLIENT_PRODUCT_RETURN_ID_KEY, created.id);
-      sessionStorage.setItem(CLIENT_PRODUCT_RETURN_CODE_KEY, created.code || "");
-      navigate(`/client/produtos/cadastrar?id=${created.id}`);
-    } catch (err) {
-      copiando.current = false;
-      setCarregandoCopia(false);
-      const parsed = parseError(err);
-      setStatus(parsed.friend || parsed.message || (err instanceof Error ? err.message : "") || "Não foi possível duplicar o produto.");
-    }
-  }
-
   function onSubmit(event: FormEvent) {
     event.preventDefault();
     void saveIfDirty();
@@ -628,11 +527,10 @@ export default function CadastrarProduto() {
             <h1 id="pdv-prod-cad-title" className="pdv-prod-official-name">
               {form.nome}
             </h1>
-            <div className="pdv-prod-dup" ref={menuRef}>
+            <div className="pdv-prod-dup">
               <button
-                className="pdv-cad-btn pdv-cad-btn-green pdv-voltar pdv-prod-dup-main"
+                className="pdv-cad-btn pdv-cad-btn-green pdv-voltar"
                 type="button"
-                disabled={carregandoCopia}
                 onClick={() => {
                   void saveIfDirty();
                   navigate("/client/produtos", { state: { returnedProductId: editingId } });
@@ -640,39 +538,10 @@ export default function CadastrarProduto() {
               >
                 Voltar para Produtos
               </button>
-              <button
-                className="pdv-cad-btn pdv-cad-btn-green pdv-prod-dup-caret"
-                type="button"
-                aria-label="Duplicar produto"
-                aria-expanded={menuAberto}
-                aria-haspopup="menu"
-                disabled={carregandoCopia}
-                onClick={() => setMenuAberto((aberto) => !aberto)}
-              >
-                <ChevronDown size={16} aria-hidden="true" />
-              </button>
-              {menuAberto ? (
-                <div className="pdv-prod-dup-menu" role="menu">
-                  <button type="button" role="menuitem" onClick={() => void duplicar(true)}>
-                    <Copy size={15} aria-hidden="true" />
-                    Duplicar Produto <strong>COM</strong> Estoque e Preços
-                  </button>
-                  <button type="button" role="menuitem" onClick={() => void duplicar(false)}>
-                    <Copy size={15} aria-hidden="true" />
-                    Duplicar Produto <strong>SEM</strong> Estoque e Preços
-                  </button>
-                </div>
-              ) : null}
             </div>
           </div>
 
           <div className="pdv-prod-box">
-          {carregandoCopia ? (
-            <p className="pdv-prod-aguarde" role="status">
-              <span className="pdv-prod-aguarde-spin" aria-hidden="true" />
-              Aguarde Carregando...
-            </p>
-          ) : null}
           {aviso ? (
             <p className="pdv-prod-save-flash" role="status">
               <Check size={16} aria-hidden="true" />
@@ -839,18 +708,20 @@ export default function CadastrarProduto() {
                   </div>
                 ) : null}
 
-                <div className="pdv-prod-row">
-                  <span>
-                    Preço de venda Universal para esta grade
-                    <Hint text="Preço de venda Universal para esta grade" />
-                  </span>
-                  <Radios
-                    name="preco-uni"
-                    value={form.precoUniversal}
-                    options={["Sim", "Não"]}
-                    onChange={(precoUniversal) => choose("precoUniversal", precoUniversal)}
-                  />
-                </div>
+                {verVenda ? (
+                  <div className="pdv-prod-row">
+                    <span>
+                      Preço de venda Universal para esta grade
+                      <Hint text="Preço de venda Universal para esta grade" />
+                    </span>
+                    <Radios
+                      name="preco-uni"
+                      value={form.precoUniversal}
+                      options={["Sim", "Não"]}
+                      onChange={(precoUniversal) => choose("precoUniversal", precoUniversal)}
+                    />
+                  </div>
+                ) : null}
 
                 <div className="pdv-prod-row">
                   <span>
@@ -928,21 +799,29 @@ export default function CadastrarProduto() {
                       <input
                         id="pdv-prod-est"
                         value={form.estoque}
-                        onChange={(event) => patch("estoque", event.target.value)}
+                        onChange={(event) => {
+                          if (editarEstoque) patch("estoque", event.target.value);
+                        }}
+                        readOnly={!editarEstoque}
                         inputMode="numeric"
                         autoComplete="off"
                       />
                     </div>
-                    <div className="pdv-prod-row">
-                      <label htmlFor="pdv-prod-pv">Preço Venda</label>
-                      <input
-                        id="pdv-prod-pv"
-                        value={form.precoVenda}
-                        onChange={(event) => patch("precoVenda", event.target.value)}
-                        inputMode="decimal"
-                        autoComplete="off"
-                      />
-                    </div>
+                    {verVenda ? (
+                      <div className="pdv-prod-row">
+                        <label htmlFor="pdv-prod-pv">Preço Venda</label>
+                        <input
+                          id="pdv-prod-pv"
+                          value={form.precoVenda}
+                          onChange={(event) => {
+                            if (editarVenda) patch("precoVenda", event.target.value);
+                          }}
+                          readOnly={!editarVenda}
+                          inputMode="decimal"
+                          autoComplete="off"
+                        />
+                      </div>
+                    ) : null}
                     {verCusto ? (
                       <div className="pdv-prod-row">
                         <label htmlFor="pdv-prod-pc">Preço Custo</label>
@@ -1066,7 +945,10 @@ export default function CadastrarProduto() {
                         <input
                           id="pdv-prod-peso"
                           value={form.peso}
-                          onChange={(event) => patch("peso", event.target.value)}
+                          onChange={(event) => {
+                            if (editarPeso) patch("peso", event.target.value);
+                          }}
+                          readOnly={!editarPeso}
                           inputMode="decimal"
                           autoComplete="off"
                         />

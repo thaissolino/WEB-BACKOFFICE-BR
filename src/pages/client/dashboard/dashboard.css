@@ -1046,6 +1046,13 @@
   width: 100%;
 }
 
+.pdv-menu-item[data-locked="true"],
+.pdv-search-hit[data-locked="true"],
+.pdvd-item[data-locked="true"],
+.pdv-home-shortcut[data-locked="true"] {
+  cursor: not-allowed;
+}
+
 .pdv-menu-item {
   display: flex;
   align-items: center;

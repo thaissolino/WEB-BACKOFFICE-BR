@@ -259,6 +259,8 @@ export function ProductFilterForm({
   genders,
   suppliers,
   busy = false,
+  exibirPor,
+  onExibirPor,
 }: {
   draft: ProductFilters;
   onChange: (next: ProductFilters) => void;
@@ -273,6 +275,8 @@ export function ProductFilterForm({
   genders: string[];
   suppliers: string[];
   busy?: boolean;
+  exibirPor?: "name" | "code";
+  onExibirPor?: (ordem: "name" | "code") => void;
 }) {
   const [moreOpen, setMoreOpen] = useState(false);
   const [catalogOpen, setCatalogOpen] = useState(false);
@@ -353,7 +357,19 @@ export function ProductFilterForm({
       </div>
 
       {moreOpen ? (
-        <div className="pdv-prod-more" aria-label="Mais filtros">
+        <div className={onExibirPor ? "pdv-prod-more pdv-prod-exibir" : "pdv-prod-more"} aria-label="Mais filtros">
+          {onExibirPor ? (
+            <label>
+              Exibir por
+              <SearchableSelect
+                hideEmpty
+                value={exibirPor === "code" ? "Código" : "Nome"}
+                options={["Código", "Nome"]}
+                onChange={(ordem) => onExibirPor(ordem === "Código" ? "code" : "name")}
+              />
+            </label>
+          ) : (
+          <>
           <label>
             Marca
             <SearchableSelect
@@ -407,6 +423,8 @@ export function ProductFilterForm({
             value={draft.estoque}
             onChange={(estoque) => onChange({ ...draft, estoque })}
           />
+          </>
+          )}
         </div>
       ) : null}
 

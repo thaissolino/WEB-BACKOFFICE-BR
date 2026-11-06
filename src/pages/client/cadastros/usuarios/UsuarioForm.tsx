@@ -202,7 +202,7 @@ export default function UsuarioForm() {
               <select value={form.grupo} onChange={(event) => setForm((current) => ({ ...current, grupo: event.target.value }))}>
                 <option value="">{"Selecione>>"}</option>
                 {groups.map((group) => (
-                  <option key={group.code} value={group.name}>{group.name}</option>
+                  <option key={group.code} value={group.name}>{group.name.toLocaleUpperCase("pt-BR")}</option>
                 ))}
               </select>
             </FormRow>

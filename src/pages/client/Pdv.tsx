@@ -21,6 +21,7 @@ import { avisarSalvo } from "./avisoSalvo"
 import { EVENTO_DESCONTO, eventoPermitido } from "./cadastros/usuarios/groupEvents"
 import PdvShell, { PdvLoading, usePdvSession } from "./dashboard/PdvShell"
 import { api, parseError } from "../../services/api"
+import { useNomeEstoque } from "../../services/nomeEstoque"
 import { formatMoneyBr, formatMoneyRs, lojaProductName, parseMoneyBr, productSalePrice, produtoRotulo, type PdvProduct } from "./cadastros/produtos/types"
 import SearchableSelect from "./cadastros/produtos/SearchableSelect"
 import { listLojaCaixas } from "./cadastros/financeiro/caixaApi"
@@ -584,6 +585,7 @@ function PdvBoard() {
   const aberto = useState(caixaAberto)[0]
   const { client } = useClientAuth()
   const { storeId, storeName } = usePdvSession()
+  const nomeEstoque = useNomeEstoque("loja")
   const [emitente, setEmitente] = useState<Emitente>({ name: "", document: "", phone: "", address: "", city: "" })
   const navigate = useNavigate()
   const [cliente, setCliente] = useState("CONSUMIDOR FINAL")
@@ -2242,7 +2244,7 @@ function PdvBoard() {
                   return (
                     <>
                       <tr>
-                        <td>ESTOQUE GERAL</td>
+                        <td>{nomeEstoque}</td>
                         <td className="cx-stock-num">{geral}</td>
                         <td className="cx-stock-num">-</td>
                       </tr>

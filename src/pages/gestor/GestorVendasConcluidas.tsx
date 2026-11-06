@@ -4,6 +4,7 @@ import Swal from "sweetalert2";
 import { api, parseError } from "../../services/api";
 import { printNotinha } from "../../lib/notinhaZebra";
 import GestaoShell from "./GestaoShell";
+import { carregarVendas, lerVendas } from "./vendasCache";
 import "../client/cadastros/cadastros.css";
 
 type Line = {
@@ -32,6 +33,7 @@ type Buyer = {
   email: string;
   username: string;
   document: string;
+  storeName?: string;
 };
 
 type ConferenceRead = {
@@ -223,8 +225,9 @@ function addressLine(address?: Address) {
 }
 
 export default function GestorVendasConcluidas() {
-  const [orders, setOrders] = useState<ClosedSale[]>([]);
-  const [lane, setLane] = useState<"separacao" | "concluidas" | "estornadas">("concluidas");
+  const salvas = (lerVendas("") || []) as ClosedSale[];
+  const [orders, setOrders] = useState<ClosedSale[]>(salvas);
+  const [lane, setLane] = useState<"separacao" | "concluidas" | "estornadas">("separacao");
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState("");
   const [conferenceId, setConferenceId] = useState("");
@@ -240,7 +243,7 @@ export default function GestorVendasConcluidas() {
   const [concludedNotice, setConcludedNotice] = useState("");
   const [acting, setActing] = useState(false);
   const [openSerials, setOpenSerials] = useState<Record<string, boolean>>({});
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(salvas.length === 0);
   const [error, setError] = useState("");
   const [zebraNotice, setZebraNotice] = useState("");
   const imeiRef = useRef<HTMLInputElement>(null);
@@ -262,13 +265,16 @@ export default function GestorVendasConcluidas() {
     return () => document.removeEventListener("mousedown", onPointerDown);
   }, [selectedId]);
 
-  async function load(term = search) {
-    setIsLoading(true);
+  async function load(term = search, fresco = false) {
+    const cached = lerVendas(term.trim()) as ClosedSale[] | null;
+    if (cached) {
+      setOrders(cached);
+      setIsLoading(false);
+    } else {
+      setIsLoading(true);
+    }
     try {
-      const { data } = await api.get("/backoffice/vendas-concluidas", {
-        params: term.trim() ? { search: term.trim() } : undefined,
-      });
-      const next = (data?.orders || []) as ClosedSale[];
+      const next = (await carregarVendas(term.trim(), fresco)) as ClosedSale[];
       setOrders(next);
       setSelectedId((current) => (next.some((order) => order.id === current) ? current : ""));
       setConferenceId((current) => (next.some((order) => order.id === current) ? current : ""));
@@ -291,15 +297,20 @@ export default function GestorVendasConcluidas() {
     let armed = false;
     let stop = false;
     let chain = Promise.resolve();
+    let timer = 0;
+
+    function armar(next: ClosedSale[]) {
+      if (armed || stop) return;
+      next.forEach((order) => seen.add(order.id));
+      armed = true;
+    }
 
     async function watch() {
       try {
-        const { data } = await api.get("/backoffice/vendas-concluidas");
-        const next = (data?.orders || []) as ClosedSale[];
+        const next = (await carregarVendas("", true)) as ClosedSale[];
         if (stop) return;
         if (!armed) {
-          next.forEach((order) => seen.add(order.id));
-          armed = true;
+          armar(next);
           return;
         }
         const fresh = next
@@ -319,8 +330,12 @@ export default function GestorVendasConcluidas() {
       }
     }
 
-    const timer = window.setInterval(watch, 8000);
-    void watch();
+    void carregarVendas("")
+      .then((next) => armar(next as ClosedSale[]))
+      .catch(() => undefined)
+      .finally(() => {
+        if (!stop) timer = window.setInterval(watch, 8000);
+      });
     return () => {
       stop = true;
       window.clearInterval(timer);
@@ -329,7 +344,7 @@ export default function GestorVendasConcluidas() {
 
   function handleSearch(event: FormEvent) {
     event.preventDefault();
-    load(search);
+    load(search, true);
   }
 
   const conference = useMemo(
@@ -625,7 +640,7 @@ export default function GestorVendasConcluidas() {
           type="button"
           onClick={() => {
             setSearch("");
-            load("");
+            load("", true);
           }}
           className="rounded border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
         >
@@ -650,7 +665,7 @@ export default function GestorVendasConcluidas() {
                 <tr>
                   <th className="px-3 py-3 text-center font-semibold">Pedido</th>
                   <th className="px-3 py-3 text-center font-semibold">Fechado em</th>
-                  <th className="px-3 py-3 text-center font-semibold">Lojista</th>
+                  <th className="px-3 py-3 text-center font-semibold">Lojista / Loja</th>
                   <th className="px-3 py-3 text-center font-semibold">Documento</th>
                   <th className="px-3 py-3 text-center font-semibold">Itens</th>
                   <th className="px-3 py-3 text-center font-semibold">Total</th>
@@ -678,7 +693,9 @@ export default function GestorVendasConcluidas() {
                     >
                       <td className="whitespace-nowrap px-3 py-3 text-center align-middle font-mono font-semibold text-gray-900">{orderCode(order.id)}</td>
                       <td className="whitespace-nowrap px-3 py-3 text-center align-middle text-gray-700">{when(order.closedAt || order.createdAt)}</td>
-                      <td className="whitespace-nowrap px-3 py-3 text-center align-middle font-medium text-gray-900">{shown(order.client?.name)}</td>
+                      <td className="whitespace-nowrap px-3 py-3 text-center align-middle font-medium text-gray-900">
+                        {[order.client?.name, order.client?.storeName].map((item) => (item || "").trim().toLocaleUpperCase("pt-BR")).filter(Boolean).join(" / ") || "—"}
+                      </td>
                       <td className="whitespace-nowrap px-3 py-3 text-center align-middle text-gray-700">{shown(order.client?.document)}</td>
                       <td className="whitespace-nowrap px-3 py-3 text-center align-middle text-gray-700">{units}</td>
                       <td className="whitespace-nowrap px-3 py-3 text-center align-middle font-semibold text-gray-900">{money(order.total)}</td>
@@ -734,7 +751,7 @@ export default function GestorVendasConcluidas() {
             <div>
               <h2 className="text-lg font-semibold text-gray-900">Conferência</h2>
               <p className="text-sm text-gray-600">
-                Pedido {orderCode(conference.id)} · {shown(conference.client?.name)}
+                Pedido {orderCode(conference.id)} · {shown(conference.client?.name)} · {shown(conference.client?.storeName)}
               </p>
               <p className="text-sm text-gray-600">Fechado {when(conference.closedAt || conference.createdAt)}</p>
             </div>
@@ -983,7 +1000,9 @@ export default function GestorVendasConcluidas() {
           <div className="mb-4 grid gap-3 md:grid-cols-2">
             <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3">
               <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Lojista</p>
-              <p className="mt-1 font-semibold text-gray-900">{shown(order.client?.name)}</p>
+              <p className="mt-1 font-semibold text-gray-900">{(order.client?.name || "").trim().toLocaleUpperCase("pt-BR") || "—"}</p>
+              <p className="mt-2 text-xs font-semibold uppercase tracking-wide text-gray-500">Loja</p>
+              <p className="font-semibold text-gray-900">{(order.client?.storeName || "").trim().toLocaleUpperCase("pt-BR") || "—"}</p>
               <p className="text-sm text-gray-700">CPF/CNPJ: {shown(order.client?.document)}</p>
               <p className="text-sm text-gray-700">E-mail: {shown(order.client?.email)}</p>
               <p className="text-sm text-gray-700">Usuário: {shown(order.client?.username)}</p>

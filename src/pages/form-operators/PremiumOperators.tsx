@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { ChevronDown, Eye, EyeOff } from "lucide-react";
+import { ChevronDown, Check, Eye, EyeOff } from "lucide-react";
 import { api } from "../../services/api";
+import { buscarOperadores, guardarOperadores, lerOperadores } from "./operadoresCache";
 import "./operators.css";
 
 type Operator = {
@@ -31,7 +32,7 @@ const defaultPermissions = {
   GERENCIAR_INVOICES: {
     enabled: false, INVOICES: false, PRODUTOS: false, FORNECEDORES: false, FRETEIROS: false, OUTROS: false, LOJISTAS: false, TABELA_PRECO: false,
     MEDIA_DOLAR: false, RELATORIOS: false, MELHORES_PRECOS: false, LISTAS_COMPRAS: false, PERDIDOS: false, BUSCAR_IMEI: false, ETIQUETAS: false,
-    PLANO_CONTAS: false, DESPESAS: false, RELATORIO_DRE: false, RELATORIO_ITENS: false, RELATORIO_AUDITORIA: false,
+    PLANO_CONTAS: false, DESPESAS: false, RELATORIO_DRE: false, RELATORIO_ITENS: false, RELATORIO_AUDITORIA: false, RELATORIO_ESTOQUE: false, RELATORIO_IMEI: false,
     CAIXAS: [], CAIXAS_BR: [], CAIXAS_PERMITIDOS: [], CAIXAS_BR_PERMITIDOS: [],
   },
   GERENCIAR_TOKENS: { enabled: false, FORNECEDORES: [], RECOLHEDORES: [], OPERAÇÕES: false, LUCROS: false, LUCROS_RECOLHEDORES: false },
@@ -63,7 +64,7 @@ function initials(name: string) {
   return ((parts[0]?.[0] || "") + (parts[1]?.[0] || "")).toUpperCase() || "OP";
 }
 
-const ABERTOS_ANTIGOS = ["MELHORES_PRECOS", "LISTAS_COMPRAS", "PERDIDOS", "BUSCAR_IMEI", "TABELA_PRECO", "PLANO_CONTAS", "DESPESAS", "RELATORIO_DRE", "RELATORIO_ITENS", "RELATORIO_AUDITORIA", "ETIQUETAS"];
+const ABERTOS_ANTIGOS = ["MELHORES_PRECOS", "LISTAS_COMPRAS", "PERDIDOS", "BUSCAR_IMEI", "TABELA_PRECO", "PLANO_CONTAS", "DESPESAS", "RELATORIO_DRE", "RELATORIO_ITENS", "RELATORIO_AUDITORIA", "RELATORIO_ESTOQUE", "RELATORIO_IMEI", "ETIQUETAS"];
 
 function normalizarPermissoes(saved?: Record<string, any>) {
   const base = structuredClone(defaultPermissions);
@@ -103,20 +104,21 @@ export default function PremiumOperators() {
   const [recolhedores, setRecolhedores] = useState<string[]>([]);
   const [caixa, setCaixa] = useState<string[]>([]);
   const [caixaBR, setCaixaBR] = useState<string[]>([]);
-  const [operators, setOperators] = useState<Operator[]>([]);
+  const equipeInicial = lerOperadores() as Operator[];
+  const [operators, setOperators] = useState<Operator[]>(equipeInicial);
   const [currentOperator, setCurrentOperator] = useState<Operator | null>(null);
   const [selectedPermissions, setSelectedPermissions] = useState<Record<string, any>>(structuredClone(defaultPermissions));
   const [searchTerm, setSearchTerm] = useState("");
   const [listQuery, setListQuery] = useState<Record<string, string>>({});
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(equipeInicial.length === 0);
   const [saving, setSaving] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [avisoSenha, setAvisoSenha] = useState("");
-  const [grupoAberto, setGrupoAberto] = useState("");
   const [toast, setToast] = useState({ open: false, message: "" });
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [formData, setFormData] = useState(emptyForm);
   const [fichaAberta, setFichaAberta] = useState(false);
+  const [gruposAbertos, setGruposAbertos] = useState<Record<string, boolean>>({});
 
   const availablePermissions: Permission[] = [
     { id: "LOJISTAS", name: "Lojistas", description: "Cadastro de lojistas", category: "Cadastro", bucket: "invoices" },
@@ -142,6 +144,8 @@ export default function PremiumOperators() {
     { id: "RELATORIO_DRE", name: "DRE gerencial", description: "Relatório DRE", category: "Relatórios", bucket: "invoices" },
     { id: "RELATORIO_ITENS", name: "Itens das vendas", description: "Relatório de itens das vendas", category: "Relatórios", bucket: "invoices" },
     { id: "RELATORIO_AUDITORIA", name: "Auditoria estoque", description: "Auditoria de estoque", category: "Relatórios", bucket: "invoices" },
+    { id: "RELATORIO_ESTOQUE", name: "Estoque", description: "Relatório de estoque", category: "Relatórios", bucket: "invoices" },
+    { id: "RELATORIO_IMEI", name: "Buscar IMEI", description: "Movimentação do IMEI no estoque", category: "Relatórios", bucket: "invoices" },
     { id: "CRIAR_USUARIO", name: "Criar usuário", description: "Cadastro antigo de usuário", category: "Equipe" },
     { id: "GERENCIAR_GRUPOS", name: "Gerenciar grupos", description: "Grupos da mensageria", category: "Equipe" },
     { id: "GERENCIAR_USUARIOS", name: "Gerenciar usuários", description: "Usuários da mensageria", category: "Equipe" },
@@ -159,27 +163,31 @@ export default function PremiumOperators() {
   ];
 
   async function loadOperatorsFromDB() {
-    try {
-      const [response, suppliers, collectors, caixa1, caixa2, caixaBrRes] = await Promise.all([
-        api.get("/users_operators"),
-        api.get("/suppliers/list_suppliers"),
-        api.get("/collectors/list_collectors"),
-        api.get("/invoice/carriers"),
-        api.get("/invoice/supplier"),
-        api.get("/invoice/partner"),
-      ]);
+    const jaTem = lerOperadores().length > 0
+    if (!jaTem) setLoading(true)
+    const lista = buscarOperadores()
+    const apoios = Promise.all([
+      api.get("/suppliers/list_suppliers"),
+      api.get("/collectors/list_collectors"),
+      api.get("/invoice/carriers"),
+      api.get("/invoice/supplier"),
+      api.get("/invoice/partner"),
+    ]).then(([suppliers, collectors, caixa1, caixa2, caixaBrRes]) => {
       setFornecedores(suppliers.data.map((item: { name: string }) => item.name));
       setRecolhedores(collectors.data.map((item: { name: string }) => item.name));
       setCaixa([...caixa1.data.map((item: { name: string }) => item.name), ...caixa2.data.map((item: { name: string }) => item.name)]);
       setCaixaBR(caixaBrRes.data.brl.map((item: { name: string }) => item.name));
-      const rows = response.data as Operator[];
-      setOperators(rows);
-      return rows;
+    }).catch(() => undefined)
+    try {
+      const rows = await lista
+      setOperators(rows as Operator[])
+      return rows as Operator[]
     } catch {
-      setOperators([]);
-      return [] as Operator[];
+      if (!jaTem) setOperators([])
+      return [] as Operator[]
     } finally {
-      setLoading(false);
+      setLoading(false)
+      void apoios
     }
   }
 
@@ -199,28 +207,6 @@ export default function PremiumOperators() {
     return () => window.clearTimeout(timer);
   }, [toast.open, toast.message]);
 
-  function fecharFicha() {
-    setFichaAberta(false);
-    setCurrentOperator(null);
-    setShowPassword(false);
-    setAvisoSenha("");
-    setGrupoAberto("");
-    setFormData({ ...emptyForm });
-    setSelectedPermissions(structuredClone(defaultPermissions));
-  }
-
-  useEffect(() => {
-    if (!fichaAberta) return;
-    function onPointer(event: PointerEvent) {
-      const alvo = event.target as HTMLElement | null;
-      if (!alvo?.closest) return;
-      if (alvo.closest("[data-ficha], .op-person, .op-novo, .op-dialog, .op-toast")) return;
-      fecharFicha();
-    }
-    document.addEventListener("pointerdown", onPointer);
-    return () => document.removeEventListener("pointerdown", onPointer);
-  }, [fichaAberta]);
-
   useEffect(() => {
     if (!confirmOpen) return;
     function onKey(event: KeyboardEvent) {
@@ -232,10 +218,10 @@ export default function PremiumOperators() {
 
   function loadOperator(operator: Operator) {
     setFichaAberta(true);
+    setGruposAbertos({});
     setCurrentOperator(operator);
     setShowPassword(false);
     setAvisoSenha("");
-    setGrupoAberto("");
     setFormData({
       id: operator.id,
       name: operator.name,
@@ -250,10 +236,10 @@ export default function PremiumOperators() {
 
   function newOperator() {
     setFichaAberta(true);
+    setGruposAbertos({});
     setCurrentOperator(null);
     setShowPassword(false);
     setAvisoSenha("");
-    setGrupoAberto("");
     setFormData({ ...emptyForm });
     setSelectedPermissions(structuredClone(defaultPermissions));
   }
@@ -287,11 +273,6 @@ export default function PremiumOperators() {
         responseEmailSent = updatedResponse.data?.emailSent === true;
         setFormData((prev) => ({ ...prev, password: "", confirmPassword: "", accessPassword: "" }));
       }
-      const fresh = await loadOperatorsFromDB();
-      if (isNew) {
-        const created = fresh.find((item) => item.email.toLowerCase() === email.toLowerCase());
-        if (created) loadOperator(created);
-      }
       if (password) {
         setAvisoSenha(responseEmailSent ? `Senha nova enviada para ${email}.` : "Senha nova salva. O e-mail não saiu.");
       } else {
@@ -303,12 +284,18 @@ export default function PremiumOperators() {
           ? responseEmailSent
             ? "Senha nova enviada."
             : "Senha nova salva. O e-mail não saiu."
-          : "Operador atualizado.",
+          : "Salvo.",
       });
     } catch (error) {
       setToast({ open: true, message: errorText(error, "Não foi possível salvar o operador.") });
+      return;
     } finally {
       setSaving(false);
+    }
+    const fresh = await loadOperatorsFromDB();
+    if (isNew) {
+      const created = fresh.find((item) => item.email.toLowerCase() === email.toLowerCase());
+      if (created) loadOperator(created);
     }
   }
 
@@ -319,8 +306,13 @@ export default function PremiumOperators() {
       await api.delete(`/users_operators/${currentOperator.id}`);
       const updatedOperators = operators.filter((op) => op.id !== currentOperator.id);
       setOperators(updatedOperators);
+      guardarOperadores(updatedOperators);
       setToast({ open: true, message: "Operador excluído." });
-      fecharFicha();
+      setFichaAberta(false);
+      setGruposAbertos({});
+      setCurrentOperator(null);
+      setFormData({ ...emptyForm });
+      setSelectedPermissions(structuredClone(defaultPermissions));
     } catch (error) {
       setToast({ open: true, message: errorText(error, "Não foi possível excluir o operador.") });
     } finally {
@@ -423,42 +415,8 @@ export default function PremiumOperators() {
       </header>
 
       <div className="op-split">
-        <aside className="op-card op-side">
-          <h2>Equipe</h2>
-          <input className="op-search" value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} placeholder="Buscar por nome ou e-mail" />
-          {loading ? <p className="op-empty">Carregando a equipe…</p> : null}
-          {!loading && visibleOperators.length === 0 ? <p className="op-empty">Nenhum operador com esse filtro.</p> : null}
-          <div className="op-list">
-            {visibleOperators.map((operator) => {
-              const acesso = normalizarPermissoes(operator.permissions);
-              const count = availablePermissions.filter((item) => {
-                if (item.bucket === "invoices") {
-                  const valor = acesso.GERENCIAR_INVOICES?.[item.id];
-                  return Array.isArray(valor) ? valor.length > 0 : Boolean(valor);
-                }
-                return Boolean(acesso[item.id]?.enabled);
-              }).length;
-              return (
-                <button key={operator.id} type="button" className="op-person" data-active={currentOperator?.id === operator.id ? "true" : "false"} onClick={() => loadOperator(operator)}>
-                  <span className="op-avatar">{initials(operator.name)}</span>
-                  <span className="op-person-main">
-                    <strong>{operator.name}</strong>
-                    <small>{operator.email}</small>
-                    <small>
-                      <span className="op-pill" data-on={operator.status === "active" ? "true" : "false"}>{statusLabel(operator.status)}</span>
-                      {" · "}
-                      {count} {count === 1 ? "acesso" : "acessos"}
-                    </small>
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        </aside>
-
-        <div className="op-main">
-          {fichaAberta ? (
-          <form className="op-card" data-ficha="" onSubmit={(event: FormEvent) => { event.preventDefault(); saveOperator(); }}>
+        {fichaAberta ? (
+        <form className="op-card" onSubmit={(event: FormEvent) => { event.preventDefault(); saveOperator(); }}>
             <h2>{formData.id ? "Ficha do operador" : "Novo operador"}</h2>
             <div className="op-grid">
               <label className="op-field">
@@ -507,23 +465,23 @@ export default function PremiumOperators() {
             </div>
             {avisoSenha ? <p className="op-senha-ok" role="status">{avisoSenha}</p> : null}
             <div className="op-actions">
-              <button className="op-btn" type="button" onClick={generatePassword} disabled={saving}>{saving ? "Enviando senha…" : "Gerar senha"}</button>
-              <button className="op-btn op-btn-ink" type="submit" disabled={saving}>{saving ? "Salvando…" : "Salvar"}</button>
+              <button className="op-btn" type="button" onClick={generatePassword} disabled={saving}>Gerar senha</button>
+              <button className="op-btn op-btn-ink" type="submit" disabled={saving}>Salvar</button>
               {formData.id ? <button className="op-btn op-btn-red" type="button" onClick={() => setConfirmOpen(true)}>Excluir</button> : null}
             </div>
             <p className="op-note">{enabledTotal} de {availablePermissions.length} acessos ligados nesta ficha.</p>
+            <h2 className="op-liberacoes">Liberações</h2>
           <div className="op-groups">
             {grouped.map((group) => {
               const ligados = group.items.filter((item) => acessoLigado(item)).length;
-              const aberto = grupoAberto === group.name;
               return (
-              <section className="op-grupo" key={group.name} data-open={aberto ? "true" : "false"}>
-                <button type="button" className="op-grupo-head" aria-expanded={aberto} onClick={() => setGrupoAberto(aberto ? "" : group.name)}>
+              <section className="op-grupo" key={group.name} data-open={gruposAbertos[group.name] ? "true" : "false"}>
+                <button className="op-grupo-head" type="button" aria-expanded={gruposAbertos[group.name] ? "true" : "false"} onClick={() => setGruposAbertos((atual) => ({ ...atual, [group.name]: !atual[group.name] }))}>
                   <strong>{group.name}</strong>
                   <span>{ligados} de {group.items.length}</span>
-                  <ChevronDown size={18} />
+                  <ChevronDown size={16} aria-hidden="true" />
                 </button>
-                {aberto ? <div className="op-grupo-body">
+                <div className="op-grupo-body">
                 {group.items.map((permission) => {
                   const enabled = permission.kind === "list" ? true : acessoLigado(permission);
                   const permissionId = permission.bucket === "invoices" ? "GERENCIAR_INVOICES" : permission.id;
@@ -590,21 +548,55 @@ export default function PremiumOperators() {
                     </div>
                   );
                 })}
-                </div> : null}
+                </div>
               </section>
               );
             })}
             <div className="op-actions op-actions-end">
-              <button className="op-btn op-btn-ink" type="submit" disabled={saving}>{saving ? "Salvando…" : "Salvar"}</button>
+              <button className="op-btn op-btn-ink" type="submit" disabled={saving}>Salvar</button>
             </div>
           </div>
-          </form>
-          ) : (
-            <p className="op-empty op-card">{loading ? "Carregando a equipe…" : "Selecione um operador na equipe."}</p>
-          )}
-        </div>
-      </div>
+        </form>
+        ) : (
+          <section className="op-card">
+            <h2>Cadastro</h2>
+            <p className="op-empty">Nenhum operador selecionado. Clique em Novo operador para cadastrar, ou escolha alguém na lista.</p>
+          </section>
+        )}
 
+        <aside className="op-card op-side">
+          <h2>Operadores</h2>
+          <input className="op-search" value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} placeholder="Buscar por nome ou e-mail" />
+          {loading ? <p className="op-empty">Carregando a equipe…</p> : null}
+          {!loading && visibleOperators.length === 0 ? <p className="op-empty">Nenhum operador com esse filtro.</p> : null}
+          <div className="op-list">
+            {visibleOperators.map((operator) => {
+              const acesso = normalizarPermissoes(operator.permissions);
+              const count = availablePermissions.filter((item) => {
+                if (item.bucket === "invoices") {
+                  const valor = acesso.GERENCIAR_INVOICES?.[item.id];
+                  return Array.isArray(valor) ? valor.length > 0 : Boolean(valor);
+                }
+                return Boolean(acesso[item.id]?.enabled);
+              }).length;
+              return (
+                <button key={operator.id} type="button" className="op-person" data-active={currentOperator?.id === operator.id ? "true" : "false"} onClick={() => loadOperator(operator)}>
+                  <span className="op-avatar">{initials(operator.name)}</span>
+                  <span className="op-person-main">
+                    <strong>{operator.name}</strong>
+                    <small>{operator.email}</small>
+                    <small>
+                      <span className="op-pill" data-on={operator.status === "active" ? "true" : "false"}>{statusLabel(operator.status)}</span>
+                      {" · "}
+                      {count} {count === 1 ? "acesso" : "acessos"}
+                    </small>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </aside>
+      </div>
       {confirmOpen ? (
         <div className="op-dialog" role="dialog" aria-modal="true" aria-labelledby="excluir-op" onClick={() => setConfirmOpen(false)}>
           <div className="op-dialog-card" onClick={(event) => event.stopPropagation()}>
@@ -618,7 +610,16 @@ export default function PremiumOperators() {
         </div>
       ) : null}
 
-      {toast.open ? (
+      {toast.open && toast.message === "Salvo." ? (
+        <div className="op-dialog" role="dialog" aria-modal="true" aria-labelledby="op-salvo" onClick={() => setToast({ open: false, message: "" })}>
+          <div className="op-dialog-card op-salvo-card" onClick={(event) => event.stopPropagation()}>
+            <span className="op-salvo-marca" aria-hidden="true"><Check size={22} /></span>
+            <h2 id="op-salvo">Salvo</h2>
+            <p>A ficha deste operador foi gravada.</p>
+            <button className="op-btn op-btn-ink" type="button" onClick={() => setToast({ open: false, message: "" })}>Ok</button>
+          </div>
+        </div>
+      ) : toast.open ? (
         <p className="op-toast" role="status">
           <span>{toast.message}</span>
           <button type="button" onClick={() => setToast({ open: false, message: "" })} aria-label="Fechar aviso">×</button>

@@ -22,7 +22,7 @@ export default function GroupEventosPage() {
     if (!code) return
     getCatalog("group", code)
       .then((item) => {
-        setGroupName(item.name)
+        setGroupName(item.name.toLocaleUpperCase("pt-BR"))
         grupo.current = { name: item.name, active: item.active, payload: item.payload }
         const next: Record<string, string> = {}
         for (const event of GROUP_EVENTS) next[event.key] = regraDoEvento(item.payload.eventos, event)

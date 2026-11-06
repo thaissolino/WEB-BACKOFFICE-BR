@@ -1,5 +1,6 @@
 import { Component, Fragment, FormEvent, ReactNode, useEffect, useMemo, useState } from "react";
 import { api, parseError } from "../../services/api";
+import { useNomeEstoque } from "../../services/nomeEstoque";
 import { todayIso } from "../../utils/todayIso";
 import GestaoShell from "./GestaoShell";
 import { DatePreset } from "../client/cadastros/catalog/FormBits";
@@ -31,7 +32,16 @@ type LojaSale = {
   createdAt: string;
   finalizedAt: string | null;
 };
-type LojistaOpcao = { id: string; name: string };
+type LojistaOpcao = { id: string; name: string; stores?: Array<{ name: string }> };
+
+function donosDeLoja(rows: LojistaOpcao[]) {
+  return rows.filter((item) => item.id && item.name && (item.stores || []).some((store) => store.name.trim()));
+}
+
+function rotuloDaLoja(item: LojistaOpcao) {
+  const lojas = (item.stores || []).map((store) => store.name.trim()).filter(Boolean);
+  return lojas.length ? `${item.name} / ${lojas.join(", ")}` : "";
+}
 
 type ItemVenda = {
   at: string;
@@ -297,7 +307,7 @@ function comoLista<T>(value: unknown): T[] {
   return [];
 }
 
-function flatten(orders: Order[]): ItemVenda[] {
+function flatten(orders: Order[], nomeEstoque: string): ItemVenda[] {
   return comoLista<Order>(orders).flatMap((order) => {
     if (!order) return [];
     const lojista = texto(order.client?.name) || "—";
@@ -313,7 +323,7 @@ function flatten(orders: Order[]): ItemVenda[] {
         clienteCodigo: "",
         caixa: "—",
         operador: "—",
-        loja: "ESTOQUE GERAL",
+        loja: nomeEstoque,
         aberta: texto(order.createdAt),
         canal: lojista,
         categoria: texto(line?.category) || "—",
@@ -397,6 +407,7 @@ class RelatorioErro extends Component<{ children: ReactNode }, { erro: string }>
 }
 
 function ItensVendasTela() {
+  const nomeEstoque = useNomeEstoque("backoffice");
   const [itens, setItens] = useState<ItemVenda[]>([]);
   const [hint, setHint] = useState("Clique em Buscar para carregar.");
   const [carregando, setCarregando] = useState(false);
@@ -415,7 +426,7 @@ function ItensVendasTela() {
     api.get("/backoffice/lojistas")
       .then(({ data }) => {
         const rows = (data?.lojistas || []) as LojistaOpcao[];
-        setLojistas(rows.filter((item) => item.id && item.name));
+        setLojistas(donosDeLoja(rows));
       })
       .catch(() => setLojistas([]));
   }, []);
@@ -473,7 +484,7 @@ function ItensVendasTela() {
 
   async function linhasDoEstoque() {
     const { data } = await api.get("/backoffice/vendas-concluidas");
-    return flatten((data?.orders || []) as Order[]);
+    return flatten((data?.orders || []) as Order[], nomeEstoque);
   }
 
   async function buscar(event: FormEvent) {
@@ -487,7 +498,7 @@ function ItensVendasTela() {
         ? await linhasDoEstoque()
         : flattenLoja(
           ((await api.get(`/backoffice/lojistas/${draft.loja}/vendas`)).data?.sales || []) as LojaSale[],
-          lojistas.find((item) => item.id === draft.loja)?.name || "Loja",
+          rotuloDaLoja(lojistas.find((item) => item.id === draft.loja) || { id: "", name: "" }) || "Loja",
         );
       setItens(rows);
       setFiltros(pedidoCompleto(draft));
@@ -564,11 +575,11 @@ function ItensVendasTela() {
           Loja
           <SearchableSelect
             hideEmpty
-            value={draft.loja === "estoque" ? "ESTOQUE GERAL" : (lojistas.find((item) => item.id === draft.loja)?.name || "ESTOQUE GERAL")}
-            options={["ESTOQUE GERAL", ...lojistas.map((item) => item.name)]}
+            value={draft.loja === "estoque" ? nomeEstoque : (rotuloDaLoja(lojistas.find((item) => item.id === draft.loja) || { id: "", name: "" }) || nomeEstoque)}
+            options={[nomeEstoque, ...lojistas.map((item) => rotuloDaLoja(item)).filter(Boolean)]}
             onChange={(nome) => setDraft((atual) => ({
               ...atual,
-              loja: nome === "ESTOQUE GERAL" ? "estoque" : (lojistas.find((item) => item.name === nome)?.id || "estoque"),
+              loja: nome === nomeEstoque ? "estoque" : (lojistas.find((item) => rotuloDaLoja(item) === nome)?.id || "estoque"),
               vendedor: "Todos",
               caixa: "Todos",
               categoria: "Todas",

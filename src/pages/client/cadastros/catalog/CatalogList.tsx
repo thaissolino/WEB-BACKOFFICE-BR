@@ -48,6 +48,7 @@ export type CatalogListConfig = {
   bulkLabel?: string
   alwaysPick?: boolean
   pageClass?: string
+  listarTodos?: boolean
   renderCell?: (item: CatalogItem, column: CatalogColumn) => ReactNode
 }
 
@@ -81,7 +82,7 @@ export default function CatalogList({
 
   function load() {
     setLoading(true)
-    listCatalog(config.kind, showAll ? undefined : isInactive ? false : true)
+    listCatalog(config.kind, config.listarTodos || showAll ? undefined : isInactive ? false : true)
       .then((items) => {
         setRows(items)
         setError("")
@@ -98,7 +99,7 @@ export default function CatalogList({
     setPicked([])
     load()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [config.kind, isInactive, showAll])
+  }, [config.kind, config.listarTodos, isInactive, showAll])
 
   function togglePicked(code: number) {
     setPicked((current) => (current.includes(code) ? current.filter((item) => item !== code) : [...current, code]))
@@ -230,6 +231,26 @@ export default function CatalogList({
       )
     }
     if (column.from === "active" || column.key === "ativo") {
+      if (config.kind === "group") {
+        return (
+          <button
+            className="pdv-grupo-ativo"
+            type="button"
+            role="switch"
+            aria-checked={item.active}
+            aria-label={item.active ? `Inativar ${item.name}` : `Ativar ${item.name}`}
+            onClick={() => {
+              if (item.active) {
+                const nome = item.name.toLocaleUpperCase("pt-BR")
+                if (!window.confirm(`Quer mesmo desabilitar o grupo ${nome}?`)) return
+              }
+              void toggleActive(item, !item.active)
+            }}
+          >
+            {item.active ? "Sim" : "Não"}
+          </button>
+        )
+      }
       return <AtivoToggle value={item.active} onChange={(next) => toggleActive(item, next)} />
     }
     if (column.key === "ordem") {
@@ -248,7 +269,9 @@ export default function CatalogList({
       )
     }
     if (column.from === "code" || column.key === "code" || column.key === "codigo") return item.code
-    if (column.from === "name" || column.key === "name" || column.key === "nome") return item.name
+    if (column.from === "name" || column.key === "name" || column.key === "nome") {
+      return config.kind === "group" ? item.name.toLocaleUpperCase("pt-BR") : item.name
+    }
     if (column.from === "createdAt") return formatCadDate(item.createdAt)
     return payloadStr(item, column.payloadKey || column.key)
   }
@@ -361,7 +384,7 @@ export default function CatalogList({
                   </tr>
                 ) : null}
                 {visible.map((item) => (
-                  <tr key={item.code}>
+                  <tr key={item.code} data-off={item.active ? undefined : "true"}>
                     {picking ? (
                       <td className="pdv-col-mark">
                         <input
@@ -495,7 +518,7 @@ export default function CatalogList({
               </tr>
             ) : null}
             {visible.map((item) => (
-              <tr key={item.code}>
+              <tr key={item.code} data-off={item.active ? undefined : "true"}>
                 {picking ? (
                   <td className="gestao-prod-check">
                     <input

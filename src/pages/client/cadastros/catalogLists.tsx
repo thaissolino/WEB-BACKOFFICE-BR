@@ -96,10 +96,11 @@ export const USER_LIST: CatalogListConfig = {
 export const GROUP_LIST: CatalogListConfig = {
   kind: "group",
   title: "GRUPOS",
-  pageClass: "pdv-cli-page",
+  pageClass: "pdv-cli-page pdv-grupos-page",
   cadastrarLabel: "Cadastrar Grupos",
   cadastrarPath: "/client/usuarios/grupos/cadastrar",
   listPath: "/client/usuarios/grupos",
+  listarTodos: true,
   columns: [
     { key: "eventos", label: "Eventos" },
     { key: "code", label: "Código", from: "code" },

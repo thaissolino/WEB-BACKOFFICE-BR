@@ -11,6 +11,8 @@ const ABERTOS_NO_ACESSO_ANTIGO = new Set([
   "RELATORIO_DRE",
   "RELATORIO_ITENS",
   "RELATORIO_AUDITORIA",
+  "RELATORIO_ESTOQUE",
+  "RELATORIO_IMEI",
   "ETIQUETAS",
 ])
 
@@ -59,6 +61,8 @@ export const CHAVE_DO_MENU: Record<string, string> = {
   "relatorio-dre": "RELATORIO_DRE",
   "relatorio-itens-vendas": "RELATORIO_ITENS",
   "relatorio-auditoria-estoque": "RELATORIO_AUDITORIA",
+  "relatorio-estoque": "RELATORIO_ESTOQUE",
+  "relatorio-imei": "RELATORIO_IMEI",
 }
 
 export const ABA_GESTAO: Record<string, string> = {

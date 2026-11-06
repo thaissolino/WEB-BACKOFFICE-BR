@@ -133,6 +133,8 @@ const RELATORIOS_ITEM: BackofficeNavItem = {
     { id: "relatorio-dre", label: "DRE GERENCIAL", to: "/gestao/relatorios/dre" },
     { id: "relatorio-itens-vendas", label: "ITENS DAS VENDAS", to: "/gestao/relatorios/itens-vendas" },
     { id: "relatorio-auditoria-estoque", label: "AUDITORIA ESTOQUE", to: "/gestao/relatorios/auditoria/estoque" },
+    { id: "relatorio-estoque", label: "ESTOQUE", to: "/gestao/relatorios/estoque" },
+    { id: "relatorio-imei", label: "BUSCAR IMEI", to: "/gestao/relatorios/imei" },
   ],
 };
 

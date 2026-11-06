@@ -30,6 +30,8 @@ import {
   type PdvUiConfig,
 } from "./pdvUiConfig";
 import { openMenuHref, searchMenus } from "./menuData";
+import { aquecerCatalogoPedido } from "../vendas/pedidoCatalogo";
+import { aquecerTransferencias } from "../movimentacoes/transferenciasCache";
 import { aguardandoEvento, bloqueioDaRota, carregarEventos, observarEventos, publicarSessao } from "../cadastros/usuarios/acessoEvento";
 import "./dashboard.css";
 import "./dashboard-classic.css";
@@ -39,6 +41,7 @@ type PdvSession = {
   query: string;
   storeId: string;
   storeName: string;
+  storeOwner: string;
   stores: StoreOption[];
   openStoreLogo: () => void;
 };
@@ -47,6 +50,7 @@ const PdvSessionContext = createContext<PdvSession>({
   query: "",
   storeId: "",
   storeName: "",
+  storeOwner: "",
   stores: [],
   openStoreLogo: () => undefined,
 });
@@ -131,7 +135,7 @@ function StoreCluster({
             aria-label="Lista de lojas. Selecione a loja que desejar gerenciar"
             onClick={() => setOpen((current) => !current)}
           >
-            <span>{selected?.label ?? "Lista de lojas"}</span>
+            <span>{selected?.name || "Lista de lojas"}</span>
             <ChevronDown className="pdv-shop-caret" size={16} strokeWidth={2} aria-hidden="true" />
           </button>
         </PdvTip>
@@ -294,10 +298,11 @@ function PdvShellView({
   const layoutMode = usePdvLayoutMode((state) => state.mode);
   const isClassic = layoutMode === "classic";
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [avisoEvento, setAvisoEvento] = useState("");
   const [eventoTick, setEventoTick] = useState(0);
 
   useEffect(() => {
+    aquecerCatalogoPedido();
+    aquecerTransferencias();
     return observarEventos(() => setEventoTick((value) => value + 1));
   }, []);
 
@@ -320,21 +325,9 @@ function PdvShellView({
     };
   }, [client]);
 
-  useEffect(() => {
-    function onBloqueio(event: Event) {
-      const texto = (event as CustomEvent<string>).detail;
-      if (texto) setAvisoEvento(texto);
-    }
-    window.addEventListener("pdv-evento-bloqueado", onBloqueio);
-    return () => window.removeEventListener("pdv-evento-bloqueado", onBloqueio);
-  }, []);
-
-  useEffect(() => {
-    setAvisoEvento("");
-  }, [location.pathname]);
-
   const currentStore = stores.find((item) => item.id === storeId) ?? stores[0];
   const storeName = currentStore?.name ?? "";
+  const storeOwner = currentStore?.owner ?? "";
   const pendingStore = stores.find((item) => item.id === pendingStoreId);
 
   useEffect(() => {
@@ -359,7 +352,7 @@ function PdvShellView({
             const loja = await api.get(`/clients/stores/${item.id}/loja`);
             const fantasia = String(loja.data?.store?.dados?.geral?.fantasia || "").trim();
             if (!fantasia) return item;
-            return toStoreOption({ id: item.id, name: item.name, storeCode: item.code, fantasia });
+            return toStoreOption({ id: item.id, name: item.name, storeCode: item.code, fantasia, owner: item.owner });
           } catch {
             return item;
           }
@@ -386,7 +379,7 @@ function PdvShellView({
       const fantasia = String(detail?.name || "").trim();
       if (!id || !fantasia) return;
       setStores((current) => current.map((item) => (
-        item.id === id ? toStoreOption({ id: item.id, name: fantasia, storeCode: item.code, fantasia }) : item
+        item.id === id ? toStoreOption({ id: item.id, name: fantasia, storeCode: item.code, fantasia, owner: item.owner }) : item
       )));
     }
     window.addEventListener("pdv-store-name", onStoreName);
@@ -573,7 +566,7 @@ function PdvShellView({
 
   return (
     <PdvUiConfigContext.Provider value={uiConfig}>
-    <PdvSessionContext.Provider value={{ query, storeId, storeName, stores, openStoreLogo: () => setChromeModal("logo") }}>
+    <PdvSessionContext.Provider value={{ query, storeId, storeName, storeOwner, stores, openStoreLogo: () => setChromeModal("logo") }}>
       <div
         className={className ? `pdv-root ${className}` : "pdv-root"}
         data-surface="cream"
@@ -662,14 +655,17 @@ function PdvShellView({
                     <p className="pdv-search-empty">Nada encontrado no menu.</p>
                   ) : (
                     <ul>
-                      {menuHits.map((hit) => (
+                      {menuHits.map((hit) => {
+                        const aviso = bloqueioDaRota(hit.href);
+                        return (
                         <li key={hit.id}>
-                          <button type="button" className="pdv-search-hit" onClick={() => openMenuHit(hit.href)}>
+                          <button type="button" className="pdv-search-hit" title={aviso || undefined} data-locked={aviso ? "true" : undefined} onClick={() => { if (!aviso) openMenuHit(hit.href); }}>
                             <strong>{hit.label}</strong>
                             {hit.trail ? <small>{hit.trail}</small> : null}
                           </button>
                         </li>
-                      ))}
+                        );
+                      })}
                     </ul>
                   )}
                 </div>
@@ -783,12 +779,7 @@ function PdvShellView({
             if (aguardandoEvento(aqui)) return null;
             const trava = eventoTick >= 0 ? bloqueioDaRota(aqui) : "";
             if (trava) return <p className="pdv-evento-aviso">{trava}</p>;
-            return (
-              <>
-                {avisoEvento ? <p className="pdv-evento-aviso">{avisoEvento}</p> : null}
-                {children}
-              </>
-            );
+            return children;
           })()}
         </main>
         <PageJumps />

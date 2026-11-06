@@ -82,7 +82,8 @@ import GestorVendasConcluidas from "../pages/gestor/GestorVendasConcluidas";
 import GestorEtiquetasEntrada from "../pages/gestor/GestorEtiquetasEntrada";
 import DreGerencial from "../pages/gestor/DreGerencial";
 import ItensVendas from "../pages/gestor/ItensVendas";
-import { AuditoriaEstoque } from "../pages/client/relatorios/RelatorioScreen";
+import BuscarImeiGestao from "../pages/gestor/BuscarImei";
+import { AuditoriaEstoque, RelatorioEstoque } from "../pages/client/relatorios/RelatorioScreen";
 import FormaPagamentoForm from "../pages/client/cadastros/financeiro/FormaPagamentoForm";
 import CaixaPage, { PlanoContaForm } from "../pages/client/cadastros/financeiro/CaixaPage";
 import { PayList, PlanList } from "../pages/client/cadastros/catalogLists";
@@ -357,9 +358,12 @@ export function Router() {
           <Route path="gestao/movimentacoes/financeiro/boletos/gerenciar" element={<BoletosPage title="GERENCIAR BOLETOS" />} />
           <Route path="gestao/movimentacoes/financeiro/boletos/arquivos" element={<BoletosPage title="GERENCIAR ARQUIVOS" />} />
           <Route path="gestao/caixas" element={<InvocesManagement area="caixas" />} />
+          <Route path="gestao/relatorios" element={<BuscarImeiGestao />} />
+          <Route path="gestao/relatorios/imei" element={<BuscarImeiGestao />} />
           <Route path="gestao/relatorios/dre" element={<DreGerencial />} />
           <Route path="gestao/relatorios/itens-vendas" element={<ItensVendas />} />
           <Route path="gestao/relatorios/auditoria/estoque" element={<AuditoriaEstoque />} />
+          <Route path="gestao/relatorios/estoque" element={<RelatorioEstoque />} />
           <Route path="invoices-management" element={<InvocesManagement area="compras" />} />
           <Route path="vendas-concluidas" element={<GestorVendasConcluidas />} />
           <Route path="etiquetas-entrada" element={<GestorEtiquetasEntrada />} />

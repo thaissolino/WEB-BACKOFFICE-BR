@@ -6,6 +6,16 @@ const pending = new Set<string>();
 const listeners = new Set<() => void>();
 let flushTimer = 0;
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Endereço direto da foto, para a imagem já estar no lugar quando a lista abre. */
+export function urlFotoProduto(productId?: string | null, photoFileId?: string | null) {
+  if (!productId || !photoFileId || !UUID.test(productId)) return "";
+  const base = String(process.env.REACT_APP_API_URL || "").replace(/\/$/, "");
+  if (!base) return "";
+  return `${base}/public/produto-foto/${productId}?v=${encodeURIComponent(photoFileId)}`;
+}
+
 function notify() {
   listeners.forEach((listener) => listener());
 }
@@ -59,6 +69,7 @@ export function cachedProductPhoto(productId: string, photoFileId?: string | nul
 }
 
 export function ProductPhoto({
+  productId,
   photoFileId,
   name,
 }: {
@@ -66,16 +77,19 @@ export function ProductPhoto({
   photoFileId: string | null;
   name: string;
 }) {
-  const src = useProductPhotoUrl(photoFileId);
+  const direta = urlFotoProduto(productId, photoFileId);
+  const assinada = useProductPhotoUrl(direta ? null : photoFileId);
+  const src = direta || assinada;
 
   return (
     <span className="loja-photo">
-      {src ? <img src={src} alt={name} decoding="async" /> : <span className="loja-photo-empty" aria-hidden="true" />}
+      {src ? <img src={src} alt={name} /> : <span className="loja-photo-empty" aria-hidden="true" />}
     </span>
   );
 }
 
 export default function GradePhotoThumb({
+  productId,
   photoFileId,
   name,
   onOpen,
@@ -85,7 +99,9 @@ export default function GradePhotoThumb({
   name: string;
   onOpen: () => void;
 }) {
-  const src = useProductPhotoUrl(photoFileId);
+  const direta = urlFotoProduto(productId, photoFileId);
+  const assinada = useProductPhotoUrl(direta ? null : photoFileId);
+  const src = direta || assinada;
 
   if (!photoFileId) return <span className="pdv-prod-grade-nophoto">&nbsp;</span>;
 
@@ -99,7 +115,7 @@ export default function GradePhotoThumb({
       }}
       aria-label={`Foto ${name}`}
     >
-      {src ? <img src={src} alt="" decoding="async" /> : <span className="pdv-prod-grade-ph" />}
+      {src ? <img src={src} alt="" /> : <span className="pdv-prod-grade-ph" />}
     </button>
   );
 }

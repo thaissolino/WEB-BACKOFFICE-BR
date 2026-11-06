@@ -14,6 +14,7 @@ import { ProductPhoto } from "../cadastros/produtos/GradePhotoThumb";
 import { CategoryCoverImage } from "../cadastros/produtos/categoryCover";
 import PdvShell from "../dashboard/PdvShell";
 import { useClientAuth } from "../../../hooks/clientAuth";
+import { carregarCatalogoPedido, carregarHistoricoPedido, lerCategoriasPedido, lerHistoricoPedido, lerProdutosPedido } from "./pedidoCatalogo";
 import "../dashboard/dashboard.css";
 import "./pedidos.css";
 
@@ -356,13 +357,42 @@ function Home() {
   );
 }
 
+function mapCatalog(list: Record<string, unknown>[]): CatalogProduct[] {
+  return list.map((item) => ({
+    id: String(item.id),
+    name: String(item.lojaName || "").trim() || String(item.name || ""),
+    code: String(item.code || ""),
+    price: supplierOrderPrice(item as { tableSalePrice?: number | null; salePrice?: number | null }),
+    costPrice: Number(item.costPrice || 0),
+    category: String(item.category || ""),
+    categoryId: String(item.categoryId || ""),
+    photoFileId: item.photoFileId ? String(item.photoFileId) : null,
+    stockQuantity: Number(item.stockQuantity || 0),
+    search: [item.name, item.lojaName, item.code, item.category, item.barcode, item.brand, item.model, item.reference, item.description, item.supplierCode, item.supplierName, item.ncm]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase(),
+  }));
+}
+
+function mapStoreCategories(items: Array<{ code?: number; name?: string; payload?: { slug?: string; coverFileId?: string } }>): StoreCategory[] {
+  return items
+    .map((item) => ({
+      id: String(item.payload?.slug || item.name || ""),
+      name: String(item.name || ""),
+      code: Number(item.code) || 0,
+      coverFileId: item.payload?.coverFileId ? String(item.payload.coverFileId) : null,
+    }))
+    .filter((item) => item.id && item.name);
+}
+
 function Venda() {
   const navigate = useNavigate();
-  const [products, setProducts] = useState<CatalogProduct[]>([]);
+  const [products, setProducts] = useState<CatalogProduct[]>(() => mapCatalog(lerProdutosPedido() || []));
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("Todas");
   const [onlyInStock, setOnlyInStock] = useState(true);
-  const [storeCategories, setStoreCategories] = useState<StoreCategory[]>([]);
+  const [storeCategories, setStoreCategories] = useState<StoreCategory[]>(() => mapStoreCategories((lerCategoriasPedido() || []) as Array<{ code?: number; name?: string; payload?: { slug?: string; coverFileId?: string } }>));
   const [lines, setLines] = useState<CartLine[]>([]);
   const [picks, setPicks] = useState<Record<string, number>>({});
   const [cartOpen, setCartOpen] = useState(false);
@@ -403,48 +433,23 @@ function Venda() {
   }, [lines, address, observacao, ready]);
 
   useEffect(() => {
-    api
-      .get("/clients/catalog/product_category", { params: { ativo: "1" } })
-      .then(({ data }) => {
-        const items = (data?.items || []) as Array<{ code?: number; name?: string; payload?: { slug?: string; coverFileId?: string } }>;
+    let ativo = true;
+    carregarCatalogoPedido()
+      .then(() => {
+        if (!ativo) return;
+        setProducts(mapCatalog(lerProdutosPedido() || []));
         setStoreCategories(
-          items
-            .map((item) => ({
-              id: String(item.payload?.slug || item.name || ""),
-              name: String(item.name || ""),
-              code: Number(item.code) || 0,
-              coverFileId: item.payload?.coverFileId ? String(item.payload.coverFileId) : null,
-            }))
-            .filter((item) => item.id && item.name),
+          mapStoreCategories(
+            (lerCategoriasPedido() || []) as Array<{ code?: number; name?: string; payload?: { slug?: string; coverFileId?: string } }>,
+          ),
         );
       })
-      .catch(() => setStoreCategories([]));
-  }, []);
-
-  useEffect(() => {
-    api
-      .get("/clients/products", { params: { ativo: "1" } })
-      .then(({ data }) => {
-        const list = (data?.products || data || []) as Record<string, unknown>[];
-        setProducts(
-          list.map((item) => ({
-            id: String(item.id),
-            name: String(item.lojaName || "").trim() || String(item.name || ""),
-            code: String(item.code || ""),
-            price: supplierOrderPrice(item as { tableSalePrice?: number | null; salePrice?: number | null }),
-            costPrice: Number(item.costPrice || 0),
-            category: String(item.category || ""),
-            categoryId: String(item.categoryId || ""),
-            photoFileId: item.photoFileId ? String(item.photoFileId) : null,
-            stockQuantity: Number(item.stockQuantity || 0),
-            search: [item.name, item.lojaName, item.code, item.category, item.barcode, item.brand, item.model, item.reference, item.description, item.supplierCode, item.supplierName, item.ncm]
-              .filter(Boolean)
-              .join(" ")
-              .toLowerCase(),
-          })),
-        );
-      })
-      .catch(() => setError("Não foi possível carregar o catálogo da central."));
+      .catch(() => {
+        if (ativo && !(lerProdutosPedido() || []).length) setError("Não foi possível carregar o catálogo da central.");
+      });
+    return () => {
+      ativo = false;
+    };
   }, []);
 
   useEffect(() => {
@@ -576,10 +581,7 @@ function Venda() {
     const total = payload.lines.reduce((sum, line) => sum + line.price * line.qty, 0);
     setCloseStep("sending");
     try {
-      const [{ data }] = await Promise.all([
-        api.post("/clients/pre-vendas/fechar", payload),
-        new Promise((resolve) => window.setTimeout(resolve, 900)),
-      ]);
+      const { data } = await api.post("/clients/pre-vendas/fechar", payload, { timeout: 12000 });
       const order = (data?.order || {}) as { id?: string; total?: number };
       setLines([]);
       setClosedFlash({
@@ -593,6 +595,10 @@ function Venda() {
       closing.current = false;
       setCloseStep("ask");
       setConfirmClose(false);
+      if ((err as { code?: string })?.code === "ECONNABORTED") {
+        setError("A confirmação demorou demais. Olha o histórico antes de tentar de novo.");
+        return;
+      }
       const parsed = parseError(err);
       if (parsed.code === "BELOW_COST") {
         const blocked = lines.filter((line) => saleBelowCost(line.price, line.costPrice));
@@ -606,6 +612,22 @@ function Venda() {
   function openClosedHistory() {
     navigate("/client/pedidos/historico", { state: { justClosed: closedFlash } });
   }
+
+  function sairDoParabens() {
+    setConfirmClose(false);
+    setCloseStep("ask");
+  }
+
+  useEffect(() => {
+    if (!confirmClose || closeStep !== "done") return;
+    function onKey(event: KeyboardEvent) {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      sairDoParabens();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [confirmClose, closeStep]);
 
   function setQty(id: string, qty: number) {
     setLines((current) => {
@@ -975,6 +997,9 @@ function Venda() {
             ) : null}
             {closeStep === "done" ? (
               <div className="loja-confirm-status">
+                <button className="loja-order-close" type="button" aria-label="Fechar" onClick={sairDoParabens}>
+                  <X size={18} />
+                </button>
                 <span className="loja-confirm-icon loja-confirm-ok" aria-hidden="true">
                   <PartyPopper size={28} strokeWidth={1.8} />
                 </span>
@@ -1072,14 +1097,21 @@ function Historico() {
   const navigate = useNavigate();
   const location = useLocation();
   const justClosed = (location.state as { justClosed?: { id: string; total: number; qty: number } } | null)?.justClosed || null;
-  const [orders, setOrders] = useState<SavedOrder[]>([]);
+  const [orders, setOrders] = useState<SavedOrder[]>(() => (lerHistoricoPedido() || []) as SavedOrder[]);
   const [faixa, setFaixa] = useState<"separacao" | "concluidas" | "estornadas">("separacao");
   useEffect(() => {
-    api
-      .get("/clients/pre-vendas/fechadas")
-      .then(({ data }) => setOrders((data?.orders || []) as SavedOrder[]))
-      .catch(() => setOrders([]));
-  }, []);
+    let ativo = true;
+    carregarHistoricoPedido(Boolean(justClosed))
+      .then((lista) => {
+        if (ativo) setOrders(lista as SavedOrder[]);
+      })
+      .catch(() => {
+        if (ativo && !(lerHistoricoPedido() || []).length) setOrders([]);
+      });
+    return () => {
+      ativo = false;
+    };
+  }, [justClosed]);
   const grupos = useMemo(() => ({
     separacao: orders.filter((order) => !order.estornada && !orderDone(order.dispatchStatus)),
     concluidas: orders.filter((order) => !order.estornada && orderDone(order.dispatchStatus)),

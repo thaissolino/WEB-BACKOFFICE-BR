@@ -28,6 +28,8 @@ import { api } from "../../../services/api";
 import "./premium-chrome.css";
 import { PageJumps } from "../../client/dashboard/PageJumps";
 import { aquecerEtiquetas } from "../../gestao-invoices/components/sections/etiquetaCache";
+import { aquecerVendas } from "../../gestor/vendasCache";
+import { aquecerOperadores } from "../../form-operators/operadoresCache";
 
 const NAV_ICONS: Record<string, LucideIcon> = {
   "gestao-cadastro": FilePenLine,
@@ -185,6 +187,8 @@ export function PremiumChrome() {
 
   useEffect(() => {
     aquecerEtiquetas();
+    aquecerVendas();
+    aquecerOperadores();
   }, []);
 
   useLayoutEffect(() => {

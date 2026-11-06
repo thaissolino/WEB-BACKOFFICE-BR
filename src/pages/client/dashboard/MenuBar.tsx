@@ -9,6 +9,7 @@ import {
   type PdvMenuItem,
   type PdvMenuRoot,
 } from "./menuData";
+import { bloqueioDaRota } from "../cadastros/usuarios/acessoEvento";
 import { filterMenuItems, isNavVisible, type PdvNavId, type PdvUiConfig } from "./pdvUiConfig";
 
 function pathStartsWith(openPath: string[], prefix: string[]) {
@@ -90,6 +91,7 @@ function MenuRow({
   const canOpen = hasKnownChildren(item);
   const flyoutOpen = canOpen && pathStartsWith(openPath, itemPath);
   const showArrow = showsSubmenuArrow(item);
+  const aviso = item.href ? bloqueioDaRota(item.href) : "";
 
   function openBranch() {
     if (canOpen) setOpenPath(itemPath);
@@ -123,9 +125,13 @@ function MenuRow({
         <Link
           className="pdv-menu-item"
           to={item.href}
-          aria-label={item.starred ? `${item.label}, favorito` : undefined}
+          title={aviso || undefined}
+          data-locked={aviso ? "true" : undefined}
+          aria-disabled={aviso ? true : undefined}
+          aria-label={item.starred ? `${item.label}, favorito` : aviso || undefined}
           onClick={(event) => {
             event.preventDefault();
+            if (aviso) return;
             openMenuHref(item.href!, navigate);
             setOpenPath([]);
           }}

@@ -1,13 +1,13 @@
-import { FormEvent, useEffect, useRef, useState } from "react";
+import { CSSProperties, FormEvent, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
-import { Ban, Save, Settings, X } from "lucide-react";
+import { Ban, Settings, X } from "lucide-react";
 import { api, parseError } from "../../../../services/api";
 import { avisarSalvo } from "../../avisoSalvo";
 import { scrollPageToTop } from "../../dashboard/PageJumps";
 import CadastroShell from "../CadastroShell";
 // import EstoqueGradeModal from "./EstoqueGradeModal";
-import GradePhotoThumb, { useProductPhotoUrl } from "./GradePhotoThumb";
+import { urlFotoProduto, useProductPhotoUrl } from "./GradePhotoThumb";
 import { loadProductCategories, toFlatOptions, type FlatOption } from "./categoryModel";
 import {
   CLIENT_PRODUCT_FILTER_KEY,
@@ -23,8 +23,8 @@ import {
   type ProductFacets,
   type ProductFilters,
 } from "./productFilters";
-import { formatMoneyBr, lojaProductTitle, parseMoneyBr, type PdvProduct } from "./types";
-import { useVerCusto } from "../usuarios/useVerCusto";
+import { lojaProductTitle, moneyWidthCh, type PdvProduct } from "./types";
+import { usePermissoesProduto, useVerCusto } from "../usuarios/useVerCusto";
 
 type ProdutoTab = "produto" | "grade" | "kits" | "grade-beta";
 
@@ -54,133 +54,11 @@ export default function ListarProdutos() {
   );
 }
 
-function maskFixedMoney(raw: string) {
-  const digits = raw.replace(/\D/g, "").slice(0, 12);
-  return formatMoneyBr(Number(digits || "0") / 100);
-}
+type PriceTable = { id: string; name: string; isDefault: boolean };
+type CellField = "sale" | "cost" | "stock" | "weight" | `table:${string}`;
 
-function EditableAmount({
-  value,
-  money,
-  label,
-  onSave,
-}: {
-  value: number;
-  money?: boolean;
-  label: string;
-  onSave: (next: number) => Promise<void>;
-}) {
-  const inputRef = useRef<HTMLInputElement>(null);
-  const pendingFocus = useRef(false);
-  const [draft, setDraft] = useState<string | null>(null);
-  const text = money ? formatMoneyBr(value) : String(value).replace(".", ",");
-  const shown = draft ?? text;
-  const open = draft !== null;
-
-  useEffect(() => {
-    if (!pendingFocus.current || !open) return;
-    pendingFocus.current = false;
-    const input = inputRef.current;
-    input?.focus();
-    input?.select();
-  }, [open]);
-
-  function close() {
-    pendingFocus.current = false;
-    setDraft(null);
-    inputRef.current?.blur();
-  }
-
-  function openEdit() {
-    pendingFocus.current = true;
-    setDraft(text);
-  }
-
-  function commit() {
-    const next = parseMoneyBr(shown);
-    close();
-    if (next === value) return;
-    void onSave(next);
-  }
-
-  return (
-    <span className="pdv-prod-edit-line" onClick={(event) => event.stopPropagation()}>
-      <label className={`pdv-prod-edit${open ? " is-open" : ""}`}>
-        {money ? <span className="pdv-prod-edit-symbol">R$</span> : null}
-        <input
-          ref={inputRef}
-          className="pdv-prod-edit-input"
-          aria-label={label}
-          inputMode="decimal"
-          readOnly={!open}
-          value={shown}
-          onMouseDown={(event) => {
-            if (!open) event.preventDefault();
-          }}
-          onDoubleClick={(event) => {
-            event.preventDefault();
-            event.stopPropagation();
-            if (!open) openEdit();
-          }}
-          onFocus={(event) => {
-            if (!open) return;
-            const input = event.currentTarget;
-            requestAnimationFrame(() => input.select());
-          }}
-          onMouseUp={(event) => {
-            if (!open) return;
-            event.preventDefault();
-            event.currentTarget.select();
-          }}
-          onChange={(event) => {
-            if (!money) {
-              setDraft(event.target.value);
-              return;
-            }
-            const next = maskFixedMoney(event.target.value);
-            setDraft(next);
-            const input = event.currentTarget;
-            requestAnimationFrame(() => input.setSelectionRange(next.length, next.length));
-          }}
-          onBlur={() => setDraft(null)}
-          onKeyDown={(event) => {
-            if (event.key === "Escape") {
-              event.preventDefault();
-              close();
-              return;
-            }
-            if (event.key !== "Enter") return;
-            event.preventDefault();
-            commit();
-          }}
-        />
-      </label>
-      {draft !== null ? (
-        <>
-          <button
-            type="button"
-            className="pdv-prod-edit-x"
-            aria-label={`Cancelar ${label}`}
-            title="Cancelar"
-            onMouseDown={(event) => event.preventDefault()}
-            onClick={close}
-          >
-            <X size={16} strokeWidth={2.6} aria-hidden="true" />
-          </button>
-          <button
-            type="button"
-            className="pdv-prod-edit-save"
-            aria-label={`Salvar ${label}`}
-            title="Salvar"
-            onMouseDown={(event) => event.preventDefault()}
-            onClick={commit}
-          >
-            <Save size={16} strokeWidth={2.2} aria-hidden="true" />
-          </button>
-        </>
-      ) : null}
-    </span>
-  );
+function money(value: number) {
+  return (Number(value) || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 function rememberProductList(filters: ProductFilters, nextPage: number) {
@@ -233,6 +111,7 @@ function takeReturnedProduct(fromBack: boolean, stateId: string) {
 
 function ProdutosBoard() {
   const verCusto = useVerCusto();
+  const { verVenda, editarVenda, editarEstoque, editarPeso } = usePermissoesProduto();
   const navigate = useNavigate();
   const location = useLocation();
   const backState = location.state as { returnedProductId?: string } | null;
@@ -252,7 +131,19 @@ function ProdutosBoard() {
   // const [estoqueProduct, setEstoqueProduct] = useState<PdvProduct | null>(null);
   const [photoProduct, setPhotoProduct] = useState<PdvProduct | null>(null);
   const [categoryOptions, setCategoryOptions] = useState<FlatOption[]>([]);
+  const [gridTables, setGridTables] = useState<PriceTable[]>([]);
+  const [gridPrices, setGridPrices] = useState<Record<string, Record<string, number>>>({});
+  const [editingCell, setEditingCell] = useState<{ id: string; field: CellField } | null>(null);
+  const [editingValue, setEditingValue] = useState("");
+  const [sortBy, setSortBy] = useState<"name" | "code">("name");
+  const sortRef = useRef(sortBy);
+  sortRef.current = sortBy;
+  const appliedRef = useRef(applied);
+  appliedRef.current = applied;
+  const searchedRef = useRef(searched);
+  searchedRef.current = searched;
   const selectedRef = useRef<HTMLTableRowElement>(null);
+  const skipBlur = useRef(false);
 
   useEffect(() => {
     const tipo = params.get("tipo");
@@ -274,6 +165,39 @@ function ProdutosBoard() {
   }
 
   const buscaRef = useRef(0);
+  const primeiraOrdem = useRef(true);
+
+  useEffect(() => {
+    if (primeiraOrdem.current) {
+      primeiraOrdem.current = false;
+      return;
+    }
+    if (!searchedRef.current) return;
+    load(1, appliedRef.current, true, true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sortBy]);
+
+  async function loadGrid(ids: string[]) {
+    if (!ids.length) {
+      setGridTables([]);
+      setGridPrices({});
+      return;
+    }
+    try {
+      const { data } = await api.get("/clients/price-tables/grid", { params: { ids: ids.join(",") } });
+      const tables = ((data.tables || []) as PriceTable[]).filter((table) => !table.isDefault);
+      const prices: Record<string, Record<string, number>> = {};
+      for (const row of (data.prices || []) as Array<{ productId: string; priceTableId: string; price: number }>) {
+        if (!prices[row.productId]) prices[row.productId] = {};
+        prices[row.productId][row.priceTableId] = Number(row.price) || 0;
+      }
+      setGridTables(tables);
+      setGridPrices(prices);
+    } catch {
+      setGridTables([]);
+      setGridPrices({});
+    }
+  }
 
   function load(nextPage: number, filters: ProductFilters, remember = true, scrollTop = false) {
     const token = ++buscaRef.current;
@@ -283,13 +207,14 @@ function ProdutosBoard() {
     setError("");
     setPage(nextPage);
     api
-      .get("/clients/products", { params: productFilterParams(filters, nextPage, "loja") })
+      .get("/clients/products", { params: productFilterParams(filters, nextPage, "loja", { order: sortRef.current }) })
       .then(({ data }) => {
         if (token !== buscaRef.current) return;
         setRows((data.products as PdvProduct[]) ?? []);
         setTotal(Number(data.total) || 0);
         if (data.facets) setFacets(data.facets as ProductFacets);
         setError("");
+        void loadGrid(((data.products as PdvProduct[]) ?? []).map((item) => item.id));
       })
       .catch((err) => {
         if (token !== buscaRef.current) return;
@@ -297,6 +222,8 @@ function ProdutosBoard() {
         setError(parsed.friend || parsed.message || "Não foi possível carregar os produtos.");
         setRows([]);
         setTotal(0);
+        setGridTables([]);
+        setGridPrices({});
       })
       .finally(() => {
         if (token !== buscaRef.current) return;
@@ -323,6 +250,7 @@ function ProdutosBoard() {
         setPage(1);
         setSearched(true);
         setError("");
+        void loadGrid([product.id]);
       })
       .catch((err) => {
         if (returned.product) return;
@@ -371,6 +299,8 @@ function ProdutosBoard() {
     setRows([]);
     setTotal(0);
     setPage(1);
+    setGridTables([]);
+    setGridPrices({});
     setError("");
   }
 
@@ -382,12 +312,13 @@ function ProdutosBoard() {
     load(1, last);
   }
 
-  async function saveAmount(item: PdvProduct, field: "sale" | "cost" | "stock", next: number) {
-    const key = field === "stock" ? "lojaStock" : field === "sale" ? "lojaSalePrice" : "lojaCostAverage";
+  async function saveAmount(item: PdvProduct, field: "sale" | "cost" | "stock" | "weight", next: number) {
+    const key = field === "stock" ? "lojaStock" : field === "sale" ? "lojaSalePrice" : field === "cost" ? "lojaCostAverage" : "weightAverage";
     const previous = Number(item[key]) || 0;
     setRows((current) => current.map((row) => (row.id === item.id ? { ...row, [key]: next } : row)));
     try {
       if (field === "stock") await api.patch(`/clients/products/${item.id}/stock`, { stockQuantity: next });
+      else if (field === "weight") await api.put(`/clients/products/${item.id}`, { weightAverage: next });
       else await api.put(`/clients/products/${item.id}`, field === "sale" ? { lojaSalePrice: next } : { lojaCostAverage: next });
       avisarSalvo("Salvo.");
       setError("");
@@ -396,6 +327,119 @@ function ProdutosBoard() {
       const parsed = parseError(err);
       setError(parsed.friend || parsed.message || "Não foi possível salvar.");
     }
+  }
+
+  async function saveTablePrice(item: PdvProduct, tableId: string, next: number | null) {
+    const table = gridTables.find((entry) => entry.id === tableId);
+    const previous = gridPrices[item.id]?.[tableId];
+    setGridPrices((current) => {
+      const copy = { ...current, [item.id]: { ...(current[item.id] || {}) } };
+      if (next == null) delete copy[item.id][tableId];
+      else copy[item.id][tableId] = next;
+      return copy;
+    });
+    try {
+      await api.put(`/clients/products/${item.id}/table-prices`, {
+        prices: [{ priceTableId: tableId, price: next }],
+      });
+      avisarSalvo("Salvo.");
+      setError("");
+    } catch (err) {
+      setGridPrices((current) => {
+        const copy = { ...current, [item.id]: { ...(current[item.id] || {}) } };
+        if (previous == null) delete copy[item.id][tableId];
+        else copy[item.id][tableId] = previous;
+        return copy;
+      });
+      const parsed = parseError(err);
+      setError(parsed.friend || parsed.message || `Não foi possível atualizar a tabela ${table?.name || ""}.`);
+    }
+  }
+
+  function startCellEdit(item: PdvProduct, field: CellField) {
+    if (field === "sale" && !editarVenda) return;
+    if (field === "stock" && !editarEstoque) return;
+    if (field === "weight" && !editarPeso) return;
+    if (field.startsWith("table:")) {
+      const current = gridPrices[item.id]?.[field.slice(6)];
+      setEditingCell({ id: item.id, field });
+      setEditingValue(current == null ? "" : String(current));
+      return;
+    }
+    const current =
+      field === "sale" ? Number(item.lojaSalePrice) || 0
+      : field === "cost" ? Number(item.lojaCostAverage) || 0
+      : field === "stock" ? Number(item.lojaStock) || 0
+      : Number(item.weightAverage) || 0;
+    setEditingCell({ id: item.id, field });
+    setEditingValue(current === 0 ? "" : String(current));
+  }
+
+  function cancelCellEdit() {
+    setEditingCell(null);
+    setEditingValue("");
+  }
+
+  function commitCellEdit(item: PdvProduct) {
+    if (!editingCell || editingCell.id !== item.id) return;
+    const field = editingCell.field;
+    const raw = editingValue.trim();
+    if (field.startsWith("table:")) {
+      const parsed = raw === "" ? null : parseFloat(raw.replace(",", "."));
+      if (parsed != null && (Number.isNaN(parsed) || parsed < 0)) {
+        cancelCellEdit();
+        return;
+      }
+      cancelCellEdit();
+      void saveTablePrice(item, field.slice(6), parsed);
+      return;
+    }
+    const parsed = raw === "" ? 0 : parseFloat(raw.replace(",", "."));
+    if (Number.isNaN(parsed) || parsed < 0) {
+      cancelCellEdit();
+      return;
+    }
+    cancelCellEdit();
+    if ((field === "sale" && !editarVenda) || (field === "stock" && !editarEstoque) || (field === "weight" && !editarPeso)) return;
+    if (field === "sale" || field === "cost" || field === "stock" || field === "weight") {
+      void saveAmount(item, field, parsed);
+    }
+  }
+
+  function cellInput(item: PdvProduct) {
+    return (
+      <input
+        autoFocus
+        type="text"
+        inputMode="decimal"
+        value={editingValue}
+        className="gestao-prod-edit"
+        onClick={(event) => event.stopPropagation()}
+        onChange={(event) => {
+          const value = event.target.value.replace(",", ".");
+          if (/^\d*\.?\d{0,2}$/.test(value) || value === "") setEditingValue(value);
+        }}
+        onBlur={() => {
+          if (skipBlur.current) {
+            skipBlur.current = false;
+            return;
+          }
+          commitCellEdit(item);
+        }}
+        onKeyDown={(event) => {
+          if (event.key === "Enter") {
+            event.preventDefault();
+            skipBlur.current = true;
+            commitCellEdit(item);
+          }
+          if (event.key === "Escape") {
+            event.preventDefault();
+            skipBlur.current = true;
+            cancelCellEdit();
+          }
+        }}
+      />
+    );
   }
 
   async function inactivateProduct(item: PdvProduct) {
@@ -452,6 +496,8 @@ function ProdutosBoard() {
               genders={genders}
               suppliers={suppliers}
               busy={loading}
+              exibirPor={sortBy}
+              onExibirPor={setSortBy}
             />
           ) : null}
           {error ? <p className="pdv-cad-error">{error}</p> : null}
@@ -463,110 +509,177 @@ function ProdutosBoard() {
               ) : null}
               {searched && visible.length > 0 ? (
                 <div className={`pdv-cad-table-wrap${loading ? " pdv-prod-refreshing" : ""}`}>
-                  <table className="pdv-cad-table">
+                  <table
+                    className="pdv-cad-table"
+                    style={{
+                      "--sale-ch": `${moneyWidthCh(visible.map((product) => product.lojaSalePrice))}ch`,
+                      "--cost-ch": `${moneyWidthCh(visible.map((product) => product.lojaCostAverage))}ch`,
+                    } as CSSProperties}
+                  >
                     <thead>
                       <tr>
-                        <th>Cód.</th>
+                        <th>Cód</th>
+                        <th>Categoria</th>
+                        <th className="gestao-prod-photo">Foto</th>
                         <th>Nome</th>
-                        <th className="pdv-prod-cat-head">Categoria</th>
-                        <th className="pdv-prod-edit-head">Estoque</th>
-                        <th className="pdv-prod-edit-head">Venda</th>
-                        {verCusto ? <th className="pdv-prod-edit-head">Custo médio</th> : null}
-                        <th className="pdv-prod-actions-head">Ações</th>
+                        {verVenda ? (
+                          <th className="num gestao-prod-sale">
+                            <span className="gestao-prod-money-title">Preço de venda</span>
+                          </th>
+                        ) : null}
+                        {gridTables.map((table) => (
+                          <th
+                            key={table.id}
+                            className="num gestao-prod-sale gestao-prod-table-price"
+                            style={{ "--money-ch": `${moneyWidthCh(visible.map((product) => gridPrices[product.id]?.[table.id]))}ch` } as CSSProperties}
+                          >
+                            <span className="gestao-prod-money-title">{table.name}</span>
+                          </th>
+                        ))}
+                        {verCusto ? (
+                          <th className="num gestao-prod-cost">
+                            <span className="gestao-prod-money-title">Preço de compra</span>
+                          </th>
+                        ) : null}
+                        <th className="num">Estoque</th>
+                        <th className="num">Peso</th>
+                        <th className="act">Ações</th>
                       </tr>
                     </thead>
                     <tbody>
                       {visible.map((item) => {
                         const title = lojaProductTitle(item);
                         return (
-                        <tr
-                          key={item.id}
-                          data-pick="true"
-                          data-selected={selectedId === item.id ? "true" : undefined}
-                          onClick={() => selectProduct(item)}
-                        >
-                          <td>{item.code}</td>
-                          <td>
-                            <span className="pdv-prod-name">
-                              {item.photoFileId ? (
-                                <GradePhotoThumb
-                                  productId={item.id}
-                                  photoFileId={item.photoFileId}
-                                  name={title.main}
-                                  onOpen={() => setPhotoProduct(item)}
-                                />
-                              ) : null}
-                              <span className="pdv-prod-name-copy">
-                                <button
-                                  type="button"
-                                  className="pdv-prod-name-link"
-                                  onClick={(event) => {
-                                    event.stopPropagation();
-                                    openProduct(item);
-                                  }}
-                                >
-                                  {title.main}
-                                </button>
-                                {title.linked ? (
-                                  <span className="pdv-prod-linked">Vinculado: {title.linked}</span>
-                                ) : null}
-                              </span>
-                            </span>
-                          </td>
-                          <td className="pdv-prod-cat-cell">{item.category || categoryLabel(item.categoryId, categoryOptions) || "—"}</td>
-                          <td className="pdv-prod-edit-cell">
-                            <EditableAmount
-                              value={Number(item.lojaStock) || 0}
-                              label={`Estoque de ${title.main}`}
-                              onSave={(next) => saveAmount(item, "stock", next)}
-                            />
-                          </td>
-                          <td className="pdv-prod-edit-cell">
-                            <EditableAmount
-                              money
-                              value={Number(item.lojaSalePrice) || 0}
-                              label={`Preço de venda de ${title.main}`}
-                              onSave={(next) => saveAmount(item, "sale", next)}
-                            />
-                          </td>
-                          {verCusto ? (
-                            <td className="pdv-prod-edit-cell">
-                              <EditableAmount
-                                money
-                                value={Number(item.lojaCostAverage) || 0}
-                                label={`Custo médio de ${title.main}`}
-                                onSave={(next) => saveAmount(item, "cost", next)}
+                          <tr
+                            key={item.id}
+                            ref={selectedId === item.id ? selectedRef : undefined}
+                            data-pick="true"
+                            data-selected={selectedId === item.id ? "true" : undefined}
+                            onClick={() => selectProduct(item)}
+                          >
+                            <td className="text-sm">{item.code}</td>
+                            <td className="text-sm">{item.category || categoryLabel(item.categoryId, categoryOptions) || "—"}</td>
+                            <td className="gestao-prod-photo">
+                              <ListPhoto
+                                productId={item.id}
+                                photoFileId={item.photoFileId}
+                                name={title.main}
+                                onOpen={() => setPhotoProduct(item)}
                               />
                             </td>
-                          ) : null}
-                          <td className="pdv-prod-actions-cell">
-                            <div className="pdv-prod-row-actions">
+                            <td className="gestao-prod-name text-sm">
                               <button
                                 type="button"
-                                className="pdv-prod-gear"
-                                title="Abrir produto"
-                                aria-label={`Abrir ${title.main}`}
+                                className="pdv-prod-name-link"
                                 onClick={(event) => {
                                   event.stopPropagation();
                                   openProduct(item);
                                 }}
                               >
-                                <Settings size={16} aria-hidden="true" />
+                                {title.main}
                               </button>
-                              <button
-                                type="button"
-                                className="pdv-prod-off"
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  void inactivateProduct(item);
-                                }}
+                              {title.linked ? <span className="pdv-prod-linked">Vinculado: {title.linked}</span> : null}
+                            </td>
+                            {verVenda ? (
+                              <td
+                                className="num text-sm gestao-prod-sale"
+                                title={editarVenda ? "Clique duas vezes para editar o preço de venda" : "Preço de venda"}
+                                onClick={(event) => event.stopPropagation()}
+                                onDoubleClick={() => startCellEdit(item, "sale")}
                               >
-                                <Ban size={14} aria-hidden="true" />
-                                Inativar
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
+                                <span className="gestao-prod-money">
+                                  <span className="gestao-prod-rs">R$</span>
+                                  {editingCell?.id === item.id && editingCell.field === "sale" ? cellInput(item) : <span className="cursor-text">{money(Number(item.lojaSalePrice) || 0)}</span>}
+                                </span>
+                              </td>
+                            ) : null}
+                            {gridTables.map((table) => {
+                              const value = gridPrices[item.id]?.[table.id];
+                              const editing = editingCell?.id === item.id && editingCell.field === `table:${table.id}`;
+                              return (
+                                <td
+                                  key={table.id}
+                                  className="num text-sm gestao-prod-sale"
+                                  style={{ "--money-ch": `${moneyWidthCh(visible.map((product) => gridPrices[product.id]?.[table.id]))}ch` } as CSSProperties}
+                                  title={value == null ? `Usa o preço de venda. Duplo clique para definir ${table.name}.` : `Clique duas vezes para editar ${table.name}`}
+                                  onClick={(event) => event.stopPropagation()}
+                                  onDoubleClick={() => startCellEdit(item, `table:${table.id}`)}
+                                >
+                                  {editing ? (
+                                    <span className="gestao-prod-money">
+                                      <span className="gestao-prod-rs">R$</span>
+                                      {cellInput(item)}
+                                    </span>
+                                  ) : value == null ? (
+                                    <span className="cursor-text text-gray-400">—</span>
+                                  ) : (
+                                    <span className="gestao-prod-money">
+                                      <span className="gestao-prod-rs">R$</span>
+                                      <span className="cursor-text">{money(value)}</span>
+                                    </span>
+                                  )}
+                                </td>
+                              );
+                            })}
+                            {verCusto ? (
+                              <td
+                                className="num text-sm gestao-prod-cost"
+                                title="Clique duas vezes para editar o preço de compra"
+                                onClick={(event) => event.stopPropagation()}
+                                onDoubleClick={() => startCellEdit(item, "cost")}
+                              >
+                                <span className="gestao-prod-money">
+                                  <span className="gestao-prod-rs">R$</span>
+                                  {editingCell?.id === item.id && editingCell.field === "cost" ? cellInput(item) : <span className="cursor-text">{money(Number(item.lojaCostAverage) || 0)}</span>}
+                                </span>
+                              </td>
+                            ) : null}
+                            <td
+                              className="num text-sm"
+                              title={editarEstoque ? "Clique duas vezes para editar o estoque" : "Estoque"}
+                              onClick={(event) => event.stopPropagation()}
+                              onDoubleClick={() => startCellEdit(item, "stock")}
+                            >
+                              {editingCell?.id === item.id && editingCell.field === "stock" ? cellInput(item) : <span className="cursor-text">{String(Number(item.lojaStock) || 0)}</span>}
+                            </td>
+                            <td
+                              className="num text-sm"
+                              title={editarPeso ? "Clique duas vezes para editar o peso" : "Peso"}
+                              onClick={(event) => event.stopPropagation()}
+                              onDoubleClick={() => startCellEdit(item, "weight")}
+                            >
+                              {editingCell?.id === item.id && editingCell.field === "weight"
+                                ? cellInput(item)
+                                : <span className="cursor-text">{`${money(Number(item.weightAverage) || 0)} kg`}</span>}
+                            </td>
+                            <td className="act pdv-prod-actions-cell">
+                              <div className="pdv-prod-row-actions">
+                                <button
+                                  type="button"
+                                  className="pdv-prod-gear"
+                                  title="Abrir produto"
+                                  aria-label={`Abrir ${title.main}`}
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    openProduct(item);
+                                  }}
+                                >
+                                  <Settings size={16} aria-hidden="true" />
+                                </button>
+                                <button
+                                  type="button"
+                                  className="pdv-prod-off"
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    void inactivateProduct(item);
+                                  }}
+                                >
+                                  <Ban size={14} aria-hidden="true" />
+                                  Inativar
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
                         );
                       })}
                     </tbody>
@@ -708,6 +821,48 @@ function ProdutosBoard() {
         <PhotoPreview product={photoProduct} onClose={() => setPhotoProduct(null)} />
       ) : null}
     </>
+  );
+}
+
+function ListPhoto({
+  productId,
+  photoFileId,
+  name,
+  onOpen,
+}: {
+  productId: string;
+  photoFileId: string | null;
+  name: string;
+  onOpen: () => void;
+}) {
+  const [remota, setRemota] = useState(false);
+  const direta = remota ? "" : urlFotoProduto(productId, photoFileId);
+  const loaded = useProductPhotoUrl(remota ? photoFileId : null);
+  const src = direta || loaded;
+
+  return (
+    <button
+      type="button"
+      className="pdv-prod-grade-photo"
+      title={photoFileId ? `Foto de ${name}` : "Sem foto"}
+      onClick={(event) => {
+        event.stopPropagation();
+        if (photoFileId) onOpen();
+      }}
+    >
+      {src ? (
+        <img
+          src={src}
+          alt=""
+          className="h-full w-full object-contain"
+          onError={() => {
+            if (!remota) setRemota(true);
+          }}
+        />
+      ) : (
+        <span className="text-[11px] text-gray-400">{photoFileId ? "" : "Sem foto"}</span>
+      )}
+    </button>
   );
 }
 

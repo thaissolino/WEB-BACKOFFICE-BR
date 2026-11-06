@@ -1,7 +1,64 @@
+import { FormEvent, useEffect, useState } from "react"
 import { Link } from "react-router-dom"
 import { BarChart3, Clock3, RotateCcw, Store, TrendingUp, Users } from "lucide-react"
+import { parseError } from "../../services/api"
+import { salvarNomeEstoque, useNomeEstoque } from "../../services/nomeEstoque"
 import { useHomePainel } from "./useDashboardData"
 import "./premium.css"
+
+function NomeDaLoja() {
+  const atual = useNomeEstoque("backoffice")
+  const [nome, setNome] = useState(atual)
+  const [status, setStatus] = useState("")
+  const [salvando, setSalvando] = useState(false)
+
+  useEffect(() => {
+    setNome(atual)
+  }, [atual])
+
+  async function salvar(event: FormEvent) {
+    event.preventDefault()
+    const limpo = nome.trim()
+    if (limpo.length < 2) {
+      setStatus("Escreva o nome da loja.")
+      return
+    }
+    setSalvando(true)
+    setStatus("")
+    try {
+      const salvo = await salvarNomeEstoque(limpo)
+      setNome(salvo)
+      setStatus("Nome salvo. O caixa, os relatórios e o lojista passam a usar esse nome.")
+    } catch (err) {
+      setStatus(parseError(err).friend || "Não foi possível salvar o nome.")
+    } finally {
+      setSalvando(false)
+    }
+  }
+
+  return (
+    <section className="pdv-board-section pdv-home-config" aria-labelledby="home-loja-nome">
+      <div className="pdv-board-section-head">
+        <h2 id="home-loja-nome">Configuração da loja</h2>
+      </div>
+      <form className="pdv-home-loja" onSubmit={(event) => void salvar(event)}>
+        <label htmlFor="home-nome-loja">
+          Nome da loja
+          <input
+            id="home-nome-loja"
+            value={nome}
+            maxLength={40}
+            autoComplete="off"
+            onChange={(event) => setNome(event.target.value)}
+          />
+        </label>
+        <button type="submit" disabled={salvando}>{salvando ? "Salvando..." : "Salvar nome"}</button>
+        <p>Esse nome aparece no caixa, nas vendas, no DRE e na consulta de estoque do lojista.</p>
+        {status ? <p role="status">{status}</p> : null}
+      </form>
+    </section>
+  )
+}
 
 function reais(value: number) {
   return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
@@ -113,6 +170,8 @@ export default function PremiumDashboard() {
             )
           })}
         </div>
+
+        <NomeDaLoja />
 
         <div className="pdv-home-split">
           <section className="pdv-board-section" aria-labelledby="home-lojas">

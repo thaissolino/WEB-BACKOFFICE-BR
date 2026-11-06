@@ -233,6 +233,117 @@
   border-radius: 16px;
 }
 
+.pdv-prod-page .pdv-cad-table button.pdv-prod-name-link,
+.pdv-root[data-surface="cream"] .pdv-main .pdv-prod-page .pdv-cad-table button.pdv-prod-name-link {
+  display: block;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent !important;
+  background-color: transparent !important;
+  color: #1a1511 !important;
+  -webkit-text-fill-color: #1a1511 !important;
+  font: inherit;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+.pdv-prod-page .pdv-cad-table .pdv-prod-linked {
+  display: block;
+  margin-top: 2px;
+  color: #6b645c;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.pdv-prod-page .pdv-cad-table .gestao-prod-money-title,
+.pdv-prod-page .pdv-cad-table .gestao-prod-money {
+  width: calc(1.85em + 0.35rem + var(--money-ch, 9ch));
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.pdv-prod-page .pdv-cad-table .gestao-prod-sale {
+  --money-ch: var(--sale-ch, 9ch);
+}
+
+.pdv-prod-page .pdv-cad-table .gestao-prod-cost {
+  --money-ch: var(--cost-ch, 9ch);
+}
+
+.pdv-prod-page .pdv-cad-table .gestao-prod-money-title {
+  display: block;
+  width: max-content;
+  min-width: calc(1.85em + 0.35rem + var(--money-ch, 9ch));
+  text-align: center;
+  white-space: nowrap;
+}
+
+.pdv-prod-page .pdv-cad-table th.gestao-prod-sale .gestao-prod-money-title {
+  text-align: left;
+  transform: translateX(-0.85rem);
+}
+
+.pdv-prod-page .pdv-cad-table th.gestao-prod-table-price .gestao-prod-money-title {
+  width: calc(1.85em + 0.35rem + var(--money-ch, 9ch));
+  min-width: 0;
+  margin-left: auto;
+  margin-right: auto;
+  text-align: center;
+  transform: none;
+}
+
+.pdv-prod-page .pdv-cad-table .gestao-prod-money {
+  display: grid;
+  grid-template-columns: auto var(--money-ch, 9ch);
+  column-gap: 0.35rem;
+  align-items: baseline;
+  justify-content: start;
+  text-align: left;
+  font-variant-numeric: tabular-nums;
+}
+
+.pdv-prod-page .pdv-cad-table .gestao-prod-money > * {
+  text-align: left;
+  justify-self: start;
+}
+
+.pdv-prod-page .pdv-cad-table .gestao-prod-rs {
+  text-align: left;
+  font-weight: 600;
+}
+
+.pdv-prod-page .pdv-cad-table .gestao-prod-edit {
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  border: 1px solid #b7aa98;
+  border-radius: 12px;
+  background: #fff;
+  padding: 4px 8px;
+  text-align: left;
+  color: #1a1511;
+}
+
+.pdv-prod-page .pdv-cad-table .gestao-prod-edit:focus {
+  outline: none;
+  border-color: #1a1511;
+}
+
+.pdv-prod-page .pdv-cad-table th.num,
+.pdv-prod-page .pdv-cad-table td.num,
+.pdv-prod-page .pdv-cad-table th.act,
+.pdv-prod-page .pdv-cad-table td.act,
+.pdv-prod-page .pdv-cad-table th.gestao-prod-photo,
+.pdv-prod-page .pdv-cad-table td.gestao-prod-photo {
+  text-align: center;
+}
+
+.pdv-prod-page .pdv-cad-table td.gestao-prod-name {
+  text-align: left;
+}
 .pdv-prod-page .pdv-cad-table th.pdv-prod-actions-head,
 .pdv-prod-page .pdv-cad-table td.pdv-prod-actions-cell {
   text-align: right;
@@ -1736,7 +1847,8 @@
   to { transform: rotate(360deg); }
 }
 
-.pdv-cad-table-wrap.pdv-prod-refreshing {
+.pdv-cad-table-wrap.pdv-prod-refreshing,
+.gestao-page.pdv-prod-refreshing {
   opacity: 0.45;
 }
 
@@ -1805,6 +1917,14 @@
   background: #f7f5f0;
 }
 
+.pdv-prod-exibir {
+  margin-top: 12px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  grid-template-columns: minmax(0, 16rem);
+}
+
 .pdv-prod-more > label {
   display: flex;
   flex-direction: column;
@@ -1812,6 +1932,20 @@
   margin: 0;
   font-size: 0.82rem;
   font-weight: 700;
+}
+
+.pdv-prod-more select {
+  min-height: 36px;
+  width: 100%;
+  max-width: 16rem;
+  padding: 4px 8px;
+  border: 1px solid #8a8378;
+  border-radius: 3px;
+  background: #fff;
+  color: #1a1511;
+  font: inherit;
+  font-size: 0.95rem;
+  font-weight: 500;
 }
 
 .pdv-prod-more-cmp {
@@ -1935,11 +2069,31 @@
   background: #f4f1ea;
 }
 
+.pdv-prod-page .pdv-cad-table-wrap {
+  border: 1px solid #ddd4c6;
+  border-radius: 22px;
+  background: #fffdf8;
+}
+
+.pdv-prod-page .pdv-cad-table th {
+  background: #f4f1ea;
+  color: #1a1511;
+  border-bottom: 1px solid #ddd4c6;
+}
+
+.pdv-prod-page .pdv-cad-table td {
+  color: #1a1511;
+}
+
 .pdv-prod-page .pdv-cad-table tbody tr:hover,
 .pdv-prod-page .pdv-cad-table tbody tr:hover > td,
 .pdv-prod-page .pdv-cad-table tbody tr:nth-child(even):hover,
 .pdv-prod-page .pdv-cad-table tbody tr:nth-child(even):hover > td {
-  background: #b3e5fc;
+  background: #efe8dc;
+}
+
+.pdv-prod-page .pdv-prod-edit {
+  cursor: text;
 }
 
 .pdv-prod-grade-photo {
@@ -8263,6 +8417,23 @@
   color: #1a1511;
 }
 
+.pdv-tabelas-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin: 14px 0 16px;
+}
+
+.pdv-tabelas-form input {
+  flex: 1;
+  min-width: 16rem;
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1px solid #cfc6b8;
+  border-radius: 999px;
+}
+
 .pdv-cli-page .pdv-cad-table th:first-child,
 .pdv-cli-page .pdv-cad-table td:first-child {
   padding-left: 22px;
@@ -8376,6 +8547,39 @@
   border-radius: 999px;
   background: #f4f1ea;
   color: #1a1511 !important;
+}
+
+.pdv-grupos-page .pdv-cad-table tbody tr[data-off="true"] td {
+  color: #8a8378;
+}
+
+.pdv-cli-page button.pdv-grupo-ativo,
+.pdv-root[data-surface="cream"] .pdv-main .pdv-cli-page button.pdv-grupo-ativo,
+.pdv-root[data-surface="cream"] .pdv-main .pdv-cli-page button.pdv-grupo-ativo[type="button"] {
+  min-width: 4.6rem;
+  min-height: 30px;
+  padding: 0 14px;
+  border: 1px solid #c8bfb0;
+  border-radius: 999px;
+  background: #f4f1ea !important;
+  background-color: #f4f1ea !important;
+  color: #6b645c !important;
+  -webkit-text-fill-color: #6b645c !important;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+}
+
+.pdv-cli-page button.pdv-grupo-ativo[aria-checked="true"],
+.pdv-root[data-surface="cream"] .pdv-main .pdv-cli-page button.pdv-grupo-ativo[aria-checked="true"],
+.pdv-root[data-surface="cream"] .pdv-main .pdv-cli-page button.pdv-grupo-ativo[aria-checked="true"][type="button"] {
+  background: #1a1511 !important;
+  background-color: #1a1511 !important;
+  border-color: #1a1511;
+  color: #fffdf8 !important;
+  -webkit-text-fill-color: #fffdf8 !important;
 }
 
 .pdv-cli-page .pdv-cad-filters .pdv-date-field {
