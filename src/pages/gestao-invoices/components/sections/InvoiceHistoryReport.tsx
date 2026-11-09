@@ -808,7 +808,12 @@ export function InvoiceHistoryReport({
                   const total = subtotal;
 
                   return (
-                    <tr key={invoice.id} className="odd:bg-blue-50 even:bg-green-50">
+                    <tr
+                      key={invoice.id}
+                      className="odd:bg-blue-50 even:bg-green-50 cursor-pointer hover:bg-blue-100"
+                      title="Ver mercadoria, quantidade e preço de custo"
+                      onClick={() => openModal(invoice, false)}
+                    >
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         <i className="fas fa-clock text-green-500 mr-2"></i>
                         {(() => {
@@ -824,7 +829,7 @@ export function InvoiceHistoryReport({
                           return horas + minutos + segundos > 0 ? `${dataFormatada} ${horaFormatada}` : dataFormatada;
                         })()}{" "}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-blue-700 underline">
                         {invoice.number}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{supplier?.name || "-"}</td>
@@ -838,13 +843,25 @@ export function InvoiceHistoryReport({
                         {formatProductMoney(total, invoice.supplier?.currency)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span
-                          className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusClass(
-                            invoice
-                          )}`}
-                        >
-                          {getStatusText(invoice)}
-                        </span>
+                        <div className="flex flex-col items-start gap-1">
+                          <span
+                            className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusClass(
+                              invoice
+                            )}`}
+                          >
+                            {getStatusText(invoice)}
+                          </span>
+                          <button
+                            type="button"
+                            className="text-xs font-semibold text-blue-700 underline"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              openModal(invoice, false);
+                            }}
+                          >
+                            Ver mercadoria
+                          </button>
+                        </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {invoice.user ? (
@@ -853,7 +870,10 @@ export function InvoiceHistoryReport({
                           <span className="text-gray-400">-</span>
                         )}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                      <td
+                        className="px-6 py-4 whitespace-nowrap text-sm font-medium"
+                        onClick={(event) => event.stopPropagation()}
+                      >
                         <div className="flex justify-end items-center gap-2">
                           {invoice.completed ? (
                             <button
@@ -1003,6 +1023,70 @@ export function InvoiceHistoryReport({
                 </button>
               </div>
             </div>
+
+            {!etiquetaList && (
+              <div className="mt-2">
+                <h4 className="font-medium mb-2 text-blue-700 border-b pb-2">
+                  Mercadoria da invoice
+                  <span className="ml-2 text-sm font-normal text-gray-600">
+                    (quantidade e preço de custo)
+                  </span>
+                </h4>
+                <div className="overflow-x-auto bg-white p-4 rounded-2xl shadow-md border border-gray-200">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Produto
+                        </th>
+                        <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Quantidade
+                        </th>
+                        <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Preço de custo
+                        </th>
+                        <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Total
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {(selectedInvoice.products || []).length === 0 ? (
+                        <tr>
+                          <td colSpan={4} className="px-4 py-3 text-sm text-gray-500">
+                            Nenhuma mercadoria lançada nesta invoice.
+                          </td>
+                        </tr>
+                      ) : (
+                        [...selectedInvoice.products]
+                          .sort((a, b) =>
+                            lineName(a).localeCompare(lineName(b), "pt-BR", { sensitivity: "base" })
+                          )
+                          .map((product) => {
+                            const quantity = Number(product.quantity) || 0;
+                            const unitCost = Number(product.value) || 0;
+                            const lineTotal = Number(product.total) || unitCost * quantity;
+                            return (
+                              <tr key={product.id}>
+                                <td className="px-4 py-2 text-sm text-gray-700">
+                                  {lineName(product) || "Produto"}
+                                </td>
+                                <td className="px-4 py-2 text-sm text-right">{quantity}</td>
+                                <td className="px-4 py-2 text-sm text-right">
+                                  {formatProductMoney(unitCost, supplierCurrency)}
+                                </td>
+                                <td className="px-4 py-2 text-sm text-right">
+                                  {formatProductMoney(lineTotal, supplierCurrency)}
+                                </td>
+                              </tr>
+                            );
+                          })
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
 
             {!etiquetaList && <div className="mt-2">
               <h4 className="font-medium mb-2 text-blue-700 border-b pb-2">
