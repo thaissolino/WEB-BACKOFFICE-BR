@@ -1,9 +1,11 @@
 import { ChangeEvent, FormEvent, Fragment, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ChevronRight, ImagePlus, Plus, RefreshCw, Search, X } from "lucide-react";
+import { ChevronRight, ImagePlus, RefreshCw, Search, X } from "lucide-react";
 import { api, parseError } from "../../../../services/api";
+import { avisarSalvo } from "../../avisoSalvo";
 import CadastroShell from "../CadastroShell";
 import { formatMoneyBr, parseMoneyBr, type PdvProduct, type PdvProductCategory } from "./types";
+import { useProductPhotoUrl } from "./GradePhotoThumb";
 
 export default function AlterarEstoque() {
   const { categoryId } = useParams();
@@ -151,7 +153,6 @@ function EstoqueProdutos({ categoryId }: { categoryId: string }) {
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState("");
   const [photoBusy, setPhotoBusy] = useState(false);
-  const [photoRemoteSrc, setPhotoRemoteSrc] = useState("");
   const [toast, setToast] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
@@ -201,30 +202,8 @@ function EstoqueProdutos({ categoryId }: { categoryId: string }) {
     return () => URL.revokeObjectURL(url);
   }, [photoFile]);
 
-  useEffect(() => {
-    let revoked = false;
-    let objectUrl = "";
-    setPhotoRemoteSrc("");
-    if (!photoProductId || photoFile) return;
-    const product = rows.find((item) => item.id === photoProductId);
-    if (!product?.photoFileId) return;
-
-    api
-      .get(`/clients/products/${photoProductId}/photo`, { responseType: "blob" })
-      .then((response) => {
-        if (revoked) return;
-        objectUrl = URL.createObjectURL(response.data);
-        setPhotoRemoteSrc(objectUrl);
-      })
-      .catch(() => {
-        if (!revoked) setPhotoRemoteSrc("");
-      });
-
-    return () => {
-      revoked = true;
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
-    };
-  }, [photoProductId, photoFile, rows]);
+  const remotePhotoId = photoFile ? "" : rows.find((item) => item.id === photoProductId)?.photoFileId;
+  const photoRemoteSrc = useProductPhotoUrl(remotePhotoId);
 
   const visible = useMemo(() => {
     const qCode = applied.code.trim();
@@ -239,6 +218,7 @@ function EstoqueProdutos({ categoryId }: { categoryId: string }) {
   function onSearch(event: FormEvent) {
     event.preventDefault();
     setApplied(draft);
+    load();
   }
 
   async function saveStock(productId: string, value: string) {
@@ -254,6 +234,7 @@ function EstoqueProdutos({ categoryId }: { categoryId: string }) {
         [productId]: String(product.stockQuantity).replace(".", ","),
       }));
       setToast("Estoque atualizado.");
+      avisarSalvo("Estoque salvo.");
     } catch (err) {
       const parsed = parseError(err);
       setToast(parsed.friend || parsed.message || "Falha ao atualizar estoque.");
@@ -286,6 +267,7 @@ function EstoqueProdutos({ categoryId }: { categoryId: string }) {
           ? "Foto substituída. Arquivo anterior removido do bucket."
           : "Foto enviada ao bucket Geninfra.",
       );
+      avisarSalvo("Foto salva.");
       setPhotoFile(null);
     } catch (err) {
       const parsed = parseError(err);
@@ -315,18 +297,9 @@ function EstoqueProdutos({ categoryId }: { categoryId: string }) {
             >
               Voltar
             </button>
-            <button
-              className="pdv-cad-btn pdv-cad-btn-green"
-              type="button"
-              onClick={() => navigate("/client/produtos/cadastrar")}
-            >
-              <Plus size={16} strokeWidth={2.4} aria-hidden="true" />
-              Cadastrar
-            </button>
           </div>
           <p className="pdv-cad-kicker">{categoryName}</p>
           {error ? <p className="pdv-cad-error">{error}</p> : null}
-          {loading ? <p className="pdv-cad-kicker">Carregando produtos…</p> : null}
 
           <form className="pdv-cad-filters pdv-cad-filters-stock" onSubmit={onSearch}>
             <label>
@@ -431,7 +404,7 @@ function EstoqueProdutos({ categoryId }: { categoryId: string }) {
                       </td>
                       <td>{stock[item.id] ?? String(item.stockQuantity)}</td>
                       <td>—</td>
-                      <td>{formatMoneyBr(item.salePrice || item.priceweightAverage)}</td>
+                      <td>{formatMoneyBr(item.lojaSalePrice || 0)}</td>
                       <td>
                         <input
                           className="pdv-cad-stock-num"

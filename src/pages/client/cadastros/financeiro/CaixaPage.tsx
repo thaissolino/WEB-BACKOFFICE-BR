@@ -1,11 +1,12 @@
 import { FormEvent, useEffect, useState } from "react"
-import { useNavigate, useSearchParams } from "react-router-dom"
-import { Pencil, Plus, Settings, X } from "lucide-react"
-import CadastroShell from "../CadastroShell"
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom"
+import { CreditCard, KeyRound, Pencil, Plus, Settings, Users, X } from "lucide-react"
+import { CadastroFrame } from "../CadastroShell"
 import { FormRow } from "../catalog/FormBits"
 import { getCatalog, createCatalog, listCatalog, updateCatalog } from "../catalog/catalogApi"
 import { createLojaCaixa, deleteLojaCaixas, listLojaCaixas, updateLojaCaixa, type LojaCaixa } from "./caixaApi"
 import { parseError } from "../../../../services/api"
+import { avisarSalvo } from "../../avisoSalvo"
 import { AtivoToggle } from "../produtos/QuickCadWindows"
 
 const TRANSF = ["Manual", "Automática", "Abertura de Caixa"]
@@ -26,6 +27,7 @@ export default function CaixaPage() {
   const [gearUsers, setGearUsers] = useState<string[]>([])
   const [gearModo, setGearModo] = useState<"finaliza" | "espera">("finaliza")
   const [gearPermitirTrocar, setGearPermitirTrocar] = useState(true)
+  const [gearObrigarVendedor, setGearObrigarVendedor] = useState(true)
   const [gearSenha, setGearSenha] = useState("")
   const [gearSaving, setGearSaving] = useState(false)
 
@@ -59,6 +61,7 @@ export default function CaixaPage() {
     setGearUsers(namesOf(item.payload.vendedores))
     setGearModo(item.payload.modo === "espera" ? "espera" : "finaliza")
     setGearPermitirTrocar(item.payload.permitirTrocarCaixa !== false)
+    setGearObrigarVendedor(item.payload.obrigarVendedor !== false)
     setGearSenha(String(item.payload.senhaAcesso || ""))
     try {
       const [pays, users] = await Promise.all([
@@ -84,10 +87,12 @@ export default function CaixaPage() {
       await patch(gear, {
         formasPagamento: gearPay,
         vendedores: gearUsers,
+        obrigarVendedor: gearObrigarVendedor,
         modo: gearModo,
         permitirTrocarCaixa: gearPermitirTrocar,
         senhaAcesso: gearSenha.trim(),
       })
+      avisarSalvo("Caixa salvo.")
       setGear(null)
     } catch (err) {
       setError(parseError(err).friend || "Não foi possível salvar os parâmetros.")
@@ -142,6 +147,7 @@ export default function CaixaPage() {
     setError("")
     try {
       await createLojaCaixa(name)
+      avisarSalvo("Caixa criado.")
       setNome("")
       load()
     } catch (err) {
@@ -152,8 +158,8 @@ export default function CaixaPage() {
   }
 
   return (
-    <CadastroShell>
-      <section className="pdv-cad-page" aria-labelledby="pdv-caixa-cad">
+    <CadastroFrame>
+      <section className="pdv-cad-page pdv-fin-caixa" aria-labelledby="pdv-caixa-cad">
         <div className="pdv-cad-sheet pdv-cad-sheet-wide">
           <h1 id="pdv-caixa-cad">CAIXAS DA LOJA</h1>
           {error ? <p className="pdv-prod-status" role="alert">{error}</p> : null}
@@ -260,26 +266,40 @@ export default function CaixaPage() {
         </div>
       </section>
       {gear ? (
-        <div className="pdv-caixa-confirm" onClick={() => { if (!gearSaving) setGear(null) }}>
+        <div className="pdv-caixa-confirm">
           <div
-            className="pdv-caixa-confirm-card pdv-gear-card"
+            className="pdv-caixa-confirm-card pdv-gear-card pdv-fin-caixa"
             role="dialog"
             aria-modal="true"
             aria-labelledby="pdv-caixa-gear-title"
             onClick={(event) => event.stopPropagation()}
           >
-            <button className="pdv-cad-icon-btn pdv-gear-close" type="button" aria-label="Fechar" onClick={() => setGear(null)}>
-              <X size={16} />
-            </button>
-            <h2 id="pdv-caixa-gear-title">Parâmetros · {gear.name}</h2>
+            <header className="pdv-gear-head">
+              <span className="pdv-gear-mark" aria-hidden="true">
+                <Settings size={18} />
+              </span>
+              <div className="pdv-gear-titles">
+                <h2 id="pdv-caixa-gear-title">Parâmetros do caixa</h2>
+                <p>{gear.name}</p>
+              </div>
+              <button className="pdv-cad-icon-btn pdv-gear-close" type="button" aria-label="Fechar" onClick={() => setGear(null)}>
+                <X size={16} />
+              </button>
+            </header>
             <div className="pdv-gear-grid">
-              <div>
-                <strong>Formas de pagamento</strong>
-                <p>Marque uma ou várias. Sem marca, o PDV libera todas.</p>
+              <section className="pdv-gear-block">
+                <div className="pdv-gear-block-head">
+                  <CreditCard size={16} aria-hidden="true" />
+                  <div>
+                    <strong>Formas de pagamento</strong>
+                    <p>Marque uma ou várias. Sem marca, o PDV libera todas.</p>
+                  </div>
+                  <span className="pdv-gear-count">{gearPay.length ? `${gearPay.length} marcada${gearPay.length === 1 ? "" : "s"}` : "Todas"}</span>
+                </div>
                 <div className="pdv-gear-list">
                   {[...new Set([...payOptions, ...gearPay])].length === 0 ? <span>Nenhuma forma cadastrada.</span> : null}
                   {[...new Set([...payOptions, ...gearPay])].map((name) => (
-                    <label key={name}>
+                    <label key={name} className={gearPay.includes(name) ? "pdv-gear-opt is-on" : "pdv-gear-opt"}>
                       <input
                         type="checkbox"
                         checked={gearPay.includes(name)}
@@ -289,14 +309,24 @@ export default function CaixaPage() {
                     </label>
                   ))}
                 </div>
-              </div>
-              <div>
-                <strong>Vendedores neste caixa</strong>
-                <p>Marque um ou vários. Sem marca, o PDV não exige vendedor.</p>
+              </section>
+              <section className="pdv-gear-block">
+                <div className="pdv-gear-block-head">
+                  <Users size={16} aria-hidden="true" />
+                  <div>
+                    <strong>Vendedores neste caixa</strong>
+                    <p>Marque quem pode vender neste caixa.</p>
+                  </div>
+                  <span className="pdv-gear-count">{gearUsers.length ? `${gearUsers.length}` : "0"}</span>
+                </div>
+                <label className={gearObrigarVendedor ? "pdv-gear-opt is-on" : "pdv-gear-opt"}>
+                  <input type="checkbox" checked={gearObrigarVendedor} onChange={(event) => setGearObrigarVendedor(event.target.checked)} />
+                  Obrigar vendedor na venda
+                </label>
                 <div className="pdv-gear-list">
                   {[...new Set([...userOptions, ...gearUsers])].length === 0 ? <span>Nenhum usuário cadastrado.</span> : null}
                   {[...new Set([...userOptions, ...gearUsers])].map((name) => (
-                    <label key={name}>
+                    <label key={name} className={gearUsers.includes(name) ? "pdv-gear-opt is-on" : "pdv-gear-opt"}>
                       <input
                         type="checkbox"
                         checked={gearUsers.includes(name)}
@@ -306,25 +336,37 @@ export default function CaixaPage() {
                     </label>
                   ))}
                 </div>
-              </div>
-              <fieldset>
-                <legend>Baixa da venda</legend>
-                <label>
+              </section>
+              <fieldset className="pdv-gear-block">
+                <legend className="pdv-gear-block-head">
+                  <Settings size={16} aria-hidden="true" />
+                  <strong>Baixa da venda</strong>
+                </legend>
+                <label className={gearModo === "finaliza" ? "pdv-gear-choice is-on" : "pdv-gear-choice"}>
                   <input type="radio" name="modo-caixa" checked={gearModo === "finaliza"} onChange={() => setGearModo("finaliza")} />
-                  Este caixa finaliza a venda
+                  <span>
+                    <b>Finaliza a venda</b>
+                    Este caixa fecha o pedido na hora.
+                  </span>
                 </label>
-                <label>
+                <label className={gearModo === "espera" ? "pdv-gear-choice is-on" : "pdv-gear-choice"}>
                   <input type="radio" name="modo-caixa" checked={gearModo === "espera"} onChange={() => setGearModo("espera")} />
-                  Este caixa só envia para vendas em aberto
+                  <span>
+                    <b>Vendas em aberto</b>
+                    Este caixa só envia para vendas em aberto.
+                  </span>
                 </label>
               </fieldset>
-              <fieldset>
-                <legend>Acesso</legend>
-                <label>
+              <fieldset className="pdv-gear-block">
+                <legend className="pdv-gear-block-head">
+                  <KeyRound size={16} aria-hidden="true" />
+                  <strong>Acesso</strong>
+                </legend>
+                <label className={gearPermitirTrocar ? "pdv-gear-opt is-on" : "pdv-gear-opt"}>
                   <input type="checkbox" checked={gearPermitirTrocar} onChange={(event) => setGearPermitirTrocar(event.target.checked)} />
                   Permitir trocar de caixa no PDV
                 </label>
-                <label>
+                <label className="pdv-gear-field">
                   Senha para abrir o caixa (opcional)
                   <input value={gearSenha} onChange={(event) => setGearSenha(event.target.value)} autoComplete="new-password" placeholder="Deixe vazio para não exigir" />
                 </label>
@@ -371,12 +413,14 @@ export default function CaixaPage() {
           </div>
         </div>
       ) : null}
-    </CadastroShell>
+    </CadastroFrame>
   )
 }
 
 export function PlanoContaForm() {
   const navigate = useNavigate()
+  const { pathname } = useLocation()
+  const listPath = pathname.startsWith("/gestao/") ? "/gestao/cadastro/financeiro/plano-conta" : "/client/financeiro/plano-conta"
   const [params] = useSearchParams()
   const editId = Number(params.get("id") || 0)
   const [nome, setNome] = useState("")
@@ -403,7 +447,8 @@ export function PlanoContaForm() {
       const payload = { ordem, descricao }
       if (editId) await updateCatalog("account_plan", editId, { name: nome, payload })
       else await createCatalog("account_plan", { name: nome, payload })
-      navigate("/client/financeiro/plano-conta")
+      avisarSalvo("Centro de custo salvo.")
+      navigate(listPath)
     } catch (err) {
       const parsed = parseError(err)
       setStatus(parsed.friend || parsed.message || "Não foi possível salvar.")
@@ -411,11 +456,11 @@ export function PlanoContaForm() {
   }
 
   return (
-    <CadastroShell>
-      <section className="pdv-cad-page" aria-labelledby="pdv-plano-form">
+    <CadastroFrame>
+      <section className="pdv-cad-page pdv-cli-page" aria-labelledby="pdv-plano-form">
         <div className="pdv-cad-sheet">
           <h1 id="pdv-plano-form">CADASTRAR CENTRO DE CUSTO</h1>
-          <button className="pdv-cad-btn pdv-cad-btn-back pdv-voltar" type="button" onClick={() => navigate("/client/financeiro/plano-conta")}>
+          <button className="pdv-cad-btn pdv-cad-btn-back pdv-voltar" type="button" onClick={() => navigate(listPath)}>
             Voltar
           </button>
           <form className="pdv-cad-form" onSubmit={onSubmit}>
@@ -439,6 +484,6 @@ export function PlanoContaForm() {
           </form>
         </div>
       </section>
-    </CadastroShell>
+    </CadastroFrame>
   )
 }

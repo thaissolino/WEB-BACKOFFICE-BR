@@ -133,7 +133,7 @@ export const CaixasTab = () => {
             let invoices: any[] = [];
             if (item.typeInvoice === "fornecedor") {
               try {
-                const { data: listInvoicesBySupplier } = await api.get(`/invoice/list/supplier/${item.id}`);
+                const { data: listInvoicesBySupplier } = await api.get(`/invoice/list/supplier/${item.id}?resumo=1`);
                 invoices = listInvoicesBySupplier.map((invoice: any) => ({
                   value: invoice.subAmount,
                   direction: "OUT",
@@ -143,7 +143,7 @@ export const CaixasTab = () => {
               }
             } else if (item.typeInvoice === "freteiro") {
               try {
-                const { data: listInvoicesByCarrier } = await api.get(`/invoice/list/carrier/${item.id}`);
+                const { data: listInvoicesByCarrier } = await api.get(`/invoice/list/carrier/${item.id}?resumo=1`);
                 invoices = listInvoicesByCarrier.map((invoice: any) => ({
                   value: invoice.subAmount,
                   direction: "OUT",
@@ -195,7 +195,7 @@ export const CaixasTab = () => {
         let invoices: any[] = [];
         if (selectedEntity.typeInvoice === "fornecedor") {
           try {
-            const { data: listInvoicesBySupplier } = await api.get(`/invoice/list/supplier/${selectedEntity.id}`);
+            const { data: listInvoicesBySupplier } = await api.get(`/invoice/list/supplier/${selectedEntity.id}?resumo=1`);
             invoices = listInvoicesBySupplier.map((invoice: any) => ({
               value: invoice.subAmount,
               direction: "OUT",
@@ -205,7 +205,7 @@ export const CaixasTab = () => {
           }
         } else if (selectedEntity.typeInvoice === "freteiro") {
           try {
-            const { data: listInvoicesByCarrier } = await api.get(`/invoice/list/carrier/${selectedEntity.id}`);
+            const { data: listInvoicesByCarrier } = await api.get(`/invoice/list/carrier/${selectedEntity.id}?resumo=1`);
             invoices = listInvoicesByCarrier.map((invoice: any) => ({
               value: invoice.subAmount,
               direction: "OUT",
@@ -273,7 +273,7 @@ export const CaixasTab = () => {
           let invoices: any[] = [];
           if (item.typeInvoice === "fornecedor") {
             try {
-              const { data: listInvoicesBySupplier } = await api.get(`/invoice/list/supplier/${item.id}`);
+              const { data: listInvoicesBySupplier } = await api.get(`/invoice/list/supplier/${item.id}?resumo=1`);
               invoices = listInvoicesBySupplier.map((invoice: any) => ({
                 value: invoice.subAmount,
                 direction: "OUT",
@@ -283,7 +283,7 @@ export const CaixasTab = () => {
             }
           } else if (item.typeInvoice === "freteiro") {
             try {
-              const { data: listInvoicesByCarrier } = await api.get(`/invoice/list/carrier/${item.id}`);
+              const { data: listInvoicesByCarrier } = await api.get(`/invoice/list/carrier/${item.id}?resumo=1`);
               invoices = listInvoicesByCarrier.map((invoice: any) => ({
                 value: invoice.subAmount,
                 direction: "OUT",
@@ -420,9 +420,17 @@ export const CaixasTab = () => {
       setTransactionHistoryList([])
       setLoadingFetch2(true)
 
-      const res = await api.get(`/invoice/box/transaction/${entityId}`)
-      console.log("res", res.data)
       const entity = combinedItems.find((item) => item.id === entityId)
+      const notas = entity?.typeInvoice === "fornecedor"
+        ? api.get(`/invoice/list/supplier/${entityId}?resumo=1`)
+        : entity?.typeInvoice === "freteiro"
+          ? api.get(`/invoice/list/carrier/${entityId}?resumo=1`)
+          : Promise.resolve({ data: [] as any[] })
+      const [res, notasRes] = await Promise.all([
+        api.get(`/invoice/box/transaction/${entityId}`),
+        notas,
+      ])
+      console.log("res", res.data)
       setSelectedEntity({
         ...entity,
         ...res.data,
@@ -441,7 +449,7 @@ export const CaixasTab = () => {
       // Busca invoices baseado no tipo da entidade
       let invoices = []
       if (entity?.typeInvoice === "fornecedor") {
-        const { data: listInvoicesBySupplier } = await api.get(`/invoice/list/supplier/${entityId}`)
+        const listInvoicesBySupplier = notasRes.data
         console.log("istInvoicesBySupplier", listInvoicesBySupplier)
 
         invoices = listInvoicesBySupplier.map((invoice: any) => ({
@@ -453,7 +461,7 @@ export const CaixasTab = () => {
           direction: "OUT", // Invoices são sempre saídas
         }))
       } else if (entity?.typeInvoice === "freteiro") {
-        const { data: listInvoicesByCarrier } = await api.get(`/invoice/list/carrier/${entityId}`)
+        const listInvoicesByCarrier = notasRes.data
         console.log("istInvoicesByCarrier", listInvoicesByCarrier)
 
         invoices = listInvoicesByCarrier.map((invoice: any) => ({
@@ -736,6 +744,8 @@ export const CaixasTab = () => {
     }
   }
 
+  const saldoVisivel = loadingFetch2 ? null : getTotalBalance()
+
   return (
     <div className="fade-in">
       {/* Seletor de usuário total acumulado de fornecedores, outros, fretes e total geral */}
@@ -756,12 +766,12 @@ export const CaixasTab = () => {
                     {selectedEntity.name.toUpperCase()} - FORNECEDOR
                   </h3>
                 </div>
-                <p className="text-2xl font-bold text-yellow-600 truncate" title={formatCurrency(filteredBalances.suppliers || 0)}>
-                  {formatCurrency(filteredBalances.suppliers || 0)}
+                <p className="text-2xl font-bold text-yellow-600 truncate" title={saldoVisivel == null ? undefined : formatCurrency(saldoVisivel)}>
+                  {saldoVisivel == null ? <Loader2 className="inline w-6 h-6 animate-spin" /> : formatCurrency(saldoVisivel)}
                 </p>
-                {formatCurrency(filteredBalances.suppliers || 0).length > 12 && (
+                {saldoVisivel != null && formatCurrency(saldoVisivel).length > 12 && (
                   <div className="absolute hidden group-hover:block bg-gray-800 text-white text-xs p-2 rounded z-10 bottom-full mb-2 whitespace-nowrap">
-                    {formatCurrency(filteredBalances.suppliers || 0)}
+                    {formatCurrency(saldoVisivel)}
                   </div>
                 )}
               </motion.div>
@@ -774,12 +784,12 @@ export const CaixasTab = () => {
                     {selectedEntity.name.toUpperCase()} - TRANSPORTADORA
                   </h3>
                 </div>
-                <p className="text-2xl font-bold text-blue-600 truncate" title={formatCurrency(filteredBalances.carriers || 0)}>
-                  {formatCurrency(filteredBalances.carriers || 0)}
+                <p className="text-2xl font-bold text-blue-600 truncate" title={saldoVisivel == null ? undefined : formatCurrency(saldoVisivel)}>
+                  {saldoVisivel == null ? <Loader2 className="inline w-6 h-6 animate-spin" /> : formatCurrency(saldoVisivel)}
                 </p>
-                {formatCurrency(filteredBalances.carriers || 0).length > 5 && (
+                {saldoVisivel != null && formatCurrency(saldoVisivel).length > 5 && (
                   <div className="absolute hidden group-hover:block bg-gray-800 text-white text-xs p-2 rounded z-10 bottom-full mb-2 whitespace-nowrap">
-                    {formatCurrency(filteredBalances.carriers || 0)}
+                    {formatCurrency(saldoVisivel)}
                   </div>
                 )}
               </motion.div>
@@ -792,12 +802,14 @@ export const CaixasTab = () => {
                     {selectedEntity.name.toUpperCase()} - PARCEIRO
                   </h3>
                 </div>
-                <p className="text-2xl font-bold text-teal-600 truncate" title={formatCurrency(filteredBalances.partners || 0)}>
-                  {formatCurrency(filteredBalances.partners || 0)}
+                <p className="text-2xl font-bold text-teal-600 truncate" title={saldoVisivel == null ? undefined : formatCurrency(saldoVisivel)}>
+                  {saldoVisivel == null ? <Loader2 className="inline w-6 h-6 animate-spin" /> : formatCurrency(saldoVisivel)}
                 </p>
-                <div className="absolute hidden group-hover:block bg-gray-800 text-white text-xs p-2 rounded z-10 bottom-full mb-2 whitespace-nowrap">
-                  {formatCurrency(filteredBalances.partners || 0)}
-                </div>
+                {saldoVisivel != null ? (
+                  <div className="absolute hidden group-hover:block bg-gray-800 text-white text-xs p-2 rounded z-10 bottom-full mb-2 whitespace-nowrap">
+                    {formatCurrency(saldoVisivel)}
+                  </div>
+                ) : null}
               </motion.div>
             )}
           </>

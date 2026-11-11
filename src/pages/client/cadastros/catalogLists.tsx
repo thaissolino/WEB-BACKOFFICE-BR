@@ -3,7 +3,7 @@ import { Settings } from "lucide-react"
 import CatalogList, { type CatalogColumn, type CatalogListConfig } from "./catalog/CatalogList"
 import { type CatalogItem } from "./catalog/catalogApi"
 import { api, parseError } from "../../../services/api"
-import { useNavigate } from "react-router-dom"
+import { useLocation, useNavigate } from "react-router-dom"
 
 function GroupEventos({ item }: { item: CatalogItem }) {
   const navigate = useNavigate()
@@ -69,6 +69,7 @@ function VincularBtn() {
 export const USER_LIST: CatalogListConfig = {
   kind: "user",
   title: "USUÁRIOS",
+  pageClass: "pdv-cli-page",
   cadastrarLabel: "Cadastrar Usuário",
   cadastrarPath: "/client/usuarios/cadastrar",
   inativosLabel: "Usuários Inativos",
@@ -84,12 +85,9 @@ export const USER_LIST: CatalogListConfig = {
     { key: "code", label: "Código", from: "code" },
     { key: "nome", label: "Nome", from: "name" },
     { key: "usuario", label: "Usuario", payloadKey: "usuario" },
-    { key: "telefone", label: "Telefone", payloadKey: "telefone" },
     { key: "grupo", label: "Grupo", payloadKey: "grupo" },
     { key: "createdAt", label: "Data de Cadastro", from: "createdAt" },
-    { key: "replicar", label: "Replicar Acesso" },
     { key: "senha", label: "Trocar Senha" },
-    { key: "atividade", label: "Atividade" },
     { key: "atualizar", label: "Atualizar", from: "action" },
     { key: "inativar", label: "Inativar", from: "active" },
   ],
@@ -98,14 +96,15 @@ export const USER_LIST: CatalogListConfig = {
 export const GROUP_LIST: CatalogListConfig = {
   kind: "group",
   title: "GRUPOS",
+  pageClass: "pdv-cli-page pdv-grupos-page",
   cadastrarLabel: "Cadastrar Grupos",
   cadastrarPath: "/client/usuarios/grupos/cadastrar",
   listPath: "/client/usuarios/grupos",
+  listarTodos: true,
   columns: [
     { key: "eventos", label: "Eventos" },
     { key: "code", label: "Código", from: "code" },
     { key: "nome", label: "Nome Grupo", from: "name" },
-    { key: "nivel", label: "Nível", payloadKey: "nivel" },
     { key: "ativo", label: "Ativo", from: "active" },
     { key: "atualizar", label: "Atualizar", from: "action" },
   ],
@@ -199,7 +198,19 @@ export const PLAN_LIST: CatalogListConfig = {
 }
 
 export function UsersList({ inactive = false }: { inactive?: boolean }) {
-  return <CatalogList config={{ ...USER_LIST, renderCell: userCell }} inactive={inactive} />
+  return (
+    <CatalogList
+      config={{
+        ...USER_LIST,
+        renderCell: userCell,
+        bulkDelete: true,
+        bulkDisable: !inactive,
+        bulkLabel: "Inativar",
+        alwaysPick: true,
+      }}
+      inactive={inactive}
+    />
+  )
 }
 export function GroupsList() {
   return <CatalogList config={{ ...GROUP_LIST, renderCell: groupCell }} />
@@ -211,8 +222,55 @@ export function IdsList({ inactive = false }: { inactive?: boolean }) {
   return <CatalogList config={ID_LIST} inactive={inactive} />
 }
 export function PayList({ inactive = false }: { inactive?: boolean }) {
-  return <CatalogList config={{ ...PAY_LIST, title: inactive ? "FORMA DE PAGAMENTO INATIVO" : PAY_LIST.title }} inactive={inactive} />
+  const { pathname } = useLocation()
+  const base = pathname.startsWith("/gestao/") ? "/gestao/cadastro/financeiro/formas-pagamento" : "/client/financeiro/formas-pagamento"
+  return (
+    <CatalogList
+      config={{
+        ...PAY_LIST,
+        title: inactive ? "FORMA DE PAGAMENTO INATIVO" : PAY_LIST.title,
+        listPath: base,
+        cadastrarPath: `${base}/cadastrar`,
+        inativosPath: `${base}/inativos`,
+      }}
+      inactive={inactive}
+    />
+  )
 }
 export function PlanList({ inactive = false }: { inactive?: boolean }) {
-  return <CatalogList config={{ ...PLAN_LIST, title: inactive ? "CENTRO DE CUSTO INATIVOS" : PLAN_LIST.title }} inactive={inactive} />
+  const { pathname, search } = useLocation()
+  const navigate = useNavigate()
+  const base = pathname.startsWith("/gestao/") ? "/gestao/cadastro/financeiro/plano-conta" : "/client/financeiro/plano-conta"
+  const showAll = new URLSearchParams(search).get("todos") === "1"
+  return (
+    <CatalogList
+      config={{
+        ...PLAN_LIST,
+        pageClass: "pdv-cli-page",
+        title: inactive ? "CENTRO DE CUSTO INATIVOS" : PLAN_LIST.title,
+        listPath: base,
+        cadastrarPath: `${base}/cadastrar`,
+        inativosPath: `${base}/inativos`,
+        bulkDisable: true,
+        bulkLabel: "Inativar",
+        alwaysPick: true,
+        columns: [
+          { key: "code", label: "Cod. Centro de Custo", from: "code" },
+          { key: "nome", label: "Centro de Custo", from: "name" },
+          { key: "ordem", label: "Ordem", payloadKey: "ordem" },
+          { key: "atualizar", label: "Atualizar", from: "action" },
+        ],
+        extraActions: (
+          <button
+            className="pdv-cad-btn pdv-cad-btn-blue"
+            type="button"
+            onClick={() => navigate(showAll ? base : `${base}?todos=1`)}
+          >
+            {showAll ? "Só ativos" : "Todos"}
+          </button>
+        ),
+      }}
+      inactive={inactive}
+    />
+  )
 }

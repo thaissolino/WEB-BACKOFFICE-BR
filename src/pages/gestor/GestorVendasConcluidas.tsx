@@ -4,6 +4,8 @@ import Swal from "sweetalert2";
 import { api, parseError } from "../../services/api";
 import { printNotinha } from "../../lib/notinhaZebra";
 import GestaoShell from "./GestaoShell";
+import { carregarVendas, lerVendas } from "./vendasCache";
+import "../client/cadastros/cadastros.css";
 
 type Line = {
   id: string;
@@ -31,6 +33,7 @@ type Buyer = {
   email: string;
   username: string;
   document: string;
+  storeName?: string;
 };
 
 type ConferenceRead = {
@@ -80,9 +83,30 @@ function orderCode(id: string) {
   return id.slice(0, 8).toUpperCase();
 }
 
+function notinhaOf(order: ClosedSale) {
+  return {
+    code: orderCode(order.id),
+    issuedAt: when(order.closedAt || order.createdAt),
+    seller: "Black Rabbit",
+    clientName: order.client?.name || order.address?.nome || "Cliente",
+    lines: order.lines.map((line) => ({
+      code: line.code || "",
+      name: line.name || "",
+      qty: `${line.qty} un`,
+      amount: money(Number(line.price || 0) * Number(line.qty || 0)),
+    })),
+    total: "",
+    printedAt: "",
+  };
+}
+
 function readsOf(order: ClosedSale, line: Line) {
   const code = (line.code || "").trim().toUpperCase();
   return (order.conference?.reads || []).filter((read) => (read.code || "").trim().toUpperCase() === code).length;
+}
+
+function serialKey(serial: string) {
+  return (serial || "").trim().toUpperCase().replace(/\s/g, "");
 }
 
 function serialsOf(order: ClosedSale, line: Line) {
@@ -94,12 +118,54 @@ function serialsOf(order: ClosedSale, line: Line) {
   const seen = new Set<string>();
   const all: string[] = [];
   for (const serial of [...linked, ...(line.imeis || [])]) {
-    const key = (serial || "").trim().toUpperCase();
-    if (!key || seen.has(key)) continue;
+    const key = serialKey(serial);
+    if (key.length < 8 || seen.has(key)) continue;
     seen.add(key);
-    all.push(serial);
+    all.push(serial.trim());
   }
   return all;
+}
+
+function lineKey(line: Line) {
+  return line.id || `${line.code}-${line.name}`;
+}
+
+/** Seriais gravados na conferência, inclusive os que não existem no estoque. */
+function registeredSerials(order: ClosedSale) {
+  const seen = new Set<string>();
+  const all: string[] = [];
+  for (const serial of order.conference?.imeis || []) {
+    const key = serialKey(serial);
+    if (key.length < 8 || seen.has(key)) continue;
+    seen.add(key);
+    all.push(serial.trim());
+  }
+  return all;
+}
+
+function serialsByLine(order: ClosedSale) {
+  const groups = new Map<string, string[]>();
+  const taken = new Set<string>();
+  for (const line of order.lines) {
+    const own = serialsOf(order, line).filter((serial) => {
+      const key = serialKey(serial);
+      if (taken.has(key)) return false;
+      taken.add(key);
+      return true;
+    });
+    const room = Math.max(0, Number(line.qty) || 0);
+    groups.set(lineKey(line), own.slice(0, room));
+  }
+  const loose = registeredSerials(order).filter((serial) => !taken.has(serialKey(serial)));
+  for (const line of order.lines) {
+    const list = groups.get(lineKey(line)) || [];
+    const room = Math.max(0, Number(line.qty) || 0) - list.length;
+    if (room <= 0) continue;
+    const next = loose.splice(0, room);
+    next.forEach((serial) => taken.add(serialKey(serial)));
+    groups.set(lineKey(line), [...list, ...next]);
+  }
+  return groups;
 }
 
 function serialList(serials: string[]) {
@@ -159,7 +225,8 @@ function addressLine(address?: Address) {
 }
 
 export default function GestorVendasConcluidas() {
-  const [orders, setOrders] = useState<ClosedSale[]>([]);
+  const salvas = (lerVendas("") || []) as ClosedSale[];
+  const [orders, setOrders] = useState<ClosedSale[]>(salvas);
   const [lane, setLane] = useState<"separacao" | "concluidas" | "estornadas">("separacao");
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState("");
@@ -169,23 +236,45 @@ export default function GestorVendasConcluidas() {
   const [imeiSuggestions, setImeiSuggestions] = useState<ImeiSuggestion[]>([]);
   const [imeiMenuOpen, setImeiMenuOpen] = useState(false);
   const imeiBoxRef = useRef<HTMLDivElement>(null);
+  const ordersTableRef = useRef<HTMLDivElement>(null);
+  const orderDetailRef = useRef<HTMLElement>(null);
   const obsFocused = useRef(false);
   const [notice, setNotice] = useState("");
   const [concludedNotice, setConcludedNotice] = useState("");
   const [acting, setActing] = useState(false);
   const [openSerials, setOpenSerials] = useState<Record<string, boolean>>({});
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(salvas.length === 0);
   const [error, setError] = useState("");
   const [zebraNotice, setZebraNotice] = useState("");
   const imeiRef = useRef<HTMLInputElement>(null);
+  const resumeImei = useRef(false);
+  const searchRef = useRef(search);
+  searchRef.current = search;
 
-  async function load(term = search) {
-    setIsLoading(true);
+  useEffect(() => {
+    if (!selectedId) return;
+    function onPointerDown(event: MouseEvent) {
+      const target = event.target instanceof Element ? event.target : null;
+      if (!target) return;
+      if (ordersTableRef.current?.contains(target)) return;
+      if (orderDetailRef.current?.contains(target)) return;
+      if (target.closest("[role='dialog'], .swal2-container")) return;
+      setSelectedId("");
+    }
+    document.addEventListener("mousedown", onPointerDown);
+    return () => document.removeEventListener("mousedown", onPointerDown);
+  }, [selectedId]);
+
+  async function load(term = search, fresco = false) {
+    const cached = lerVendas(term.trim()) as ClosedSale[] | null;
+    if (cached) {
+      setOrders(cached);
+      setIsLoading(false);
+    } else {
+      setIsLoading(true);
+    }
     try {
-      const { data } = await api.get("/backoffice/vendas-concluidas", {
-        params: term.trim() ? { search: term.trim() } : undefined,
-      });
-      const next = (data?.orders || []) as ClosedSale[];
+      const next = (await carregarVendas(term.trim(), fresco)) as ClosedSale[];
       setOrders(next);
       setSelectedId((current) => (next.some((order) => order.id === current) ? current : ""));
       setConferenceId((current) => (next.some((order) => order.id === current) ? current : ""));
@@ -203,9 +292,59 @@ export default function GestorVendasConcluidas() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => {
+    const seen = new Set<string>();
+    let armed = false;
+    let stop = false;
+    let chain = Promise.resolve();
+    let timer = 0;
+
+    function armar(next: ClosedSale[]) {
+      if (armed || stop) return;
+      next.forEach((order) => seen.add(order.id));
+      armed = true;
+    }
+
+    async function watch() {
+      try {
+        const next = (await carregarVendas("", true)) as ClosedSale[];
+        if (stop) return;
+        if (!armed) {
+          armar(next);
+          return;
+        }
+        const fresh = next
+          .filter((order) => !order.estornada && !seen.has(order.id))
+          .sort((a, b) => new Date(a.closedAt || a.createdAt).getTime() - new Date(b.closedAt || b.createdAt).getTime());
+        fresh.forEach((order) => seen.add(order.id));
+        if (!searchRef.current.trim() && fresh.length) setOrders(next);
+        fresh.forEach((order) => {
+          chain = chain.then(() =>
+            printNotinha(notinhaOf(order), "auto").catch((err: Error) => {
+              setZebraNotice(err.message || "Não foi para a impressora.");
+            }),
+          );
+        });
+      } catch {
+        /* tenta de novo no próximo ciclo */
+      }
+    }
+
+    void carregarVendas("")
+      .then((next) => armar(next as ClosedSale[]))
+      .catch(() => undefined)
+      .finally(() => {
+        if (!stop) timer = window.setInterval(watch, 8000);
+      });
+    return () => {
+      stop = true;
+      window.clearInterval(timer);
+    };
+  }, []);
+
   function handleSearch(event: FormEvent) {
     event.preventDefault();
-    load(search);
+    load(search, true);
   }
 
   const conference = useMemo(
@@ -216,6 +355,17 @@ export default function GestorVendasConcluidas() {
   useEffect(() => {
     if (conferenceId) imeiRef.current?.focus();
   }, [conferenceId]);
+
+  useEffect(() => {
+    if (acting || !resumeImei.current) return;
+    resumeImei.current = false;
+    const timer = window.setTimeout(() => {
+      const field = imeiRef.current;
+      if (!field || field.disabled) return;
+      field.focus();
+    }, 40);
+    return () => window.clearTimeout(timer);
+  }, [acting]);
 
   useEffect(() => {
     if (!conferenceId) return;
@@ -355,7 +505,39 @@ export default function GestorVendasConcluidas() {
       beep(false);
     } finally {
       setActing(false);
-      if (action === "scan" || action === "imei" || action === "reset") imeiRef.current?.focus();
+      if (action === "scan" || action === "imei" || action === "reset") resumeImei.current = true;
+    }
+  }
+
+  async function estornar(id: string) {
+    const sure = await Swal.fire({
+      icon: "warning",
+      title: "Estornar este pedido?",
+      text: "O crédito volta para o lojista e o estoque volta para o backoffice.",
+      showCancelButton: true,
+      confirmButtonText: "Estornar",
+      cancelButtonText: "Cancelar",
+      buttonsStyling: false,
+      customClass: {
+        confirmButton: "bg-red-700 text-white hover:bg-red-800 px-4 py-2 rounded font-semibold mr-2",
+        cancelButton: "bg-gray-300 text-gray-800 hover:bg-gray-400 px-4 py-2 rounded font-semibold",
+      },
+    });
+    if (!sure.isConfirmed || acting) return;
+    setActing(true);
+    setNotice("");
+    try {
+      const { data } = await api.post(`/backoffice/vendas-concluidas/${id}/estornar`);
+      const order = data.order as ClosedSale;
+      setOrders((prev) => prev.map((item) => (item.id === order.id ? order : item)));
+      if (conferenceId === id) setConferenceId("");
+      if (selectedId === id) setSelectedId("");
+      setNotice(typeof data.notice === "string" && data.notice ? data.notice : "Pedido estornado.");
+    } catch (err) {
+      const parsed = parseError(err);
+      setNotice(parsed.friend || parsed.message || "Não foi possível estornar o pedido.");
+    } finally {
+      setActing(false);
     }
   }
 
@@ -400,7 +582,7 @@ export default function GestorVendasConcluidas() {
   return (
     <GestaoShell
       title="Vendas concluídas"
-      subtitle="Pedidos fechados pelos lojistas. Use o endereço e os produtos para despachar."
+      subtitle="Pedidos fechados pelos lojistas. A etiqueta sai sozinha nesta tela quando um pedido novo entra."
       badge="Despacho"
     >
       {concludedNotice ? (
@@ -414,27 +596,26 @@ export default function GestorVendasConcluidas() {
         </div>
       ) : null}
 
-      <div className="mb-4 grid gap-3 sm:grid-cols-4">
-        {(
-          [
-            ["separacao", "Em separação", lanes.separacao.length, "border-yellow-200 bg-yellow-50 text-yellow-950"],
-            ["concluidas", "Concluídas", lanes.concluidas.length, "border-green-200 bg-green-50 text-green-900"],
-            ["estornadas", "Estornadas", lanes.estornadas.length, "border-red-200 bg-red-50 text-red-900"],
-          ] as const
-        ).map(([key, label, count, tone]) => (
-          <button
-            key={key}
-            type="button"
-            onClick={() => setLane(key)}
-            className={`rounded-lg border px-4 py-3 text-left ${tone} ${lane === key ? "ring-2 ring-blue-600" : ""}`}
-          >
-            <p className="text-xs font-semibold uppercase tracking-wide">{label}</p>
-            <p className="mt-1 text-2xl font-bold">{count}</p>
-          </button>
-        ))}
-        <div className="rounded-lg border border-blue-100 bg-blue-50 px-4 py-3">
-          <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">Valor desta lista</p>
-          <p className="mt-1 text-2xl font-bold text-blue-900">{money(total)}</p>
+      <div className="pdv-compra-cards">
+        <button type="button" className={`pdv-compra-card pdv-compra-card-abertas${lane === "separacao" ? " is-on" : ""}`} onClick={() => setLane("separacao")}>
+          <span>Em separação</span>
+          <strong>{lanes.separacao.length}</strong>
+          <em>Falta conferir</em>
+        </button>
+        <button type="button" className={`pdv-compra-card pdv-compra-card-concluidas${lane === "concluidas" ? " is-on" : ""}`} onClick={() => setLane("concluidas")}>
+          <span>Concluídas</span>
+          <strong>{lanes.concluidas.length}</strong>
+          <em>Já enviadas</em>
+        </button>
+        <button type="button" className={`pdv-compra-card pdv-compra-card-estornadas${lane === "estornadas" ? " is-on" : ""}`} onClick={() => setLane("estornadas")}>
+          <span>Estornadas</span>
+          <strong>{lanes.estornadas.length}</strong>
+          <em>Vendas estornadas</em>
+        </button>
+        <div className="pdv-compra-card pdv-compra-card-nova">
+          <span>Valor</span>
+          <strong>{money(total)}</strong>
+          <em>Desta lista</em>
         </div>
       </div>
 
@@ -459,7 +640,7 @@ export default function GestorVendasConcluidas() {
           type="button"
           onClick={() => {
             setSearch("");
-            load("");
+            load("", true);
           }}
           className="rounded border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
         >
@@ -467,7 +648,7 @@ export default function GestorVendasConcluidas() {
         </button>
       </form>
 
-      <div className="overflow-visible rounded-lg border border-gray-200 bg-white shadow-sm">
+      <div ref={ordersTableRef} className="overflow-visible rounded-lg border border-gray-200 bg-white shadow-sm">
         {isLoading && orders.length === 0 ? (
           <p className="flex items-center gap-2 p-6 text-sm text-gray-500">
             <Loader2 size={16} className="animate-spin" /> Carregando vendas...
@@ -476,21 +657,20 @@ export default function GestorVendasConcluidas() {
           <div className="p-8 text-center text-gray-500">
             <Truck size={32} className="mx-auto mb-2 opacity-50" />
             <p className="font-medium">Nenhum pedido neste status.</p>
-            <p className="mt-1 text-sm">A tela abre em separação. Concluídas e estornadas ficam nos cards.</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="min-w-full text-left text-sm">
-              <thead className="bg-gray-50 text-xs uppercase tracking-wide text-gray-600">
+            <table className="w-full border-collapse text-center text-sm">
+              <thead className="bg-gray-50 text-xs uppercase text-gray-600">
                 <tr>
-                  <th className="px-4 py-3 font-semibold">Pedido</th>
-                  <th className="px-4 py-3 font-semibold">Fechado em</th>
-                  <th className="px-4 py-3 font-semibold">Lojista</th>
-                  <th className="px-4 py-3 font-semibold">Documento</th>
-                  <th className="px-4 py-3 font-semibold text-right">Itens</th>
-                  <th className="px-4 py-3 font-semibold text-right">Total</th>
-                  <th className="px-4 py-3 font-semibold">Status</th>
-                  <th className="px-4 py-3 font-semibold">Conferência</th>
+                  <th className="px-3 py-3 text-center font-semibold">Pedido</th>
+                  <th className="px-3 py-3 text-center font-semibold">Fechado em</th>
+                  <th className="px-3 py-3 text-center font-semibold">Lojista / Loja</th>
+                  <th className="px-3 py-3 text-center font-semibold">Documento</th>
+                  <th className="px-3 py-3 text-center font-semibold">Itens</th>
+                  <th className="px-3 py-3 text-center font-semibold">Total</th>
+                  <th className="px-3 py-3 text-center font-semibold">Status</th>
+                  <th className="px-3 py-3 text-center font-semibold">Ações</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -511,17 +691,19 @@ export default function GestorVendasConcluidas() {
                         if (conferenceId !== order.id) setConferenceId("");
                       }}
                     >
-                      <td className="px-4 py-3 font-mono font-semibold text-gray-900">{orderCode(order.id)}</td>
-                      <td className="px-4 py-3 text-gray-700">{when(order.closedAt || order.createdAt)}</td>
-                      <td className="px-4 py-3 font-medium text-gray-900">{shown(order.client?.name)}</td>
-                      <td className="px-4 py-3 text-gray-700">{shown(order.client?.document)}</td>
-                      <td className="px-4 py-3 text-right text-gray-700">{units}</td>
-                      <td className="px-4 py-3 text-right font-semibold text-gray-900">{money(order.total)}</td>
-                      <td className="px-4 py-3">
+                      <td className="whitespace-nowrap px-3 py-3 text-center align-middle font-mono font-semibold text-gray-900">{orderCode(order.id)}</td>
+                      <td className="whitespace-nowrap px-3 py-3 text-center align-middle text-gray-700">{when(order.closedAt || order.createdAt)}</td>
+                      <td className="whitespace-nowrap px-3 py-3 text-center align-middle font-medium text-gray-900">
+                        {[order.client?.name, order.client?.storeName].map((item) => (item || "").trim().toLocaleUpperCase("pt-BR")).filter(Boolean).join(" / ") || "—"}
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-3 text-center align-middle text-gray-700">{shown(order.client?.document)}</td>
+                      <td className="whitespace-nowrap px-3 py-3 text-center align-middle text-gray-700">{units}</td>
+                      <td className="whitespace-nowrap px-3 py-3 text-center align-middle font-semibold text-gray-900">{money(order.total)}</td>
+                      <td className="whitespace-nowrap px-3 py-3 text-center align-middle">
                         <StatusBadge status={order.dispatchStatus || "A ENVIAR"} estornada={order.estornada} />
                       </td>
-                      <td className="px-4 py-3">
-                        <div className="flex flex-wrap gap-2">
+                      <td className="px-3 py-3 text-center align-middle">
+                        <div className="flex flex-nowrap items-center justify-center gap-2">
                           {isSent(order.dispatchStatus) || order.estornada ? null : (
                             <button
                               type="button"
@@ -536,8 +718,20 @@ export default function GestorVendasConcluidas() {
                             </button>
                           )}
                           {order.estornada ? (
-                            <span className="px-1 py-1.5 text-xs font-semibold text-red-700">Estornada</span>
-                          ) : null}
+                            <span className="text-xs font-semibold text-red-700">Estornada</span>
+                          ) : (
+                            <button
+                              type="button"
+                              className="rounded border border-red-700 bg-white px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-50"
+                              disabled={acting}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                void estornar(order.id);
+                              }}
+                            >
+                              Estornar
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -557,7 +751,7 @@ export default function GestorVendasConcluidas() {
             <div>
               <h2 className="text-lg font-semibold text-gray-900">Conferência</h2>
               <p className="text-sm text-gray-600">
-                Pedido {orderCode(conference.id)} · {shown(conference.client?.name)}
+                Pedido {orderCode(conference.id)} · {shown(conference.client?.name)} · {shown(conference.client?.storeName)}
               </p>
               <p className="text-sm text-gray-600">Fechado {when(conference.closedAt || conference.createdAt)}</p>
             </div>
@@ -569,6 +763,12 @@ export default function GestorVendasConcluidas() {
             </div>
           </div>
           <h3 className="mb-2 border-b pb-2 font-medium text-blue-700">Produtos a separar</h3>
+          {(() => {
+            const unitTotal = conference.lines.reduce((sum, line) => sum + Math.max(0, Number(line.qty || 0)), 0);
+            const serialDone = registeredSerials(conference).length;
+            const serialGroups = serialsByLine(conference);
+            const canFinish = unitTotal > 0 && serialDone >= unitTotal;
+            return (
           <div className="grid gap-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(280px,0.8fr)]">
             <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-md">
               <p className="text-sm text-gray-600">
@@ -588,7 +788,7 @@ export default function GestorVendasConcluidas() {
                   <tbody className="divide-y divide-gray-100">
                     {conference.lines.map((line) => {
                       const qty = Math.max(0, Number(line.qty || 0));
-                      const serials = serialsOf(conference, line).slice(0, qty);
+                      const serials = (serialGroups.get(lineKey(line)) || []).slice(0, qty);
                       const lidos = Math.min(qty, Math.max(readsOf(conference, line), serials.length));
                       const restante = Math.max(0, qty - lidos);
                       return (
@@ -600,7 +800,7 @@ export default function GestorVendasConcluidas() {
                           <td className="px-3 py-2">
                             <div>{shown(line.name)}</div>
                             {serials.length ? (
-                              <div className="mt-1 max-h-12 overflow-y-auto font-mono text-xs font-normal leading-4 text-gray-700">
+                              <div className="mt-1 max-h-32 overflow-y-auto font-mono text-xs font-normal leading-4 text-gray-700">
                                 {serials.map((serial) => (
                                   <div key={serial} className="truncate">
                                     {serial}
@@ -627,8 +827,7 @@ export default function GestorVendasConcluidas() {
                 {conference.lines.reduce((sum, line) => sum + Number(line.qty || 0), 0)}
               </p>
               <p className="mt-1 text-sm font-semibold text-gray-800">
-                imeis/serial: {conference.lines.reduce((sum, line) => sum + Math.min(Number(line.qty || 0), serialsOf(conference, line).length), 0)}/
-                {conference.lines.reduce((sum, line) => sum + Number(line.qty || 0), 0)}
+                imeis/serial: {Math.min(serialDone, unitTotal)}/{unitTotal}
               </p>
             </div>
             <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-md">
@@ -724,13 +923,19 @@ export default function GestorVendasConcluidas() {
                 </button>
                 <button
                   type="button"
-                  className="rounded bg-green-700 px-3 py-2 text-sm font-semibold text-white hover:bg-green-800 disabled:cursor-not-allowed disabled:bg-gray-300"
-                  disabled={acting || isSent(conference.dispatchStatus) || conference.blockers.length > 0 || !(conference.conference.imeis || []).length}
+                  className="rounded bg-green-700 px-3 py-2 text-sm font-semibold text-white hover:bg-green-800 disabled:cursor-not-allowed disabled:bg-gray-300 disabled:text-gray-500"
+                  style={canFinish ? { color: "#ffffff", backgroundColor: "#15803d" } : { color: "#6b7280", backgroundColor: "#d1d5db" }}
+                  disabled={acting || isSent(conference.dispatchStatus) || !canFinish}
                   onClick={() => act("conclude")}
                 >
                   Concluir conferência
                 </button>
               </div>
+              {!canFinish ? (
+                <p className="mt-3 text-sm font-semibold text-amber-800">
+                  Faltam {Math.max(0, unitTotal - serialDone)} {unitTotal - serialDone === 1 ? "serial" : "seriais"}. O botão só libera em {unitTotal}/{unitTotal}.
+                </p>
+              ) : null}
               {conference.blockers.length ? (
                 <ul className="mt-3 space-y-1 text-sm text-amber-800">
                   {conference.blockers.map((item) => (
@@ -740,6 +945,8 @@ export default function GestorVendasConcluidas() {
               ) : null}
             </div>
           </div>
+            );
+          })()}
           <label className="mt-4 block text-sm font-semibold text-gray-800" htmlFor="order-obs">
             Obs do pedido
           </label>
@@ -764,7 +971,7 @@ export default function GestorVendasConcluidas() {
       ) : null}
 
       {orders.filter((order) => order.id === selectedId).map((order) => (
-        <section key={order.id} className="mt-4 rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+        <section ref={orderDetailRef} key={order.id} className="mt-4 rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
           <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
             <div>
               <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Despacho</p>
@@ -781,21 +988,7 @@ export default function GestorVendasConcluidas() {
                 style={{ color: "#ffffff", backgroundColor: "#111111" }}
                 onClick={() => {
                   setZebraNotice("");
-                  printNotinha({
-                    code: orderCode(order.id),
-                    issuedAt: when(order.closedAt || order.createdAt),
-                    seller: "Black Rabbit",
-                    clientName: order.client?.name || "Cliente",
-                    clientMeta: [order.client?.username, order.address?.cidade].filter(Boolean).join(" · "),
-                    lines: order.lines.map((line) => ({
-                      code: line.code || "",
-                      name: line.name || "",
-                      qty: `${line.qty} un`,
-                      amount: money(Number(line.price || 0) * Number(line.qty || 0)),
-                    })),
-                    total: "",
-                    printedAt: "",
-                  }).catch((err: Error) => setZebraNotice(err.message || "Não foi para a impressora."));
+                  printNotinha(notinhaOf(order)).catch((err: Error) => setZebraNotice(err.message || "Não foi para a impressora."));
                 }}
               >
                 Imprimir notinha
@@ -807,7 +1000,9 @@ export default function GestorVendasConcluidas() {
           <div className="mb-4 grid gap-3 md:grid-cols-2">
             <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3">
               <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Lojista</p>
-              <p className="mt-1 font-semibold text-gray-900">{shown(order.client?.name)}</p>
+              <p className="mt-1 font-semibold text-gray-900">{(order.client?.name || "").trim().toLocaleUpperCase("pt-BR") || "—"}</p>
+              <p className="mt-2 text-xs font-semibold uppercase tracking-wide text-gray-500">Loja</p>
+              <p className="font-semibold text-gray-900">{(order.client?.storeName || "").trim().toLocaleUpperCase("pt-BR") || "—"}</p>
               <p className="text-sm text-gray-700">CPF/CNPJ: {shown(order.client?.document)}</p>
               <p className="text-sm text-gray-700">E-mail: {shown(order.client?.email)}</p>
               <p className="text-sm text-gray-700">Usuário: {shown(order.client?.username)}</p>

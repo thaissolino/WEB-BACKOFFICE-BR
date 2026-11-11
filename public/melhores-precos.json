@@ -1,0 +1,383 @@
+{
+  "atualizadoEm": "2026-10-23T15:04:39.524Z",
+  "cotacoes": [
+    {
+      "produto": "18 pro max 256gb",
+      "cor": "azul",
+      "preco": 9000,
+      "lugar": "Tm Natach 2"
+    },
+    {
+      "produto": "17 pro max 256gb",
+      "cor": "branco",
+      "preco": 6800,
+      "lugar": "Tm Natach 2"
+    },
+    {
+      "produto": "17 pro max 256gb",
+      "cor": "azul",
+      "preco": 6600,
+      "lugar": "Tm Natach 2"
+    },
+    {
+      "produto": "17 pro max 256gb",
+      "cor": "laranja",
+      "preco": 6650,
+      "lugar": "Tm Natach 2"
+    },
+    {
+      "produto": "17 pro 256gb",
+      "cor": "branco",
+      "preco": 6450,
+      "lugar": "Tm Natach 2"
+    },
+    {
+      "produto": "17 pro 256gb",
+      "cor": "azul",
+      "preco": 6450,
+      "lugar": "Tm Natach 2"
+    },
+    {
+      "produto": "17 pro 256gb",
+      "cor": "laranja",
+      "preco": 6250,
+      "lugar": "Tm Natach 2"
+    },
+    {
+      "produto": "17 air 256gb",
+      "cor": "dourado",
+      "preco": 4850,
+      "lugar": "Tm Natach 2"
+    },
+    {
+      "produto": "17 air 256gb",
+      "cor": "preto",
+      "preco": 4850,
+      "lugar": "Tm Natach 2"
+    },
+    {
+      "produto": "17e 256gb",
+      "cor": "branco",
+      "preco": 3550,
+      "lugar": "Tm Natach 2"
+    },
+    {
+      "produto": "17e 256gb",
+      "cor": "preto",
+      "preco": 3550,
+      "lugar": "Tm Natach 2"
+    },
+    {
+      "produto": "17 256gb",
+      "cor": "branco",
+      "preco": 5150,
+      "lugar": "Tm Natach 2"
+    },
+    {
+      "produto": "17 256gb",
+      "cor": "roxo",
+      "preco": 5150,
+      "lugar": "Tm Natach 2"
+    },
+    {
+      "produto": "17 256gb",
+      "cor": "azul",
+      "preco": 5050,
+      "lugar": "Tm Natach 2"
+    },
+    {
+      "produto": "16 128gb",
+      "cor": "branco",
+      "preco": 4100,
+      "lugar": "Tm Natach 2"
+    },
+    {
+      "produto": "16 128gb",
+      "cor": "verde",
+      "preco": 3950,
+      "lugar": "Tm Natach 2"
+    },
+    {
+      "produto": "17 pro 512gb",
+      "cor": "laranja",
+      "preco": 7800,
+      "lugar": "MB SHOP (Larissa)"
+    },
+    {
+      "produto": "17 air 256gb",
+      "cor": "dourado",
+      "preco": 4850,
+      "lugar": "MB SHOP (Larissa)"
+    },
+    {
+      "produto": "17 air 256gb",
+      "cor": "preto",
+      "preco": 4850,
+      "lugar": "MB SHOP (Larissa)"
+    },
+    {
+      "produto": "17 air 256gb",
+      "cor": "branco",
+      "preco": 4850,
+      "lugar": "MB SHOP (Larissa)"
+    },
+    {
+      "produto": "17 256gb",
+      "cor": "azul",
+      "preco": 4950,
+      "lugar": "MB SHOP (Larissa)"
+    },
+    {
+      "produto": "17 256gb",
+      "cor": "verde",
+      "preco": 4950,
+      "lugar": "MB SHOP (Larissa)"
+    },
+    {
+      "produto": "17 256gb",
+      "cor": "roxo",
+      "preco": 4950,
+      "lugar": "MB SHOP (Larissa)"
+    },
+    {
+      "produto": "17e 256gb",
+      "cor": "branco",
+      "preco": 3450,
+      "lugar": "MB SHOP (Larissa)"
+    },
+    {
+      "produto": "17e 256gb",
+      "cor": "rosa",
+      "preco": 3450,
+      "lugar": "MB SHOP (Larissa)"
+    },
+    {
+      "produto": "16 128gb",
+      "cor": "azul",
+      "preco": 4090,
+      "lugar": "MB SHOP (Larissa)"
+    },
+    {
+      "produto": "16 128gb",
+      "cor": "preto",
+      "preco": 4850,
+      "lugar": "MB SHOP (Larissa)"
+    },
+    {
+      "produto": "16 128gb",
+      "cor": "verde",
+      "preco": 3900,
+      "lugar": "MB SHOP (Larissa)"
+    },
+    {
+      "produto": "16 128gb",
+      "cor": "branco",
+      "preco": 3850,
+      "lugar": "MB SHOP (Larissa)"
+    },
+    {
+      "produto": "18 pro max 2tb",
+      "cor": "bordô",
+      "preco": 18290,
+      "lugar": "Fire cell LN235"
+    },
+    {
+      "produto": "18 pro max 1tb",
+      "cor": "azul",
+      "preco": 12200,
+      "lugar": "Fire cell LN235"
+    },
+    {
+      "produto": "18 pro max 512gb",
+      "cor": "preto",
+      "preco": 9950,
+      "lugar": "Fire cell LN235"
+    },
+    {
+      "produto": "18 pro max 256gb",
+      "cor": "bordô",
+      "preco": 8950,
+      "lugar": "Fire cell LN235"
+    },
+    {
+      "produto": "18 pro max 256gb",
+      "cor": "azul",
+      "preco": 9050,
+      "lugar": "Fire cell LN235"
+    },
+    {
+      "produto": "18 pro max 256gb",
+      "cor": "preto",
+      "preco": 8650,
+      "lugar": "Fire cell LN235"
+    },
+    {
+      "produto": "18 pro max 256gb",
+      "cor": "prata",
+      "preco": 8650,
+      "lugar": "Fire cell LN235"
+    },
+    {
+      "produto": "18 pro 512gb",
+      "cor": "bordô",
+      "preco": 8350,
+      "lugar": "Fire cell LN235"
+    },
+    {
+      "produto": "18 pro 512gb",
+      "cor": "azul",
+      "preco": 9200,
+      "lugar": "Fire cell LN235"
+    },
+    {
+      "produto": "18 pro 512gb",
+      "cor": "preto",
+      "preco": 9200,
+      "lugar": "Fire cell LN235"
+    },
+    {
+      "produto": "18 pro 512gb",
+      "cor": "prata",
+      "preco": 9200,
+      "lugar": "Fire cell LN235"
+    },
+    {
+      "produto": "18 pro 256gb",
+      "cor": "bordô",
+      "preco": 7350,
+      "lugar": "Fire cell LN235"
+    },
+    {
+      "produto": "18 pro 256gb",
+      "cor": "prata",
+      "preco": 7350,
+      "lugar": "Fire cell LN235"
+    },
+    {
+      "produto": "17 pro max 2tb",
+      "cor": "laranja",
+      "preco": 11400,
+      "lugar": "Fire cell LN235"
+    },
+    {
+      "produto": "17 pro max 512gb",
+      "cor": "laranja",
+      "preco": 8450,
+      "lugar": "Fire cell LN235"
+    },
+    {
+      "produto": "17 pro max 512gb",
+      "cor": "azul",
+      "preco": 8450,
+      "lugar": "Fire cell LN235"
+    },
+    {
+      "produto": "17 pro max 512gb",
+      "cor": "branco",
+      "preco": 8550,
+      "lugar": "Fire cell LN235"
+    },
+    {
+      "produto": "17 pro max 256gb",
+      "cor": "laranja",
+      "preco": 6650,
+      "lugar": "Fire cell LN235"
+    },
+    {
+      "produto": "17 pro max 256gb",
+      "cor": "azul",
+      "preco": 6650,
+      "lugar": "Fire cell LN235"
+    },
+    {
+      "produto": "17 pro max 256gb",
+      "cor": "branco",
+      "preco": 6800,
+      "lugar": "Fire cell LN235"
+    },
+    {
+      "produto": "17 pro 256gb",
+      "cor": "branco",
+      "preco": 6480,
+      "lugar": "Fire cell LN235"
+    },
+    {
+      "produto": "17 pro 256gb",
+      "cor": "laranja",
+      "preco": 6290,
+      "lugar": "Fire cell LN235"
+    },
+    {
+      "produto": "17 air 256gb",
+      "cor": "azul",
+      "preco": 4880,
+      "lugar": "Fire cell LN235"
+    },
+    {
+      "produto": "17 air 256gb",
+      "cor": "preto",
+      "preco": 4880,
+      "lugar": "Fire cell LN235"
+    },
+    {
+      "produto": "17e 256gb",
+      "cor": "rosa",
+      "preco": 3550,
+      "lugar": "Fire cell LN235"
+    },
+    {
+      "produto": "17 256gb",
+      "cor": "verde",
+      "preco": 4950,
+      "lugar": "Fire cell LN235"
+    },
+    {
+      "produto": "17 256gb",
+      "cor": "azul",
+      "preco": 5050,
+      "lugar": "Fire cell LN235"
+    },
+    {
+      "produto": "17 256gb",
+      "cor": "preto",
+      "preco": 5250,
+      "lugar": "Fire cell LN235"
+    },
+    {
+      "produto": "17 256gb",
+      "cor": "branco",
+      "preco": 5170,
+      "lugar": "Fire cell LN235"
+    },
+    {
+      "produto": "17 256gb",
+      "cor": "roxo",
+      "preco": 5170,
+      "lugar": "Fire cell LN235"
+    },
+    {
+      "produto": "16 128gb",
+      "cor": "azul",
+      "preco": 4120,
+      "lugar": "Fire cell LN235"
+    },
+    {
+      "produto": "16 128gb",
+      "cor": "verde",
+      "preco": 3950,
+      "lugar": "Fire cell LN235"
+    },
+    {
+      "produto": "16 128gb",
+      "cor": "preto",
+      "preco": 4150,
+      "lugar": "Fire cell LN235"
+    },
+    {
+      "produto": "16 128gb",
+      "cor": "branco",
+      "preco": 4150,
+      "lugar": "Fire cell LN235"
+    }
+  ]
+}

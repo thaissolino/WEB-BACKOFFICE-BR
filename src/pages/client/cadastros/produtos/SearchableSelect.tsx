@@ -8,22 +8,26 @@ export default function SearchableSelect({
   options,
   emptyLabel = "<< Selecione >>",
   labelledBy,
+  disabled,
+  hideEmpty = false,
 }: {
   value: string;
   onChange: (next: string) => void;
   options: string[];
   emptyLabel?: string;
   labelledBy?: string;
+  disabled?: boolean;
+  hideEmpty?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const wrapRef = useRef<HTMLDivElement>(null);
   const items = useMemo(() => {
     const q = query.trim().toLowerCase();
-    const list = [emptyLabel, ...options.filter((item) => item !== emptyLabel)];
+    const list = hideEmpty ? options : [emptyLabel, ...options.filter((item) => item !== emptyLabel)];
     if (!q) return list;
     return list.filter((item) => item.toLowerCase().includes(q));
-  }, [emptyLabel, options, query]);
+  }, [emptyLabel, hideEmpty, options, query]);
 
   useDismissable(open, () => setOpen(false), wrapRef);
 
@@ -37,7 +41,9 @@ export default function SearchableSelect({
         aria-labelledby={labelledBy}
         aria-haspopup="listbox"
         aria-expanded={open}
+        disabled={disabled}
         onClick={() => {
+          if (disabled) return
           setOpen((current) => !current);
           setQuery("");
         }}
@@ -60,7 +66,7 @@ export default function SearchableSelect({
                     aria-selected={item === value}
                     data-active={active ? "true" : undefined}
                     onClick={() => {
-                      onChange(item === emptyLabel ? "" : item);
+                      onChange(!hideEmpty && item === emptyLabel ? "" : item);
                       setOpen(false);
                     }}
                   >

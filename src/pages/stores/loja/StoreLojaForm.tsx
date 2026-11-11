@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react"
 import { useNavigate, useSearchParams } from "react-router-dom"
 import { api, parseError } from "../../../services/api"
+import { avisarSalvo } from "../../client/avisoSalvo"
 import TabConfiguracoes from "./TabConfiguracoes"
 import TabDados from "./TabDados"
 import TabFiscal from "./TabFiscal"
 import TabIntegracoes from "./TabIntegracoes"
-import TabLogs from "./TabLogs"
 import {
   hydrateConfiguracoes,
   hydrateDados,
@@ -17,7 +17,6 @@ import {
   parseLojaTab,
   storeLabel,
   type LojaTabId,
-  type StoreChangeLogRow,
   type StoreConfiguracoes,
   type StoreDados,
   type StoreFiscal,
@@ -52,7 +51,6 @@ export default function StoreLojaForm({
   const [configuracoes, setConfiguracoes] = useState<StoreConfiguracoes>(() => hydrateConfiguracoes({}))
   const [fiscal, setFiscal] = useState<StoreFiscal>(() => hydrateFiscal({}, ""))
   const [integracoes, setIntegracoes] = useState<StoreIntegracoes>(() => hydrateIntegracoes({}, ""))
-  const [logs, setLogs] = useState<StoreChangeLogRow[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [notice, setNotice] = useState("")
@@ -71,15 +69,6 @@ export default function StoreLojaForm({
     setParams(copy, { replace: true })
   }
 
-  async function loadLogs(id = storeId) {
-    try {
-      const { data } = await api.get(`${apiBase}/${id}/loja/logs`)
-      setLogs(data.logs || [])
-    } catch {
-      setLogs([])
-    }
-  }
-
   async function load(id = storeId) {
     setLoading(true)
     setError("")
@@ -91,7 +80,6 @@ export default function StoreLojaForm({
       setConfiguracoes(hydrateConfiguracoes(store.configuracoes))
       setFiscal(hydrateFiscal(store.fiscal, store.name))
       setIntegracoes(hydrateIntegracoes(store.integracoes, store.name, store.document))
-      await loadLogs(id)
     } catch (err) {
       const parsed = parseError(err)
       setError(parsed.friend || parsed.message || "Não foi possível carregar a loja.")
@@ -126,7 +114,6 @@ export default function StoreLojaForm({
       if (section === "integracoes") {
         setIntegracoes(hydrateIntegracoes(store.integracoes, store.name, store.document))
       }
-      await loadLogs()
       const messages: Record<SaveSection, string> = {
         dados: "Dados salvos.",
         configuracoes: "Configurações salvas.",
@@ -134,6 +121,13 @@ export default function StoreLojaForm({
         integracoes: "Integrações salvas.",
       }
       setNotice(messages[section])
+      avisarSalvo(messages[section])
+      if (section === "dados") {
+        const fantasia = String(dados.geral.fantasia || "").trim()
+        if (fantasia) {
+          window.dispatchEvent(new CustomEvent("pdv-store-name", { detail: { id: storeId, name: fantasia } }))
+        }
+      }
     } catch (err) {
       const parsed = parseError(err)
       setError(parsed.friend || parsed.message || "Não foi possível salvar.")
@@ -155,10 +149,11 @@ export default function StoreLojaForm({
 
   return (
     <div className="loja-page" lang="pt-BR">
+      <div className="loja-sheet">
       <div className="loja-top">
         <h1>LOJA</h1>
         <div className="loja-top-actions">
-          {selectorStores.length > 0 ? (
+          {onStoreChange && selectorStores.length > 0 ? (
             <label>
               <span className="loja-sr">Loja</span>
               <select
@@ -196,17 +191,8 @@ export default function StoreLojaForm({
         ))}
       </div>
 
-      {loading ? <p>Carregando...</p> : null}
-      {error ? (
-        <p className="loja-status" data-tone="err" role="alert">
-          {error}
-        </p>
-      ) : null}
-      {notice ? (
-        <p className="loja-status" data-tone="ok" role="status">
-          {notice}
-        </p>
-      ) : null}
+      <div className="loja-scroll">
+      {loading ? <p>Carregando a loja...</p> : null}
 
       {!loading && tab === "dados" ? <TabDados value={dados} onChange={setDados} /> : null}
       {!loading && tab === "configuracoes" ? (
@@ -227,26 +213,34 @@ export default function StoreLojaForm({
           }
         />
       ) : null}
-      {!loading && tab === "logs" ? <TabLogs logs={logs} /> : null}
+      </div>
 
-      {saveLabel ? (
+      {saveLabel && !loading ? (
         <div className="loja-save">
           <button
             className="loja-btn loja-btn-green"
             type="button"
-            disabled={saving || loading}
+            disabled={saving}
             onClick={() => save(tab as SaveSection)}
           >
-            {saving ? "Salvando..." : `✓ ${saveLabel}`}
+            {saving ? "Salvando..." : saveLabel}
           </button>
+          <button className="loja-btn" type="button" onClick={() => navigate(backTo || "/lojas")}>
+            Voltar
+          </button>
+          {error ? (
+            <p className="loja-status" data-tone="err" role="alert">
+              {error}
+            </p>
+          ) : null}
+          {notice ? (
+            <p className="loja-status" data-tone="ok" role="status">
+              {notice}
+            </p>
+          ) : null}
         </div>
       ) : null}
-
-      <p className="loja-help" style={{ textAlign: "center" }}>
-        <button className="loja-btn" type="button" onClick={() => navigate(backTo || "/lojas")}>
-          Voltar
-        </button>
-      </p>
+      </div>
     </div>
   )
 }

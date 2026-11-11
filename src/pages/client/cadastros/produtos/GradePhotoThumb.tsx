@@ -2,42 +2,70 @@ import { useEffect, useState } from "react";
 import { api } from "../../../../services/api";
 
 const cache = new Map<string, string>();
+const pending = new Set<string>();
+const listeners = new Set<() => void>();
+let flushTimer = 0;
 
-function useProductPhoto(productId: string, photoFileId: string | null, node: HTMLElement | null) {
-  const [src, setSrc] = useState(() => cache.get(productId) || "");
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Endereço direto da foto, para a imagem já estar no lugar quando a lista abre. */
+export function urlFotoProduto(productId?: string | null, photoFileId?: string | null) {
+  if (!productId || !photoFileId || !UUID.test(productId)) return "";
+  const base = String(process.env.REACT_APP_API_URL || "").replace(/\/$/, "");
+  if (!base) return "";
+  return `${base}/public/produto-foto/${productId}?v=${encodeURIComponent(photoFileId)}`;
+}
+
+function notify() {
+  listeners.forEach((listener) => listener());
+}
+
+function flushPhotoUrls() {
+  flushTimer = 0;
+  const fileIds = [...pending];
+  pending.clear();
+  if (!fileIds.length) return;
+  const lotes: string[][] = [];
+  for (let i = 0; i < fileIds.length; i += 80) lotes.push(fileIds.slice(i, i + 80));
+  Promise.all(
+    lotes.map((lote) =>
+      api
+        .post("/clients/products/photo-urls", { fileIds: lote })
+        .then(({ data }) => {
+          const urls = (data?.urls || {}) as Record<string, string>;
+          for (const fileId of lote) {
+            if (urls[fileId]) cache.set(fileId, urls[fileId]);
+          }
+        })
+        .catch(() => undefined),
+    ),
+  ).finally(notify);
+}
+
+export function useProductPhotoUrl(photoFileId?: string | null) {
+  const fileId = photoFileId || "";
+  const [, bump] = useState(0);
 
   useEffect(() => {
-    if (!photoFileId || cache.has(productId)) {
-      if (cache.has(productId)) setSrc(cache.get(productId) || "");
-      return;
-    }
-    if (!node) return;
-
-    let cancelled = false;
-    const io = new IntersectionObserver(
-      (entries) => {
-        if (!entries.some((entry) => entry.isIntersecting)) return;
-        io.disconnect();
-        api
-          .get(`/clients/products/${productId}/photo`, { responseType: "blob" })
-          .then(({ data }) => {
-            if (cancelled || !(data instanceof Blob) || data.size === 0) return;
-            const url = URL.createObjectURL(data);
-            cache.set(productId, url);
-            setSrc(url);
-          })
-          .catch(() => {});
-      },
-      { rootMargin: "120px" },
-    );
-    io.observe(node);
+    const listener = () => bump((value) => value + 1);
+    listeners.add(listener);
     return () => {
-      cancelled = true;
-      io.disconnect();
+      listeners.delete(listener);
     };
-  }, [photoFileId, productId, node]);
+  }, []);
 
-  return src;
+  useEffect(() => {
+    if (!fileId || cache.has(fileId)) return;
+    pending.add(fileId);
+    if (!flushTimer) flushTimer = window.setTimeout(flushPhotoUrls, 30);
+  }, [fileId]);
+
+  return fileId ? cache.get(fileId) || "" : "";
+}
+
+export function cachedProductPhoto(productId: string, photoFileId?: string | null) {
+  if (photoFileId && cache.has(photoFileId)) return cache.get(photoFileId) || "";
+  return cache.get(productId) || "";
 }
 
 export function ProductPhoto({
@@ -49,11 +77,12 @@ export function ProductPhoto({
   photoFileId: string | null;
   name: string;
 }) {
-  const [node, setNode] = useState<HTMLSpanElement | null>(null);
-  const src = useProductPhoto(productId, photoFileId, node);
+  const direta = urlFotoProduto(productId, photoFileId);
+  const assinada = useProductPhotoUrl(direta ? null : photoFileId);
+  const src = direta || assinada;
 
   return (
-    <span className="loja-photo" ref={setNode}>
+    <span className="loja-photo">
       {src ? <img src={src} alt={name} /> : <span className="loja-photo-empty" aria-hidden="true" />}
     </span>
   );
@@ -70,14 +99,14 @@ export default function GradePhotoThumb({
   name: string;
   onOpen: () => void;
 }) {
-  const [node, setNode] = useState<HTMLButtonElement | null>(null);
-  const src = useProductPhoto(productId, photoFileId, node);
+  const direta = urlFotoProduto(productId, photoFileId);
+  const assinada = useProductPhotoUrl(direta ? null : photoFileId);
+  const src = direta || assinada;
 
   if (!photoFileId) return <span className="pdv-prod-grade-nophoto">&nbsp;</span>;
 
   return (
     <button
-      ref={setNode}
       className="pdv-prod-grade-photo"
       type="button"
       onClick={(event) => {
@@ -86,7 +115,7 @@ export default function GradePhotoThumb({
       }}
       aria-label={`Foto ${name}`}
     >
-      {src ? <img src={src} alt="" width={64} height={48} /> : <span className="pdv-prod-grade-ph" />}
+      {src ? <img src={src} alt="" /> : <span className="pdv-prod-grade-ph" />}
     </button>
   );
 }

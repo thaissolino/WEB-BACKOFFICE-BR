@@ -1,6 +1,7 @@
 import { TabType } from "../InvocesManagement";
 import { FileText, Boxes, Truck, DollarSign, ChartBar, Users, Package, ShoppingCart, AlertTriangle, Search } from "lucide-react";
 import { usePermissionStore } from "../../../store/permissionsStore";
+import { ABA_GESTAO, podeGestao } from "../../../store/acessoGestao";
 
 interface TabsProps {
   activeTab: TabType;
@@ -33,6 +34,12 @@ const allTabs = [
     permissionKey: "CAIXAS_BR_PERMITIDOS",
   },
   {
+    id: "melhores-precos",
+    icon: <DollarSign className="mr-2" size={16} />,
+    label: "Melhores preços",
+    permissionKey: null,
+  },
+  {
     id: "shopping-lists",
     icon: <ShoppingCart className="mr-2" size={16} />,
     label: "Listas de Compras",
@@ -41,14 +48,14 @@ const allTabs = [
   {
     id: "lost-products",
     icon: <AlertTriangle className="mr-2" size={16} />,
-    label: "Produtos Perdidos",
-    permissionKey: "RELATORIOS",
+    label: "Perdidos",
+    permissionKey: null,
   },
   {
     id: "imei-search",
     icon: <Search className="mr-2" size={16} />,
     label: "Buscar IMEI",
-    permissionKey: null, // Visível para todos
+    permissionKey: null,
   },
   // {
   //   id: "afi-imei",
@@ -84,7 +91,15 @@ export function Tabs({ activeTab, setActiveTab, allowed }: TabsProps) {
   return (
     <div className="mb-6 flex flex-wrap gap-2">
       {allTabs
-        .filter((tab) => (!allowed || allowed.includes(tab.id)) && canShowTab(tab.permissionKey))
+        .filter((tab) => {
+          if (allowed && !allowed.includes(tab.id)) return false;
+          if (tab.permissionKey === null) {
+            if (user?.role === "MASTER") return true;
+            const chave = ABA_GESTAO[tab.id];
+            return chave ? podeGestao(permissions?.GERENCIAR_INVOICES, chave) : true;
+          }
+          return canShowTab(tab.permissionKey);
+        })
         .map((tab) => (
           <button
             key={tab.id}

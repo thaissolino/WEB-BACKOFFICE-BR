@@ -1,6 +1,7 @@
 import { Navigate, Outlet, Route, Routes, useLocation } from "react-router-dom";
 import { Layout as BackofficeLayout } from "../pages/backoffice/Layout/base";
 import { SignIn as BackofficeSignIn } from "../pages/backoffice/SignIn";
+import { BackofficeForgotPassword } from "../pages/backoffice/SignIn/ForgotPassword";
 import { SessionExpiredBackoffice } from "../pages/backoffice/SessionExpiredBackoffice";
 import { useAuthBackoffice } from "../hooks/authBackoffice";
 import { Logout } from "../pages/backoffice/Logout";
@@ -17,11 +18,13 @@ import { CambioPage } from "../pages/cambiobackoffice/CambioPage";
 import InvocesManagement from "../pages/gestao-invoices/InvocesManagement";
 import TokensManagement from "../pages/tokens-management/TokensManagement";
 import OperatorsManagement from "../pages/form-operators/OperatorsManagement";
+import TrocarSenhaOperador from "../pages/backoffice/TrocarSenhaOperador";
 import OperatorManager2 from "../pages/form-operators-two/OperatorsManagement2";
 import OperatorManager from "../pages/form-operators/OperatorsManagement";
 import OperatorsManagementPerfilEdit from "../pages/form-operators-perfil-edit/OperatorsManagementPerfilEdit";
 import AdmManagementPerfilEdit from "../pages/form-adm-perfil-edit/AdmManagementPerfilEdit";
 import { useClientAuth } from "../hooks/clientAuth";
+import PdvShell from "../pages/client/dashboard/PdvShell";
 // import { GestorVixHome } from "../pages/home/GestorVixHome"; // /home desativado
 import ClientLogin from "../pages/client/Login";
 import ClientSso from "../pages/client/ClientSso";
@@ -33,7 +36,7 @@ import ClientPdv from "../pages/client/Pdv";
 import LojistaPedidos from "../pages/client/vendas/LojistaPedidos";
 import ClientLoja from "../pages/client/Loja";
 import ClientesList from "../pages/client/cadastros/clientes/ClientesList";
-import ChecarCliente from "../pages/client/cadastros/clientes/ChecarCliente";
+import ClienteForm from "../pages/client/cadastros/clientes/ClienteForm";
 import CadastrarFormStub from "../pages/client/cadastros/clientes/CadastrarFormStub";
 import ClassificacaoClientes from "../pages/client/cadastros/clientes/ClassificacaoClientes";
 import CarteiraClientes from "../pages/client/cadastros/clientes/CarteiraClientes";
@@ -60,6 +63,8 @@ import {
 } from "../pages/client/cadastros/produtos/ProdutosExtras";
 import PdvConfig from "../pages/backoffice/PdvConfig";
 import { PdvModuleRoutes } from "../pages/client/PdvModuleRoutes";
+import { aquecerCompras } from "../pages/client/movimentacoes/LojaCompras";
+import { BuscarImei, BuscarImeiVenda } from "../pages/client/movimentacoes/BuscarImei";
 import CreateStore from "../pages/stores/CreateStore";
 import StoresList from "../pages/stores/StoresList";
 import StoreDetail from "../pages/stores/StoreDetail";
@@ -70,10 +75,34 @@ import GestorCadastroProdutos from "../pages/stores/GestorCadastroProdutos";
 import GestorCadastroFornecedores from "../pages/gestor/GestorCadastroFornecedores";
 import GestorCadastroFreteiros from "../pages/gestor/GestorCadastroFreteiros";
 import GestorCadastroLojistas from "../pages/gestor/GestorCadastroLojistas";
+import TabelasPreco from "../pages/gestor/TabelasPreco";
 import GestorCadastroPlanos from "../pages/gestor/GestorCadastroPlanos";
 import GestorEstoqueAtacado from "../pages/gestor/GestorEstoqueAtacado";
 import GestorVendasConcluidas from "../pages/gestor/GestorVendasConcluidas";
 import GestorEtiquetasEntrada from "../pages/gestor/GestorEtiquetasEntrada";
+import DreGerencial from "../pages/gestor/DreGerencial";
+import ItensVendas from "../pages/gestor/ItensVendas";
+import BuscarImeiGestao from "../pages/gestor/BuscarImei";
+import { AuditoriaEstoque, RelatorioEstoque } from "../pages/client/relatorios/RelatorioScreen";
+import FormaPagamentoForm from "../pages/client/cadastros/financeiro/FormaPagamentoForm";
+import CaixaPage, { PlanoContaForm } from "../pages/client/cadastros/financeiro/CaixaPage";
+import { PayList, PlanList } from "../pages/client/cadastros/catalogLists";
+import {
+  BoletosPage,
+  CadastrarDespesa,
+  ContasPagar,
+  ContasReceber,
+  FluxoCaixa,
+  ListarDespesas,
+  PainelEntregas,
+  PreVendas,
+  PrevisaoFluxo,
+  RelatorioCaixaClientes,
+  VendasAbertas,
+  VendasConcluidas,
+  VendasEstornadas,
+  VendasTodas,
+} from "../pages/client/movimentacoes/MovPages";
 import TrocarSenhaCliente from "../pages/client/TrocarSenha";
 import CreateCommercialClient from "../pages/commercial-clients/CreateCommercialClient";
 import CommercialClientsList from "../pages/commercial-clients/CommercialClientsList";
@@ -82,11 +111,17 @@ const BACKOFFICE_ROUTE = "/backoffice";
 const LOGIN_ROUTE = "/signin/backoffice";
 
 function RequireAuthBackoffice({ children }: { children: JSX.Element }) {
+  const { user } = useAuthBackoffice();
+  const location = useLocation();
   useEffect(() => {
     if (!sessionStorage.getItem("registerbackoffice")) {
       sessionStorage.setItem("registerbackoffice", "2");
     }
   }, []);
+
+  if (user?.mustChangePassword && location.pathname !== "/backoffice/trocar-senha") {
+    return <Navigate to="/backoffice/trocar-senha" replace />;
+  }
 
   return children;
 }
@@ -94,12 +129,22 @@ function RequireAuthBackoffice({ children }: { children: JSX.Element }) {
 function ClientArea() {
   const { isClientAuthenticated, client, loadingClient } = useClientAuth();
   const location = useLocation();
+  useEffect(() => {
+    if (isClientAuthenticated) aquecerCompras()
+  }, [isClientAuthenticated])
   if (loadingClient) return null;
   if (!isClientAuthenticated) return <Navigate to="/signin/lojista" replace />;
   if (client?.mustChangePassword && location.pathname !== "/client/trocar-senha") {
     return <Navigate to="/client/trocar-senha" replace />;
   }
-  return <Outlet />;
+  if (location.pathname === "/client/trocar-senha") return <Outlet />;
+  const menuAt = (location.state as { menuAt?: number } | null)?.menuAt ?? 0;
+  const variant = location.pathname === "/client/dashboard" ? "board" : "form";
+  return (
+    <PdvShell variant={variant}>
+      <Outlet key={menuAt} />
+    </PdvShell>
+  );
 }
 
 function LojistaAlias() {
@@ -155,17 +200,19 @@ export function Router() {
         <Route path="client/loja" element={<ClientLoja />} />
         <Route path="client/clientes" element={<ClientesList />} />
         <Route path="client/clientes/inativos" element={<ClientesList inactive />} />
-        <Route path="client/clientes/cadastrar" element={<ChecarCliente />} />
-        <Route path="client/clientes/cadastrar/form" element={<CadastrarFormStub />} />
+        <Route path="client/clientes/cadastrar" element={<ClienteForm criar />} />
+        <Route path="client/clientes/cadastrar/form" element={<ClienteForm criar />} />
         <Route path="client/atividades" element={<RelatorioAtividades />} />
         <Route path="client/clientes/atividade" element={<RelatorioAtividades />} />
         <Route path="client/clientes/classificacao" element={<ClassificacaoClientes />} />
         <Route path="client/clientes/carteira/:code" element={<CadastrarFormStub />} />
         <Route path="client/clientes/carteira" element={<CarteiraClientes />} />
+        <Route path="client/clientes/:code/atualizar" element={<ClienteForm />} />
         <Route path="client/clientes/:id/:action" element={<CadastrarFormStub />} />
         <Route path="client/fornecedores" element={<FornecedoresList />} />
         <Route path="client/fornecedores/inativos" element={<FornecedoresList inactive />} />
         <Route path="client/fornecedores/cadastrar" element={<CadastrarFornecedor />} />
+        <Route path="client/fornecedores/:code/atualizar" element={<CadastrarFornecedor />} />
         <Route path="client/fornecedores/atividade" element={<RelatorioAtividades />} />
         <Route path="client/fornecedores/:id/compra" element={<CompraAcessorio />} />
         <Route path="client/fornecedores/:id/:action" element={<CadastrarFormStub entity="fornecedor" />} />
@@ -212,7 +259,10 @@ export function Router() {
         <Route path="client/produtos/lotes" element={<LotePage />} />
         <Route path="client/produtos/tray" element={<TrayDownloadPage />} />
         <Route path="client/produtos/etiquetas" element={<EditorEtiquetasPage />} />
+        <Route path="client/relatorios/imei" element={<BuscarImei escopo="tudo" />} />
+        <Route path="client/movimentacoes/vendas/imei" element={<BuscarImeiVenda />} />
         {PdvModuleRoutes()}
+        <Route path="client/*" element={<Navigate to="/client/dashboard" replace />} />
       </Route>
 
       <Route
@@ -224,6 +274,7 @@ export function Router() {
         }
       >
         <Route path="signin/backoffice" element={<BackofficeSignIn />} />
+        <Route path="signin/backoffice/recuperar" element={<BackofficeForgotPassword />} />
       </Route>
 
       <Route
@@ -242,6 +293,8 @@ export function Router() {
             </RequireAuthBackoffice>
           }
         >
+          <Route path="backoffice/trocar-senha" element={<TrocarSenhaOperador />} />
+          <Route path="backoffice/minha-senha" element={<TrocarSenhaOperador voluntaria />} />
           <Route path="backoffice" element={<Dashboard />} />
           <Route path="cadastro-lojistas" element={<GestorCadastroLojistas />} />
           <Route path="cadastro-planos" element={<GestorCadastroPlanos />} />
@@ -271,9 +324,46 @@ export function Router() {
           <Route path="create-form-room" element={<FormRoom />} />
           <Route path="create-form-user" element={<FormUser />} />
           <Route path="cambioPage" element={<CambioPage />} />
+          <Route path="gestao/cadastro/tabelas-preco" element={<TabelasPreco />} />
           <Route path="gestao/cadastro" element={<InvocesManagement area="cadastro" />} />
+          <Route path="gestao/cadastro/categorias/inativas" element={<ListarCategorias inactive />} />
+          <Route path="gestao/cadastro/categorias/cadastrar" element={<CadastrarCategoria />} />
+          <Route path="gestao/cadastro/categorias/reajuste" element={<ReajusteCategoria />} />
+          <Route path="gestao/cadastro/categorias" element={<ListarCategorias />} />
+          <Route path="gestao/cadastro/produtos/lotes" element={<LotePage />} />
+          <Route path="gestao/cadastro/financeiro/formas-pagamento/cadastrar" element={<FormaPagamentoForm />} />
+          <Route path="gestao/cadastro/financeiro/formas-pagamento/inativos" element={<PayList inactive />} />
+          <Route path="gestao/cadastro/financeiro/formas-pagamento" element={<PayList />} />
+          <Route path="gestao/cadastro/financeiro/plano-conta/cadastrar" element={<PlanoContaForm />} />
+          <Route path="gestao/cadastro/financeiro/plano-conta/inativos" element={<PlanList inactive />} />
+          <Route path="gestao/cadastro/financeiro/plano-conta" element={<PlanList />} />
+          <Route path="gestao/cadastro/financeiro/caixa" element={<CaixaPage />} />
           <Route path="gestao/compras" element={<InvocesManagement area="compras" />} />
+          <Route path="gestao/movimentacoes/vendas/pre" element={<PreVendas />} />
+          <Route path="gestao/movimentacoes/vendas/entregas" element={<PainelEntregas />} />
+          <Route path="gestao/movimentacoes/vendas/todas" element={<VendasTodas />} />
+          <Route path="gestao/movimentacoes/vendas/abertas" element={<VendasAbertas />} />
+          <Route path="gestao/movimentacoes/vendas/concluidas" element={<VendasConcluidas />} />
+          <Route path="gestao/movimentacoes/vendas/estornadas" element={<VendasEstornadas />} />
+          <Route path="gestao/movimentacoes/financeiro/receber" element={<ContasReceber />} />
+          <Route path="gestao/movimentacoes/financeiro/pagar" element={<ContasPagar />} />
+          <Route path="gestao/movimentacoes/financeiro/fluxo" element={<FluxoCaixa />} />
+          <Route path="gestao/movimentacoes/financeiro/previsao" element={<PrevisaoFluxo />} />
+          <Route path="gestao/movimentacoes/financeiro/despesas/cadastrar" element={<CadastrarDespesa />} />
+          <Route path="gestao/movimentacoes/financeiro/receitas/cadastrar" element={<CadastrarDespesa receita />} />
+          <Route path="gestao/movimentacoes/financeiro/despesas" element={<ListarDespesas />} />
+          <Route path="gestao/movimentacoes/financeiro/caixa-clientes" element={<RelatorioCaixaClientes />} />
+          <Route path="gestao/movimentacoes/financeiro/boletos/recorrentes" element={<BoletosPage title="BOLETOS RECORRENTES" />} />
+          <Route path="gestao/movimentacoes/financeiro/boletos/contas" element={<BoletosPage title="CONTAS BANCÁRIAS" />} />
+          <Route path="gestao/movimentacoes/financeiro/boletos/gerenciar" element={<BoletosPage title="GERENCIAR BOLETOS" />} />
+          <Route path="gestao/movimentacoes/financeiro/boletos/arquivos" element={<BoletosPage title="GERENCIAR ARQUIVOS" />} />
           <Route path="gestao/caixas" element={<InvocesManagement area="caixas" />} />
+          <Route path="gestao/relatorios" element={<BuscarImeiGestao />} />
+          <Route path="gestao/relatorios/imei" element={<BuscarImeiGestao />} />
+          <Route path="gestao/relatorios/dre" element={<DreGerencial />} />
+          <Route path="gestao/relatorios/itens-vendas" element={<ItensVendas />} />
+          <Route path="gestao/relatorios/auditoria/estoque" element={<AuditoriaEstoque />} />
+          <Route path="gestao/relatorios/estoque" element={<RelatorioEstoque />} />
           <Route path="invoices-management" element={<InvocesManagement area="compras" />} />
           <Route path="vendas-concluidas" element={<GestorVendasConcluidas />} />
           <Route path="etiquetas-entrada" element={<GestorEtiquetasEntrada />} />

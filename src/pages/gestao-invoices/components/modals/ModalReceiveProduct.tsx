@@ -1,5 +1,5 @@
 // components/modals/ModalReceiveProduct.tsx
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import ReactDOM from "react-dom";
 import { X, Loader2 } from "lucide-react";
 
@@ -39,6 +39,16 @@ export const ModalReceiveProduct: React.FC<ModalReceiveProductProps> = ({
   const [receivedQuantity, setReceivedQuantity] = useState<number | "">("");
   const [isLoading, setIsLoading] = useState(false);
 
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== "Escape" || isLoading) return;
+      event.preventDefault();
+      onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose, isLoading]);
+
   const maxAvailable = product.quantityAnalizer;
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -64,7 +74,12 @@ export const ModalReceiveProduct: React.FC<ModalReceiveProductProps> = ({
   };
 
   return ReactDOM.createPortal(
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+    <div
+      className="fixed inset-0 bg-black/40 flex items-center justify-center z-50"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) event.preventDefault();
+      }}
+    >
       <div className="bg-white p-6 rounded-2xl w-full max-w-md shadow-xl border border-gray-200">
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-lg font-bold text-gray-800">Receber Produto</h3>

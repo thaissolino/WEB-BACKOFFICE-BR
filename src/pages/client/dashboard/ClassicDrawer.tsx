@@ -1,6 +1,7 @@
 import { useEffect, useState, type MouseEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { ChevronRight, Headphones, Landmark, Settings, ShoppingCart, Star, X } from "lucide-react";
+import { bloqueioDaRota } from "../cadastros/usuarios/acessoEvento";
 import { PDV_MENUS, hasKnownChildren, openMenuHref, type PdvMenuItem, type PdvMenuRoot } from "./menuData";
 import { filterMenuItems, isNavVisible, type PdvNavId, type PdvUiConfig } from "./pdvUiConfig";
 
@@ -58,8 +59,10 @@ function DrawerItems({
             <button
               className="pdvd-item"
               type="button"
+              title={item.href ? bloqueioDaRota(item.href) || undefined : undefined}
+              data-locked={item.href && bloqueioDaRota(item.href) ? "true" : undefined}
               onClick={() => {
-                if (item.href) onNavigate(item.href);
+                if (item.href && !bloqueioDaRota(item.href)) onNavigate(item.href);
               }}
             >
               <span className="pdvd-item-label">

@@ -10,6 +10,10 @@ export type StoreCustomer = {
   city: string;
   state: string;
   cep: string;
+  address: string;
+  number: string;
+  neighborhood: string;
+  complement: string;
   document: string;
   financialCode: string;
   active: boolean;

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import "../gestor/gestao-pages.css";
 import { InvoicesTab } from "./components/sections/InvoicesTab";
@@ -12,9 +12,11 @@ import { OtherPartnersTab } from "./components/sections/OtherPartners";
 import { Invoice } from "./components/types/invoice";
 import CaixasTabBrl from "./components/sections/CaixasBrl";
 import { ShoppingListsTab } from "./components/sections/ShoppingListsTab";
+import { MelhoresPrecos } from "./components/sections/MelhoresPrecos";
 import { LostProductsTab } from "./components/sections/LostProductsTab";
 import { ImeiSearchTab } from "./components/sections/ImeiSearchTab";
 import { usePermissionStore } from "../../store/permissionsStore";
+import { ABA_GESTAO, podeGestao } from "../../store/acessoGestao";
 import { api } from "../../services/api";
 import { ActionLoadingProvider } from "./context/ActionLoadingContext";
 import { DisableButtonsWrapper } from "./components/DisableButtonsWrapper";
@@ -29,6 +31,7 @@ export type TabType =
   | "caixas"
   | "others"
   | "caixas-brl"
+  | "melhores-precos"
   | "shopping-lists"
   | "lost-products"
   | "imei-search"
@@ -50,7 +53,7 @@ export type GestaoArea = "cadastro" | "compras" | "caixas";
 
 const AREA_TABS: Record<GestaoArea, TabType[]> = {
   cadastro: ["products", "suppliers", "carriers", "others"],
-  compras: ["invoices", "media-dolar", "relatorios", "shopping-lists", "imei-search", "lost-products"],
+  compras: ["invoices", "media-dolar", "relatorios", "melhores-precos", "shopping-lists", "lost-products", "imei-search"],
   caixas: ["caixas", "caixas-brl"],
 };
 
@@ -62,9 +65,10 @@ const SCREEN_TITLE: Partial<Record<TabType, string>> = {
   invoices: "Invoices",
   "media-dolar": "Média dólar",
   relatorios: "Relatórios",
-  "shopping-lists": "Lista de compras",
+  "melhores-precos": "Melhores preços",
+  "shopping-lists": "Listas de compras",
+  "lost-products": "Perdidos",
   "imei-search": "Buscar IMEI",
-  "lost-products": "Produtos perdidos",
   caixas: "Caixas",
   "caixas-brl": "Caixas BR",
 };
@@ -76,7 +80,7 @@ const AREA_COPY: Record<GestaoArea, { title: string; subtitle: string }> = {
   },
   compras: {
     title: "Compras",
-    subtitle: "Invoices, média dólar, relatórios, lista de compras e busca de IMEI",
+    subtitle: "Invoices, média dólar, relatórios, melhores preços, listas, perdidos e busca de IMEI",
   },
   caixas: {
     title: "Gestão de caixas",
@@ -112,6 +116,8 @@ export default function InvocesManagement({ area = "compras" }: { area?: GestaoA
   });
   const [draftInvoices, setDraftInvoices] = useState<Invoice[]>([defaultEmptyInvoice()]);
   const [activeDraftIndex, setActiveDraftIndex] = useState(0);
+  const activeDraftIndexRef = useRef(0);
+  activeDraftIndexRef.current = activeDraftIndex;
   const currentInvoice = draftInvoices[activeDraftIndex] ?? defaultEmptyInvoice();
   const setCurrentInvoice = (inv: Invoice | ((prev: Invoice) => Invoice)) => {
     setDraftInvoices((prev) => {
@@ -128,18 +134,48 @@ export default function InvocesManagement({ area = "compras" }: { area?: GestaoA
     setDraftInvoices((prev) => [...prev, ...invoices]);
     setActiveDraftIndex(firstNewIndex); // foca a primeira das novas
   };
-  const handleDraftSaved = () => {
+  const dropDraft = (number?: string) => {
+    const wanted = String(number || "").trim();
     setDraftInvoices((prev) => {
-      const next = prev.filter((_, i) => i !== activeDraftIndex);
-      if (next.length === 0) return [defaultEmptyInvoice()];
-      return next;
+      const removeAt = wanted
+        ? prev.findIndex((item) => String(item.number || "").trim() === wanted)
+        : activeDraftIndexRef.current;
+      if (removeAt < 0) return prev;
+      const next = prev.filter((_, index) => index !== removeAt);
+      return next.length ? next : [defaultEmptyInvoice()];
     });
-    setActiveDraftIndex((prev) => {
-      const newLen = draftInvoices.length - 1;
-      if (newLen <= 0) return 0;
-      return Math.min(prev, newLen - 1);
-    });
+    setActiveDraftIndex(0);
   };
+
+  const draftNumbers = draftInvoices.map((item) => String(item.number || "").trim()).join("|");
+  useEffect(() => {
+    const numbers = draftNumbers.split("|").filter((number) => number && !number.startsWith("INV-"));
+    if (!numbers.length) return;
+    let cancel = false;
+    void (async () => {
+      const saved: string[] = [];
+      await Promise.all(
+        numbers.map(async (number) => {
+          try {
+            const { data } = await api.get("/invoice/exists-by-number", { params: { number } });
+            if (data?.exists) saved.push(number);
+          } catch {
+            /* número ainda não conferido */
+          }
+        }),
+      );
+      if (cancel || !saved.length) return;
+      const savedSet = new Set(saved);
+      setDraftInvoices((prev) => {
+        const next = prev.filter((item) => !savedSet.has(String(item.number || "").trim()));
+        return next.length ? next : [defaultEmptyInvoice()];
+      });
+      setActiveDraftIndex(0);
+    })();
+    return () => {
+      cancel = true;
+    };
+  }, [draftNumbers]);
 
   /** Remove uma invoice específica das abas pelo índice */
   const handleRemoveDraftInvoice = (indexToRemove: number) => {
@@ -196,7 +232,11 @@ export default function InvocesManagement({ area = "compras" }: { area?: GestaoA
 
       for (const tab of allowed) {
         const permKey = Object.entries(permissionTabMap).find(([, value]) => value === tab)?.[0];
-        if (!permKey) return tab;
+        if (!permKey) {
+          const extra = ABA_GESTAO[tab];
+          if (!extra || user?.role === "MASTER" || podeGestao(perms, extra)) return tab;
+          continue;
+        }
         const value = perms[permKey as keyof typeof perms];
         if (Array.isArray(value) ? value.length > 0 : value === true) return tab;
       }
@@ -220,7 +260,7 @@ export default function InvocesManagement({ area = "compras" }: { area?: GestaoA
   return (
     <ActionLoadingProvider>
       <DisableButtonsWrapper>
-        <div className="gestao-page">
+        <div className={`gestao-page${activeTab === "relatorios" ? " gestao-relatorio-cream" : ""}`}>
           <div className="w-full px-2 py-4">
             <header className="mb-4">
               <h1 className="text-3xl font-bold text-blue-800">{SCREEN_TITLE[activeTab] || AREA_COPY[area].title}</h1>
@@ -236,7 +276,7 @@ export default function InvocesManagement({ area = "compras" }: { area?: GestaoA
                   activeDraftIndex={activeDraftIndex}
                   setActiveDraftIndex={setActiveDraftIndex}
                   onAddDraftInvoices={handleAddDraftInvoices}
-                  onDraftSaved={handleDraftSaved}
+                  onDraftSaved={dropDraft}
                   onRemoveDraftInvoice={handleRemoveDraftInvoice}
                 />
               )}
@@ -248,9 +288,14 @@ export default function InvocesManagement({ area = "compras" }: { area?: GestaoA
               {activeTab === "relatorios" && canShowTab("RELATORIOS") && <ReportsTab />}
               {activeTab === "caixas" && canShowTab("CAIXAS_PERMITIDOS") && <CaixasTab />}
               {activeTab === "caixas-brl" && canShowTab("CAIXAS_BR_PERMITIDOS") && <CaixasTabBrl />}
-              {activeTab === "shopping-lists" && <ShoppingListsTab />}
-              {activeTab === "lost-products" && canShowTab("RELATORIOS") && <LostProductsTab />}
-              {activeTab === "imei-search" && <ImeiSearchTab />}
+              {activeTab === "melhores-precos" && (user?.role === "MASTER" || podeGestao(permissions?.GERENCIAR_INVOICES, "MELHORES_PRECOS")) && (
+                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                  <MelhoresPrecos />
+                </div>
+              )}
+              {activeTab === "shopping-lists" && (user?.role === "MASTER" || podeGestao(permissions?.GERENCIAR_INVOICES, "LISTAS_COMPRAS")) && <ShoppingListsTab />}
+              {activeTab === "lost-products" && (user?.role === "MASTER" || podeGestao(permissions?.GERENCIAR_INVOICES, "PERDIDOS")) && <LostProductsTab />}
+              {activeTab === "imei-search" && (user?.role === "MASTER" || podeGestao(permissions?.GERENCIAR_INVOICES, "BUSCAR_IMEI")) && <ImeiSearchTab />}
             </div>
           </div>
         </div>

@@ -6,6 +6,7 @@ import { formatCurrency, formatDate, formatDateIn } from "./format";
 import ConfirmModal from "./ConfirmModal";
 import { api } from "../../../services/api";
 import Swal from "sweetalert2";
+import { DatePreset } from "../../client/cadastros/catalog/FormBits";
 import { useNotification } from "../../../hooks/notification";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -1109,12 +1110,15 @@ const ano = hoje.getFullYear();
                       {/* Input Data Inicial */}
                       <div className="flex flex-col">
                         <label className="text-xs font-medium text-gray-700 mb-1">Data Inicial</label>
-                        <input
-                          type="date"
-                          value={filterStartDate}
-                          onChange={(e) => setFilterStartDate(e.target.value)}
-                          className="w-24 h-6 border border-gray-300 rounded-md text-sm text-center leading-6 py-0 focus:outline-none focus:ring-2 focus:ring-blue-400"
-                        />
+                        <span className="pdv-date-field">
+                          <input
+                            type="date"
+                            value={filterStartDate}
+                            onChange={(e) => setFilterStartDate(e.target.value)}
+                            className="w-24 h-6 border border-gray-300 rounded-md text-sm text-center leading-6 py-0 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                          />
+                          <DatePreset onPick={(start, end) => { setFilterStartDate(start); setFilterEndDate(end); }} />
+                        </span>
                       </div>
 
                       <span className="text-sm font-medium">até</span>

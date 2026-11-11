@@ -74,6 +74,32 @@ export function payloadStr(item: CatalogItem, key: string) {
   return String(value)
 }
 
+export function clientIdDoLojista() {
+  try {
+    const raw = localStorage.getItem("@client:user")
+    return raw ? String(JSON.parse(raw).id || "") : ""
+  } catch {
+    return ""
+  }
+}
+
+/** Gasto do painel. Não entra na loja. */
+export function lancamentoDoPainel(item: CatalogItem) {
+  const origem = String(item.payload.origem || "")
+  const loja = String(item.payload.storeId || "")
+  return origem === "backoffice" || loja === "geral"
+}
+
+/** Despesa ou receita desta loja. O lançamento do painel fica só no backoffice. */
+export function lancamentoDaLoja(item: CatalogItem, clientId = clientIdDoLojista(), storeId = "") {
+  if (lancamentoDoPainel(item)) return false
+  const dono = String(item.payload.clientId || "")
+  const loja = String(item.payload.storeId || "")
+  if (clientId && dono && dono !== clientId) return false
+  if (storeId && loja && loja !== storeId) return false
+  return true
+}
+
 export function formatCadDate(iso: string) {
   if (!iso) return ""
   const date = new Date(iso)

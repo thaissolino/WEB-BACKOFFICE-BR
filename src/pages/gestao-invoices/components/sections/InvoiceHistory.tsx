@@ -93,6 +93,7 @@ interface InvoiceHistoryProps {
 export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
   const [invoices, setInvoices] = useState<InvoiceData[]>([]);
   const [suppliers, setSuppliers] = useState<{ id: string; name: string }[]>([]);
+  const [carriers, setCarriers] = useState<InvoiceData["carrier"][]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedInvoice, setSelectedInvoice] = useState<InvoiceData | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -140,10 +141,11 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
   const fetchInvoicesAndSuppliers = async () => {
     try {
       setLoading(true);
-      const [invoiceResponse, supplierResponse, productsResponse] = await Promise.all([
+      const [invoiceResponse, supplierResponse, productsResponse, carriersResponse] = await Promise.all([
         api.get("/invoice/get"),
         api.get("/invoice/supplier"),
         api.get("/invoice/product", { params: { limit: 5000, page: 1 } }),
+        api.get("/invoice/carriers"),
       ]);
 
       console.log("📋 [INVOICE HISTORY] Resposta completa:", invoiceResponse);
@@ -181,6 +183,7 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
       
       setInvoices(invoicesWithFixedDates);
       setSuppliers(supplierResponse.data);
+      setCarriers(Array.isArray(carriersResponse.data) ? carriersResponse.data : []);
     } catch (error) {
       console.error("Erro ao buscar dados:", error);
     } finally {
@@ -282,6 +285,17 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
     setShowAddProductForm(false);
   };
 
+  useEffect(() => {
+    if (!isModalOpen) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      closeModal();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [isModalOpen]);
+
   const saveCarrierRate = async (
     invoice: InvoiceData,
     field: "carrierRateSnapshot" | "carrier2RateSnapshot",
@@ -323,6 +337,47 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
         },
       });
       throw err;
+    }
+  };
+
+  const changeCarrier = async (invoice: InvoiceData, slot: "carrier" | "carrier2", nextId: string) => {
+    const currentId = slot === "carrier" ? invoice.carrier?.id || invoice.carrierId : invoice.carrier2?.id || invoice.carrier2Id;
+    if (nextId === (currentId || "")) return;
+    const next = carriers.find((item) => item.id === nextId) || null;
+    if (slot === "carrier" && !next) return;
+    try {
+      await api.patch(`/invoice/update/${invoice.id}`, {
+        number: invoice.number,
+        supplierId: invoice.supplierId || invoice.supplier?.id,
+        carrierId: slot === "carrier" ? nextId : invoice.carrierId || invoice.carrier?.id || "",
+        ...(slot === "carrier2" ? { carrier2Id: nextId } : {}),
+        taxaSpEs: Number(invoice.taxaSpEs) || 0,
+        amountTaxcarrier: Number(invoice.amountTaxcarrier) || 0,
+        amountTaxcarrier2: Number(invoice.amountTaxcarrier2) || 0,
+        amountTaxSpEs: Number(invoice.amountTaxSpEs) || 0,
+        subAmount: Number(invoice.subAmount) || 0,
+        overallValue: Number(invoice.overallValue) || 0,
+        paid: Boolean(invoice.paid),
+        completed: Boolean(invoice.completed),
+      });
+      const patch =
+        slot === "carrier"
+          ? { carrierId: nextId, carrier: next as InvoiceData["carrier"] }
+          : { carrier2Id: nextId, carrier2: (next || undefined) as InvoiceData["carrier2"] };
+      setSelectedInvoice((current) => (current && current.id === invoice.id ? { ...current, ...patch } : current));
+      setInvoices((current) => current.map((item) => (item.id === invoice.id ? { ...item, ...patch } : item)));
+    } catch (err) {
+      console.error("Falha ao trocar o freteiro:", err);
+      await Swal.fire({
+        icon: "error",
+        title: "Erro",
+        text: "Não foi possível trocar o freteiro.",
+        confirmButtonText: "OK",
+        buttonsStyling: false,
+        customClass: {
+          confirmButton: "!bg-blue-600 !text-white hover:!bg-blue-700 px-5 py-2.5 rounded-md font-semibold shadow-sm",
+        },
+      });
     }
   };
 
@@ -494,7 +549,7 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
         </button>
       </h2>
 
-      <div className="overflow-x-auto">
+      <div className="iv-linhas overflow-x-auto">
         {loading ? (
           <p className="text-center text-gray-500 py-6">Carregando invoices...</p>
         ) : (
@@ -664,7 +719,9 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
           className="fixed inset-0 z-[80] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
           role="dialog"
           aria-modal="true"
-          onClick={closeModal}
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) event.preventDefault();
+          }}
         >
           <div className="max-h-[90vh] w-full max-w-5xl overflow-hidden rounded-2xl bg-white shadow-xl">
           <div
@@ -857,51 +914,71 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
                 </p>
                 <p className="text-sm text-gray-600 flex items-center gap-2 flex-wrap">
                   <span>Freteiro:</span>
-                  {selectedInvoice.carrier?.name ? (
-                    <>
-                      <span id="modalInvoiceCarrier">
-                        {selectedInvoice.carrier.name} -{" "}
-                      </span>
-                      <CarrierRateBadge
-                        type={selectedInvoice.carrier.type}
-                        rate={
-                          selectedInvoice.carrierRateSnapshot ??
-                          selectedInvoice.carrier?.value ??
-                          0
-                        }
-                        label="Freteiro 1"
-                        onSave={(newRate) =>
-                          saveCarrierRate(selectedInvoice, "carrierRateSnapshot", newRate)
-                        }
-                      />
-                    </>
+                  {isEditMode ? (
+                    <select
+                      className="rounded-md border border-gray-300 bg-white px-2 py-1 text-sm text-gray-800"
+                      value={selectedInvoice.carrier?.id || selectedInvoice.carrierId || ""}
+                      onChange={(event) => changeCarrier(selectedInvoice, "carrier", event.target.value)}
+                    >
+                      {!selectedInvoice.carrier?.id ? <option value="">Escolha o freteiro</option> : null}
+                      {carriers
+                        .concat(
+                          selectedInvoice.carrier?.id && !carriers.some((item) => item.id === selectedInvoice.carrier.id)
+                            ? [selectedInvoice.carrier]
+                            : [],
+                        )
+                        .map((item) => (
+                          <option key={item.id} value={item.id}>
+                            {item.name}
+                          </option>
+                        ))}
+                    </select>
                   ) : (
-                    <span>Não informado</span>
+                    <span id="modalInvoiceCarrier">
+                      {selectedInvoice.carrier?.name ? `${selectedInvoice.carrier.name} - ` : "Não informado"}
+                    </span>
                   )}
+                  {selectedInvoice.carrier?.name ? (
+                    <CarrierRateBadge
+                      type={selectedInvoice.carrier?.type || "percentage"}
+                      rate={selectedInvoice.carrierRateSnapshot ?? selectedInvoice.carrier?.value ?? 0}
+                      label="Freteiro 1"
+                      onSave={(newRate) => saveCarrierRate(selectedInvoice, "carrierRateSnapshot", newRate)}
+                    />
+                  ) : null}
                 </p>
                 <p className="text-sm text-gray-600 flex items-center gap-2 flex-wrap">
                   <span>Freteiro 2:</span>
-                  {selectedInvoice.carrier2?.name ? (
-                    <>
-                      <span id="modalInvoiceCarrier">
-                        {selectedInvoice.carrier2.name} -{" "}
-                      </span>
-                      <CarrierRateBadge
-                        type={selectedInvoice.carrier2.type}
-                        rate={
-                          selectedInvoice.carrier2RateSnapshot ??
-                          selectedInvoice.carrier2?.value ??
-                          0
-                        }
-                        label="Freteiro 2"
-                        onSave={(newRate) =>
-                          saveCarrierRate(selectedInvoice, "carrier2RateSnapshot", newRate)
-                        }
-                      />
-                    </>
+                  {isEditMode ? (
+                    <select
+                      className="rounded-md border border-gray-300 bg-white px-2 py-1 text-sm text-gray-800"
+                      value={selectedInvoice.carrier2?.id || selectedInvoice.carrier2Id || ""}
+                      onChange={(event) => changeCarrier(selectedInvoice, "carrier2", event.target.value)}
+                    >
+                      <option value="">não existe</option>
+                      {carriers
+                        .concat(
+                          selectedInvoice.carrier2?.id && !carriers.some((item) => item.id === selectedInvoice.carrier2.id)
+                            ? [selectedInvoice.carrier2]
+                            : [],
+                        )
+                        .map((item) => (
+                          <option key={item.id} value={item.id}>
+                            {item.name}
+                          </option>
+                        ))}
+                    </select>
                   ) : (
-                    <span>não existe</span>
+                    <span id="modalInvoiceCarrier">{selectedInvoice.carrier2?.name ? `${selectedInvoice.carrier2.name} - ` : "não existe"}</span>
                   )}
+                  {selectedInvoice.carrier2?.name ? (
+                    <CarrierRateBadge
+                      type={selectedInvoice.carrier2.type}
+                      rate={selectedInvoice.carrier2RateSnapshot ?? selectedInvoice.carrier2?.value ?? 0}
+                      label="Freteiro 2"
+                      onSave={(newRate) => saveCarrierRate(selectedInvoice, "carrier2RateSnapshot", newRate)}
+                    />
+                  ) : null}
                 </p>
               </div>
               <div>
@@ -955,8 +1032,8 @@ export function InvoiceHistory({ reloadTrigger }: InvoiceHistoryProps) {
                   <tbody id="modalInvoicePendingProducts" className="bg-white divide-y divide-gray-200">
                     {selectedInvoice.products
                       .filter((item) => !item.received)
-                      .map((product, index) => (
-                        <tr key={index}>
+                      .map((product) => (
+                        <tr key={product.id}>
                           <td className="px-4 py-2 text-sm text-gray-700">
                             <div>
                               {products.find((item) => item.id === product.productId)?.name}

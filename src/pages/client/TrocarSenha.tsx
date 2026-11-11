@@ -1,6 +1,7 @@
 import { FormEvent, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api, parseError } from "../../services/api";
+import { avisarSalvo } from "./avisoSalvo";
 import { useClientAuth } from "../../hooks/clientAuth";
 import { VitrineAuthLayout } from "./vitrine/VitrineAuthLayout";
 
@@ -35,6 +36,7 @@ export default function TrocarSenhaCliente() {
     try {
       await api.post("/clients/change-password", firstAccess ? { newPassword } : { currentPassword, newPassword });
       await refreshClient();
+      avisarSalvo("Senha salva.");
       navigate("/client/dashboard");
     } catch (err) {
       const parsed = parseError(err);

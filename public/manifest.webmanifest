@@ -1,16 +1,18 @@
 {
-  "name": "PDV Black Rabbit",
-  "short_name": "BR PDV",
-  "description": "PDV multi-tenant leve e mobile-first",
-  "theme_color": "#0f172a",
-  "background_color": "#f4f7fb",
+  "name": "GestorVix",
+  "short_name": "GestorVix",
+  "description": "GestorVix no computador e no celular",
+  "theme_color": "#1a1511",
+  "background_color": "#f4f1ea",
   "display": "standalone",
   "start_url": "/",
+  "scope": "/",
   "icons": [
     {
       "src": "/favicon.ico",
       "sizes": "64x64 32x32 24x24 16x16",
-      "type": "image/x-icon"
+      "type": "image/x-icon",
+      "purpose": "any"
     }
   ]
 }

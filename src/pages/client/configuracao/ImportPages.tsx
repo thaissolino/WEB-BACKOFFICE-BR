@@ -222,8 +222,8 @@ export default function ImportacaoPage() {
               name: row[0] || "Produto importado",
               barcode: row[1] || "",
               reference: row[2] || "",
-              salePrice: money(row[3]),
-              costPrice: money(row[4]),
+              lojaSalePrice: money(row[3]),
+              lojaCostPrice: money(row[4]),
               stockQuantity: money(row[5]),
               ncm: row[6] || "",
               description: row[0] || "Produto importado",
@@ -265,8 +265,8 @@ export default function ImportacaoPage() {
           try {
             await api.put(`/clients/products/${match.id}`, {
               name: row[1] || match.name,
-              salePrice: money(row[2]),
-              costPrice: money(row[3]),
+              lojaSalePrice: money(row[2]),
+              lojaCostPrice: money(row[3]),
               ncm: row[4] || "",
             })
             ok += 1

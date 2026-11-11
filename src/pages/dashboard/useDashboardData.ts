@@ -1,74 +1,61 @@
-import { useEffect, useState } from "react";
-import { api } from "../../services/api";
-import { useAuthBackoffice } from "../../hooks/authBackoffice";
+import { useEffect, useState } from "react"
+import { api } from "../../services/api"
 
-export type DashboardUser = {
-  id: string;
-  name: string;
-  userName: string;
-  role: string;
-  status: string;
-  created_at: string;
-};
-
-export function formatUserName(name: string) {
-  if (!name) return "Usuário";
-  const nameParts = name.split(" ");
-  if (nameParts.length === 1) return nameParts[0];
-  if (nameParts.length === 2) return `${nameParts[0]} ${nameParts[1]}`;
-  const first = nameParts[0];
-  const secondInitial = nameParts[1] ? `${nameParts[1][0]}.` : "";
-  const last = nameParts[nameParts.length - 1];
-  return `${first} ${secondInitial} ${last}`;
+export type HomeRanking = {
+  loja: string
+  lojista: string
+  vendas: number
+  total: number
 }
 
-export function useDashboardData() {
-  const { user } = useAuthBackoffice();
-  const [totalUsuarios, setTotalUsuarios] = useState(0);
-  const [totalGrupos, setTotalGrupos] = useState(0);
-  const [users, setUsers] = useState<DashboardUser[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+export type HomeVenda = {
+  code: string
+  status: string
+  total: number
+  cliente: string
+  criada: string
+  loja: string
+}
+
+export type HomePainel = {
+  lojasAtivas: number
+  lojasInativas: number
+  lojistas: number
+  vendasHoje: number
+  faturamentoHoje: number
+  vendasMes: number
+  faturamentoMes: number
+  abertas: number
+  concluidas: number
+  estornadas: number
+  ticketMedio: number
+  ranking: HomeRanking[]
+  recentes: HomeVenda[]
+}
+
+export function useHomePainel() {
+  const [painel, setPainel] = useState<HomePainel | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState("")
 
   useEffect(() => {
-    const fetchUsers = async () => {
-      try {
-        const token = localStorage.getItem("@backoffice:token");
-        if (!token) {
-          setError("Sessão não encontrada.");
-          return;
-        }
+    let vivo = true
+    api.get<HomePainel>("/backoffice/dashboard")
+      .then(({ data }) => {
+        if (!vivo) return
+        setPainel(data)
+      })
+      .catch(() => {
+        if (!vivo) return
+        setError("Não foi possível carregar os números do sistema.")
+      })
+      .finally(() => {
+        if (vivo) setLoading(false)
+      })
+    return () => {
+      vivo = false
+    }
+  }, [])
 
-        const response = await api.get("/graphic", {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        const responseGroups = await api.get("/group/list-all", {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-
-        setUsers(response.data);
-        setTotalGrupos(responseGroups.data.length);
-        setTotalUsuarios(response.data.length);
-      } catch (_err) {
-        setError("Não foi possível carregar os números do backoffice.");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchUsers();
-  }, []);
-
-  return {
-    user,
-    users,
-    setUsers,
-    setTotalUsuarios,
-    totalUsuarios,
-    totalGrupos,
-    totalChamadas: "431,225",
-    totalMensagens: "1,325,134",
-    loading,
-    error,
-  };
+  return { painel, loading, error }
 }

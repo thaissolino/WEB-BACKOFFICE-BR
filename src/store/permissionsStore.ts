@@ -44,7 +44,34 @@ export type PermissionType = {
   GERENCIAR_OPERACOES: {
     enabled: boolean;
   };
+  VENDAS_CONCLUIDAS?: {
+    enabled: boolean;
+  };
 };
+
+const BLOCKED_WHEN_PRINT_ONLY = [
+  "CRIAR_USUARIO",
+  "GERENCIAR_GRUPOS",
+  "GERENCIAR_USUARIOS",
+  "GERENCIAR_OPERADORES",
+  "GERENCIAR_PLANILHAS",
+  "GERENCIAR_INVOICES",
+  "GERENCIAR_TOKENS",
+  "GERENCIAR_BOLETOS",
+  "GERENCIAR_OPERACOES",
+];
+
+type PermissionFlags = { VENDAS_CONCLUIDAS?: { enabled?: boolean }; [key: string]: { enabled?: boolean } | undefined };
+
+export function isPrintOnlyAccount(
+  user: { role?: string; permissions?: PermissionFlags | null } | null | undefined,
+  permissions?: PermissionFlags | null,
+) {
+  if (!user || user.role === "MASTER" || user.role === "ADMIN" || user.role === "ADMIN_BAG") return false;
+  const flags = permissions || user.permissions;
+  if (!flags?.VENDAS_CONCLUIDAS?.enabled) return false;
+  return !BLOCKED_WHEN_PRINT_ONLY.some((key) => flags[key]?.enabled);
+}
 
 export type PermissionKey =
   | 'CRIAR_USUARIO'

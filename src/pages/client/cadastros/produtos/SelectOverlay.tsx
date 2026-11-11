@@ -45,7 +45,7 @@ export function OverlaySearch({
         placeholder="Pesquisar..."
         autoComplete="off"
       />
-      <button type="button" aria-label="Limpar pesquisa" onClick={() => onChange("")}>
+      <button className="pdv-prod-overlay-clear" type="button" aria-label="Limpar pesquisa" onClick={() => onChange("")}>
         <X size={12} strokeWidth={2.6} aria-hidden="true" />
       </button>
     </div>

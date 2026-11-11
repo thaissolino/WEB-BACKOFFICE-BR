@@ -174,9 +174,35 @@
   display: grid;
   gap: 10px;
   padding: 12px 18px 16px;
-  border-top: 1px solid #1a1511;
-  background: #1a1511;
-  box-shadow: 0 -10px 18px rgba(26, 21, 17, 0.18);
+  border-top: 1px solid #ddd4c6;
+  background: #f4f1ea;
+}
+
+.pdv-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.pdv-modal-card .pdv-modal-foot .pdv-modal-actions > button.pdv-cad-btn {
+  min-height: 2.6rem;
+  min-width: 7.5rem;
+  padding: 0 16px;
+  border-radius: 999px;
+  background: #fff !important;
+  background-color: #fff !important;
+  border: 1px solid #cfc6b8 !important;
+  color: #1a1511 !important;
+  -webkit-text-fill-color: #1a1511 !important;
+  font-weight: 800;
+}
+
+.pdv-modal-card .pdv-modal-foot .pdv-modal-actions > button.pdv-cad-btn-red {
+  background: #e57373 !important;
+  background-color: #e57373 !important;
+  border-color: #d32f2f !important;
+  color: #fff !important;
+  -webkit-text-fill-color: #fff !important;
 }
 
 .pdv-cfg-grid {
@@ -693,4 +719,161 @@ a.pdv-sup-tube:focus-visible {
   .pdv-logo-styles {
     grid-template-columns: 1fr;
   }
+}
+
+.pdv-forn-modal {
+  display: grid;
+  gap: 12px;
+}
+
+.pdv-forn-kicker {
+  margin: 0;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #1a1511;
+}
+
+.pdv-forn-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 42px;
+  padding: 4px 4px 4px 14px;
+  border: 1px solid #ddd4c6;
+  border-radius: 999px;
+  background: #fff;
+}
+
+.pdv-forn-search svg {
+  flex: none;
+  color: #8b3d12;
+}
+
+.pdv-forn-search input {
+  flex: 1;
+  min-width: 0;
+  min-height: 40px;
+  border: 0;
+  background: transparent;
+  color: #1a1511;
+  font: inherit;
+  font-weight: 600;
+}
+
+.pdv-forn-search input:focus {
+  outline: none;
+}
+
+.pdv-forn-search .pdv-cad-btn {
+  flex: none;
+  border-radius: 999px;
+  min-height: 34px;
+  height: 34px;
+  padding: 0 16px;
+}
+
+.pdv-modal-card .pdv-forn-search button.pdv-cad-btn-green,
+.pdv-modal-card button.pdv-cad-btn-green {
+  background: #43a047 !important;
+  background-color: #43a047 !important;
+  border-color: #2e7d32;
+  color: #fff !important;
+  -webkit-text-fill-color: #fff !important;
+}
+
+.pdv-forn-empty {
+  margin: 0;
+  padding: 28px 16px;
+  border: 1px solid #ddd4c6;
+  border-radius: 22px;
+  background: #f4f1ea;
+  color: #1a1511;
+  font-size: 0.95rem;
+  font-weight: 650;
+  text-align: center;
+}
+
+.pdv-forn-lista {
+  margin: 0;
+  padding: 6px;
+  list-style: none;
+  max-height: 280px;
+  overflow: auto;
+  border: 1px solid #ddd4c6;
+  border-radius: 22px;
+  background: #f4f1ea;
+}
+
+.pdv-forn-lista li + li {
+  margin-top: 4px;
+}
+
+.pdv-forn-lista button {
+  display: grid;
+  gap: 2px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  background: #fffdf8;
+  text-align: left;
+  cursor: pointer;
+}
+
+.pdv-forn-lista button strong {
+  color: #1a1511;
+  font-size: 0.95rem;
+}
+
+.pdv-forn-lista button span {
+  color: #6b5e52;
+  font-size: 0.8rem;
+  font-weight: 650;
+}
+
+.pdv-modal-card .pdv-forn-lista button:hover,
+.pdv-modal-card .pdv-forn-lista button:focus-visible {
+  background: #f7ead6 !important;
+  border-color: #c4842a;
+  color: #1a1511 !important;
+  -webkit-text-fill-color: #1a1511 !important;
+}
+
+.pdv-forn-cad {
+  justify-self: stretch;
+  border-radius: 999px;
+}
+
+.pdv-forn-novo {
+  display: grid;
+  gap: 8px;
+}
+
+.pdv-forn-novo label {
+  display: grid;
+  gap: 4px;
+  font-weight: 700;
+}
+
+.pdv-forn-novo input {
+  min-height: 36px;
+  padding: 6px 8px;
+  border: 1px solid #ddd4c6;
+  border-radius: 8px;
+}
+
+.pdv-forn-aviso {
+  margin: 0;
+  color: #9f1d1d;
+  font-weight: 700;
+}
+
+.pdv-forn-modal .pdv-forn-form {
+  gap: 8px;
+}
+
+.pdv-forn-modal .pdv-cad-form-row {
+  grid-template-columns: 10rem minmax(0, 1fr);
 }

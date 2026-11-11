@@ -1,12 +1,15 @@
-import { FormEvent, useState, useEffect, useRef } from "react";
-import { Plus, Ban, RotateCcw, Boxes, Loader2, Settings } from "lucide-react";
+import { CSSProperties, FormEvent, useState, useEffect, useLayoutEffect, useRef } from "react";
+import { createPortal } from "react-dom";
+import { Plus, Ban, RotateCcw, Boxes, Loader2, Settings, Copy, X } from "lucide-react";
 import Swal from "sweetalert2";
 import { api } from "../../../../services/api";
 import { sameProductCode } from "../utils/productBarcode";
 import { useNotification } from "../../../../hooks/notification";
 import { useActionLoading } from "../../context/ActionLoadingContext";
 import "../../../client/cadastros/cadastros.css";
-import { loadProductCategories, toFlatOptions, type FlatOption } from "../../../client/cadastros/produtos/categoryModel";
+import { scrollPageToTop } from "../../../client/dashboard/PageJumps";
+import { createCatalog } from "../../../client/cadastros/catalog/catalogApi";
+import { isOpenStoreCategory, loadProductCategories, openCategoryRank, slugifyCategory, toFlatOptions, type FlatOption } from "../../../client/cadastros/produtos/categoryModel";
 import {
   EMPTY_PRODUCT_FILTERS,
   OFFICE_PRODUCT_FILTER_KEY,
@@ -17,6 +20,8 @@ import {
   type ProductFacets,
   type ProductFilters,
 } from "../../../client/cadastros/produtos/productFilters";
+import { useProductPhotoUrl, urlFotoProduto } from "../../../client/cadastros/produtos/GradePhotoThumb";
+import { formatMoneyBr, moneyWidthCh, parseMoneyBr } from "../../../client/cadastros/produtos/types";
 
 export interface Product {
   id: string;
@@ -42,6 +47,130 @@ export interface Product {
   supplierName?: string;
 }
 
+type FixedColumn = "code" | "category" | "photo" | "name" | "sale" | "cost" | "stock" | "weight";
+type ProductColumn = FixedColumn | `table:${string}`;
+
+type TablePriceRow = {
+  id: string;
+  name: string;
+  slug: string;
+  isDefault: boolean;
+  price: number | null;
+};
+
+function pinProduct(rows: Product[], leadId: string, lead: Product | null, page: number) {
+  if (!leadId || page !== 1) return rows;
+  const index = rows.findIndex((item) => item.id === leadId);
+  if (index === 0) return rows;
+  if (index > 0) {
+    const next = rows.slice();
+    const [item] = next.splice(index, 1);
+    next.unshift(item);
+    return next;
+  }
+  if (lead?.id === leadId) return [lead, ...rows];
+  return rows;
+}
+
+function parseMoneyDraft(raw: string) {
+  const text = raw.trim();
+  if (!text) return null;
+  const value = parseMoneyBr(text);
+  return Number.isFinite(value) && value >= 0 ? value : null;
+}
+
+function maskModalMoney(raw: string, previous: string) {
+  let digits = raw.replace(/\D/g, "").slice(0, 12);
+  const prevDigits = previous.replace(/\D/g, "");
+  const deleting = raw.length < previous.length;
+  if (deleting && digits.replace(/0/g, "") === "") return "";
+  if (deleting && (digits === prevDigits || formatMoneyBr(Number(digits || "0") / 100) === previous)) {
+    digits = prevDigits.slice(0, -1);
+  }
+  if (!digits) return "";
+  return formatMoneyBr(Number(digits) / 100);
+}
+
+function MoneyInput({
+  value,
+  onChange,
+  placeholder,
+  disabled,
+}: {
+  value: string;
+  onChange: (next: string) => void;
+  placeholder: string;
+  disabled?: boolean;
+}) {
+  return (
+    <div className="flex items-center rounded-xl border border-gray-200 bg-white focus-within:border-blue-300 focus-within:ring-2 focus-within:ring-blue-400">
+      <span className="pl-3 font-semibold text-gray-800">R$</span>
+      <input
+        type="text"
+        inputMode="numeric"
+        placeholder={placeholder}
+        value={value}
+        disabled={disabled}
+        onChange={(event) => {
+          const input = event.currentTarget;
+          const next = maskModalMoney(event.target.value, value);
+          onChange(next);
+          requestAnimationFrame(() => input.setSelectionRange(next.length, next.length));
+        }}
+        className="w-full border-0 bg-transparent p-3 outline-none"
+      />
+    </div>
+  );
+}
+
+const PRODUCT_COLUMNS: { id: ProductColumn; label: string; numeric?: boolean }[] = [
+  { id: "code", label: "Cód" },
+  { id: "category", label: "Categoria" },
+  { id: "photo", label: "Foto" },
+  { id: "name", label: "Nome" },
+  { id: "sale", label: "Preço de venda", numeric: true },
+  { id: "cost", label: "Preço de compra", numeric: true },
+  { id: "stock", label: "Estoque", numeric: true },
+  { id: "weight", label: "Peso", numeric: true },
+];
+
+const DEFAULT_COLUMN_ORDER = PRODUCT_COLUMNS.map((column) => column.id);
+const COLUMN_ORDER_KEY = "gestao-prod-column-order";
+
+function isColumnId(id: string): id is ProductColumn {
+  return (DEFAULT_COLUMN_ORDER as string[]).includes(id) || id.startsWith("table:");
+}
+
+function readColumnOrder(): ProductColumn[] {
+  try {
+    const raw = JSON.parse(localStorage.getItem(COLUMN_ORDER_KEY) || "null");
+    if (!Array.isArray(raw)) return [...DEFAULT_COLUMN_ORDER];
+    const next = raw.filter((id): id is ProductColumn => typeof id === "string" && isColumnId(id));
+    for (const id of DEFAULT_COLUMN_ORDER) {
+      if (!next.includes(id)) next.push(id);
+    }
+    return next;
+  } catch {
+    return [...DEFAULT_COLUMN_ORDER];
+  }
+}
+
+function placeTableColumns(order: ProductColumn[], tables: Array<{ id: string }>): ProductColumn[] {
+  const tableIds = tables.map((table) => `table:${table.id}` as ProductColumn);
+  const allowed = new Set<string>([...DEFAULT_COLUMN_ORDER, ...tableIds]);
+  const next = order.filter((id) => allowed.has(id));
+  for (const id of DEFAULT_COLUMN_ORDER) {
+    if (!next.includes(id)) next.push(id);
+  }
+  let at = next.indexOf("sale") + 1;
+  for (const id of tableIds) {
+    if (next.includes(id)) continue;
+    next.splice(at, 0, id);
+    at += 1;
+  }
+  return next;
+}
+
 function fieldOptions(rows: Product[], key: keyof Product) {
   const set = new Set<string>();
   for (const row of rows) {
@@ -51,71 +180,53 @@ function fieldOptions(rows: Product[], key: keyof Product) {
   return Array.from(set).sort((a, b) => a.localeCompare(b, "pt-BR", { sensitivity: "base" }));
 }
 
+function nomeSemCopia(name: string) {
+  return name.trim().toUpperCase().replace(/\s+C[ÓO]PIA(?:\s+\d+)?$/i, "").trim();
+}
+
 function ProductThumb({
   productId,
   photoFileId,
   onFile,
   disabled,
   large,
+  preview,
 }: {
   productId: string;
   photoFileId?: string | null;
   onFile: (file: File | undefined) => void;
   disabled?: boolean;
   large?: boolean;
+  preview?: string;
 }) {
-  const [src, setSrc] = useState("");
+  const [remota, setRemota] = useState(false);
+  const direta = preview || remota ? "" : urlFotoProduto(productId, photoFileId);
+  const loaded = useProductPhotoUrl(!preview && remota ? photoFileId : null);
+  const src = preview || direta || loaded;
   const box = large ? "h-28 w-28" : "h-14 w-14";
-
-  const [node, setNode] = useState<HTMLLabelElement | null>(null);
-
-  useEffect(() => {
-    if (!photoFileId) {
-      setSrc("");
-      return;
-    }
-    if (!node) return;
-    let url = "";
-    let cancelled = false;
-    const io = new IntersectionObserver((entries) => {
-      if (!entries.some((entry) => entry.isIntersecting)) return;
-      io.disconnect();
-      api
-        .get(`/clients/products/${productId}/photo`, { responseType: "blob" })
-        .then(({ data }) => {
-          if (cancelled || !(data instanceof Blob) || data.size < 16) return;
-          url = URL.createObjectURL(data);
-          setSrc(url);
-        })
-        .catch(() => {
-          if (!cancelled) setSrc("");
-        });
-    }, { rootMargin: "120px" });
-    io.observe(node);
-    return () => {
-      cancelled = true;
-      io.disconnect();
-      if (url) URL.revokeObjectURL(url);
-    };
-  }, [productId, photoFileId, node]);
 
   return (
     <label
-      ref={setNode}
-      className={`relative inline-flex shrink-0 cursor-pointer ${box}`}
+      className="relative inline-flex shrink-0 cursor-pointer items-center justify-center"
       title={photoFileId ? "Clique para trocar a foto" : "Clique para adicionar a foto"}
     >
-      {src ? (
-        <img src={src} alt="" className={`${box} rounded-lg border border-gray-200 object-cover`} />
-      ) : (
-        <span
-          className={`flex ${box} items-center justify-center rounded-lg border border-dashed border-gray-300 bg-gray-50 text-[11px] text-gray-400`}
-        >
-          Sem foto
-        </span>
-      )}
-      <span className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-blue-600 text-white shadow ring-2 ring-white">
-        <Plus size={14} aria-hidden />
+      <span
+        className={`flex ${box} items-center justify-center overflow-hidden rounded-lg border bg-white ${
+          src ? "border-gray-200" : "border-dashed border-gray-300 bg-gray-50"
+        }`}
+      >
+        {src ? (
+          <img
+            src={src}
+            alt=""
+            className="h-full w-full object-contain"
+            onError={() => {
+              if (!preview && !remota) setRemota(true);
+            }}
+          />
+        ) : (
+          <span className="text-[11px] text-gray-400">{photoFileId ? "" : "Sem foto"}</span>
+        )}
       </span>
       <input
         type="file"
@@ -140,20 +251,53 @@ export function ProductsTab() {
   const [total, setTotal] = useState(0);
   const [facets, setFacets] = useState<ProductFacets>({ brands: [], collections: [], genders: [], suppliers: [] });
   const [showModal, setShowModal] = useState(false);
+  const [duplicando, setDuplicando] = useState(false);
+  const [salvando, setSalvando] = useState(false);
+  const [copyNotice, setCopyNotice] = useState("");
+  const [draftPhotoUrl, setDraftPhotoUrl] = useState("");
+  const pendingPhotoRef = useRef<File | null>(null);
+  const leadIdRef = useRef("");
+  const leadProductRef = useRef<Product | null>(null);
+  const [newCategoryOpen, setNewCategoryOpen] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState("");
   const [currentProduct, setCurrentProduct] = useState<Product | null>(null);
+
+  useLayoutEffect(() => {
+    if (!showModal) return;
+    const main = document.querySelector(".pdv-chrome-main") as HTMLElement | null;
+    const top = main?.scrollTop ?? window.scrollY;
+    const prevBody = document.body.style.overflow;
+    const prevMain = main?.style.overflow ?? "";
+    document.body.style.overflow = "hidden";
+    if (main) main.style.overflow = "hidden";
+    if (main) main.scrollTop = top;
+    else window.scrollTo(0, top);
+    return () => {
+      document.body.style.overflow = prevBody;
+      if (main) main.style.overflow = prevMain;
+      if (main) main.scrollTop = top;
+    };
+  }, [showModal]);
   const [isLoading, setIsLoading] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [sortBy, setSortBy] = useState<"name" | "code">("name");
+  const [tablePrices, setTablePrices] = useState<TablePriceRow[]>([]);
+  const [gridTables, setGridTables] = useState<TablePriceRow[]>([]);
+  const [gridPrices, setGridPrices] = useState<Record<string, Record<string, number>>>({});
+  const [tableDrafts, setTableDrafts] = useState<Record<string, string>>({});
+  const [costDraft, setCostDraft] = useState("");
   const [draft, setDraft] = useState<ProductFilters>(EMPTY_PRODUCT_FILTERS);
   const [applied, setApplied] = useState<ProductFilters>(EMPTY_PRODUCT_FILTERS);
   const [searched, setSearched] = useState(false);
   const searchedRef = useRef(false);
   const [categoryOptions, setCategoryOptions] = useState<FlatOption[]>([]);
+  const [columns, setColumns] = useState<ProductColumn[]>(readColumnOrder);
+  const [draggingColumn, setDraggingColumn] = useState<ProductColumn | null>(null);
+  const draggingColumnRef = useRef<ProductColumn | null>(null);
   const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
   const [showInactive, setShowInactive] = useState(false);
   const [editingCell, setEditingCell] = useState<{
     id: string;
-    field: "price" | "weight" | "sale" | "cost" | "stock";
+    field: "price" | "weight" | "sale" | "cost" | "stock" | `table:${string}`;
   } | null>(null);
   const [editingValue, setEditingValue] = useState("");
   const [cellNotice, setCellNotice] = useState("");
@@ -167,8 +311,33 @@ export function ProductsTab() {
   const inactiveRef = useRef(showInactive);
   inactiveRef.current = showInactive;
 
-  const fetchData = async (filters: ProductFilters, nextPage: number) => {
+  const loadGridPrices = async (ids: string[]) => {
+    if (!ids.length) {
+      setGridTables([]);
+      setGridPrices({});
+      return;
+    }
+    try {
+      const { data } = await api.get("/clients/price-tables/grid", { params: { ids: ids.join(",") } });
+      const tables = ((data.tables || []) as TablePriceRow[]).filter((table) => !table.isDefault);
+      const prices: Record<string, Record<string, number>> = {};
+      for (const row of (data.prices || []) as Array<{ productId: string; priceTableId: string; price: number }>) {
+        if (!prices[row.productId]) prices[row.productId] = {};
+        prices[row.productId][row.priceTableId] = Number(row.price) || 0;
+      }
+      setGridTables(tables);
+      setGridPrices(prices);
+      setColumns((current) => placeTableColumns(current, tables));
+    } catch (error) {
+      console.error("Erro ao buscar tabelas de preço:", error);
+    }
+  };
+
+  const fetchData = async (filters: ProductFilters, nextPage: number, scrollTop = false) => {
+    if (scrollTop) scrollPageToTop();
     setIsLoading(true);
+    setAllProducts([]);
+    setTotal(0);
     setPage(nextPage);
     try {
       const { data } = await api.get("/clients/products", {
@@ -177,25 +346,41 @@ export function ProductsTab() {
           order: sortRef.current,
         }),
       });
-      setAllProducts((data.products || []) as Product[]);
+      const rows = pinProduct((data.products || []) as Product[], leadIdRef.current, leadProductRef.current, nextPage);
+      setAllProducts(rows);
+      void loadGridPrices(rows.map((product) => product.id));
       setTotal(Number(data.total) || 0);
       if (data.facets) setFacets(data.facets as ProductFacets);
     } catch (error) {
       console.error("Erro ao buscar produtos:", error);
       setAllProducts([]);
+      setGridTables([]);
+      setGridPrices({});
       setTotal(0);
     } finally {
       setIsLoading(false);
+      if (scrollTop) requestAnimationFrame(() => scrollPageToTop());
     }
   };
 
   useEffect(() => {
     loadProductCategories(true)
-      .then((rows) => setCategoryOptions(toFlatOptions(rows)))
+      .then((rows) =>
+        setCategoryOptions(
+          toFlatOptions(rows.filter((item) => isOpenStoreCategory(item.id, item.name) || item.storePick))
+            .sort((a, b) => openCategoryRank(a.id, a.label) - openCategoryRank(b.id, b.label))
+            .map((item) => ({ ...item, depth: 0 })),
+        ),
+      )
       .catch(() => setCategoryOptions([]));
   }, []);
 
+  const primeiraLista = useRef(true);
   useEffect(() => {
+    if (primeiraLista.current) {
+      primeiraLista.current = false;
+      return;
+    }
     if (!searchedRef.current) return;
     void fetchData(appliedRef.current, 1);
   }, [showInactive, sortBy]);
@@ -208,6 +393,8 @@ export function ProductsTab() {
   const suppliers = facets.suppliers.length ? facets.suppliers : fieldOptions(allProducts, "supplierName");
 
   function runSearch(filters: ProductFilters) {
+    leadIdRef.current = "";
+    leadProductRef.current = null;
     sessionStorage.setItem(OFFICE_PRODUCT_FILTER_KEY, JSON.stringify(filters));
     setApplied(filters);
     searchedRef.current = true;
@@ -221,6 +408,8 @@ export function ProductsTab() {
   }
 
   function onClear() {
+    leadIdRef.current = "";
+    leadProductRef.current = null;
     setDraft(EMPTY_PRODUCT_FILTERS);
     setApplied(EMPTY_PRODUCT_FILTERS);
     searchedRef.current = false;
@@ -229,6 +418,8 @@ export function ProductsTab() {
     setTotal(0);
     setPage(1);
     setSelectedProducts([]);
+    sortRef.current = "name";
+    setSortBy("name");
   }
 
   function onLastFilter() {
@@ -237,9 +428,138 @@ export function ProductsTab() {
     runSearch(last);
   }
 
+  async function showSavedProduct(id: string, fallback: Product) {
+    let product = fallback;
+    try {
+      const { data } = await api.get(`/clients/products/${id}`);
+      if (data?.product?.id) product = data.product as Product;
+    } catch (error) {
+      console.error("Erro ao abrir o produto salvo:", error);
+    }
+    const filters: ProductFilters = {
+      ...EMPTY_PRODUCT_FILTERS,
+      codProduto: String(product.code || fallback.code || "").trim(),
+    };
+    leadIdRef.current = "";
+    leadProductRef.current = null;
+    setCopyNotice("");
+    setDraft(filters);
+    setApplied(filters);
+    searchedRef.current = true;
+    setSearched(true);
+    sessionStorage.setItem(OFFICE_PRODUCT_FILTER_KEY, JSON.stringify(filters));
+    setAllProducts([product]);
+    setTotal(1);
+    setPage(1);
+    setSelectedProducts([]);
+    void loadGridPrices([product.id]);
+    scrollPageToTop();
+  }
+
+  const loadTablePrices = async (product: Product | null) => {
+    setCostDraft(product && Number(product.costPrice) ? formatMoneyBr(Number(product.costPrice)) : "");
+    try {
+      const { data } = product?.id
+        ? await api.get(`/clients/products/${product.id}/table-prices`)
+        : await api.get("/clients/price-tables");
+      const tables = ((data.tables || []) as TablePriceRow[]).map((table) => ({ ...table, price: table.price ?? null }));
+      setTablePrices(tables);
+      const drafts: Record<string, string> = {};
+      for (const table of tables) {
+        const value = table.price != null ? table.price : table.isDefault ? Number(product?.salePrice) || null : null;
+        drafts[table.id] = value == null ? "" : formatMoneyBr(Number(value) || 0);
+      }
+      setTableDrafts(drafts);
+    } catch {
+      setTablePrices([]);
+      setTableDrafts({});
+    }
+  };
+
+  function closeProduct() {
+    setShowModal(false);
+    setDuplicando(false);
+    setSalvando(false);
+    setCopyNotice("");
+    pendingPhotoRef.current = null;
+    setDraftPhotoUrl((current) => {
+      if (current) URL.revokeObjectURL(current);
+      return "";
+    });
+    setCurrentProduct(null);
+    if (leadIdRef.current && searchedRef.current) {
+      void fetchData(appliedRef.current, 1, true);
+    }
+  }
+
+  useEffect(() => {
+    if (!showModal) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      closeProduct();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [showModal]);
+
   const handleEdit = (product: Product) => {
+    setDuplicando(false);
+    setSalvando(false);
+    setCopyNotice("");
+    pendingPhotoRef.current = null;
+    setDraftPhotoUrl((current) => {
+      if (current) URL.revokeObjectURL(current);
+      return "";
+    });
+    setNewCategoryOpen(false);
+    setNewCategoryName("");
     setCurrentProduct(product);
     setShowModal(true);
+    void loadTablePrices(product);
+  };
+
+  const createCategory = async () => {
+    const name = newCategoryName.trim();
+    if (!name || !currentProduct) return;
+    try {
+      const slug = slugifyCategory(name);
+      await createCatalog("product_category", {
+        name,
+        payload: {
+          slug,
+          parentSlug: "",
+          grade: "Sem Grade",
+          commission: "0,00",
+          discount: "0,00",
+          profit: "0,00",
+          type: "Produto c/ Controle de Estoque",
+          description: "",
+          ncmSuggest: false,
+          ncm: "",
+          defaultDiscount: false,
+          defaultDiscountValue: "0,00",
+          storePick: true,
+        },
+      });
+      setCategoryOptions((current) =>
+        current.some((item) => item.id === slug) ? current : [...current, { id: slug, label: name, depth: 0 }],
+      );
+      setCurrentProduct({ ...currentProduct, categoryId: slug, category: name });
+      setNewCategoryName("");
+      setNewCategoryOpen(false);
+    } catch (error) {
+      console.error("Erro ao criar categoria:", error);
+      Swal.fire({
+        icon: "error",
+        title: "Erro",
+        text: "Não foi possível criar a categoria.",
+        buttonsStyling: false,
+        customClass: {
+          confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
+        },
+      });
+    }
   };
 
   const handleSelectProduct = (id: string) => {
@@ -273,7 +593,9 @@ export function ProductsTab() {
 
     await executeAction(async () => {
       await Promise.all(ids.map((id) => api.patch(`/invoice/product/${id}`, { active })));
-      await fetchData();
+      const removidos = new Set(ids);
+      setAllProducts((current) => current.filter((product) => !removidos.has(product.id)));
+      setTotal((current) => Math.max(0, current - ids.length));
       setSelectedProducts([]);
       setOpenNotification({
         type: "success",
@@ -300,8 +622,102 @@ export function ProductsTab() {
     });
   };
 
+  const applyAverageCost = async () => {
+    if (isActionLoading || selectedProducts.length === 0) return;
+    const chosen = allProducts.filter((product) => selectedProducts.includes(product.id));
+    if (!chosen.length) return;
+    const money = (value: number) => value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+    const qtyOf = (product: Product) => Math.max(0, Number(product.stockQuantity) || 0);
+    const costOf = (product: Product) => Math.max(0, Number(product.costPrice) || 0);
+    const priced = chosen.filter((product) => costOf(product) > 0 && qtyOf(product) > 0);
+    const totalQty = priced.reduce((sum, product) => sum + qtyOf(product), 0);
+    const totalValue = priced.reduce((sum, product) => sum + qtyOf(product) * costOf(product), 0);
+    const preview = priced.length > 1 && totalQty > 0 ? totalValue / totalQty : 0;
+    const skipped = chosen.length - priced.length;
+    const lines = priced
+      .slice(0, 6)
+      .map((product) => `${product.name}: ${qtyOf(product)} un. a ${money(costOf(product))}`)
+      .join("<br>");
+    const more = priced.length > 6 ? `<br>e mais ${priced.length - 6} produto(s)` : "";
+    const leftOut = skipped
+      ? `<br><br>${skipped} marcado(s) com preço ou estoque zero ficam de fora e não mudam.`
+      : "";
+    const together =
+      chosen.length > 1
+        ? priced.length > 1
+          ? `<br><br>A média pelo estoque fica ${money(preview)} e entra só nos produtos acima.`
+          : "<br><br>Precisa de pelo menos dois produtos com preço de compra e estoque maiores que zero."
+        : "<br><br>Usa as entradas pagas deste produto.";
+    const result = await Swal.fire({
+      title: "Calcular custo médio?",
+      html: `${lines}${more}${together}${leftOut}`,
+      icon: "question",
+      showCancelButton: true,
+      buttonsStyling: false,
+      customClass: {
+        confirmButton: "!bg-blue-600 !text-white hover:!bg-blue-700 px-5 py-2.5 rounded-md font-semibold shadow-sm mr-2",
+        cancelButton: "!bg-gray-500 !text-white hover:!bg-gray-600 px-5 py-2.5 rounded-md font-semibold shadow-sm",
+      },
+      confirmButtonText: "Calcular",
+      cancelButtonText: "Cancelar",
+    });
+    if (!result.isConfirmed) return;
+    if (chosen.length > 1 && priced.length < 2) return;
+
+    await executeAction(async () => {
+      const included = chosen.length > 1 ? priced : chosen;
+      const before = new Map(included.map((product) => [product.id, Number(product.costPrice) || 0]));
+      const { data } = await api.post("/clients/products/average-cost", {
+        ids: included.map((product) => product.id),
+      });
+      const updated = (data.products || []) as Product[];
+      setAllProducts((prev) =>
+        prev.map((product) => {
+          const next = updated.find((item) => item.id === product.id);
+          return next ? { ...product, costPrice: Number(next.costPrice) || 0 } : product;
+        }),
+      );
+      setSelectedProducts([]);
+      const changed = updated.filter(
+        (product) => Math.abs((Number(product.costPrice) || 0) - (before.get(product.id) || 0)) >= 0.01,
+      );
+      const average = Number(data.average) || 0;
+      setOpenNotification({
+        type: "success",
+        title: "Custo médio",
+        notification:
+          chosen.length > 1 && average > 0
+            ? `Preço de compra atualizado para ${money(average)} em ${changed.length} produto(s). Zerados ficaram de fora.`
+            : changed.length
+              ? `${changed.length} produto(s) tiveram o custo médio atualizado.`
+              : "Nenhum produto mudou.",
+      });
+    }, "applyAverageCost").catch((error) => {
+      console.error("Erro ao aplicar custo médio:", error);
+      Swal.fire({
+        icon: "error",
+        title: "Erro!",
+        text: "Não foi possível calcular o custo médio.",
+        confirmButtonText: "OK",
+        buttonsStyling: false,
+        customClass: {
+          confirmButton: "!bg-blue-600 !text-white hover:!bg-blue-700 px-5 py-2.5 rounded-md font-semibold shadow-sm",
+        },
+      });
+    });
+  };
+
   const saveProductPhoto = async (product: Product, file: File | undefined) => {
     if (!file) return;
+    if (!product.id) {
+      pendingPhotoRef.current = file;
+      setDraftPhotoUrl((current) => {
+        if (current) URL.revokeObjectURL(current);
+        return URL.createObjectURL(file);
+      });
+      setCurrentProduct((current) => (current ? { ...current, photoFileId: null } : current));
+      return;
+    }
     try {
       const body = new FormData();
       body.append("file", file);
@@ -361,7 +777,7 @@ export function ProductsTab() {
     await executeAction(async () => {
       const trimmedName = currentProduct.name.trim();
       const trimmedCode = currentProduct.code.trim();
-      if (trimmedName === "" || trimmedCode === "") {
+      if (trimmedName === "" || (currentProduct.id && trimmedCode === "")) {
         Swal.fire({
           icon: "error",
           title: "Erro",
@@ -374,33 +790,41 @@ export function ProductsTab() {
         return;
       }
 
-      // Validar se já existe produto com o mesmo nome (case-insensitive) ou código
-      const existingProduct = products.find(
-        (p) =>
-          p.id !== currentProduct.id && // Não verificar o próprio produto se estiver editando
-          (p.name.toLowerCase() === trimmedName.toLowerCase() || sameProductCode(p.code, trimmedCode))
+      const cadastrados = allProducts.length ? allProducts : products;
+      const nomeIgual = cadastrados.some(
+        (p) => p.id !== currentProduct.id && p.name.trim().toLowerCase() === trimmedName.toLowerCase(),
       );
-
-      if (existingProduct) {
-        Swal.fire({
-          icon: "error",
-          title: "Produto duplicado!",
-          text: `Já existe um produto com o nome "${existingProduct.name}" ou código "${existingProduct.code}".`,
-          buttonsStyling: false,
-          customClass: {
-            confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
-          },
-        });
+      if (nomeIgual) {
+        setCopyNotice("Produto duplicado. Altere o nome para salvar.");
         return;
       }
 
+      setSalvando(true);
       try {
       let createdProduct: Product | null = null;
       if (currentProduct.id) {
-        const { data: updated } = await api.patch(`/invoice/product/${currentProduct.id}`, currentProduct);
-        setAllProducts((prev) =>
-          prev.map((p) => (p.id === currentProduct.id ? { ...p, ...updated, ...currentProduct } : p))
-        );
+        const categoryId = currentProduct.categoryId || "";
+        const category = categoryOptions.find((item) => item.id === categoryId)?.label || "";
+        await api.patch(`/invoice/product/${currentProduct.id}`, currentProduct);
+        const padrao = tablePrices.find((table) => table.isDefault);
+        const salePrice = padrao ? parseMoneyDraft(tableDrafts[padrao.id] || "") : null;
+        const nextCost = parseMoneyDraft(costDraft) ?? 0;
+        const costChanged = Math.abs(nextCost - (Number(currentProduct.costPrice) || 0)) >= 0.01;
+        await api.put(`/clients/products/${currentProduct.id}`, {
+          name: currentProduct.name,
+          ...(currentProduct.code ? { code: String(currentProduct.code) } : {}),
+          categoryId,
+          category,
+          priceweightAverage: Number(currentProduct.priceweightAverage) || 0,
+          ...(costChanged ? { costPrice: nextCost } : {}),
+          ...(salePrice != null ? { salePrice } : {}),
+        });
+        await api.put(`/clients/products/${currentProduct.id}/table-prices`, {
+          prices: tablePrices.map((table) => ({
+            priceTableId: table.id,
+            price: parseMoneyDraft(tableDrafts[table.id] || ""),
+          })),
+        });
         setOpenNotification({
           type: "success",
           title: "Sucesso!",
@@ -409,12 +833,40 @@ export function ProductsTab() {
       } else {
         const { data: created } = await api.post("/invoice/product", currentProduct);
         createdProduct = created;
-        setSearchInput("");
-        setSearchTerm("");
-        setAllProducts((prev) => {
-          if (prev.some((p) => p.id === created.id)) return prev;
-          return [...prev, created];
-        });
+        if (created?.id) {
+          const padrao = tablePrices.find((table) => table.isDefault);
+          const salePrice = padrao ? parseMoneyDraft(tableDrafts[padrao.id] || "") : null;
+          await api.put(`/clients/products/${created.id}`, {
+            name: currentProduct.name,
+            description: currentProduct.description || "",
+            ...(currentProduct.categoryId ? { categoryId: currentProduct.categoryId, category: currentProduct.category || "" } : {}),
+            priceweightAverage: Number(currentProduct.priceweightAverage) || 0,
+            weightAverage: Number(currentProduct.weightAverage) || 0,
+            stockQuantity: 0,
+            ...(currentProduct.code ? { code: String(currentProduct.code) } : {}),
+            costPrice: parseMoneyDraft(costDraft) ?? 0,
+            ...(salePrice != null ? { salePrice } : {}),
+          });
+          await api.put(`/clients/products/${created.id}/table-prices`, {
+            prices: tablePrices.map((table) => ({
+              priceTableId: table.id,
+              price: parseMoneyDraft(tableDrafts[table.id] || ""),
+            })),
+          });
+        }
+        if (pendingPhotoRef.current && created?.id) {
+          try {
+            const body = new FormData();
+            body.append("file", pendingPhotoRef.current);
+            const { data: photo } = await api.post(`/clients/products/${created.id}/photo`, body);
+            if (createdProduct) {
+              createdProduct.photoFileId = (photo?.product?.photoFileId as string | undefined) || createdProduct.photoFileId;
+            }
+          } catch (error) {
+            console.error("Erro ao copiar a foto do produto:", error);
+          }
+          pendingPhotoRef.current = null;
+        }
         setOpenNotification({
           type: "success",
           title: "Sucesso!",
@@ -422,30 +874,25 @@ export function ProductsTab() {
         });
       }
         window.dispatchEvent(new Event("productsUpdated"));
-        await fetchData();
-        if (createdProduct) {
-          setAllProducts((prev) => {
-            if (prev.some((p) => p.id === createdProduct!.id)) return prev;
-            return [...prev, createdProduct!];
-          });
-        }
+        const savedId = currentProduct.id || createdProduct?.id || "";
         setShowModal(false);
+        setDuplicando(false);
+        setCopyNotice("");
+        pendingPhotoRef.current = null;
+        setDraftPhotoUrl((current) => {
+          if (current) URL.revokeObjectURL(current);
+          return "";
+        });
         setCurrentProduct(null);
+        if (savedId) {
+          await showSavedProduct(savedId, { ...currentProduct, ...(createdProduct || {}), id: savedId });
+        }
       } catch (error: any) {
         console.error("Erro ao salvar produto:", error);
         const errorMessage = error?.response?.data?.message || error?.message || "Não foi possível salvar o produto.";
 
-        // Se o erro for de produto duplicado, mostrar mensagem específica
-        if (error?.response?.status === 409 || errorMessage.includes("já existe")) {
-          Swal.fire({
-            icon: "error",
-            title: "Produto duplicado!",
-            text: errorMessage || "Já existe um produto com este nome ou código.",
-            buttonsStyling: false,
-            customClass: {
-              confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
-            },
-          });
+        if (error?.response?.status === 409 || errorMessage.toLowerCase().includes("já existe")) {
+          setCopyNotice("Produto duplicado. Altere o nome para salvar.");
         } else {
           Swal.fire({
             icon: "error",
@@ -457,14 +904,60 @@ export function ProductsTab() {
             },
           });
         }
+      } finally {
+        setSalvando(false);
       }
     }, "saveProduct").catch((error: any) => {
       console.error("Erro no executeAction:", error);
     });
   };
 
-  const startCellEdit = (product: Product, field: "price" | "weight" | "sale" | "cost" | "stock") => {
+  const handleDuplicate = async () => {
+    if (isActionLoading || duplicando || salvando || !currentProduct?.id) return;
+    const source = currentProduct;
+    setDuplicando(true);
+    setCopyNotice("");
+    pendingPhotoRef.current = null;
+    setDraftPhotoUrl((current) => {
+      if (current) URL.revokeObjectURL(current);
+      return "";
+    });
+    try {
+      if (source.photoFileId) {
+        try {
+          const { data: blob } = await api.get(`/clients/products/${source.id}/photo`, { responseType: "blob" });
+          if (blob instanceof Blob && blob.size > 16) {
+            const type = blob.type || "image/jpeg";
+            const ext = type.includes("png") ? "png" : "jpg";
+            pendingPhotoRef.current = new File([blob], `foto.${ext}`, { type });
+          }
+        } catch (error) {
+          console.error("Erro ao copiar a foto do produto:", error);
+        }
+      }
+      await loadTablePrices(source);
+      setCurrentProduct({
+        ...source,
+        id: "",
+        code: "",
+        name: nomeSemCopia(source.name),
+        description: "",
+        stockQuantity: 0,
+      });
+      setCopyNotice("Produto duplicado. Altere o que precisar e salve.");
+    } finally {
+      setDuplicando(false);
+    }
+  };
+
+  const startCellEdit = (product: Product, field: "price" | "weight" | "sale" | "cost" | "stock" | `table:${string}`) => {
     if (isActionLoading) return;
+    if (field.startsWith("table:")) {
+      const current = gridPrices[product.id]?.[field.slice(6)];
+      setEditingCell({ id: product.id, field });
+      setEditingValue(current == null ? "" : String(current));
+      return;
+    }
     const current =
       field === "price"
         ? product.priceweightAverage
@@ -486,6 +979,40 @@ export function ProductsTab() {
 
   const commitCellEdit = async (product: Product) => {
     if (!editingCell || editingCell.id !== product.id) return;
+    if (editingCell.field.startsWith("table:")) {
+      const tableId = editingCell.field.slice(6);
+      const table = gridTables.find((item) => item.id === tableId);
+      const raw = editingValue.trim();
+      const parsed = raw === "" ? null : parseFloat(raw.replace(",", "."));
+      if (parsed != null && (isNaN(parsed) || parsed < 0)) {
+        cancelCellEdit();
+        return;
+      }
+      const previous = gridPrices[product.id]?.[tableId];
+      setGridPrices((current) => {
+        const next = { ...current, [product.id]: { ...(current[product.id] || {}) } };
+        if (parsed == null) delete next[product.id][tableId];
+        else next[product.id][tableId] = parsed;
+        return next;
+      });
+      cancelCellEdit();
+      try {
+        await api.put(`/clients/products/${product.id}/table-prices`, {
+          prices: [{ priceTableId: tableId, price: parsed }],
+        });
+      } catch (error: any) {
+        console.error("Erro ao atualizar tabela de preço:", error);
+        setGridPrices((current) => {
+          const next = { ...current, [product.id]: { ...(current[product.id] || {}) } };
+          if (previous == null) delete next[product.id][tableId];
+          else next[product.id][tableId] = previous;
+          return next;
+        });
+        const serverMessage = String(error?.response?.data?.message || "");
+        setCellNotice(serverMessage && serverMessage !== "Internal server error." ? serverMessage : `Não foi possível atualizar a tabela ${table?.name || ""}.`);
+      }
+      return;
+    }
     const parsed = editingValue.trim() === "" ? 0 : parseFloat(editingValue.replace(",", "."));
     if (isNaN(parsed) || parsed < 0) {
       cancelCellEdit();
@@ -572,10 +1099,14 @@ export function ProductsTab() {
         onClear={onClear}
         onLastFilter={onLastFilter}
         categoryOptions={categoryOptions}
+        showInStock
         brands={brands}
         collections={collections}
         genders={genders}
         suppliers={suppliers}
+        busy={isLoading}
+        exibirPor={sortBy}
+        onExibirPor={setSortBy}
       />
 
       <div className="flex justify-between items-center mb-6">
@@ -598,6 +1129,15 @@ export function ProductsTab() {
               {showInactive ? "Ativar" : "Inativar"} selecionados ({selectedProducts.length})
             </button>
           )}
+          {selectedProducts.length > 0 && (
+            <button
+              onClick={() => void applyAverageCost()}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl flex items-center shadow-sm"
+              disabled={isActionLoading}
+            >
+              Custo médio
+            </button>
+          )}
           <label className="flex items-center gap-2 text-sm font-medium text-gray-700 select-none">
             <input
               type="checkbox"
@@ -610,17 +1150,6 @@ export function ProductsTab() {
             />
             Ver desativados
           </label>
-          <div className="flex items-center gap-2">
-            <label className="text-sm font-medium text-gray-700">Ordenar por:</label>
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as "name" | "code")}
-              className="border border-gray-200 rounded-xl bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-300"
-            >
-              <option value="name">Nome (Alfabético)</option>
-              <option value="code">Código</option>
-            </select>
-          </div>
           <button
             onClick={async () => {
               // Sugestão local imediata (evita travar UI), substituída pelo backend em seguida
@@ -632,6 +1161,8 @@ export function ProductsTab() {
                 }
               });
 
+              setDuplicando(false);
+              setCopyNotice("");
               setCurrentProduct({
                 id: "",
                 name: "",
@@ -641,6 +1172,7 @@ export function ProductsTab() {
                 description: "",
               });
               setShowModal(true);
+              void loadTablePrices(null);
 
               // Buscar do backend o próximo código levando em conta TODOS os produtos
               // (inclusive inativos / fora da página atual). Isso evita colisão.
@@ -659,9 +1191,9 @@ export function ProductsTab() {
               }
             }}
             className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-xl flex items-center shadow-sm"
-            disabled={isLoading || isActionLoading}
+            disabled={isActionLoading}
           >
-            {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2" size={16} />}
+            <Plus className="mr-2" size={16} />
             Novo Produto
           </button>
         </div>
@@ -673,17 +1205,33 @@ export function ProductsTab() {
         </div>
       ) : searched ? (
         <div className="overflow-x-auto rounded-2xl border border-gray-100 shadow-sm">
-          <table className="gestao-prod-table min-w-full divide-y divide-gray-100">
+          <table
+            className="gestao-prod-table min-w-full divide-y divide-gray-100"
+            style={{
+              "--sale-ch": `${moneyWidthCh(products.map((product) => product.salePrice))}ch`,
+              "--cost-ch": `${moneyWidthCh(products.map((product) => product.costPrice))}ch`,
+            } as CSSProperties}
+          >
             <colgroup>
               <col className="gestao-prod-check" />
-              <col className="gestao-prod-foto" />
-              <col />
-              <col className="gestao-prod-code" />
-              <col className="gestao-prod-money" />
-              <col className="gestao-prod-money" />
-              <col className="gestao-prod-qty" />
-              <col className="gestao-prod-money" />
-              <col className="gestao-prod-qty" />
+              {columns.map((id) => (
+                <col
+                  key={id}
+                  className={
+                    id === "code"
+                      ? "gestao-prod-code"
+                      : id === "category"
+                        ? "gestao-prod-cat"
+                        : id === "photo"
+                          ? "gestao-prod-foto"
+                          : id === "sale" || id === "cost" || id.startsWith("table:")
+                            ? "gestao-prod-money"
+                            : id === "stock" || id === "weight"
+                              ? "gestao-prod-qty"
+                              : "gestao-prod-name"
+                  }
+                />
+              ))}
               <col className="gestao-prod-actions" />
             </colgroup>
             <thead className="bg-gray-100">
@@ -696,31 +1244,60 @@ export function ProductsTab() {
                     className="rounded"
                   />
                 </th>
-                <th>Foto</th>
-                <th className="gestao-prod-name">Nome</th>
-                <th>Código</th>
-                <th className="num" title="Clique duas vezes no valor para editar">
-                  Preço de venda
-                </th>
-                <th className="num" title="Clique duas vezes no valor para editar">
-                  Preço de custo
-                </th>
-                <th className="num" title="Clique duas vezes no valor para editar">
-                  Estoque
-                </th>
-                <th className="num" title="Clique duas vezes no valor para editar">
-                  Preço médio
-                </th>
-                <th className="num" title="Clique duas vezes no valor para editar">
-                  Peso médio
-                </th>
+                {columns.map((id) => {
+                  const column = PRODUCT_COLUMNS.find((item) => item.id === id);
+                  const table = id.startsWith("table:") ? gridTables.find((item) => `table:${item.id}` === id) : undefined;
+                  if (!column && !table) return null;
+                  const label = column?.label || table?.name || "";
+                  const active = draggingColumn === id;
+                  const tableWidth = table
+                    ? `${moneyWidthCh(products.map((product) => gridPrices[product.id]?.[table.id]))}ch`
+                    : undefined;
+                  return (
+                    <th
+                      key={id}
+                      draggable
+                      title="Segure e arraste para mudar a posição"
+                      style={tableWidth ? ({ "--money-ch": tableWidth } as CSSProperties) : undefined}
+                      className={`${column?.numeric || table ? "num" : ""} ${id === "sale" ? "gestao-prod-sale" : ""} ${table ? "gestao-prod-sale gestao-prod-table-price" : ""} ${id === "cost" ? "gestao-prod-cost" : ""} ${id === "photo" ? "gestao-prod-photo" : ""} cursor-grab select-none ${active ? "bg-blue-100 opacity-60" : ""}`}
+                      onDragStart={(event) => {
+                        draggingColumnRef.current = id;
+                        setDraggingColumn(id);
+                        event.dataTransfer.effectAllowed = "move";
+                        event.dataTransfer.setData("text/plain", id);
+                      }}
+                      onDragOver={(event) => {
+                        event.preventDefault();
+                        const from = draggingColumnRef.current;
+                        if (!from || from === id) return;
+                        setColumns((current) => {
+                          const next = current.filter((item) => item !== from);
+                          next.splice(next.indexOf(id), 0, from);
+                          localStorage.setItem(COLUMN_ORDER_KEY, JSON.stringify(next));
+                          return next;
+                        });
+                      }}
+                      onDrop={(event) => event.preventDefault()}
+                      onDragEnd={() => {
+                        draggingColumnRef.current = null;
+                        setDraggingColumn(null);
+                      }}
+                    >
+                      {id === "sale" || id === "cost" || table ? (
+                        <span className="gestao-prod-money-title">{label}</span>
+                      ) : (
+                        label
+                      )}
+                    </th>
+                  );
+                })}
                 <th className="act">Ações</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-100">
               {products.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="px-6 py-4 text-center text-gray-500">
+                  <td colSpan={columns.length + 2} className="px-6 py-4 text-center text-gray-500">
                     {isLoading
                       ? "Carregando..."
                       : "Nenhum produto para esse filtro."}
@@ -728,6 +1305,59 @@ export function ProductsTab() {
                 </tr>
               ) : (
                 products.map((product) => {
+                  const money = (value: number) =>
+                    (Number(value) || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                  const editable = (
+                    field: "sale" | "cost" | "stock" | "weight",
+                    text: string,
+                    label: string,
+                  ) => {
+                    const editing = editingCell?.id === product.id && editingCell.field === field;
+                    const priced = field === "sale" || field === "cost";
+                    const fieldInput = (
+                      <input
+                        autoFocus
+                        type="text"
+                        inputMode="decimal"
+                        value={editingValue}
+                        onChange={(event) => {
+                          const value = event.target.value.replace(",", ".");
+                          if (/^\d*\.?\d{0,2}$/.test(value) || value === "") setEditingValue(value);
+                        }}
+                        onBlur={() => commitCellEdit(product)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter") {
+                            event.preventDefault();
+                            commitCellEdit(product);
+                          }
+                          if (event.key === "Escape") {
+                            event.preventDefault();
+                            cancelCellEdit();
+                          }
+                        }}
+                        className="gestao-prod-edit"
+                      />
+                    );
+                    return (
+                      <td
+                        key={field}
+                        className={`num text-sm ${field === "sale" ? "gestao-prod-sale" : ""} ${field === "cost" ? "gestao-prod-cost" : ""}`}
+                        onDoubleClick={() => startCellEdit(product, field)}
+                        title={`Clique duas vezes para editar o ${label}`}
+                      >
+                        {priced ? (
+                          <span className="gestao-prod-money">
+                            <span className="gestao-prod-rs">R$</span>
+                            {editing ? fieldInput : <span className="cursor-text">{text}</span>}
+                          </span>
+                        ) : editing ? (
+                          fieldInput
+                        ) : (
+                          <span className="cursor-text">{text}</span>
+                        )}
+                      </td>
+                    );
+                  };
                   return (
                     <tr key={product.id} className="hover:bg-gray-50">
                       <td className="gestao-prod-check">
@@ -738,133 +1368,100 @@ export function ProductsTab() {
                           className="rounded"
                         />
                       </td>
-                      <td>
-                        <ProductThumb
-                          productId={product.id}
-                          photoFileId={product.photoFileId}
-                          disabled={isActionLoading}
-                          onFile={(file) => saveProductPhoto(product, file)}
-                        />
-                      </td>
-                      <td className="gestao-prod-name text-sm font-medium text-gray-900">{product.name}</td>
-                      <td className="text-sm text-gray-500">{product.code}</td>
-                      {(
-                        [
-                          ["sale", (product.salePrice || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" }), "preço de venda"],
-                          ["cost", (product.costPrice || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" }), "preço de custo"],
-                          ["stock", String(product.stockQuantity || 0), "estoque"],
-                        ] as const
-                      ).map(([field, text, label]) => (
-                        <td
-                          key={field}
-                          className="num text-sm text-gray-500"
-                          onDoubleClick={() => startCellEdit(product, field)}
-                          title={`Clique duas vezes para editar o ${label}`}
-                        >
-                          {editingCell?.id === product.id && editingCell.field === field ? (
-                            <input
-                              autoFocus
-                              type="text"
-                              inputMode="decimal"
-                              value={editingValue}
-                              onChange={(e) => {
-                                const value = e.target.value.replace(",", ".");
-                                if (/^\d*\.?\d{0,2}$/.test(value) || value === "") setEditingValue(value);
-                              }}
-                              onBlur={() => commitCellEdit(product)}
-                              onKeyDown={(e) => {
-                                if (e.key === "Enter") {
-                                  e.preventDefault();
-                                  commitCellEdit(product);
-                                }
-                                if (e.key === "Escape") {
-                                  e.preventDefault();
-                                  cancelCellEdit();
-                                }
-                              }}
-                              className="w-24 ml-auto text-right border border-blue-400 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-400"
-                            />
-                          ) : (
-                            <span className="cursor-text">{text}</span>
-                          )}
-                        </td>
-                      ))}
-                      <td
-                        className="num text-sm text-gray-500"
-                        onDoubleClick={() => startCellEdit(product, "price")}
-                        title="Clique duas vezes para editar o preço"
-                      >
-                        {editingCell?.id === product.id && editingCell.field === "price" ? (
-                          <input
-                            autoFocus
-                            type="text"
-                            inputMode="decimal"
-                            value={editingValue}
-                            onChange={(e) => {
-                              const value = e.target.value.replace(",", ".");
-                              if (/^\d*\.?\d{0,2}$/.test(value) || value === "") {
-                                setEditingValue(value);
+                      {columns.map((id) => {
+                        if (id === "code") {
+                          return <td key={id} className="text-sm">{product.code}</td>;
+                        }
+                        if (id === "category") {
+                          const label = product.category
+                            || categoryOptions.find((item) => item.id === product.categoryId)?.label
+                            || "—";
+                          return <td key={id} className="text-sm">{label}</td>;
+                        }
+                        if (id === "photo") {
+                          return (
+                            <td key={id} className="gestao-prod-photo">
+                              <ProductThumb
+                                productId={product.id}
+                                photoFileId={product.photoFileId}
+                                disabled={isActionLoading}
+                                onFile={(file) => saveProductPhoto(product, file)}
+                              />
+                            </td>
+                          );
+                        }
+                        if (id === "name") {
+                          return <td key={id} className="gestao-prod-name text-sm">{product.name}</td>;
+                        }
+                        if (id.startsWith("table:")) {
+                          const tableId = id.slice(6);
+                          const table = gridTables.find((item) => item.id === tableId);
+                          const value = gridPrices[product.id]?.[tableId];
+                          const editing = editingCell?.id === product.id && editingCell.field === id;
+                          const width = `${moneyWidthCh(products.map((item) => gridPrices[item.id]?.[tableId]))}ch`;
+                          return (
+                            <td
+                              key={id}
+                              className="num text-sm gestao-prod-sale"
+                              style={{ "--money-ch": width } as CSSProperties}
+                              onDoubleClick={() => startCellEdit(product, id)}
+                              title={
+                                value == null
+                                  ? `Usa o preço de venda. Duplo clique para definir ${table?.name || "a tabela"}.`
+                                  : `Clique duas vezes para editar ${table?.name || "a tabela"}`
                               }
-                            }}
-                            onBlur={() => commitCellEdit(product)}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") {
-                                e.preventDefault();
-                                commitCellEdit(product);
-                              }
-                              if (e.key === "Escape") {
-                                e.preventDefault();
-                                cancelCellEdit();
-                              }
-                            }}
-                            className="w-24 ml-auto text-right border border-blue-400 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-400"
-                          />
-                        ) : (
-                          <span className="cursor-text">
-                            {product.priceweightAverage.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
-                          </span>
-                        )}
-                      </td>
-                      <td
-                        className="num text-sm text-gray-500"
-                        onDoubleClick={() => startCellEdit(product, "weight")}
-                        title="Clique duas vezes para editar o peso"
-                      >
-                        {editingCell?.id === product.id && editingCell.field === "weight" ? (
-                          <input
-                            autoFocus
-                            type="text"
-                            inputMode="decimal"
-                            value={editingValue}
-                            onChange={(e) => {
-                              const value = e.target.value.replace(",", ".");
-                              if (/^\d*\.?\d{0,2}$/.test(value) || value === "") {
-                                setEditingValue(value);
-                              }
-                            }}
-                            onBlur={() => commitCellEdit(product)}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") {
-                                e.preventDefault();
-                                commitCellEdit(product);
-                              }
-                              if (e.key === "Escape") {
-                                e.preventDefault();
-                                cancelCellEdit();
-                              }
-                            }}
-                            className="w-24 ml-auto text-right border border-blue-400 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-400"
-                          />
-                        ) : (
-                          <span className="cursor-text">
-                            {product.weightAverage.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kg
-                          </span>
-                        )}
-                      </td>
+                            >
+                              {editing ? (
+                                <span className="gestao-prod-money">
+                                  <span className="gestao-prod-rs">R$</span>
+                                  <input
+                                    autoFocus
+                                    type="text"
+                                    inputMode="decimal"
+                                    value={editingValue}
+                                    onChange={(event) => {
+                                      const next = event.target.value.replace(",", ".");
+                                      if (/^\d*\.?\d{0,2}$/.test(next) || next === "") setEditingValue(next);
+                                    }}
+                                    onBlur={() => commitCellEdit(product)}
+                                    onKeyDown={(event) => {
+                                      if (event.key === "Enter") {
+                                        event.preventDefault();
+                                        commitCellEdit(product);
+                                      }
+                                      if (event.key === "Escape") {
+                                        event.preventDefault();
+                                        cancelCellEdit();
+                                      }
+                                    }}
+                                    className="gestao-prod-edit"
+                                  />
+                                </span>
+                              ) : value == null ? (
+                                <span className="cursor-text text-gray-400">—</span>
+                              ) : (
+                                <span className="gestao-prod-money">
+                                  <span className="gestao-prod-rs">R$</span>
+                                  <span className="cursor-text">{money(value)}</span>
+                                </span>
+                              )}
+                            </td>
+                          );
+                        }
+                        if (id === "sale") return editable("sale", money(product.salePrice || 0), "preço de venda");
+                        if (id === "cost") return editable("cost", money(product.costPrice || 0), "preço de compra");
+                        if (id === "stock") return editable("stock", String(product.stockQuantity || 0), "estoque");
+                        return editable(
+                          "weight",
+                          `${product.weightAverage.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kg`,
+                          "peso",
+                        );
+                      })}
                       <td className="act text-sm font-medium">
-                        <div className="flex flex-wrap justify-end gap-2">
+                        <div className="flex flex-wrap justify-center gap-2">
                           <button
                             type="button"
+                            onMouseDown={(event) => event.preventDefault()}
                             onClick={() => handleEdit(product)}
                             className="rounded-lg border border-gray-300 p-1.5 text-gray-700 hover:bg-gray-100"
                             title="Abrir produto"
@@ -907,7 +1504,7 @@ export function ProductsTab() {
                 className="pdv-prod-btn"
                 type="button"
                 disabled={page <= 1}
-                onClick={() => void fetchData(applied, page - 1)}
+                onClick={() => void fetchData(applied, page - 1, true)}
               >
                 Anterior
               </button>
@@ -915,7 +1512,7 @@ export function ProductsTab() {
                 className="pdv-prod-btn"
                 type="button"
                 disabled={page >= pageCount}
-                onClick={() => void fetchData(applied, page + 1)}
+                onClick={() => void fetchData(applied, page + 1, true)}
               >
                 Próxima
               </button>
@@ -924,33 +1521,70 @@ export function ProductsTab() {
         </div>
       ) : null}
 
-      {showModal && currentProduct && (
+      {showModal && currentProduct && createPortal(
         <div
-          onClick={() => setShowModal(false)}
-          className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 backdrop-blur-sm"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) event.preventDefault();
+          }}
+          className="gprod-modal"
         >
-          <div onClick={(e) => e.stopPropagation()} className="bg-white p-6 rounded-2xl w-full max-w-md shadow-xl border border-gray-100">
-            <h3 className="text-lg font-medium mb-4">{currentProduct.id ? "Editar Produto" : "Novo Produto"}</h3>
-            <div className="space-y-4">
-              {currentProduct.id ? (
+          <div className="gprod-modal-card" role="dialog" aria-modal="true">
+            <div className="gprod-modal-head">
+              <h3 className="text-lg font-medium">{copyNotice ? "Produto duplicado" : currentProduct.id ? "Editar Produto" : "Novo Produto"}</h3>
+              <button
+                type="button"
+                aria-label="Fechar"
+                onClick={closeProduct}
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-gray-500 hover:bg-gray-100"
+              >
+                <X size={18} aria-hidden />
+              </button>
+            </div>
+            <div className="gprod-modal-body space-y-4">
+              {duplicando ? (
+                <p className="flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-950">
+                  <Loader2 size={16} className="animate-spin" />
+                  Duplicando...
+                </p>
+              ) : salvando ? (
+                <p className="flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-950">
+                  <Loader2 size={16} className="animate-spin" />
+                  Salvando...
+                </p>
+              ) : copyNotice ? (
+                <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950">{copyNotice}</p>
+              ) : null}
+              {currentProduct.id || currentProduct.photoFileId || draftPhotoUrl ? (
                 <div>
                   <span className="mb-2 block text-sm font-medium text-gray-700">Foto</span>
                   <div className="flex items-center gap-4">
                     <ProductThumb
                       large
-                      productId={currentProduct.id}
+                      preview={draftPhotoUrl}
+                      productId={currentProduct.id || "rascunho"}
                       photoFileId={currentProduct.photoFileId}
-                      disabled={isActionLoading}
+                      disabled={isActionLoading || salvando}
                       onFile={(file) => saveProductPhoto(currentProduct, file)}
                     />
                     <div className="space-y-2">
                       <p className="text-sm text-gray-500">Clique na foto para adicionar ou trocar.</p>
-                      {currentProduct.photoFileId ? (
+                      {currentProduct.photoFileId || draftPhotoUrl ? (
                         <button
                           type="button"
-                          onClick={() => deleteProductPhoto(currentProduct)}
+                          onClick={() => {
+                            if (!currentProduct.id) {
+                              pendingPhotoRef.current = null;
+                              setDraftPhotoUrl((current) => {
+                                if (current) URL.revokeObjectURL(current);
+                                return "";
+                              });
+                              setCurrentProduct({ ...currentProduct, photoFileId: null });
+                              return;
+                            }
+                            void deleteProductPhoto(currentProduct);
+                          }}
                           className="rounded-lg border border-red-200 px-3 py-1.5 text-sm font-semibold text-red-700 hover:bg-red-50"
-                          disabled={isActionLoading}
+                          disabled={isActionLoading || salvando}
                         >
                           Apagar foto
                         </button>
@@ -989,24 +1623,82 @@ export function ProductsTab() {
                   className="w-full border border-gray-200 rounded-xl p-3 bg-gray-50 cursor-not-allowed"
                 />
               </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="produto-categoria">
+                  Categoria
+                </label>
+                <div className="flex items-center gap-2">
+                  <select
+                    id="produto-categoria"
+                    value={currentProduct.categoryId || ""}
+                    disabled={isActionLoading}
+                    onChange={(event) => {
+                      const categoryId = event.target.value;
+                      const category = categoryOptions.find((item) => item.id === categoryId)?.label || "";
+                      setCurrentProduct({ ...currentProduct, categoryId, category });
+                    }}
+                    className="w-full rounded-xl border border-gray-200 bg-white p-3 text-gray-900 focus:border-blue-300 focus:ring-2 focus:ring-blue-400"
+                  >
+                    <option value="">Selecione</option>
+                    {currentProduct.categoryId && !categoryOptions.some((item) => item.id === currentProduct.categoryId) ? (
+                      <option value={currentProduct.categoryId}>{currentProduct.category || currentProduct.categoryId}</option>
+                    ) : null}
+                    {categoryOptions.map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {`${"\u00A0\u00A0".repeat(item.depth)}${item.label}`}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    aria-label="Criar categoria"
+                    title="Criar categoria"
+                    onClick={() => setNewCategoryOpen((open) => !open)}
+                    className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-800 hover:bg-gray-50"
+                    disabled={isActionLoading}
+                  >
+                    <Plus size={18} />
+                  </button>
+                </div>
+                {newCategoryOpen ? (
+                  <div className="mt-2 flex gap-2">
+                    <input
+                      type="text"
+                      value={newCategoryName}
+                      placeholder="Nome da categoria"
+                      onChange={(event) => setNewCategoryName(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") {
+                          event.preventDefault();
+                          void createCategory();
+                        }
+                      }}
+                      className="w-full rounded-xl border border-gray-200 bg-white p-3 text-gray-900 focus:border-blue-300 focus:ring-2 focus:ring-blue-400"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => void createCategory()}
+                      className="px-4 py-2 rounded-xl bg-blue-500 text-white hover:bg-blue-600"
+                      disabled={isActionLoading || !newCategoryName.trim()}
+                    >
+                      Criar
+                    </button>
+                  </div>
+                ) : null}
+              </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Preço ($)</label>
-                  <input
-                    type="text"
-                    placeholder="0.00"
-                    inputMode="decimal"
-                    value={currentProduct.priceweightAverage === 0 ? "" : String(currentProduct.priceweightAverage)}
-                    onChange={(e) => {
-                      const value = e.target.value.replace(",", "."); // permite , ou .
-                      if (/^\d*\.?\d{0,2}$/.test(value) || value === "") {
-                        setCurrentProduct({
-                          ...currentProduct,
-                          priceweightAverage: value === "" ? 0 : parseFloat(value),
-                        });
-                      }
-                    }}
-                    className="w-full border border-gray-200 rounded-xl p-3 focus:ring-2 focus:ring-blue-400 focus:border-blue-300"
+                  <MoneyInput
+                    placeholder="0,00"
+                    value={currentProduct.priceweightAverage ? formatMoneyBr(currentProduct.priceweightAverage) : ""}
+                    onChange={(next) =>
+                      setCurrentProduct({
+                        ...currentProduct,
+                        priceweightAverage: next ? parseMoneyBr(next) : 0,
+                      })
+                    }
+                    disabled={isActionLoading}
                   />
                 </div>
                 <div>
@@ -1030,6 +1722,38 @@ export function ProductsTab() {
                 </div>
               </div>
               <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Preço de custo</label>
+                <MoneyInput
+                  placeholder="0,00"
+                  value={costDraft}
+                  onChange={setCostDraft}
+                  disabled={isActionLoading}
+                />
+              </div>
+              {[...tablePrices]
+                .sort((a, b) => {
+                  if (a.isDefault !== b.isDefault) return a.isDefault ? -1 : 1;
+                  if (a.slug === "lojas") return -1;
+                  if (b.slug === "lojas") return 1;
+                  return a.name.localeCompare(b.name, "pt-BR");
+                })
+                .map((table) => (
+                  <div key={table.id}>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      {table.isDefault ? "Preço de venda" : table.slug === "lojas" ? "Preço lojas" : `Preço ${table.name}`}
+                    </label>
+                    <MoneyInput
+                      placeholder={table.isDefault ? "0,00" : "Usa o padrão"}
+                      value={tableDrafts[table.id] || ""}
+                      onChange={(next) => setTableDrafts((current) => ({ ...current, [table.id]: next }))}
+                      disabled={isActionLoading}
+                    />
+                    {table.isDefault ? null : (
+                      <p className="mt-1 text-xs text-gray-500">Vazio usa o preço padrão. Vale só para o cliente desta tabela.</p>
+                    )}
+                  </div>
+                ))}
+              <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Descrição</label>
                 <textarea
                   rows={3}
@@ -1051,9 +1775,20 @@ export function ProductsTab() {
                 ></textarea>
               </div>
             </div>
-            <div className="mt-6 flex justify-end space-x-3">
+            <div className="gprod-modal-foot">
+              {currentProduct.id ? (
+                <button
+                  type="button"
+                  onClick={() => void handleDuplicate()}
+                  className="mr-auto px-4 py-2 border border-gray-200 rounded-xl hover:bg-gray-50 inline-flex items-center gap-2"
+                  disabled={isActionLoading || duplicando}
+                >
+                  {duplicando ? <Loader2 size={16} className="animate-spin" /> : <Copy size={16} />}
+                  {duplicando ? "Duplicando..." : "Duplicar"}
+                </button>
+              ) : null}
               <button
-                onClick={() => setShowModal(false)}
+                onClick={closeProduct}
                 className="px-4 py-2 border border-gray-200 rounded-xl hover:bg-gray-50"
                 disabled={isActionLoading}
               >
@@ -1062,9 +1797,9 @@ export function ProductsTab() {
               <button
                 onClick={handleSave}
                 className="px-4 py-2 bg-blue-500 text-white rounded-xl flex items-center justify-center shadow-sm hover:bg-blue-600"
-                disabled={isActionLoading}
+                disabled={isActionLoading || salvando || duplicando}
               >
-                {isSubmitting ? (
+                {salvando ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     Salvando...
@@ -1075,7 +1810,8 @@ export function ProductsTab() {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
       {cellNotice ? (
         <div className="pdv-chrome-dialog" role="alertdialog" aria-labelledby="cell-notice-title">

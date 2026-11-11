@@ -1,12 +1,11 @@
-import { createContext, FormEvent, ReactNode, useContext, useEffect, useRef, useState } from "react";
+import { createContext, FormEvent, ReactNode, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
-  ArrowLeft,
   ChevronDown,
   Headphones,
   Home,
-  ImagePlus,
   LogOut,
+  Image,
   Menu,
   Search,
   Settings,
@@ -14,8 +13,9 @@ import {
   UserRound,
 } from "lucide-react";
 import { useClientAuth } from "../../../hooks/clientAuth";
+import { PageJumps } from "./PageJumps";
 import { api } from "../../../services/api";
-import { usePdvLayoutMode, type PdvLayoutMode } from "../../../store/pdvLayoutMode";
+import { usePdvLayoutMode } from "../../../store/pdvLayoutMode";
 import { CAIXA_STORAGE_KEY, NENHUM_CAIXA, STORE_STORAGE_KEY, toStoreOption, type StoreOption } from "./mockData";
 import MenuBar from "./MenuBar";
 import ClassicDrawer from "./ClassicDrawer";
@@ -29,6 +29,10 @@ import {
   normalizePdvUiConfig,
   type PdvUiConfig,
 } from "./pdvUiConfig";
+import { openMenuHref, searchMenus } from "./menuData";
+import { aquecerCatalogoPedido } from "../vendas/pedidoCatalogo";
+import { aquecerTransferencias } from "../movimentacoes/transferenciasCache";
+import { aguardandoEvento, bloqueioDaRota, carregarEventos, observarEventos, publicarSessao } from "../cadastros/usuarios/acessoEvento";
 import "./dashboard.css";
 import "./dashboard-classic.css";
 import "./pdv-modals.css";
@@ -37,6 +41,7 @@ type PdvSession = {
   query: string;
   storeId: string;
   storeName: string;
+  storeOwner: string;
   stores: StoreOption[];
   openStoreLogo: () => void;
 };
@@ -45,6 +50,7 @@ const PdvSessionContext = createContext<PdvSession>({
   query: "",
   storeId: "",
   storeName: "",
+  storeOwner: "",
   stores: [],
   openStoreLogo: () => undefined,
 });
@@ -73,33 +79,6 @@ export function PdvLoading() {
 function readStoredStoreId() {
   if (typeof sessionStorage === "undefined") return "";
   return sessionStorage.getItem(STORE_STORAGE_KEY) || "";
-}
-
-/** Toggle TEMPORÁRIO de layout (Clássico/Premium) — remover ao definir o layout final. */
-function LayoutModeToggle() {
-  const mode = usePdvLayoutMode((state) => state.mode);
-  const setMode = usePdvLayoutMode((state) => state.setMode);
-
-  const options: { value: PdvLayoutMode; label: string }[] = [
-    { value: "classic", label: "Clássico" },
-    { value: "premium", label: "Premium" },
-  ];
-
-  return (
-    <div className="pdv-layout-toggle" role="group" aria-label="Estilo do painel">
-      {options.map((option) => (
-        <button
-          key={option.value}
-          type="button"
-          aria-pressed={mode === option.value}
-          title={`Usar layout ${option.label}`}
-          onClick={() => setMode(option.value)}
-        >
-          {option.label}
-        </button>
-      ))}
-    </div>
-  );
 }
 
 function StoreCluster({
@@ -156,7 +135,7 @@ function StoreCluster({
             aria-label="Lista de lojas. Selecione a loja que desejar gerenciar"
             onClick={() => setOpen((current) => !current)}
           >
-            <span>{selected?.label ?? "Lista de lojas"}</span>
+            <span>{selected?.name || "Lista de lojas"}</span>
             <ChevronDown className="pdv-shop-caret" size={16} strokeWidth={2} aria-hidden="true" />
           </button>
         </PdvTip>
@@ -185,7 +164,103 @@ function StoreCluster({
   );
 }
 
-export default function PdvShell({
+export { PageJumps } from "./PageJumps";
+
+type StoredLogo = { url: string; fileId: string };
+
+const logoCache = new Map<string, StoredLogo>();
+const LOGO_STORAGE = "pdv-store-logo:";
+
+function rememberLogo(storeId: string): StoredLogo | null {
+  if (!storeId) return null;
+  const cached = logoCache.get(storeId);
+  if (cached?.url) return cached;
+  try {
+    const raw = localStorage.getItem(LOGO_STORAGE + storeId);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as StoredLogo;
+    if (!parsed?.url || !parsed.fileId) return null;
+    logoCache.set(storeId, parsed);
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function rememberLogoUrl(storeId: string) {
+  return rememberLogo(storeId)?.url || null;
+}
+
+function shrinkLogo(blob: Blob) {
+  return new Promise<string | null>((resolve) => {
+    const objectUrl = URL.createObjectURL(blob);
+    const img = new Image();
+    img.onload = () => {
+      const size = 96;
+      const canvas = document.createElement("canvas");
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext("2d");
+      if (!ctx || !img.width || !img.height) {
+        URL.revokeObjectURL(objectUrl);
+        resolve(null);
+        return;
+      }
+      const scale = Math.min(size / img.width, size / img.height);
+      const width = img.width * scale;
+      const height = img.height * scale;
+      ctx.clearRect(0, 0, size, size);
+      ctx.drawImage(img, (size - width) / 2, (size - height) / 2, width, height);
+      URL.revokeObjectURL(objectUrl);
+      resolve(canvas.toDataURL("image/webp", 0.82));
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      resolve(null);
+    };
+    img.src = objectUrl;
+  });
+}
+
+const ShellFrame = createContext<null | { setClassName: (value?: string) => void }>(null);
+
+export default function PdvShell(props: {
+  children: ReactNode;
+  onClosePanels?: () => void;
+  onHome?: () => void;
+  variant?: "board" | "form";
+  className?: string;
+  showStrip?: boolean;
+}) {
+  const frame = useContext(ShellFrame);
+  useEffect(() => {
+    if (!frame) return;
+    frame.setClassName(props.className);
+    return () => frame.setClassName(undefined);
+  }, [frame, props.className]);
+  if (frame) return props.children;
+  return <PdvShellHost {...props} />;
+}
+
+function PdvShellHost(props: {
+  children: ReactNode;
+  onClosePanels?: () => void;
+  onHome?: () => void;
+  variant?: "board" | "form";
+  className?: string;
+  showStrip?: boolean;
+}) {
+  const [pageClass, setPageClass] = useState<string | undefined>();
+  const frame = useMemo(() => ({ setClassName: setPageClass }), []);
+  const className = [props.className, pageClass].filter(Boolean).join(" ") || undefined;
+  return (
+    <ShellFrame.Provider value={frame}>
+      <PdvShellView {...props} className={className} />
+    </ShellFrame.Provider>
+  );
+}
+
+function PdvShellView({
   children,
   onClosePanels,
   onHome,
@@ -200,31 +275,66 @@ export default function PdvShell({
   className?: string;
   showStrip?: boolean;
 }) {
-  const { clientLogout } = useClientAuth();
+  const { client, clientLogout } = useClientAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  useLayoutEffect(() => {
+    const main = document.getElementById("pdv-main");
+    if (main) main.scrollTop = 0;
+    window.scrollTo(0, 0);
+  }, [location.pathname, location.search]);
   const [query, setQuery] = useState("");
+  const [searchOpen, setSearchOpen] = useState(false);
+  const searchRef = useRef<HTMLFormElement>(null);
+  const menuHits = useMemo(() => searchMenus(query), [query]);
   const [storeId, setStoreId] = useState(readStoredStoreId);
   const [stores, setStores] = useState<StoreOption[]>([]);
   const [pendingStoreId, setPendingStoreId] = useState<string | null>(null);
   const [chromeModal, setChromeModal] = useState<"config" | "support" | "logo" | null>(null);
   const bank = useBankSwitch();
   const [uiConfig, setUiConfig] = useState<PdvUiConfig>(EMPTY_PDV_UI_CONFIG);
-  const [logoSrc, setLogoSrc] = useState<string | null>(null);
+  const [logoSrc, setLogoSrc] = useState<string | null>(() => rememberLogoUrl(readStoredStoreId()));
   const [logoTick, setLogoTick] = useState(0);
   const layoutMode = usePdvLayoutMode((state) => state.mode);
   const isClassic = layoutMode === "classic";
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [eventoTick, setEventoTick] = useState(0);
+
+  useEffect(() => {
+    aquecerCatalogoPedido();
+    aquecerTransferencias();
+    return observarEventos(() => setEventoTick((value) => value + 1));
+  }, []);
+
+  useEffect(() => {
+    let ativo = true;
+    if (!client) {
+      publicarSessao({ pronto: true, catalogo: false, eventos: null });
+      return;
+    }
+    publicarSessao({ pronto: false, catalogo: false, eventos: null });
+    carregarEventos(client.email, client.username)
+      .then((proxima) => {
+        if (ativo) publicarSessao(proxima);
+      })
+      .catch(() => {
+        if (ativo) publicarSessao({ pronto: true, catalogo: false, eventos: null });
+      });
+    return () => {
+      ativo = false;
+    };
+  }, [client]);
 
   const currentStore = stores.find((item) => item.id === storeId) ?? stores[0];
   const storeName = currentStore?.name ?? "";
+  const storeOwner = currentStore?.owner ?? "";
   const pendingStore = stores.find((item) => item.id === pendingStoreId);
 
   useEffect(() => {
     let active = true;
     api
       .get("/clients/stores")
-      .then(({ data }) => {
+      .then(async ({ data }) => {
         if (!active) return;
         const raw = Array.isArray(data?.stores) ? data.stores : Array.isArray(data) ? data : [];
         const list = (
@@ -237,6 +347,18 @@ export default function PdvShell({
           if (current && list.some((item) => item.id === current)) return current;
           return list[0]?.id ?? "";
         });
+        const named = await Promise.all(list.map(async (item) => {
+          try {
+            const loja = await api.get(`/clients/stores/${item.id}/loja`);
+            const fantasia = String(loja.data?.store?.dados?.geral?.fantasia || "").trim();
+            if (!fantasia) return item;
+            return toStoreOption({ id: item.id, name: item.name, storeCode: item.code, fantasia, owner: item.owner });
+          } catch {
+            return item;
+          }
+        }));
+        if (!active) return;
+        setStores(named);
       })
       .catch(() => {
         if (active) setStores([]);
@@ -251,40 +373,60 @@ export default function PdvShell({
   }, [storeId]);
 
   useEffect(() => {
-    if (!storeId) {
-      setLogoSrc(null);
-      return;
+    function onStoreName(event: Event) {
+      const detail = (event as CustomEvent<{ id?: string; name?: string }>).detail;
+      const id = detail?.id;
+      const fantasia = String(detail?.name || "").trim();
+      if (!id || !fantasia) return;
+      setStores((current) => current.map((item) => (
+        item.id === id ? toStoreOption({ id: item.id, name: fantasia, storeCode: item.code, fantasia, owner: item.owner }) : item
+      )));
     }
+    window.addEventListener("pdv-store-name", onStoreName);
+    return () => window.removeEventListener("pdv-store-name", onStoreName);
+  }, []);
+
+  useEffect(() => {
+    if (!storeId) return;
+    const remembered = rememberLogo(storeId);
+    if (remembered) setLogoSrc(remembered.url);
     let active = true;
-    let objectUrl: string | null = null;
 
     api
-      .get("/clients/store-logo", { params: { storeKey: storeId } })
-      .then(async ({ data }) => {
-        const fileId = data?.current?.id;
-        if (!active || !fileId) {
-          if (active) setLogoSrc(null);
-          return;
-        }
-        const blob = await api.get(`/clients/store-logo/file/${fileId}`, {
-          params: { storeKey: storeId },
-          responseType: "blob",
-        });
+      .get("/clients/store-logo/current", {
+        params: { storeKey: storeId },
+        responseType: "blob",
+      })
+      .then(async (response) => {
         if (!active) return;
-        objectUrl = URL.createObjectURL(blob.data);
-        if (!active) {
-          URL.revokeObjectURL(objectUrl);
+        const fileId = String(response.headers?.["x-logo-file"] || "");
+        const blob = response.data as Blob;
+        if (response.status === 204 || !blob?.size) {
+          if (!rememberLogo(storeId)) setLogoSrc(null);
           return;
         }
-        setLogoSrc(objectUrl);
+        const cached = logoCache.get(storeId);
+        if (cached?.fileId && fileId && cached.fileId === fileId && cached.url.startsWith("blob:")) {
+          setLogoSrc(cached.url);
+          return;
+        }
+        const url = URL.createObjectURL(blob);
+        logoCache.set(storeId, { url, fileId: fileId || cached?.fileId || "atual" });
+        setLogoSrc(url);
+        const preview = await shrinkLogo(blob);
+        if (!active || !preview) return;
+        try {
+          localStorage.setItem(LOGO_STORAGE + storeId, JSON.stringify({ url: preview, fileId: fileId || "atual" }));
+        } catch {
+          /* a prévia fica só nesta sessão */
+        }
       })
       .catch(() => {
-        if (active) setLogoSrc(null);
+        if (active && !rememberLogo(storeId)) setLogoSrc(null);
       });
 
     return () => {
       active = false;
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
   }, [storeId, logoTick]);
 
@@ -324,7 +466,7 @@ export default function PdvShell({
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
       if (event.key === "F1") {
-        if (chromeModal) return;
+        if (chromeModal || location.pathname === "/client/pdv") return;
         event.preventDefault();
         document.getElementById("pdv-q")?.focus();
       }
@@ -334,7 +476,7 @@ export default function PdvShell({
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [pendingStoreId, chromeModal]);
+  }, [pendingStoreId, chromeModal, location.pathname]);
 
   function closePanels() {
     document.getElementById("pdv-main")?.querySelectorAll("details[open]").forEach((el) => {
@@ -354,9 +496,39 @@ export default function PdvShell({
     window.scrollTo(0, 0);
   }
 
+  function onLogoClick() {
+    setQuery("");
+    closePanels();
+    onHome?.();
+    if (location.pathname !== "/client/dashboard") {
+      navigate("/client/dashboard");
+      return;
+    }
+    window.location.reload();
+  }
+
   function onSearch(event: FormEvent) {
     event.preventDefault();
+    const first = menuHits[0];
+    if (!first) return;
+    setQuery("");
+    setSearchOpen(false);
+    openMenuHref(first.href, navigate);
   }
+
+  function openMenuHit(href: string) {
+    setQuery("");
+    setSearchOpen(false);
+    openMenuHref(href, navigate);
+  }
+
+  useEffect(() => {
+    function onPointer(event: MouseEvent) {
+      if (!searchRef.current?.contains(event.target as Node)) setSearchOpen(false);
+    }
+    document.addEventListener("mousedown", onPointer);
+    return () => document.removeEventListener("mousedown", onPointer);
+  }, []);
 
   function requestStoreChange(nextId: string) {
     if (nextId === storeId) return;
@@ -375,6 +547,8 @@ export default function PdvShell({
   }
 
   const onDashboard = location.pathname === "/client/dashboard";
+  const onSale = location.pathname === "/client/pdv" || location.pathname.startsWith("/client/movimentacoes/compras/nova");
+  const showMenu = showStrip && !isClassic && !onSale;
 
   // Fechar demonstrativo e o filtro de período ficam fora da tela por enquanto.
   // const showCloseDemo = isDashboardVisible(uiConfig, "close-demo");
@@ -392,20 +566,20 @@ export default function PdvShell({
 
   return (
     <PdvUiConfigContext.Provider value={uiConfig}>
-    <PdvSessionContext.Provider value={{ query, storeId, storeName, stores, openStoreLogo: () => setChromeModal("logo") }}>
+    <PdvSessionContext.Provider value={{ query, storeId, storeName, storeOwner, stores, openStoreLogo: () => setChromeModal("logo") }}>
       <div
         className={className ? `pdv-root ${className}` : "pdv-root"}
         data-surface="cream"
         data-layout={layoutMode}
-        data-pdv={location.pathname === "/client/pdv" ? "sale" : undefined}
+        data-pdv={onSale ? "sale" : undefined}
         lang="pt-BR"
       >
         <a className="pdv-skip" href="#pdv-main">
           Ir para o conteúdo
         </a>
 
-        {/* Header escondido no PDV só para este teste de layout. */}
-        {location.pathname === "/client/pdv" ? null : <header className="pdv-header">
+        {onSale ? null : (
+        <header className="pdv-header">
           <div className="pdv-brand">
             {isClassic ? (
               <PdvTip label="Menu">
@@ -421,24 +595,30 @@ export default function PdvShell({
                 </button>
               </PdvTip>
             ) : null}
-            <PdvTip label="Página inicial">
+            <div className="pdv-logo-wrap">
               <button
                 className="pdv-store-logo"
                 type="button"
-                aria-label="Voltar à página inicial"
+                aria-label={onDashboard ? "Recarregar painel" : "Voltar ao painel"}
                 data-has-logo={logoSrc ? "true" : undefined}
-                onClick={handleHome}
+                onClick={onLogoClick}
               >
-                {logoSrc ? (
-                  <img className="pdv-store-logo-img" src={logoSrc} alt="" />
-                ) : (
-                  <ImagePlus size={20} strokeWidth={2.2} aria-hidden="true" />
-                )}
-                <span className="pdv-store-logo-text" aria-hidden={logoSrc ? true : undefined}>
-                  Logo da loja
-                </span>
+                {logoSrc ? <img className="pdv-store-logo-img" src={logoSrc} alt="" /> : null}
               </button>
-            </PdvTip>
+              <button
+                className="pdv-logo-edit"
+                type="button"
+                aria-label="Alterar logo da loja"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setChromeModal("logo");
+                }}
+              >
+                <Image size={14} strokeWidth={2.2} aria-hidden="true" />
+                Alterar logo da loja
+              </button>
+            </div>
+            {showMenu ? <MenuBar uiConfig={uiConfig} /> : null}
             {isClassic ? (
               <StoreCluster
                 stores={stores}
@@ -447,41 +627,54 @@ export default function PdvShell({
                 onHome={handleHome}
                 home={false}
               />
-            ) : (
-              <button className="pdv-catalog" type="button" onClick={() => navigate("/client/produtos")}>
-                CATÁLOGO DE PRODUTOS
-              </button>
-            )}
+            ) : null}
           </div>
 
-          <form className="pdv-search" onSubmit={onSearch} role="search">
-            <div className="pdv-search-head">
-              <label htmlFor="pdv-q">Pesquisa de Menu</label>
-              <kbd className="pdv-search-kbd">F1</kbd>
-            </div>
+          <form className="pdv-search" onSubmit={onSearch} role="search" ref={searchRef}>
+            <label htmlFor="pdv-q" className="pdv-search-head">Pesquisa de Menu</label>
             <div className="pdv-search-row">
               <Search className="pdv-search-icon" size={16} aria-hidden="true" />
               <input
                 id="pdv-q"
                 className="pdv-search-input"
                 value={query}
-                onChange={(event) => setQuery(event.target.value)}
+                onChange={(event) => {
+                  setQuery(event.target.value);
+                  setSearchOpen(true);
+                }}
+                onFocus={() => setSearchOpen(true)}
                 type="search"
                 autoComplete="off"
-                aria-keyshortcuts="F1"
-                placeholder={isClassic ? "Pesquisar no menu (F1)" : undefined}
+                aria-expanded={searchOpen && query.trim() ? true : undefined}
+                aria-controls="pdv-menu-results"
+                placeholder="Pesquisa de Menu"
               />
+              {searchOpen && query.trim() ? (
+                <div className="pdv-search-results" id="pdv-menu-results">
+                  {menuHits.length === 0 ? (
+                    <p className="pdv-search-empty">Nada encontrado no menu.</p>
+                  ) : (
+                    <ul>
+                      {menuHits.map((hit) => {
+                        const aviso = bloqueioDaRota(hit.href);
+                        return (
+                        <li key={hit.id}>
+                          <button type="button" className="pdv-search-hit" title={aviso || undefined} data-locked={aviso ? "true" : undefined} onClick={() => { if (!aviso) openMenuHit(hit.href); }}>
+                            <strong>{hit.label}</strong>
+                            {hit.trail ? <small>{hit.trail}</small> : null}
+                          </button>
+                        </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                </div>
+              ) : null}
             </div>
           </form>
 
+          <div className="pdv-header-side">
           <nav className="pdv-icons" aria-label="Atalhos">
-            {onDashboard ? null : (
-              <button className="pdv-voltar-link" type="button" onClick={() => navigate(-1)}>
-                <ArrowLeft size={16} strokeWidth={2.2} aria-hidden="true" />
-                Voltar
-              </button>
-            )}
-            <LayoutModeToggle />
             <PdvTip label="Voltar ao painel">
               <button
                 className="pdv-ico pdv-ico-home"
@@ -557,27 +750,20 @@ export default function PdvShell({
               </button>
             </PdvTip>
           </nav>
-        </header>}
+          {showMenu ? (
+            <StoreCluster
+              stores={stores}
+              value={storeId}
+              onChange={requestStoreChange}
+              onHome={handleHome}
+            />
+          ) : null}
+          </div>
+        </header>
+        )}
 
         {/* No PDV (/client/pdv) o menu Cadastros, Movimentações, Relatórios e a lista de lojas ficam fora. */}
-        {showStrip && !isClassic && location.pathname !== "/client/pdv" ? (
-          <div className="pdv-strip">
-            <MenuBar uiConfig={uiConfig} />
-
-            <div className="pdv-toolbar">
-              <div className="pdv-toolbar-start">{closeDemoButton}</div>
-              <div className="pdv-toolbar-end">
-                {periodControl}
-                <StoreCluster
-                  stores={stores}
-                  value={storeId}
-                  onChange={requestStoreChange}
-                  onHome={handleHome}
-                />
-              </div>
-            </div>
-          </div>
-        ) : showStrip && onDashboard && (closeDemoButton || periodControl) ? (
+        {showStrip && onDashboard && (closeDemoButton || periodControl) ? (
           <div className="pdvc-tools">
             {closeDemoButton}
             {periodControl}
@@ -588,8 +774,15 @@ export default function PdvShell({
           className={variant === "form" ? "pdv-main pdv-main-form" : "pdv-main"}
           id="pdv-main"
         >
-          {children}
+          {(() => {
+            const aqui = `${location.pathname}${location.search}`;
+            if (aguardandoEvento(aqui)) return null;
+            const trava = eventoTick >= 0 ? bloqueioDaRota(aqui) : "";
+            if (trava) return <p className="pdv-evento-aviso">{trava}</p>;
+            return children;
+          })()}
         </main>
+        <PageJumps />
 
         <ClassicDrawer
           open={isClassic && drawerOpen}

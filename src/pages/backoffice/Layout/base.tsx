@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Box,
   CssBaseline,
@@ -8,9 +8,25 @@ import {
 import { ColorModeContext, useMode } from "../../../theme";
 import Topbar from "../../../pages/global/Topbar";
 import Sidebar from "../../../pages/global/Sidebar";
-import { Outlet, useLocation } from "react-router-dom";
+import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { useUiModeStore } from "../../../store/uiModeStore";
+import { isPrintOnlyAccount, usePermissionStore } from "../../../store/permissionsStore";
+import { useAuthBackoffice } from "../../../hooks/authBackoffice";
 import { PremiumChrome } from "./PremiumChrome";
+import { PageJumps } from "../../client/dashboard/PageJumps";
+import { aquecerOperadores } from "../../form-operators/operadoresCache";
+
+function PrintOnlyGate() {
+  const location = useLocation();
+  const { user } = useAuthBackoffice();
+  const { permissions, getPermissions } = usePermissionStore();
+  useEffect(() => {
+    getPermissions();
+  }, [getPermissions]);
+  if (!isPrintOnlyAccount(user, permissions)) return null;
+  if (location.pathname === "/vendas-concluidas") return null;
+  return <Navigate to="/vendas-concluidas" replace />;
+}
 
 export function Layout() {
   const [theme, colorMode] = useMode() as [any, any];
@@ -21,11 +37,16 @@ export function Layout() {
   const routesWithoutTopbar = ["/invoices-management", "/tokens-management", "/spreadsheets",  "/billets-management", "/scanner-billets", "/operators-management", "/operators-management2"];
   const hideTopbar = routesWithoutTopbar.includes(location.pathname);
 
+  useEffect(() => {
+    aquecerOperadores();
+  }, []);
+
   if (globalMode === "premium") {
     return (
       <ColorModeContext.Provider value={colorMode}>
         <ThemeProvider theme={theme}>
           <CssBaseline />
+          <PrintOnlyGate />
           <PremiumChrome />
         </ThemeProvider>
       </ColorModeContext.Provider>
@@ -45,6 +66,7 @@ export function Layout() {
             overflow: "hidden",
           }}
         >
+          <PrintOnlyGate />
           {!isMobile && <Sidebar isSidebar={isSidebar} />}
           <Box
             className="content"
@@ -60,6 +82,7 @@ export function Layout() {
           >
             {!hideTopbar && <Topbar setIsSidebar={setIsSidebar} />}
             <Outlet />
+            <PageJumps />
           </Box>
         </Box>
       </ThemeProvider>

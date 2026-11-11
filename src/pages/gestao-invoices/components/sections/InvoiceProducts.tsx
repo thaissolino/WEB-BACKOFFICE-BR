@@ -41,7 +41,7 @@ interface InvoiceProductsProps {
   /** Quando múltiplas invoices vêm do modal (Enviar para a tela), preencher drafts e abas */
   onAddDraftInvoices?: (invoices: Invoice[]) => void;
   /** Após salvar uma invoice que era draft (aba), remover da lista de drafts e ir para a próxima */
-  onDraftSaved?: () => void;
+  onDraftSaved?: (number?: string) => void;
   [key: string]: any;
 }
 type CarrierEnum = "percentage" | "perKg" | "perUnit";
@@ -677,14 +677,15 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
           params: { number: currentInvoice.number.trim() }
         });
         if (checkResponse.data?.exists) {
+          props.onDraftSaved?.(currentInvoice.number);
           Swal.fire({
-            icon: "error",
-            title: "Número Duplicado",
-            text: `Já existe uma invoice com o número "${currentInvoice.number}". Por favor, use um número diferente.`,
+            icon: "info",
+            title: "Invoice já salva",
+            text: `A invoice ${currentInvoice.number} já está gravada e saiu da lista.`,
             confirmButtonText: "Ok",
             buttonsStyling: false,
             customClass: {
-              confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
+              confirmButton: "bg-blue-600 text-white hover:bg-blue-700 px-4 py-2 rounded font-semibold",
             },
           });
           return;
@@ -764,7 +765,7 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
 
       // Se estamos em modo multi-draft (abas), avisar o pai para remover esta draft e mostrar a próxima; não resetar o form
       if (props.onDraftSaved) {
-        props.onDraftSaved();
+        props.onDraftSaved(currentInvoice.number);
         window.dispatchEvent(new Event("invoiceUpdated"));
         if (props.onInvoiceSaved) props.onInvoiceSaved();
         return;
@@ -943,10 +944,11 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
           <h3 className="font-medium mb-3 text-blue-700 border-b pb-2">
             Adicionar Produto
           </h3>
-          <div className="grid grid-cols-1 md:grid-cols-6 gap-2 mb-4">
+          <div className="grid grid-cols-1 md:grid-cols-6 gap-3 mb-4 items-end">
             <div className="relative md:col-span-2">
-              {/* <label className="block text-sm font-medium text-gray-700 mb-1">Produto</label> */}
+              <label className="block h-5 text-sm font-medium leading-5 text-gray-700 mb-1">Produto</label>
               <ProductSearchSelect
+                inline
                 products={products}
                 value={productForm.productId}
                 disabled={productPickMode === "code"}
@@ -969,10 +971,9 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
               ></ProductSearchSelect>
             </div>
             <div className="relative">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Código</label>
+              <label className="block h-5 text-sm font-medium leading-5 text-gray-700 mb-1 whitespace-nowrap">Código</label>
               <input
                 type="text"
-                placeholder="Código"
                 value={
                   productPickMode === "name"
                     ? products.find((p) => p.id === productForm.productId)?.code || ""
@@ -980,8 +981,8 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
                 }
                 readOnly={productPickMode === "name"}
                 disabled={productPickMode === "name"}
-                className={`w-full border border-gray-300 rounded-md p-2 text-sm focus:ring-blue-500 focus:border-blue-500 ${
-                  productPickMode === "name" ? "bg-gray-100 text-gray-600 cursor-not-allowed" : ""
+                className={`w-full min-h-[40px] rounded-full border border-[#ddd4c6] px-4 text-sm focus:border-blue-500 focus:ring-blue-500 ${
+                  productPickMode === "name" ? "bg-gray-100 text-gray-600 cursor-not-allowed" : "bg-white"
                 }`}
                 onChange={(e) => {
                   const code = e.target.value;
@@ -1018,7 +1019,7 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Quantidade</label>
+              <label className="block h-5 text-sm font-medium leading-5 text-gray-700 mb-1 whitespace-nowrap">Quantidade</label>
               <input
                 type="number"
                 value={productForm.quantity}
@@ -1026,12 +1027,11 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
                   console.log(e.target.value);
                   setProductForm({ ...productForm, quantity: e.target.value });
                 }}
-                className="w-full border border-gray-300 rounded-md p-2 text-sm focus:ring-blue-500 focus:border-blue-500 appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-                placeholder="Qtd"
+                className="w-full min-h-[40px] rounded-full border border-[#ddd4c6] bg-white px-4 text-sm focus:border-blue-500 focus:ring-blue-500 appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block h-5 text-sm font-medium leading-5 text-gray-700 mb-1 whitespace-nowrap">
                 Valor Unitário ({moneySymbol})
               </label>
               <input
@@ -1090,12 +1090,11 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
                     }
                   }
                 }}
-                className="w-full border border-gray-300 rounded-md p-2 text-sm focus:ring-blue-500 focus:border-blue-500 appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-                placeholder={moneySymbol}
+                className="w-full min-h-[40px] rounded-full border border-[#ddd4c6] bg-white px-4 text-sm focus:border-blue-500 focus:ring-blue-500 appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Peso unitário (kg)</label>
+              <label className="block h-5 text-sm font-medium leading-5 text-gray-700 mb-1 whitespace-nowrap">Peso unitário (kg)</label>
               <input
                 type="number"
                 step="0.01"
@@ -1103,8 +1102,7 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
                 onChange={(e) => {
                   setProductForm({ ...productForm, weight: e.target.value });
                 }}
-                className="w-full border border-gray-300 rounded-md p-2 text-sm focus:ring-blue-500 focus:border-blue-500 appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-                placeholder="kg"
+                className="w-full min-h-[40px] rounded-full border border-[#ddd4c6] bg-white px-4 text-sm focus:border-blue-500 focus:ring-blue-500 appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
               />
             </div>
           </div>
@@ -1117,7 +1115,6 @@ export function InvoiceProducts({ currentInvoice, setCurrentInvoice, ...props }:
                 value={productForm.total}
                 readOnly
                 className="w-full border border-gray-300 rounded-md p-2 bg-gray-100 focus:ring-blue-500 focus:border-blue-500"
-                placeholder={moneySymbol}
               />
             </div>
             <div className="flex items-end">

@@ -1,35 +1,57 @@
 import { CSSProperties, FormEvent, ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { ArrowLeft, Boxes, CircleCheck, ClipboardList, LoaderCircle, PackageX, PartyPopper, ScanLine, Search, ShoppingBag, Truck, Wallet, X } from "lucide-react";
+import { ArrowLeft, Ban, Boxes, CircleCheck, ClipboardList, LoaderCircle, PackageX, PartyPopper, Search, ShoppingBag, ShoppingCart, Trash2, Wallet, X } from "lucide-react";
 import { api, parseError } from "../../../services/api";
+import { isOpenStoreCategory, openCategoryRank } from "../cadastros/produtos/categoryModel";
+function supplierOrderPrice(product: { tableSalePrice?: number | null; salePrice?: number | null }) {
+  if (product.tableSalePrice != null && Number.isFinite(Number(product.tableSalePrice))) {
+    return Number(product.tableSalePrice);
+  }
+  return Number(product.salePrice) || 0;
+}
 import { ProductPhoto } from "../cadastros/produtos/GradePhotoThumb";
+import { CategoryCoverImage } from "../cadastros/produtos/categoryCover";
 import PdvShell from "../dashboard/PdvShell";
 import { useClientAuth } from "../../../hooks/clientAuth";
+import { carregarCatalogoPedido, carregarHistoricoPedido, lerCategoriasPedido, lerHistoricoPedido, lerProdutosPedido } from "./pedidoCatalogo";
 import "../dashboard/dashboard.css";
 import "./pedidos.css";
+
+function LojaScrim({ children, onClick }: { children: ReactNode; onClick?: () => void }) {
+  return createPortal(
+    <div className="loja-confirm" role="presentation" onClick={onClick}>
+      {children}
+    </div>,
+    document.body,
+  )
+}
 
 type CatalogProduct = {
   id: string;
   name: string;
   code: string;
   price: number;
+  costPrice: number;
   category: string;
   categoryId: string;
   photoFileId: string | null;
   stockQuantity: number;
+  search: string;
 };
+
+function saleBelowCost(price: number, cost: number) {
+  const costCents = Math.round((Number(cost) || 0) * 100);
+  if (costCents <= 0) return false;
+  return Math.round((Number(price) || 0) * 100) < costCents;
+}
 
 type StoreCategory = {
   id: string;
   name: string;
+  code: number;
+  coverFileId: string | null;
 };
-
-const CATEGORY_ORDER = ["iphone-novos", "iphone-seminovos", "apple-watch", "ipad", "macbook"];
-
-function categorySortKey(id: string) {
-  const index = CATEGORY_ORDER.indexOf(id);
-  return index === -1 ? CATEGORY_ORDER.length : index;
-}
 
 type CartLine = CatalogProduct & { qty: number; imeis?: string[] };
 
@@ -68,11 +90,9 @@ const EMPTY_ADDRESS: Address = {};
 
 const NAV = [
   { to: "/client/pedidos", label: "Início", end: true },
-  { to: "/client/pedidos/venda", label: "Pedido" },
+  { to: "/client/pedidos/venda", label: "Novo pedido" },
   { to: "/client/pedidos/historico", label: "Histórico" },
   { to: "/client/pedidos/financeiro", label: "Financeiro" },
-  { to: "/client/pedidos/rastreio", label: "Rastreio" },
-  { to: "/client/pedidos/observacao", label: "Busca IMEI/serial" },
 ];
 
 function orderDone(value?: string) {
@@ -129,22 +149,142 @@ function cartTotal(lines: CartLine[], discount = 0) {
   return Math.max(0, raw - discount);
 }
 
+const cartBadge = { count: 0, open: () => {} };
+const cartBadgeListeners = new Set<() => void>();
+
+function publishCartBadge(next: { count: number; open: () => void }) {
+  cartBadge.count = next.count;
+  cartBadge.open = next.open;
+  cartBadgeListeners.forEach((listener) => listener());
+}
+
+function useCartBadge() {
+  const [, refresh] = useState(0);
+  useEffect(() => {
+    const listener = () => refresh((value) => value + 1);
+    cartBadgeListeners.add(listener);
+    return () => {
+      cartBadgeListeners.delete(listener);
+    };
+  }, []);
+  return cartBadge;
+}
+
+function QtyField({
+  stock,
+  value,
+  onChange,
+  disabled = false,
+}: {
+  stock: number;
+  value: number;
+  onChange: (qty: number) => void;
+  disabled?: boolean;
+}) {
+  const [more, setMore] = useState(false);
+  const [draft, setDraft] = useState("");
+  const qty = Math.max(1, Math.floor(Number(value) || 1));
+  const knownStock = Math.floor(Number(stock));
+  const max = Math.max(qty, Number.isFinite(knownStock) && knownStock > 0 ? knownStock : qty);
+  const shown = Math.min(qty, max);
+  const presets = [1, 2, 3, 4, 5, 6].filter((item) => item <= max);
+  return (
+    <div className="loja-qty-field">
+      <label>
+        Quantidade
+        <select
+          aria-label="Quantidade"
+          value={more ? "more" : String(shown)}
+          disabled={disabled || max <= 0}
+          onChange={(event) => {
+            if (event.target.value === "more") {
+              setMore(true);
+              setDraft(String(Math.min(max, Math.max(shown, 7))));
+              return;
+            }
+            setMore(false);
+            onChange(Number(event.target.value));
+          }}
+        >
+          {presets.map((item) => (
+            <option key={item} value={item}>
+              {item} {item === 1 ? "unidade" : "unidades"}
+            </option>
+          ))}
+          {shown > 6 ? <option value={shown}>{shown} unidades</option> : null}
+          {max > 6 ? <option value="more">Mais de 6 unidades</option> : null}
+        </select>
+      </label>
+      {more ? (
+        <div className="loja-qty-more">
+          <label>
+            Quantidade
+            <input
+              type="number"
+              min={1}
+              max={max}
+              value={draft}
+              onChange={(event) => setDraft(event.target.value)}
+            />
+          </label>
+          <button
+            type="button"
+            onClick={() => {
+              const next = Math.min(max, Math.max(1, Math.round(Number(draft) || 1)));
+              onChange(next);
+              setMore(false);
+            }}
+          >
+            Aplicar
+          </button>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function LojaFrame({ children }: { children: ReactNode }) {
   const { pathname } = useLocation();
+  const navigate = useNavigate();
+  const cart = useCartBadge();
+  const onSale = pathname.startsWith("/client/pedidos/venda");
+  const onHome = pathname === "/client/pedidos" || pathname === "/client/pedidos/";
+  function goBack() {
+    if (onSale) {
+      const event = new CustomEvent("loja-voltar", { cancelable: true });
+      if (window.dispatchEvent(event)) navigate("/client/pedidos");
+      return;
+    }
+    if (onHome) {
+      navigate("/client/dashboard");
+      return;
+    }
+    if (pathname.includes("/historico/") || pathname.includes("/imprimir")) {
+      navigate("/client/pedidos/historico");
+      return;
+    }
+    navigate("/client/pedidos");
+  }
   return (
       <div className="loja-pedidos">
         <div className="loja-head loja-no-print">
         <div className="loja-top">
           <div className="loja-top-title">
-            {pathname.startsWith("/client/pedidos/venda") ? (
-              <Link className="loja-back" to="/client/pedidos">
-                <ArrowLeft size={15} aria-hidden="true" />
-                Voltar
-              </Link>
-            ) : null}
+            <button type="button" className="loja-back" onClick={goBack}>
+              <ArrowLeft size={15} aria-hidden="true" />
+              Voltar
+            </button>
             <p className="loja-kicker">Gestão de pedidos</p>
           </div>
-          <Link to="/client/dashboard">Painel da loja</Link>
+          <div className="loja-top-actions">
+            {onSale ? (
+              <button type="button" className="loja-cart-top" onClick={cart.open} aria-label="Abrir carrinho">
+                <ShoppingCart size={18} strokeWidth={1.9} aria-hidden="true" />
+                <span>Carrinho</span>
+                {cart.count > 0 ? <b>{cart.count}</b> : null}
+              </button>
+            ) : null}
+          </div>
         </div>
         <nav className="loja-nav" aria-label="Pedidos do lojista">
           {NAV.map((item) => {
@@ -174,62 +314,89 @@ function Home() {
       .then((order) => setLines(order?.lines || []))
       .catch(() => setLines([]));
   }, []);
-  const total = cartTotal(lines);
   return (
     <>
       <header>
-        <h1 className="loja-title">Pedido</h1>
+        <h1 className="loja-title">Pedidos</h1>
         <p className="loja-lede">
           {lines.length
-            ? `Pedido aberto com ${lines.length} item(ns), total ${money(total)}.`
-            : "Nenhum pedido aberto."}
+            ? `${lines.length} ${lines.length === 1 ? "item" : "itens"} no pedido aberto.`
+            : "Nenhum pedido aberto. Escolha por onde começar."}
         </p>
       </header>
-      <div className="loja-grid">
-        <Link className="loja-card loja-card-feature" to="/client/pedidos/venda">
-          <span className="loja-card-kicker">Pedido</span>
-          <strong>{lines.length ? money(total) : "Abrir pedido"}</strong>
-          <span className="loja-card-copy">
-            {lines.length
-              ? `${lines.length} ${lines.length === 1 ? "item" : "itens"} no pedido aberto.`
-              : "Escolha os produtos e a quantidade."}
+      <div className="loja-split-home">
+        <Link className="loja-order-panel" to="/client/pedidos/venda">
+          <img src="/pedidos-novo-claro.jpg" alt="" />
+          <span className="loja-order-panel-copy">
+            <strong>Novo pedido</strong>
+            <span>
+              {lines.length
+                ? `${lines.length} ${lines.length === 1 ? "item" : "itens"} no pedido aberto.`
+                : "Escolha os produtos e a quantidade."}
+            </span>
           </span>
-          <span className="loja-card-go">Continuar</span>
-          <ShoppingBag className="loja-card-mark" size={148} strokeWidth={1.15} aria-hidden="true" />
         </Link>
-        <Link className="loja-card" to="/client/pedidos/historico">
-          <ClipboardList size={26} strokeWidth={1.75} aria-hidden="true" />
-          <strong>Histórico</strong>
-          <span>Pedidos já fechados.</span>
-        </Link>
-        <Link className="loja-card" to="/client/pedidos/financeiro">
-          <Wallet size={26} strokeWidth={1.75} aria-hidden="true" />
-          <strong>Financeiro</strong>
-          <span>Conta da loja com o atacado.</span>
-        </Link>
-        <Link className="loja-card" to="/client/pedidos/rastreio">
-          <Truck size={26} strokeWidth={1.75} aria-hidden="true" />
-          <strong>Rastreio</strong>
-          <span>Entrega do pedido.</span>
-        </Link>
-        <Link className="loja-card" to="/client/pedidos/observacao">
-          <ScanLine size={26} strokeWidth={1.75} aria-hidden="true" />
-          <strong>IMEI / serial</strong>
-          <span>Achar uma compra desta loja.</span>
-        </Link>
+        <div className="loja-side-actions">
+          <Link className="loja-action" to="/client/pedidos/historico">
+            <span className="loja-action-ico" aria-hidden="true">
+              <ClipboardList size={30} strokeWidth={1.75} />
+            </span>
+            <strong>Histórico</strong>
+            <span>Pedidos já fechados.</span>
+          </Link>
+          <Link className="loja-action" to="/client/pedidos/financeiro">
+            <span className="loja-action-ico" aria-hidden="true">
+              <Wallet size={30} strokeWidth={1.75} />
+            </span>
+            <strong>Financeiro</strong>
+            <span>Conta da loja com o atacado.</span>
+          </Link>
+        </div>
       </div>
     </>
   );
 }
 
+function mapCatalog(list: Record<string, unknown>[]): CatalogProduct[] {
+  return list.map((item) => ({
+    id: String(item.id),
+    name: String(item.lojaName || "").trim() || String(item.name || ""),
+    code: String(item.code || ""),
+    price: supplierOrderPrice(item as { tableSalePrice?: number | null; salePrice?: number | null }),
+    costPrice: Number(item.costPrice || 0),
+    category: String(item.category || ""),
+    categoryId: String(item.categoryId || ""),
+    photoFileId: item.photoFileId ? String(item.photoFileId) : null,
+    stockQuantity: Number(item.stockQuantity || 0),
+    search: [item.name, item.lojaName, item.code, item.category, item.barcode, item.brand, item.model, item.reference, item.description, item.supplierCode, item.supplierName, item.ncm]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase(),
+  }));
+}
+
+function mapStoreCategories(items: Array<{ code?: number; name?: string; payload?: { slug?: string; coverFileId?: string } }>): StoreCategory[] {
+  return items
+    .map((item) => ({
+      id: String(item.payload?.slug || item.name || ""),
+      name: String(item.name || ""),
+      code: Number(item.code) || 0,
+      coverFileId: item.payload?.coverFileId ? String(item.payload.coverFileId) : null,
+    }))
+    .filter((item) => item.id && item.name);
+}
+
 function Venda() {
   const navigate = useNavigate();
-  const [products, setProducts] = useState<CatalogProduct[]>([]);
+  const [products, setProducts] = useState<CatalogProduct[]>(() => mapCatalog(lerProdutosPedido() || []));
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("Todas");
   const [onlyInStock, setOnlyInStock] = useState(true);
-  const [storeCategories, setStoreCategories] = useState<StoreCategory[]>([]);
+  const [storeCategories, setStoreCategories] = useState<StoreCategory[]>(() => mapStoreCategories((lerCategoriasPedido() || []) as Array<{ code?: number; name?: string; payload?: { slug?: string; coverFileId?: string } }>));
   const [lines, setLines] = useState<CartLine[]>([]);
+  const [picks, setPicks] = useState<Record<string, number>>({});
+  const [cartOpen, setCartOpen] = useState(false);
+  const [addedPopup, setAddedPopup] = useState<{ product: CatalogProduct; qty: number } | null>(null);
   const [address, setAddress] = useState<Address>(EMPTY_ADDRESS);
   const [observacao, setObservacao] = useState("");
   const [ready, setReady] = useState(false);
@@ -237,6 +404,7 @@ function Venda() {
   const [closeStep, setCloseStep] = useState<"ask" | "sending" | "done">("ask");
   const [closedFlash, setClosedFlash] = useState<{ id: string; total: number; qty: number } | null>(null);
   const [error, setError] = useState("");
+  const [blockedNotice, setBlockedNotice] = useState<CatalogProduct[]>([]);
   const hadOpen = useRef(false);
   const closing = useRef(false);
 
@@ -265,58 +433,66 @@ function Venda() {
   }, [lines, address, observacao, ready]);
 
   useEffect(() => {
-    api
-      .get("/clients/catalog/product_category", { params: { ativo: "1" } })
-      .then(({ data }) => {
-        const items = (data?.items || []) as Array<{ name?: string; payload?: { slug?: string } }>;
+    let ativo = true;
+    carregarCatalogoPedido()
+      .then(() => {
+        if (!ativo) return;
+        setProducts(mapCatalog(lerProdutosPedido() || []));
         setStoreCategories(
-          items
-            .map((item) => ({
-              id: String(item.payload?.slug || item.name || ""),
-              name: String(item.name || ""),
-            }))
-            .filter((item) => item.id && item.name),
+          mapStoreCategories(
+            (lerCategoriasPedido() || []) as Array<{ code?: number; name?: string; payload?: { slug?: string; coverFileId?: string } }>,
+          ),
         );
       })
-      .catch(() => setStoreCategories([]));
+      .catch(() => {
+        if (ativo && !(lerProdutosPedido() || []).length) setError("Não foi possível carregar o catálogo da central.");
+      });
+    return () => {
+      ativo = false;
+    };
   }, []);
 
   useEffect(() => {
-    api
-      .get("/clients/products", { params: { ativo: "1" } })
-      .then(({ data }) => {
-        const list = (data?.products || data || []) as Record<string, unknown>[];
-        setProducts(
-          list.map((item) => ({
-            id: String(item.id),
-            name: String(item.name || ""),
-            code: String(item.code || ""),
-            price: Number(item.salePrice || item.priceweightAverage || 0),
-            category: String(item.category || ""),
-            categoryId: String(item.categoryId || ""),
-            photoFileId: item.photoFileId ? String(item.photoFileId) : null,
-            stockQuantity: Number(item.stockQuantity || 0),
-          })),
-        );
-      })
-      .catch(() => setError("Não foi possível carregar o catálogo da central."));
-  }, []);
+    if (!products.length) return;
+    setLines((current) => {
+      let changed = false;
+      const next = current.map((line) => {
+        const product = products.find((item) => item.id === line.id);
+        if (!product) return line;
+        if (
+          line.photoFileId === product.photoFileId &&
+          line.stockQuantity === product.stockQuantity &&
+          line.price === product.price &&
+          line.costPrice === product.costPrice
+        ) {
+          return line;
+        }
+        changed = true;
+        return {
+          ...line,
+          photoFileId: product.photoFileId,
+          stockQuantity: product.stockQuantity || line.stockQuantity,
+          price: product.price,
+          costPrice: product.costPrice,
+        };
+      });
+      return changed ? next : current;
+    });
+  }, [products]);
 
   const categories = useMemo(() => {
-    const priced = products.filter((item) => item.price > 0);
-    const usedIds = new Set(priced.map((item) => item.categoryId).filter(Boolean));
-    const usedNames = new Set(priced.map((item) => item.category).filter(Boolean));
+    const listed = products.filter((item) => item.stockQuantity > 0);
+    const usedIds = new Set(listed.map((item) => item.categoryId).filter(Boolean));
+    const usedNames = new Set(listed.map((item) => item.category).filter(Boolean));
     const fromStore = storeCategories.filter((item) => usedIds.has(item.id) || usedNames.has(item.name));
     const known = new Set(fromStore.flatMap((item) => [item.id, item.name]));
     const extras = Array.from(usedNames)
       .filter((name) => !known.has(name))
-      .map((name) => ({ id: name, name }));
-    const ordered = [...fromStore, ...extras].sort((a, b) => {
-      const rank = categorySortKey(a.id) - categorySortKey(b.id);
-      if (rank !== 0) return rank;
-      return a.name.localeCompare(b.name, "pt-BR");
-    });
-    return [{ id: "Todas", name: "Todas" }, ...ordered];
+      .map((name) => ({ id: name, name, code: 0, coverFileId: null as string | null }));
+    const ordered = [...fromStore, ...extras]
+      .filter((item) => isOpenStoreCategory(item.id, item.name))
+      .sort((a, b) => openCategoryRank(a.id, a.name) - openCategoryRank(b.id, b.name));
+    return [{ id: "Todas", name: "Todas", code: 0, coverFileId: null }, ...ordered];
   }, [products, storeCategories]);
 
   const categoryCards = useMemo(() => {
@@ -325,7 +501,6 @@ function Venda() {
       .map((item) => {
         const inCategory = products.filter(
           (product) =>
-            product.price > 0 &&
             product.stockQuantity > 0 &&
             (product.categoryId === item.id || product.category === item.name),
         );
@@ -333,7 +508,7 @@ function Venda() {
         return {
           ...item,
           productId: sample?.id || "",
-          photoFileId: sample?.photoFileId || null,
+          photoFileId: item.coverFileId ? null : sample?.photoFileId || null,
           inStock: inCategory.length,
         };
       })
@@ -343,31 +518,52 @@ function Venda() {
   const showCategories = category === "Todas" && !query.trim();
 
   const visible = products.filter((item) => {
-    if (!(item.price > 0)) return false;
-    const text = `${item.name} ${item.code} ${item.category}`.toLowerCase();
+    const text = item.search || `${item.name} ${item.code} ${item.category}`.toLowerCase();
     const terms = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
     const matchesQuery = !terms.length || terms.every((term) => text.includes(term));
     const matchesCategory =
-      category === "Todas" || item.categoryId === category || item.category === category;
-    const matchesStock = onlyInStock ? item.stockQuantity > 0 : item.stockQuantity <= 0;
+      category === "Todas"
+        ? Boolean(query.trim()) || isOpenStoreCategory(item.categoryId, item.category)
+        : item.categoryId === category || item.category === category;
+    const hasBackofficeStock = item.stockQuantity > 0;
+    const matchesStock = onlyInStock ? hasBackofficeStock : !hasBackofficeStock;
     return matchesQuery && matchesCategory && matchesStock;
   });
 
-  function add(product: CatalogProduct) {
+  function add(product: CatalogProduct, amount = 1) {
+    if (!(Number(product.price) > 0)) return false;
+    if (saleBelowCost(product.price, product.costPrice)) {
+      setBlockedNotice([product]);
+      return false;
+    }
     const stock = Math.max(0, Math.floor(Number(product.stockQuantity) || 0));
+    const want = Math.max(1, Math.round(Number(amount) || 1));
+    const found = lines.find((line) => line.id === product.id);
+    if (stock <= 0 || stock - (found?.qty || 0) <= 0) return false;
     setLines((current) => {
-      const found = current.find((line) => line.id === product.id);
-      const next = (found?.qty || 0) + 1;
-      if (next > stock) return current;
-      if (found) {
-        return current.map((line) => (line.id === product.id ? { ...line, qty: next, stockQuantity: stock } : line));
+      const line = current.find((item) => item.id === product.id);
+      const room = stock - (line?.qty || 0);
+      if (room <= 0) return current;
+      const extra = Math.min(room, want);
+      if (line) {
+        return current.map((item) =>
+          item.id === product.id ? { ...item, qty: item.qty + extra, stockQuantity: stock } : item,
+        );
       }
-      return [...current, { ...product, stockQuantity: stock, qty: 1 }];
+      return [...current, { ...product, stockQuantity: stock, qty: extra }];
     });
+    return true;
   }
 
   async function finish() {
     if (!lines.length || closing.current) return;
+    const blocked = lines.filter((line) => saleBelowCost(line.price, line.costPrice));
+    if (blocked.length) {
+      setConfirmClose(false);
+      setCloseStep("ask");
+      setBlockedNotice(blocked);
+      return;
+    }
     closing.current = true;
     const payload = {
       lines: lines.map((line) => ({
@@ -385,10 +581,7 @@ function Venda() {
     const total = payload.lines.reduce((sum, line) => sum + line.price * line.qty, 0);
     setCloseStep("sending");
     try {
-      const [{ data }] = await Promise.all([
-        api.post("/clients/pre-vendas/fechar", payload),
-        new Promise((resolve) => window.setTimeout(resolve, 900)),
-      ]);
+      const { data } = await api.post("/clients/pre-vendas/fechar", payload, { timeout: 12000 });
       const order = (data?.order || {}) as { id?: string; total?: number };
       setLines([]);
       setClosedFlash({
@@ -402,7 +595,16 @@ function Venda() {
       closing.current = false;
       setCloseStep("ask");
       setConfirmClose(false);
+      if ((err as { code?: string })?.code === "ECONNABORTED") {
+        setError("A confirmação demorou demais. Olha o histórico antes de tentar de novo.");
+        return;
+      }
       const parsed = parseError(err);
+      if (parsed.code === "BELOW_COST") {
+        const blocked = lines.filter((line) => saleBelowCost(line.price, line.costPrice));
+        setBlockedNotice(blocked.length ? blocked : lines);
+        return;
+      }
       setError(parsed.friend || parsed.message || "Não foi possível gravar o pedido fechado.");
     }
   }
@@ -410,6 +612,22 @@ function Venda() {
   function openClosedHistory() {
     navigate("/client/pedidos/historico", { state: { justClosed: closedFlash } });
   }
+
+  function sairDoParabens() {
+    setConfirmClose(false);
+    setCloseStep("ask");
+  }
+
+  useEffect(() => {
+    if (!confirmClose || closeStep !== "done") return;
+    function onKey(event: KeyboardEvent) {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      sairDoParabens();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [confirmClose, closeStep]);
 
   function setQty(id: string, qty: number) {
     setLines((current) => {
@@ -424,33 +642,66 @@ function Venda() {
   }
 
   const splitRef = useRef<HTMLDivElement>(null);
+  const categoryRef = useRef(category);
+  const queryRef = useRef(query);
+  const cartOpenRef = useRef(cartOpen);
+  categoryRef.current = category;
+  queryRef.current = query;
+  cartOpenRef.current = cartOpen;
+  useEffect(() => {
+    publishCartBadge({
+      count: lines.reduce((sum, line) => sum + line.qty, 0),
+      open: () => setCartOpen(true),
+    });
+    return () => publishCartBadge({ count: 0, open: () => {} });
+  }, [lines]);
+  useEffect(() => {
+    function onBack(event: Event) {
+      if (cartOpenRef.current) {
+        event.preventDefault();
+        setCartOpen(false);
+        return;
+      }
+      if (categoryRef.current === "Todas" && !queryRef.current.trim()) return;
+      event.preventDefault();
+      setCategory("Todas");
+      setQuery("");
+    }
+    window.addEventListener("loja-voltar", onBack);
+    return () => window.removeEventListener("loja-voltar", onBack);
+  }, []);
   useEffect(() => {
     const root = splitRef.current?.closest(".loja-pedidos");
     if (!root) return;
-    root.toggleAttribute("data-categorias", showCategories);
+    root.toggleAttribute("data-categorias", showCategories && !cartOpen);
     return () => root.removeAttribute("data-categorias");
-  }, [showCategories]);
+  }, [showCategories, cartOpen]);
+
+  const cartUnits = lines.reduce((sum, line) => sum + line.qty, 0);
 
   return (
-    <div className={showCategories ? "loja-split loja-split-cats" : "loja-split"} ref={splitRef}>
-      <section>
-        <h1 className="loja-title">{showCategories ? "Categoria" : "Pedido"}</h1>
+    <div className={showCategories && !cartOpen ? "loja-split loja-split-cats" : "loja-split loja-split-full"} ref={splitRef}>
+      <section className={cartOpen ? "loja-cart-section" : undefined}>
+        <h1 className="loja-title">{cartOpen ? "Carrinho" : showCategories ? "Categoria" : "Pedido"}</h1>
         <p className="loja-lede">
-          {showCategories ? "Escolha a categoria." : "Escolha o produto, a quantidade e feche o pedido."}
+          {cartOpen
+            ? cartUnits
+              ? `${cartUnits} ${cartUnits === 1 ? "unidade" : "unidades"} no carrinho.`
+              : "O carrinho está vazio."
+            : showCategories
+              ? "Escolha a categoria."
+              : "Escolha o produto e a quantidade."}
         </p>
         {error ? <p className="loja-note">{error}</p> : null}
-        {showCategories ? null : (
+        {cartOpen ? null : (
         <div className="loja-tools loja-search-line">
-          {/* <button type="button" className="loja-btn" onClick={() => { setCategory("Todas"); setQuery(""); }}>
-            Categorias
-          </button> */}
           <label className="loja-search">
             <Search size={16} strokeWidth={2.4} aria-hidden="true" />
             <input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Buscar produto"
-              aria-label="Buscar produto"
+              placeholder={category === "Todas" ? "Buscar em todas as categorias" : "Buscar nesta categoria"}
+              aria-label={category === "Todas" ? "Buscar em todas as categorias" : "Buscar nesta categoria"}
             />
           </label>
           <button
@@ -467,20 +718,132 @@ function Venda() {
           </button>
         </div>
         )}
-        {showCategories ? (
-          <div className="loja-cat-cards" aria-label="Categorias">
-            {categoryCards.map((item) => (
-              <button key={item.id} type="button" className="loja-cat-card" onClick={() => setCategory(item.id)}>
-                <ProductPhoto productId={item.productId} photoFileId={item.photoFileId} name={item.name} />
+        {cartOpen ? (
+          <div className="loja-cart-page">
+            <div className="loja-cart-list">
+              {lines.length === 0 ? <p className="loja-lede">Nenhum item no carrinho.</p> : null}
+              {lines.map((line) => {
+                const stock = Math.max(0, Math.floor(Number(line.stockQuantity) || line.qty));
+                return (
+                  <article key={line.id} className="loja-cart-row">
+                    <ProductPhoto productId={line.id} photoFileId={line.photoFileId} name={line.name} />
+                    <div className="loja-cart-row-body">
+                      <strong>{line.name}</strong>
+                      {line.code ? <small>Cód. {line.code}</small> : null}
+                      <div className="loja-step">
+                        <button type="button" aria-label={`Diminuir ${line.name}`} onClick={() => setQty(line.id, line.qty - 1)}>
+                          −
+                        </button>
+                        <span>{line.qty}</span>
+                        <button
+                          type="button"
+                          aria-label={`Aumentar ${line.name}`}
+                          disabled={line.qty >= stock}
+                          onClick={() => setQty(line.id, line.qty + 1)}
+                        >
+                          +
+                        </button>
+                      </div>
+                    </div>
+                    {line.price > 0 ? (
+                      <div className="loja-cart-price">
+                        <span className="loja-money">{money(line.price * line.qty)}</span>
+                        {line.qty > 1 ? <small>{money(line.price)} un.</small> : null}
+                      </div>
+                    ) : (
+                      <span />
+                    )}
+                    <button type="button" className="loja-cart-remove" aria-label={`Remover ${line.name}`} onClick={() => setQty(line.id, 0)}>
+                      <Trash2 size={18} strokeWidth={1.7} />
+                    </button>
+                  </article>
+                );
+              })}
+            </div>
+            <aside className="loja-cart-summary">
+              <h2>Resumo da compra</h2>
+              <p>
+                <span>Produtos ({lines.length})</span>
+                <b>{money(cartTotal(lines))}</b>
+              </p>
+              <p className="loja-cart-total">
+                <span>Total</span>
+                <b>{money(cartTotal(lines))}</b>
+              </p>
+              <button
+                type="button"
+                className="loja-btn primary loja-buy-now"
+                disabled={!lines.length}
+                onClick={() => {
+                  const blocked = lines.filter((line) => saleBelowCost(line.price, line.costPrice));
+                  if (blocked.length) {
+                    setBlockedNotice(blocked);
+                    return;
+                  }
+                  setCloseStep("ask");
+                  setConfirmClose(true);
+                }}
+              >
+                Finalizar pedido{cartUnits ? ` (${cartUnits})` : ""}
+              </button>
+              <button
+                type="button"
+                className="loja-cart-keep"
+                onClick={() => {
+                  setCartOpen(false);
+                  setCategory("Todas");
+                  setQuery("");
+                }}
+              >
+                Continuar comprando
+              </button>
+            </aside>
+          </div>
+        ) : showCategories ? (
+          <div
+            className="loja-cat-cards"
+            aria-label="Categorias"
+            style={
+              {
+                "--cat-cols": String(categoryCards.length > 6 ? Math.ceil(categoryCards.length / 2) : Math.max(categoryCards.length, 1)),
+                "--cat-rows": String(categoryCards.length > 6 ? 2 : 1),
+              } as CSSProperties
+            }
+          >
+            {categoryCards.map((item) => {
+              const fallbackCover = !item.coverFileId && !item.photoFileId && /ipad/i.test(`${item.id} ${item.name}`) ? "/capa-ipad.jpg" : "";
+              const hasCover = Boolean(item.coverFileId || item.photoFileId || fallbackCover);
+              return (
+              <button
+                key={item.id}
+                type="button"
+                className={hasCover ? "loja-cat-card has-cover" : "loja-cat-card"}
+                onClick={() => setCategory(item.id)}
+              >
+                {item.coverFileId && item.code ? (
+                  <span className="loja-photo">
+                    <CategoryCoverImage code={item.code} coverFileId={item.coverFileId} name={item.name} />
+                  </span>
+                ) : fallbackCover ? (
+                  <span className="loja-photo">
+                    <img src={fallbackCover} alt="" />
+                  </span>
+                ) : (
+                  <ProductPhoto productId={item.productId} photoFileId={item.photoFileId} name={item.name} />
+                )}
                 <strong>{item.name}</strong>
               </button>
-            ))}
+              );
+            })}
           </div>
         ) : (
           <>
             <div className="loja-products">
           {visible.slice(0, 80).map((product) => {
-            const qty = lines.find((item) => item.id === product.id)?.qty ?? 0;
+            const inCart = lines.find((item) => item.id === product.id)?.qty ?? 0;
+            const stock = Math.max(0, Math.floor(product.stockQuantity));
+            const semPreco = !(product.price > 0);
+            const pick = Math.min(Math.max(1, picks[product.id] || 1), Math.max(stock, 1));
             return (
               <article key={product.id} className="loja-product">
                 <ProductPhoto productId={product.id} photoFileId={product.photoFileId} name={product.name} />
@@ -504,27 +867,37 @@ function Venda() {
                     </span>
                     <small>Cód. {product.code}</small>
                   </p>
-                  <div className="loja-buy">
+                  <div className="loja-buy loja-buy-actions">
                     <span className="loja-money">{money(product.price)}</span>
-                    <div className="loja-qty">
-                      <button
-                        type="button"
-                        aria-label={`Diminuir ${product.name}`}
-                        disabled={qty === 0}
-                        onClick={() => setQty(product.id, qty - 1)}
-                      >
-                        −
-                      </button>
-                      <span>{qty}</span>
-                      <button
-                        type="button"
-                        aria-label={`Aumentar ${product.name}`}
-                        onClick={() => (qty === 0 ? add(product) : setQty(product.id, qty + 1))}
-                        disabled={product.stockQuantity <= 0 || qty >= product.stockQuantity}
-                      >
-                        +
-                      </button>
-                    </div>
+                    <QtyField
+                      stock={stock}
+                      value={pick}
+                      disabled={semPreco}
+                      onChange={(qty) => setPicks((current) => ({ ...current, [product.id]: qty }))}
+                    />
+                    <button
+                      type="button"
+                      className="loja-btn primary loja-buy-now"
+                      disabled={semPreco || stock <= 0 || inCart >= stock}
+                      onClick={() => {
+                        if (!add(product, pick)) return;
+                        setCartOpen(true);
+                      }}
+                    >
+                      Comprar agora
+                    </button>
+                    <button
+                      type="button"
+                      className="loja-btn loja-add-cart"
+                      disabled={semPreco || stock <= 0 || inCart >= stock}
+                      onClick={() => {
+                        if (!add(product, pick)) return;
+                        setAddedPopup({ product, qty: pick });
+                      }}
+                    >
+                      <ShoppingCart size={16} strokeWidth={2} aria-hidden="true" />
+                      Adicionar ao carrinho
+                    </button>
                   </div>
                 </div>
               </article>
@@ -534,46 +907,74 @@ function Venda() {
           </>
         )}
       </section>
-      {showCategories ? null : (
-      <aside className="loja-panel loja-cart">
-        <strong>Pedido</strong>
-        {lines.length === 0 ? <p className="loja-lede">Nenhum item no pedido.</p> : null}
-        {lines.map((line) => (
-          <div key={line.id} className="loja-line">
-            <ProductPhoto productId={line.id} photoFileId={line.photoFileId} name={line.name} />
-            <div>
-              <span>{line.name}</span>
-              <div className="loja-qty">
-                <button type="button" aria-label={`Diminuir ${line.name}`} onClick={() => setQty(line.id, line.qty - 1)}>
-                  −
-                </button>
-                <span>{line.qty}</span>
-                <button type="button" aria-label={`Aumentar ${line.name}`} disabled={line.qty >= line.stockQuantity} onClick={() => setQty(line.id, line.qty + 1)}>
-                  +
+      {blockedNotice.length ? (
+        <LojaScrim onClick={() => setBlockedNotice([])}>
+          <div
+            className="loja-confirm-card"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="loja-blocked-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="loja-confirm-status">
+              <span className="loja-confirm-icon loja-confirm-block" aria-hidden="true">
+                <Ban size={28} strokeWidth={1.8} />
+              </span>
+              <h2 id="loja-blocked-title">Produto bloqueado para compra</h2>
+              <p>Entre em contato com o suporte.</p>
+              <ul>
+                {blockedNotice.map((item) => (
+                  <li key={item.id}>
+                    <span>{item.name}</span>
+                    {item.code ? <b>Cód. {item.code}</b> : null}
+                  </li>
+                ))}
+              </ul>
+              <div className="loja-confirm-actions loja-blocked-actions">
+                <button type="button" className="loja-btn primary" onClick={() => setBlockedNotice([])}>
+                  Entendi
                 </button>
               </div>
             </div>
-            {line.price > 0 ? <span className="loja-money">{money(line.price * line.qty)}</span> : <span />}
           </div>
-        ))}
-        {cartTotal(lines) > 0 ? <p className="loja-money">Total {money(cartTotal(lines))}</p> : null}
-        <button
-          type="button"
-          className="loja-btn primary"
-          onClick={() => {
-            setCloseStep("ask");
-            setConfirmClose(true);
-          }}
-          disabled={!lines.length}
-        >
-          Fechar pedido
-        </button>
-      </aside>
-      )}
+        </LojaScrim>
+      ) : null}
+      {addedPopup ? (
+        <LojaScrim onClick={() => setAddedPopup(null)}>
+          <div
+            className="loja-confirm-card loja-added-card"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="loja-added-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <ProductPhoto productId={addedPopup.product.id} photoFileId={addedPopup.product.photoFileId} name={addedPopup.product.name} />
+            <h2 id="loja-added-title">Adicionado ao carrinho</h2>
+            <p>{addedPopup.product.name}</p>
+            <strong>
+              {addedPopup.qty} {addedPopup.qty === 1 ? "unidade" : "unidades"}
+              {addedPopup.product.price > 0 ? ` · ${money(addedPopup.product.price * addedPopup.qty)}` : ""}
+            </strong>
+            <div className="loja-confirm-actions">
+              <button
+                type="button"
+                className="loja-btn primary loja-buy-now"
+                onClick={() => {
+                  setAddedPopup(null);
+                  setCartOpen(true);
+                }}
+              >
+                Ir ao carrinho
+              </button>
+              <button type="button" className="loja-btn loja-go-cart" onClick={() => setAddedPopup(null)}>
+                Continuar comprando
+              </button>
+            </div>
+          </div>
+        </LojaScrim>
+      ) : null}
       {confirmClose ? (
-        <div
-          className="loja-confirm"
-          role="presentation"
+        <LojaScrim
           onClick={() => {
             if (closeStep === "ask") setConfirmClose(false);
           }}
@@ -596,6 +997,9 @@ function Venda() {
             ) : null}
             {closeStep === "done" ? (
               <div className="loja-confirm-status">
+                <button className="loja-order-close" type="button" aria-label="Fechar" onClick={sairDoParabens}>
+                  <X size={18} />
+                </button>
                 <span className="loja-confirm-icon loja-confirm-ok" aria-hidden="true">
                   <PartyPopper size={28} strokeWidth={1.8} />
                 </span>
@@ -634,7 +1038,10 @@ function Venda() {
                 <ul>
                   {lines.map((line) => (
                     <li key={line.id}>
-                      <span>{line.name}</span>
+                      <span className="loja-confirm-item">
+                        <ProductPhoto productId={line.id} photoFileId={line.photoFileId} name={line.name} />
+                        {line.name}
+                      </span>
                       <b>{line.qty}</b>
                     </li>
                   ))}
@@ -651,7 +1058,7 @@ function Venda() {
               </>
             ) : null}
           </div>
-        </div>
+        </LojaScrim>
       ) : null}
     </div>
   );
@@ -666,7 +1073,18 @@ function when(value?: string | null) {
   if (!value) return "—";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "—";
-  return date.toLocaleString("pt-BR");
+  return date.toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" });
+}
+
+function ledgerDay(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Sem data";
+  return new Intl.DateTimeFormat("pt-BR", {
+    timeZone: "America/Sao_Paulo",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }).format(date);
 }
 
 function addressLine(address: Address) {
@@ -679,13 +1097,32 @@ function Historico() {
   const navigate = useNavigate();
   const location = useLocation();
   const justClosed = (location.state as { justClosed?: { id: string; total: number; qty: number } } | null)?.justClosed || null;
-  const [orders, setOrders] = useState<SavedOrder[]>([]);
+  const [orders, setOrders] = useState<SavedOrder[]>(() => (lerHistoricoPedido() || []) as SavedOrder[]);
+  const [faixa, setFaixa] = useState<"separacao" | "concluidas" | "estornadas">("separacao");
   useEffect(() => {
-    api
-      .get("/clients/pre-vendas/fechadas")
-      .then(({ data }) => setOrders((data?.orders || []) as SavedOrder[]))
-      .catch(() => setOrders([]));
-  }, []);
+    let ativo = true;
+    carregarHistoricoPedido(Boolean(justClosed))
+      .then((lista) => {
+        if (ativo) setOrders(lista as SavedOrder[]);
+      })
+      .catch(() => {
+        if (ativo && !(lerHistoricoPedido() || []).length) setOrders([]);
+      });
+    return () => {
+      ativo = false;
+    };
+  }, [justClosed]);
+  const grupos = useMemo(() => ({
+    separacao: orders.filter((order) => !order.estornada && !orderDone(order.dispatchStatus)),
+    concluidas: orders.filter((order) => !order.estornada && orderDone(order.dispatchStatus)),
+    estornadas: orders.filter((order) => order.estornada),
+  }), [orders]);
+  const visiveis = grupos[faixa];
+  const cards = [
+    ["separacao", "Em separação", grupos.separacao.length, "hist-card-separacao"],
+    ["concluidas", "Concluídas", grupos.concluidas.length, "hist-card-concluidas"],
+    ["estornadas", "Estornadas", grupos.estornadas.length, "hist-card-estornadas"],
+  ] as const;
   return (
     <section className="loja-panel">
       {justClosed ? (
@@ -705,12 +1142,19 @@ function Historico() {
         </div>
       ) : null}
       <h1 className="loja-title">Histórico de pedido</h1>
-      <p className="loja-lede">
-        {justClosed
-          ? "Ele aparece aqui embaixo. A compra no atacado, pelo IMEI, fica em Busca IMEI/serial."
-          : "Pedidos fechados gravados no banco. A compra no atacado, pelo IMEI, fica em Busca IMEI/serial."}
-      </p>
-      {orders.length === 0 ? <p>Nenhum pedido fechado ainda.</p> : null}
+      <div className="hist-cards">
+        {cards.map(([id, label, total, tone]) => (
+          <button
+            key={id}
+            type="button"
+            className={`hist-card ${tone}${faixa === id ? " is-on" : ""}`}
+            onClick={() => setFaixa(id)}
+          >
+            <span>{label}</span>
+            <strong>{total}</strong>
+          </button>
+        ))}
+      </div>
       <table className="loja-table">
         <thead>
           <tr>
@@ -723,7 +1167,7 @@ function Historico() {
           </tr>
         </thead>
         <tbody>
-          {orders.map((order) => (
+          {visiveis.map((order) => (
             <tr
               key={order.id}
               className="loja-row-link"
@@ -731,7 +1175,7 @@ function Historico() {
             >
               <td>{order.id.slice(0, 8)}</td>
               <td>{when(order.closedAt || order.createdAt)}</td>
-              <td>{order.estornada ? when(order.estornadaAt) : "—"}</td>
+              <td>{order.estornada ? when(order.estornadaAt) : ""}</td>
               <td className="loja-money">{money(order.total)}</td>
               <td><StatusLabel value={order.dispatchStatus} estornada={order.estornada} /></td>
               <td>
@@ -937,7 +1381,7 @@ function Financeiro() {
       })),
     ].sort((a, b) => new Date(a.at).getTime() - new Date(b.at).getTime());
     events.forEach((event) => {
-      const date = new Date(event.at).toLocaleDateString("pt-BR");
+      const date = ledgerDay(event.at);
       balance += event.amount;
       const rows = byDate.get(date) || [];
       rows.push({ label: event.label, amount: event.amount, balance, orderId: event.orderId });
@@ -962,36 +1406,45 @@ function Financeiro() {
       <h1 className="loja-title">Financeiro</h1>
       <p className="loja-lede">Conta desta loja com o atacado. Pedido fechado entra como débito. Estorno e pagamento lançado no caixa entram como crédito.</p>
       {groups.dates.length === 0 ? <p>Nenhum movimento nesta conta.</p> : null}
-      {groups.dates.map(([date, rows], index) => (
-        <div key={date} className="loja-ledger-day">
-          <h2>{date}</h2>
-          {index === 0 ? (
-            <>
-              <p className="loja-ledger-open">
-                <span>Saldo anterior</span>
-                <strong>{signedMoney(0)}</strong>
-              </p>
-              <h2>{date}</h2>
-            </>
-          ) : null}
-          {rows.map((row) => (
-            <p key={`${row.orderId}-${row.label}`} className="loja-ledger-row">
-              {row.orderId ? (
-                <button type="button" onClick={() => setOpenId(row.orderId)}>{row.label}</button>
-              ) : (
-                <span>{row.label}</span>
-              )}
-              <span className={row.amount < 0 ? "neg" : "pos"}>{signedMoney(row.amount)}</span>
-              <strong className={row.balance < 0 ? "neg" : "pos"}>{signedMoney(row.balance)}</strong>
+      {groups.dates.length > 0 ? (
+        <p className="loja-ledger-open">
+          <span>Saldo anterior</span>
+          <strong>{signedMoney(0)}</strong>
+        </p>
+      ) : null}
+      {groups.dates.map(([date, rows]) => {
+        const dayBalance = rows[rows.length - 1]?.balance || 0;
+        return (
+          <div key={date} className="loja-ledger-day">
+            <h2>{date}</h2>
+            <p className="loja-ledger-head">
+              <span>Movimento</span>
+              <span>Valor</span>
+              <span>Saldo</span>
             </p>
-          ))}
-        </div>
-      ))}
+            {rows.map((row) => (
+              <p key={`${row.orderId}-${row.label}`} className="loja-ledger-row">
+                {row.orderId ? (
+                  <button type="button" onClick={() => setOpenId(row.orderId)}>{row.label}</button>
+                ) : (
+                  <span>{row.label}</span>
+                )}
+                <span className={row.amount < 0 ? "neg" : "pos"}>{signedMoney(row.amount)}</span>
+                <strong className={row.balance < 0 ? "neg" : "pos"}>{signedMoney(row.balance)}</strong>
+              </p>
+            ))}
+            <p className="loja-ledger-close">
+              <span>Saldo do dia</span>
+              <strong className={dayBalance < 0 ? "neg" : "pos"}>{signedMoney(dayBalance)}</strong>
+            </p>
+          </div>
+        );
+      })}
       {groups.dates.length > 0 ? (
         <p className={`loja-ledger-final ${groups.balance < 0 ? "neg" : "pos"}`}>{signedMoney(groups.balance)}</p>
       ) : null}
       {openOrder ? (
-        <div className="loja-confirm" onClick={() => setOpenId(null)}>
+        <LojaScrim onClick={() => setOpenId(null)}>
           <div
             className="loja-confirm-card loja-order-modal"
             role="dialog"
@@ -1016,7 +1469,7 @@ function Financeiro() {
             <p>Status: <StatusLabel value={openOrder.dispatchStatus} estornada={openOrder.estornada} /></p>
             <p>Obs: {shown(openOrder.observacao || openOrder.address?.obs)}</p>
           </div>
-        </div>
+        </LojaScrim>
       ) : null}
     </section>
   );
@@ -1187,6 +1640,68 @@ function Endereco() {
   );
 }
 
+const CODE128_PATTERNS = [
+  "212222", "222122", "222221", "121223", "121322", "131222", "122213", "122312", "132212", "221213",
+  "221312", "231212", "112232", "122132", "122231", "113222", "123122", "123221", "223211", "221132",
+  "221231", "213212", "223112", "312131", "311222", "321122", "321221", "312212", "322112", "322211",
+  "212123", "212321", "232121", "111323", "131123", "131321", "112313", "132113", "132311", "211313",
+  "231113", "231311", "112133", "112331", "132131", "113123", "113321", "133121", "313121", "211331",
+  "231131", "213113", "213311", "213131", "311123", "311321", "331121", "312113", "312311", "332111",
+  "314111", "221411", "431111", "111224", "111422", "121124", "121421", "141122", "141221", "112214",
+  "112412", "122114", "122411", "142112", "142211", "241211", "221114", "413111", "241112", "134111",
+  "111242", "121142", "121241", "114212", "124112", "124211", "411212", "421112", "421211", "212141",
+  "214121", "412121", "111143", "111341", "131141", "114113", "114311", "411113", "411311", "113141",
+  "114131", "311141", "411131", "211412", "211214", "211232", "2331112",
+];
+
+function code128Bars(value: string) {
+  const codes = [104];
+  for (const char of value) {
+    const symbol = char.charCodeAt(0) - 32;
+    if (symbol >= 0 && symbol <= 94) codes.push(symbol);
+  }
+  let checksum = codes[0];
+  for (let index = 1; index < codes.length; index += 1) checksum += codes[index] * index;
+  codes.push(checksum % 103, 106);
+  const bars: { x: number; width: number }[] = [];
+  let cursor = 0;
+  codes.forEach((code) => {
+    const pattern = CODE128_PATTERNS[code] || "";
+    let ink = true;
+    for (const part of pattern) {
+      const width = Number(part);
+      if (ink) bars.push({ x: cursor, width });
+      cursor += width;
+      ink = !ink;
+    }
+  });
+  return { bars, width: cursor };
+}
+
+function barcodePng(value: string) {
+  const { bars, width } = code128Bars(value);
+  const scale = 3;
+  const height = 46;
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(1, width * scale);
+  canvas.height = height * scale;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return "";
+  ctx.fillStyle = "#fff";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = "#111";
+  bars.forEach((bar) => {
+    ctx.fillRect(bar.x * scale, 0, Math.max(1, bar.width * scale), canvas.height);
+  });
+  return canvas.toDataURL("image/png");
+}
+
+function OrderBarcode({ value }: { value: string }) {
+  const src = useMemo(() => barcodePng(value), [value]);
+  if (!src) return null;
+  return <img className="loja-slip-barcode" src={src} alt={`Código de barras do pedido ${value}`} />;
+}
+
 function Imprimir() {
   const { pathname } = useLocation();
   const { client } = useClientAuth();
@@ -1224,81 +1739,28 @@ function Imprimir() {
   if (!order) return <p className="loja-lede">Carregando pedido…</p>;
 
   const lines = order.lines || [];
-  const gross = lines.reduce((sum, line) => sum + line.price * line.qty, 0);
-  const total = order.total || gross;
-  const qty = lines.reduce((sum, line) => sum + line.qty, 0);
   const code = order.id.slice(0, 8).toUpperCase();
-  const city = shown(order.address?.cidade);
 
   return (
     <section className="loja-print">
       <article className="loja-slip">
-        <header className="loja-slip-top">
-          <span>{when(order.closedAt || order.createdAt)}</span>
-          <strong>{shown(client?.name)}</strong>
-          <span>1/1</span>
-        </header>
-        <h1>PEDIDO</h1>
-
-        <h2>Dados do pedido</h2>
-        <p>Cód. pedido: {code}</p>
-        <p>Emissão: {when(order.createdAt)}</p>
-        <p>Fechamento: {when(order.closedAt)}</p>
-        <p>Identificação: {shown(order.address?.nome || client?.name)}</p>
-
-        <h2>Dados do cliente</h2>
-        <p>Cliente: {shown(order.address?.nome || client?.name)}</p>
-        <p>CPF/CNPJ: {shown(client?.document)}</p>
-        <p>E-mail: {shown(client?.email)}</p>
-        <p>Cidade: {city}</p>
-        <p>Endereço: {addressLine(order.address || {})}</p>
-
-        <h2>Dados dos produtos</h2>
-        <table>
-          <thead>
-            <tr>
-              <th>Cód.</th>
-              <th>Prod.</th>
-              <th>V. unit.</th>
-              <th>Qtd</th>
-              <th>Valor</th>
-              <th>Desc.</th>
-              <th>Total</th>
-            </tr>
-          </thead>
-          <tbody>
-            {lines.map((line) => (
-              <tr key={line.id}>
-                <td>{shown(line.code)}</td>
-                <td>{line.name}</td>
-                <td>{money(line.price)}</td>
-                <td>{line.qty}</td>
-                <td>{money(line.price * line.qty)}</td>
-                <td>{money(0)}</td>
-                <td>{money(line.price * line.qty)}</td>
-              </tr>
-            ))}
-            <tr className="loja-slip-sum">
-              <td colSpan={3}>Totais:</td>
-              <td>{qty}</td>
-              <td>{money(gross)}</td>
-              <td>{money(0)}</td>
-              <td>{money(total)}</td>
-            </tr>
-          </tbody>
-        </table>
-
-        <h2>Totais do pedido</h2>
-        <div className="loja-slip-totals">
-          <p><span>Total sem desconto</span><strong>{money(gross)}</strong></p>
-          <p><span>Total descontos</span><strong>{money(0)}</strong></p>
-          <p><span>Total outras despesas</span><strong>{money(0)}</strong></p>
-          <p><span>Total frete</span><strong>{money(0)}</strong></p>
-          <p><span>Total seguro</span><strong>{money(0)}</strong></p>
-          <p><span>Total itens</span><strong>{qty}</strong></p>
-          <p><span>Total geral</span><strong>{money(total)}</strong></p>
+        <p className="loja-slip-kicker">Pedido</p>
+        <OrderBarcode value={code} />
+        <strong className="loja-slip-code">{code}</strong>
+        <p className="loja-slip-when">{when(order.closedAt || order.createdAt)}</p>
+        <div className="loja-slip-client">
+          <span>Cliente</span>
+          <strong>{shown(order.address?.nome || client?.name)}</strong>
         </div>
-        <p className="loja-slip-obs">Obs: {shown(order.observacao || order.address?.obs)}</p>
+        <ul className="loja-slip-items">
+          {lines.map((line) => (
+            <li key={line.id}>
+              <b>{shown(line.code)}</b>
+              <span>{line.qty} un</span>
+              <em>{line.name}</em>
+            </li>
+          ))}
+        </ul>
       </article>
     </section>
   );
@@ -1328,7 +1790,7 @@ export default function LojistaPedidos() {
     );
 
   return (
-    <PdvShell className="loja-vitrine" showStrip={false}>
+    <PdvShell className="loja-vitrine">
       <LojaFrame>{view}</LojaFrame>
     </PdvShell>
   );

@@ -1,10 +1,12 @@
-import { useContext, useEffect, useState } from "react";
+import { useContext, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import {
+  ArrowLeftRight,
   BadgeCheck,
   Bell,
   DatabaseBackup,
   FilePenLine,
+  KeyRound,
   List,
   LogOut,
   Menu,
@@ -14,20 +16,27 @@ import {
   Tag,
   UserRound,
   Wallet,
+  BarChart3,
   X,
   type LucideIcon,
 } from "lucide-react";
 import { useTheme } from "@mui/material/styles";
 import { ColorModeContext } from "../../../theme";
 import { ModesPopover } from "../../../components/ui-mode/ModesPopover";
-import { LEGACY_GROUP_LABEL, useBackofficeNavItems, type BackofficeNavItem } from "../../../store/useBackofficeNavItems";
+import { LEGACY_GROUP_LABEL, useBackofficeNavItems, type BackofficeNavChild } from "../../../store/useBackofficeNavItems";
 import { api } from "../../../services/api";
 import "./premium-chrome.css";
+import { PageJumps } from "../../client/dashboard/PageJumps";
+import { aquecerEtiquetas } from "../../gestao-invoices/components/sections/etiquetaCache";
+import { aquecerVendas } from "../../gestor/vendasCache";
+import { aquecerOperadores } from "../../form-operators/operadoresCache";
 
 const NAV_ICONS: Record<string, LucideIcon> = {
   "gestao-cadastro": FilePenLine,
   "gestao-compras": ShoppingCart,
+  "gestao-movimentacoes": ArrowLeftRight,
   "gestao-caixas": Wallet,
+  "gestao-relatorios": BarChart3,
   "gerenciar-lojistas": UserRound,
   "vendas-concluidas": BadgeCheck,
   "etiquetas-entrada": Tag,
@@ -39,43 +48,125 @@ function NavGlyph({ id }: { id: string }) {
   return <Icon size={18} strokeWidth={1.8} aria-hidden />;
 }
 
+function branchActive(item: { to?: string; children?: BackofficeNavChild[] }, active: (to: string) => boolean): boolean {
+  if (item.to && active(item.to)) return true;
+  return item.children?.some((child) => branchActive(child, active)) ?? false;
+}
+
 function NavBranch({
   item,
   active,
+  nested = false,
 }: {
-  item: BackofficeNavItem;
+  item: { id: string; label: string; to?: string; children?: BackofficeNavChild[] };
   active: (to: string) => boolean;
+  nested?: boolean;
 }) {
-  const childActive = item.children?.some((child) => active(child.to)) ?? false;
-  const [open, setOpen] = useState(childActive);
+  const current = branchActive(item, active);
+  const [open, setOpen] = useState(current);
+  const rootRef = useRef<HTMLDetailsElement>(null);
+  const wasCurrent = useRef(current);
 
   useEffect(() => {
-    if (childActive) setOpen(true);
-  }, [childActive]);
+    if (current) setOpen(true);
+    else if (wasCurrent.current) setOpen(false);
+    wasCurrent.current = current;
+  }, [current]);
+
+  useEffect(() => {
+    if (!open || nested) return;
+    function onClick(event: MouseEvent) {
+      if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
+    }
+    document.addEventListener("click", onClick);
+    return () => document.removeEventListener("click", onClick);
+  }, [open, nested]);
 
   return (
     <details
-      className="pdv-chrome-sub"
+      ref={rootRef}
+      className={nested ? "pdv-chrome-sub pdv-chrome-sub-nested" : "pdv-chrome-sub"}
       open={open}
-      onToggle={(event) => setOpen((event.currentTarget as HTMLDetailsElement).open)}
+      onToggle={(event) => event.stopPropagation()}
     >
-      <summary className={childActive ? "is-current" : undefined}>
+      <summary
+        className={current ? "is-current" : undefined}
+        onClick={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          setOpen((value) => !value);
+        }}
+      >
         <NavGlyph id={item.id} />
         {item.label}
       </summary>
       <div className="pdv-chrome-sub-list">
-        {item.children?.map((child) => (
-          <Link key={child.id} to={child.to} aria-current={active(child.to) ? "page" : undefined}>
-            {child.label}
-          </Link>
-        ))}
+        {item.children?.map((child) =>
+          child.children?.length ? (
+            <NavBranch key={child.id} item={child} active={active} nested />
+          ) : (
+            <Link key={child.id} to={child.to || "#"} aria-current={child.to && active(child.to) ? "page" : undefined}>
+              {child.label}
+            </Link>
+          ),
+        )}
       </div>
     </details>
   );
 }
 
+function LegacyNav({
+  items,
+  active,
+}: {
+  items: Array<{ id: string; label: string; to: string }>;
+  active: (to: string) => boolean;
+}) {
+  const current = items.some((item) => active(item.to));
+  const [open, setOpen] = useState(current);
+  const rootRef = useRef<HTMLDetailsElement>(null);
+  const wasCurrent = useRef(current);
+
+  useEffect(() => {
+    if (current) setOpen(true);
+    else if (wasCurrent.current) setOpen(false);
+    wasCurrent.current = current;
+  }, [current]);
+
+  useEffect(() => {
+    if (!open) return;
+    function onClick(event: MouseEvent) {
+      if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
+    }
+    document.addEventListener("click", onClick);
+    return () => document.removeEventListener("click", onClick);
+  }, [open]);
+
+  return (
+    <details ref={rootRef} className="pdv-chrome-legacy" open={open} style={{ marginTop: 12, opacity: 0.72 }}>
+      <summary
+        className="pdv-chrome-group"
+        style={{ cursor: "pointer", listStyle: "revert", margin: 0 }}
+        onClick={(event) => {
+          event.preventDefault();
+          setOpen((value) => !value);
+        }}
+      >
+        {LEGACY_GROUP_LABEL}
+      </summary>
+      {items.map((item) => (
+        <div key={item.id}>
+          <Link to={item.to} aria-current={active(item.to) ? "page" : undefined}>
+            {item.label}
+          </Link>
+        </div>
+      ))}
+    </details>
+  );
+}
+
 export function PremiumChrome() {
-  const { items, roleLabel, onLogout, canBackup, isActive } = useBackofficeNavItems();
+  const { items, roleLabel, onLogout, canBackup, podeAlterarSenha, isActive } = useBackofficeNavItems();
   const mainItems = items.filter((item) => !item.legacy);
   const legacyItems = items.filter((item) => item.legacy);
   const colorMode = useContext(ColorModeContext);
@@ -93,6 +184,18 @@ export function PremiumChrome() {
   useEffect(() => {
     setDrawerOpen(false);
   }, [location.pathname]);
+
+  useEffect(() => {
+    aquecerEtiquetas();
+    aquecerVendas();
+    aquecerOperadores();
+  }, []);
+
+  useLayoutEffect(() => {
+    const main = document.querySelector<HTMLElement>(".pdv-chrome-main");
+    if (main) main.scrollTop = 0;
+    window.scrollTo(0, 0);
+  }, [location.pathname, location.search]);
 
   async function handleLogout() {
     onLogout();
@@ -157,25 +260,7 @@ export function PremiumChrome() {
           );
         })}
         {legacyItems.length > 0 ? (
-          <details
-            className="pdv-chrome-legacy"
-            open={legacyItems.some((item) => isActive(item.to))}
-            style={{ marginTop: 12, opacity: 0.72 }}
-          >
-            <summary
-              className="pdv-chrome-group"
-              style={{ cursor: "pointer", listStyle: "revert", margin: 0 }}
-            >
-              {LEGACY_GROUP_LABEL}
-            </summary>
-            {legacyItems.map((item) => (
-              <div key={item.id}>
-                <Link to={item.to} aria-current={isActive(item.to) ? "page" : undefined}>
-                  {item.label}
-                </Link>
-              </div>
-            ))}
-          </details>
+          <LegacyNav items={legacyItems} active={isActive} />
         ) : null}
         {canBackup ? (
           <div className="pdv-chrome-snapshot">
@@ -192,6 +277,11 @@ export function PremiumChrome() {
       </nav>
       <div className="pdv-chrome-foot">
         <p className="pdv-chrome-kicker">{roleLabel}</p>
+        {podeAlterarSenha ? (
+          <Link className="pdv-chrome-tool" to="/backoffice/minha-senha">
+            <KeyRound size={16} /> Alterar senha
+          </Link>
+        ) : null}
         <button className="pdv-chrome-tool" type="button" onClick={handleLogout}>
           <LogOut size={16} /> Sair
         </button>
@@ -243,6 +333,7 @@ export function PremiumChrome() {
             </div>
           </header>
           <Outlet />
+          <PageJumps />
         </div>
       </div>
 

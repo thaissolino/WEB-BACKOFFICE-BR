@@ -13,6 +13,7 @@ export default function PdvOverlayModal({
   size,
   icon,
   footer,
+  lock = false,
   onClose,
   children,
 }: {
@@ -22,6 +23,7 @@ export default function PdvOverlayModal({
   size: "wide" | "support" | "form";
   icon: ReactNode;
   footer?: ReactNode;
+  lock?: boolean;
   onClose: () => void;
   children: ReactNode;
 }) {
@@ -36,8 +38,9 @@ export default function PdvOverlayModal({
 
     const card = cardRef.current;
     const previous = document.activeElement as HTMLElement | null;
+    const prefer = card?.querySelector<HTMLElement>("[data-pdv-modal-initial]");
     const closeBtn = card?.querySelector<HTMLElement>("[data-pdv-modal-close]");
-    closeBtn?.focus();
+    (prefer ?? closeBtn)?.focus();
 
     function onKey(event: KeyboardEvent) {
       if (event.key === "Escape") {
@@ -69,7 +72,7 @@ export default function PdvOverlayModal({
       document.removeEventListener("keydown", onKey);
       previous?.focus?.();
     };
-  }, [open]);
+  }, [open, lock]);
 
   if (!open || typeof document === "undefined") return null;
 
@@ -78,7 +81,7 @@ export default function PdvOverlayModal({
       className="pdv-modal-scrim"
       data-size={size}
       onMouseDown={(event) => {
-        if (event.target === event.currentTarget) onClose();
+        if (event.target === event.currentTarget) event.preventDefault();
       }}
     >
       <div

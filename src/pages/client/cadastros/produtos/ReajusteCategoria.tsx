@@ -1,13 +1,15 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { Plus } from "lucide-react";
 import CadastroShell from "../CadastroShell";
+import "../cadastros.css";
 import { ICMS_OPTIONS } from "./productOptions";
-import { loadProductCategories, type ProductCategory } from "./categoryModel";
+import { categoryPaths, loadProductCategories, type ProductCategory } from "./categoryModel";
 import { parseError } from "../../../../services/api";
 
 export default function ReajusteCategoria() {
   const navigate = useNavigate();
+  const paths = categoryPaths(useLocation().pathname);
   const [all, setAll] = useState<ProductCategory[]>([]);
   const [error, setError] = useState("");
   const [selected, setSelected] = useState<Record<string, boolean>>({});
@@ -53,8 +55,7 @@ export default function ReajusteCategoria() {
     );
   }
 
-  return (
-    <CadastroShell>
+  const page = (
       <section className="pdv-cad-page" aria-labelledby="pdv-reaj-title">
         <div className="pdv-cad-sheet">
           <h1 id="pdv-reaj-title">REAJUSTE POR CATEGORIA</h1>
@@ -83,7 +84,7 @@ export default function ReajusteCategoria() {
                         className="pdv-cad-icon-btn pdv-cad-icon-add"
                         type="button"
                         aria-label={`Produtos de ${item.name}`}
-                        onClick={() => navigate(`/client/produtos/estoque/${item.id}`)}
+                        onClick={() => navigate(paths.office ? paths.products : `/client/produtos/estoque/${item.id}`)}
                       >
                         <Plus size={16} strokeWidth={2.6} aria-hidden="true" />
                       </button>
@@ -139,6 +140,6 @@ export default function ReajusteCategoria() {
           </form>
         </div>
       </section>
-    </CadastroShell>
   );
+  return paths.office ? page : <CadastroShell>{page}</CadastroShell>;
 }

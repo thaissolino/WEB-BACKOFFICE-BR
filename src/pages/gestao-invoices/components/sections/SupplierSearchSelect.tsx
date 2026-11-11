@@ -27,7 +27,10 @@ export function ProductSearchSelect({ products, value, onChange, inline = false,
       const searchableText = `${nameLower} ${codeLower}`.trim();
       return matchSearchTerms(searchTerm, searchableText);
     })
-    .slice(0, 20); // Limita a 20 resultados para melhor performance
+    .sort((a, b) => {
+      const mix = (nome: string) => (/(^|\s)MIX$/i.test(nome.trim()) ? 1 : 0);
+      return mix(a.name) - mix(b.name) || a.name.localeCompare(b.name, "pt-BR", { sensitivity: "base" });
+    });
 
   const selectedName = products.find(p => p.id === value)?.name || "";
 
@@ -54,10 +57,8 @@ export function ProductSearchSelect({ products, value, onChange, inline = false,
 
   return (
     <div ref={dropdownRef} className={`relative ${inline ? 'mb-0' : 'mb-1'}`}>
-      <label className="block text-sm font-medium text-gray-700 mb-1">Produto</label>
-
       <div
-        className={`w-full border border-gray-300 rounded-md p-2 flex items-center whitespace-nowrap overflow-hidden text-ellipsis ${
+        className={`w-full min-h-[40px] border border-[#ddd4c6] rounded-full px-4 py-2 flex items-center whitespace-nowrap overflow-hidden text-ellipsis ${
           disabled ? "bg-gray-100 text-gray-500 cursor-not-allowed" : "bg-white cursor-pointer"
         }`}
         onClick={() => {

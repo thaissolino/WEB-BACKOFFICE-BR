@@ -1,4 +1,4 @@
-﻿import { ReactNode, useMemo, useRef, useState } from "react";
+import { ReactNode, useMemo, useRef, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import {
   Activity,
@@ -21,7 +21,6 @@ import {
   UserCog,
   List,
   ClipboardList,
-  ShoppingBag,
   Wallet,
 } from "lucide-react";
 import { useClientAuth, type ClientUser } from "../../hooks/clientAuth";
@@ -32,6 +31,7 @@ import {
   periodLabels,
 } from "./dashboard/mockData";
 import { DASHBOARD_SHORTCUTS } from "./dashboard/menuData";
+import { bloqueioDaRota } from "./cadastros/usuarios/acessoEvento";
 import PdvShell, { PdvLoading, usePdvSession, usePdvUiConfig } from "./dashboard/PdvShell";
 import { accordionWidgetId, isDashboardVisible } from "./dashboard/pdvUiConfig";
 import { usePdvLayoutMode } from "../../store/pdvLayoutMode";
@@ -94,9 +94,10 @@ function calendarCells(now = new Date()) {
 const ZERO_MONEY = { total: "R$ 0,00", today: "0,00", week: "0,00", month: "0,00" };
 
 function matches(query: string, title: string) {
-  const q = query.trim().toLowerCase();
-  if (!q) return true;
-  return title.toLowerCase().includes(q);
+  const words = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  if (!words.length) return true;
+  const hay = title.toLowerCase();
+  return words.every((word) => hay.includes(word));
 }
 
 function Module({
@@ -303,7 +304,8 @@ function ActivitiesCalendar() {
 
 function DashboardBoard({ client }: { client: ClientUser }) {
   const navigate = useNavigate();
-  const { query, storeName } = usePdvSession();
+  const { query, storeOwner } = usePdvSession();
+  const lojista = storeOwner || client.name;
   const uiConfig = usePdvUiConfig();
   const boardRef = useRef<HTMLDivElement>(null);
 
@@ -323,9 +325,9 @@ function DashboardBoard({ client }: { client: ClientUser }) {
   const showCertificate = isDashboardVisible(uiConfig, "certificate-alert");
 
   const shortcuts = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return DASHBOARD_SHORTCUTS;
-    return DASHBOARD_SHORTCUTS.filter((item) => item.label.toLowerCase().includes(q));
+    const words = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
+    if (!words.length) return DASHBOARD_SHORTCUTS;
+    return DASHBOARD_SHORTCUTS.filter((item) => words.every((word) => item.label.toLowerCase().includes(word)));
   }, [query]);
 
   const layoutMode = usePdvLayoutMode((state) => state.mode);
@@ -336,13 +338,7 @@ function DashboardBoard({ client }: { client: ClientUser }) {
       <div className="pdvc-board">
         {showWelcome ? (
           <header className="pdvc-page-head">
-            <h1 className="pdvc-page-title">Seja bem vindo, {client.name}</h1>
-            <p className="pdvc-page-sub">
-              <span>
-                Loja Atual: <strong>{storeName}</strong>
-              </span>
-              <span className="pdvc-chip">Visualiza preço de compra: Sim</span>
-            </p>
+            <h1 className="pdvc-page-title">Seja bem vindo, {lojista}</h1>
           </header>
         ) : null}
 
@@ -391,13 +387,7 @@ function DashboardBoard({ client }: { client: ClientUser }) {
 
         {showWelcome ? (
         <div className="pdv-welcome-block">
-          <p className="pdv-welcome">Seja bem vindo, {client.name}</p>
-          <div className="pdv-shop-bar">
-            <span>
-              Loja Atual: <strong>{storeName}</strong>
-            </span>
-            <span>Visualiza preço de compra: Sim</span>
-          </div>
+          <p className="pdv-welcome">Seja bem vindo, {lojista}</p>
         </div>
         ) : null}
 
@@ -406,14 +396,20 @@ function DashboardBoard({ client }: { client: ClientUser }) {
           <div className="pdv-home-shortcuts-grid">
             {shortcuts.map((item) => {
               const feature = item.id === "meus-pedidos";
+              const aviso = bloqueioDaRota(item.href);
               return (
                 <button
                   key={item.id}
                   type="button"
                   className={feature ? "pdv-home-shortcut pdv-home-shortcut-feature" : "pdv-home-shortcut"}
-                  onClick={() => navigate(item.href)}
+                  title={aviso || undefined}
+                  data-locked={aviso ? "true" : undefined}
+                  aria-disabled={aviso ? true : undefined}
+                  onClick={() => {
+                    if (aviso) return;
+                    navigate(item.href);
+                  }}
                 >
-                  {feature ? <span className="pdv-home-shortcut-kicker">Pedidos</span> : null}
                   {feature ? null : (
                     <span className="pdv-home-shortcut-ico" aria-hidden="true">
                       {SHORTCUT_ICONS[item.id]}
@@ -421,9 +417,8 @@ function DashboardBoard({ client }: { client: ClientUser }) {
                   )}
                   <span className="pdv-home-shortcut-label">{item.label}</span>
                   <span className="pdv-home-shortcut-copy">{SHORTCUT_COPY[item.id]}</span>
-                  {feature ? <span className="pdv-home-shortcut-go">Abrir</span> : null}
                   {feature ? (
-                    <ShoppingBag className="pdv-home-shortcut-mark" size={148} strokeWidth={1.15} aria-hidden="true" />
+                    <img className="pdv-home-shortcut-photo" src="/pedidos-gestao.jpg" alt="" />
                   ) : null}
                 </button>
               );

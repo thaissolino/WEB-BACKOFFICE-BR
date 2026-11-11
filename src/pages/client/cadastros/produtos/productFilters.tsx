@@ -7,6 +7,10 @@ import type { FlatOption } from "./categoryModel";
 import { GRADE_COMPARE_OPS, parseMoneyBr, type GradeCompareOp } from "./types";
 
 export const CLIENT_PRODUCT_FILTER_KEY = "pdv-prod-last-filter";
+export const CLIENT_PRODUCT_LIST_PAGE_KEY = "pdv-prod-list-page";
+export const CLIENT_PRODUCT_RETURN_CODE_KEY = "pdv-prod-return-code";
+export const CLIENT_PRODUCT_RETURN_ID_KEY = "pdv-prod-return-id";
+export const CLIENT_PRODUCT_OPEN_KEY = "pdv-prod-open";
 export const OFFICE_PRODUCT_FILTER_KEY = "gestao-prod-last-filter";
 
 export type CompareFilter = { op: GradeCompareOp; value: string };
@@ -34,6 +38,7 @@ export type ProductFilters = {
   preco: CompareFilter;
   precoLv: CompareFilter;
   estoque: CompareFilter;
+  comEstoque: boolean;
 };
 
 const EMPTY_COMPARE: CompareFilter = { op: "Todos", value: "" };
@@ -54,6 +59,7 @@ export const EMPTY_PRODUCT_FILTERS: ProductFilters = {
   preco: EMPTY_COMPARE,
   precoLv: EMPTY_COMPARE,
   estoque: EMPTY_COMPARE,
+  comEstoque: false,
 };
 
 const CATALOG_ITEMS = [
@@ -79,6 +85,7 @@ export type FilterableProduct = {
   collection?: string;
   gender?: string;
   salePrice?: number;
+  lojaSalePrice?: number;
   priceweightAverage?: number;
 };
 
@@ -94,6 +101,7 @@ export function readProductFilters(key: string): ProductFilters {
       preco: { ...EMPTY_COMPARE, ...parsed.preco },
       precoLv: { ...EMPTY_COMPARE, ...parsed.precoLv },
       estoque: { ...EMPTY_COMPARE, ...parsed.estoque },
+      comEstoque: parsed.comEstoque === true,
     };
   } catch {
     return EMPTY_PRODUCT_FILTERS;
@@ -146,6 +154,9 @@ export function productFilterParams(
     preco: filters.preco.op === "Todos" ? undefined : filters.preco.value,
     estoqueOp: filters.estoque.op,
     estoque: filters.estoque.op === "Todos" ? undefined : filters.estoque.value,
+    comEstoque: filters.comEstoque ? "1" : undefined,
+    light: "1",
+    _t: Date.now(),
   };
 }
 
@@ -190,6 +201,7 @@ export function productMatchesFilters(
     return false;
   }
   if (!matchCompare(applied.estoque.op, stock, applied.estoque.value)) return false;
+  if (applied.comEstoque && stock <= 0) return false;
   return true;
 }
 
@@ -240,10 +252,15 @@ export function ProductFilterForm({
   onClear,
   onLastFilter,
   categoryOptions,
+  showInStock,
+  showCatalog = true,
   brands,
   collections,
   genders,
   suppliers,
+  busy = false,
+  exibirPor,
+  onExibirPor,
 }: {
   draft: ProductFilters;
   onChange: (next: ProductFilters) => void;
@@ -251,10 +268,15 @@ export function ProductFilterForm({
   onClear: () => void;
   onLastFilter: () => void;
   categoryOptions: FlatOption[];
+  showInStock?: boolean;
+  showCatalog?: boolean;
   brands: string[];
   collections: string[];
   genders: string[];
   suppliers: string[];
+  busy?: boolean;
+  exibirPor?: "name" | "code";
+  onExibirPor?: (ordem: "name" | "code") => void;
 }) {
   const [moreOpen, setMoreOpen] = useState(false);
   const [catalogOpen, setCatalogOpen] = useState(false);
@@ -335,7 +357,19 @@ export function ProductFilterForm({
       </div>
 
       {moreOpen ? (
-        <div className="pdv-prod-more" aria-label="Mais filtros">
+        <div className={onExibirPor ? "pdv-prod-more pdv-prod-exibir" : "pdv-prod-more"} aria-label="Mais filtros">
+          {onExibirPor ? (
+            <label>
+              Exibir por
+              <SearchableSelect
+                hideEmpty
+                value={exibirPor === "code" ? "Código" : "Nome"}
+                options={["Código", "Nome"]}
+                onChange={(ordem) => onExibirPor(ordem === "Código" ? "code" : "name")}
+              />
+            </label>
+          ) : (
+          <>
           <label>
             Marca
             <SearchableSelect
@@ -389,10 +423,22 @@ export function ProductFilterForm({
             value={draft.estoque}
             onChange={(estoque) => onChange({ ...draft, estoque })}
           />
+          </>
+          )}
         </div>
       ) : null}
 
       <div className="pdv-prod-toolbar">
+        {showInStock ? (
+          <label className="pdv-prod-stock-flag">
+            <input
+              type="checkbox"
+              checked={draft.comEstoque}
+              onChange={(event) => onChange({ ...draft, comEstoque: event.target.checked })}
+            />
+            Exibir com estoque
+          </label>
+        ) : null}
         <button className="pdv-prod-btn" type="button" onClick={onLastFilter}>
           <Filter size={15} strokeWidth={2.2} aria-hidden="true" />
           Ultimo Filtro
@@ -410,7 +456,7 @@ export function ProductFilterForm({
           <ChevronDown size={15} strokeWidth={2.2} aria-hidden="true" />
           Mais filtros
         </button>
-        <div className="pdv-prod-catalog-wrap" ref={catalogRef}>
+        {showCatalog ? <div className="pdv-prod-catalog-wrap" ref={catalogRef}>
           <button
             className="pdv-prod-btn pdv-prod-btn-blue"
             type="button"
@@ -436,9 +482,9 @@ export function ProductFilterForm({
               ))}
             </ul>
           ) : null}
-        </div>
-        <button className="pdv-prod-btn pdv-prod-btn-blue" type="submit">
-          <Search size={15} strokeWidth={2.2} aria-hidden="true" />
+        </div> : null}
+        <button className={`pdv-prod-btn pdv-prod-btn-blue${busy ? " is-busy" : ""}`} type="submit" aria-busy={busy || undefined}>
+          {busy ? <span className="pdv-cad-spin" aria-hidden="true" /> : <Search size={15} strokeWidth={2.2} aria-hidden="true" />}
           Buscar
         </button>
       </div>

@@ -6,6 +6,7 @@ import { formatCurrency, formatDate, formatDateIn } from "./format";
 import ConfirmModal from "./ConfirmModal";
 import { api } from "../../../services/api";
 import Swal from "sweetalert2";
+import { DatePreset } from "../../client/cadastros/catalog/FormBits";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import { useNotification } from "../../../hooks/notification";
@@ -1083,12 +1084,15 @@ const getFornecedorPDFDataJSON = () => {
                     <div className="flex items-end gap-2">
                       <div className="flex flex-col">
                         <label className="text-xs font-medium text-gray-700 mb-1">Data Inicial</label>
-                        <input
-                          type="date"
-                          value={tempStartDate}
-                          onChange={(e) => setTempStartDate(e.target.value)}
-                          className="w-24 h-6 border border-gray-300 rounded-md text-sm text-center leading-6 py-0 focus:outline-none focus:ring-2 focus:ring-blue-400"
-                        />
+                        <span className="pdv-date-field">
+                          <input
+                            type="date"
+                            value={tempStartDate}
+                            onChange={(e) => setTempStartDate(e.target.value)}
+                            className="w-24 h-6 border border-gray-300 rounded-md text-sm text-center leading-6 py-0 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                          />
+                          <DatePreset onPick={(start, end) => { setTempStartDate(start); setTempEndDate(end); }} />
+                        </span>
                       </div>
                       <span className="text-sm font-medium">até</span>
                       <div className="flex flex-col">

@@ -14,6 +14,7 @@ const CONFIG_ITEM_ROUTES: Record<string, string> = {
   Cadastrar: "/client/financeiro/formas-pagamento/cadastrar",
   Inativos: "/client/financeiro/formas-pagamento/inativos",
   "Configurações da Loja": "/client/loja",
+  "Tabelas de preço": "/client/configuracao/tabelas-preco",
   Integrações: "/client/loja?tab=integracoes",
   "Grupos de Loja": "/client/grupos-de-loja",
   "Estoque Compartilhado": "/client/estoque-compartilhado",

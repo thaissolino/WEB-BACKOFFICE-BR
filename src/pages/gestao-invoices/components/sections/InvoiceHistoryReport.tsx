@@ -13,6 +13,7 @@ import {
   SupplierCurrency,
 } from "../utils/invoiceCurrency";
 import { barcodeFromProductCode } from "../utils/productBarcode";
+import { formatMoneyBr, parseMoneyBr } from "../../../client/cadastros/produtos/types";
 
 export type exchange = {
   id: string;
@@ -66,6 +67,7 @@ export type InvoiceData = {
     analising: boolean;
     receivedQuantity: number;
     quantityAnalizer: number;
+    lostQuantity?: number;
     product: {
       id: string;
       name: string;
@@ -130,8 +132,12 @@ function remainingQty(item: {
   quantity: number;
   quantityAnalizer?: number;
   receivedQuantity?: number;
+  lostQuantity?: number;
 }) {
-  return Math.max(0, item.quantity - (item.quantityAnalizer || 0) - (item.receivedQuantity || 0));
+  return Math.max(
+    0,
+    item.quantity - (item.quantityAnalizer || 0) - (item.receivedQuantity || 0) - (item.lostQuantity || 0),
+  );
 }
 
 function remainingTotal(item: {
@@ -163,6 +169,13 @@ export function saoPauloDay(value: string) {
   }).format(when);
 }
 
+function formatSpDate(value: string) {
+  const day = saoPauloDay(value);
+  if (!day) return "";
+  const [year, month, date] = day.split("-");
+  return `${date}/${month}/${year}`;
+}
+
 type ReceiptPrintEntry = {
   id: string;
   date: string;
@@ -185,6 +198,8 @@ type LabelRow = {
   operator: string;
   quantity: number;
   items: { code: string; name: string; quantity: number }[];
+  historyIds: string[];
+  printedAt: string;
 };
 
 const CODE128_PATTERNS = [
@@ -214,16 +229,14 @@ type LabelPdf = {
   roundedRect: (x: number, y: number, w: number, h: number, rx: number, ry: number, style?: string) => void;
 };
 
-const SHEET_MARGIN = 8;
-const LABEL_GAP = 4;
-const LABEL_W = 95;
-const LABEL_H = 42;
-
-function labelsPerSheet() {
-  const cols = Math.floor((210 - SHEET_MARGIN * 2 + LABEL_GAP) / (LABEL_W + LABEL_GAP));
-  const rows = Math.floor((297 - SHEET_MARGIN * 2 + LABEL_GAP) / (LABEL_H + LABEL_GAP));
-  return { cols, rows, perPage: cols * rows };
-}
+const PAGE_W = 100;
+const PAGE_H = 30;
+const LABEL_W = 42;
+const COLS = [
+  { x: 4, w: LABEL_W },
+  { x: 54, w: LABEL_W },
+];
+const ROW_Y = [2];
 
 function code128Symbols(value: string) {
   const digits = value.replace(/\D/g, "");
@@ -254,35 +267,40 @@ function drawCode128(doc: LabelPdf, value: string, x: number, y: number, barHeig
   return cursor;
 }
 
-function drawEntryLabel(doc: LabelPdf, data: { code: string; name: string }, x: number, y: number) {
+function barcodeModules(value: string) {
+  return code128Symbols(value).reduce((total, code) => {
+    return total + CODE128_PATTERNS[code].split("").reduce((sum, part) => sum + Number(part), 0);
+  }, 0);
+}
+
+function drawEntryLabel(doc: LabelPdf, data: { code: string; name: string }, x: number, y: number, width: number) {
   const barcode = barcodeFromProductCode(data.code);
   const product = (data.name || "Produto").toUpperCase();
-  const moduleWidth = 0.42;
-  const barHeight = 14;
+  const maxBar = width - 6;
+  const moduleWidth = Math.min(0.33, maxBar / Math.max(1, barcodeModules(barcode)));
+  const symbolWidth = barcodeModules(barcode) * moduleWidth;
+  const barHeight = 11;
 
-  doc.setDrawColor(226, 232, 240);
+  doc.setDrawColor(0, 0, 0);
   doc.setLineWidth(0.3);
-  doc.roundedRect(x, y, LABEL_W, LABEL_H, 2.2, 2.2, "S");
+  doc.roundedRect(x + 0.6, y + 0.6, width - 1.2, 25, 1.2, 1.2, "S");
 
-  doc.setTextColor(17, 24, 39);
+  doc.setTextColor(0, 0, 0);
   doc.setFont("helvetica", "bold");
-  let nameSize = 9;
+  let nameSize = 9.5;
   doc.setFontSize(nameSize);
-  while (nameSize > 6.5 && doc.getTextWidth(product) > LABEL_W - 8) {
+  while (nameSize > 6 && doc.getTextWidth(product) > width - 4) {
     nameSize -= 0.5;
     doc.setFontSize(nameSize);
   }
-  doc.text(product, x + (LABEL_W - doc.getTextWidth(product)) / 2, y + 8);
+  doc.text(product, x + width / 2, y + 6, { align: "center" });
 
-  const symbolWidth = code128Symbols(barcode).reduce((total, code) => {
-    return total + CODE128_PATTERNS[code].split("").reduce((sum, part) => sum + Number(part), 0);
-  }, 0) * moduleWidth;
-  const barY = y + 11;
-  drawCode128(doc, barcode, x + (LABEL_W - symbolWidth) / 2, barY, barHeight, moduleWidth);
+  const barY = y + 8;
+  drawCode128(doc, barcode, x + (width - symbolWidth) / 2, barY, barHeight, moduleWidth);
 
-  doc.setFont("courier", "normal");
-  doc.setFontSize(8);
-  doc.text(barcode, x + (LABEL_W - doc.getTextWidth(barcode)) / 2, barY + barHeight + 4.5);
+  doc.setFont("courier", "bold");
+  doc.setFontSize(9);
+  doc.text(barcode, x + width / 2, y + 23.6, { align: "center" });
 }
 
 type InvoiceHistoryReportProps = {
@@ -291,7 +309,10 @@ type InvoiceHistoryReportProps = {
   printTable?: boolean;
   printInvoiceIds?: string[];
   reprint?: boolean;
-  onLabelsPrinted?: (row: { invoiceId: string; invoiceNumber: string; day?: string }) => void | Promise<void>;
+  listReady?: boolean;
+  seedEntries?: ReceiptPrintEntry[];
+  onReload?: () => void;
+  onLabelsPrinted?: (row: { invoiceId: string; invoiceNumber: string; day?: string; historyIds?: string[] }) => void | Promise<void>;
 };
 
 export function InvoiceHistoryReport({
@@ -300,6 +321,9 @@ export function InvoiceHistoryReport({
   printTable = false,
   printInvoiceIds,
   reprint = false,
+  listReady = true,
+  seedEntries,
+  onReload,
   onLabelsPrinted,
 }: InvoiceHistoryReportProps) {
   const [receiptHistoryModal, setReceiptHistoryModal] = useState<{
@@ -319,17 +343,19 @@ export function InvoiceHistoryReport({
   }>({ grouped: [], all: [] });
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [receiptEntries, setReceiptEntries] = useState<ReceiptPrintEntry[]>([]);
-  const [receiptLoading, setReceiptLoading] = useState(false);
+  const [receiptLoading, setReceiptLoading] = useState(printTable);
   const [receiptReload, setReceiptReload] = useState(0);
   const [etiquetaList, setEtiquetaList] = useState<LabelRow | null>(null);
   const [expandedDate, setExpandedDate] = useState<string | null>(null);
   const [viewingEntry, setViewingEntry] = useState<any | null>(null);
   // const [invoices, setInvoices] = useState<InvoiceData[]>([]);
   const [suppliers, setSuppliers] = useState<{ id: string; name: string }[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!printTable);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [products, setProducts] = useState<Product[]>([]);
+  const [saleDrafts, setSaleDrafts] = useState<Record<string, { sale: string; lojas: string }>>({});
+  const [priceTableIds, setPriceTableIds] = useState({ padrao: "", lojas: "" });
   const [selectedInvoice, setSelectedInvoiceRaw] = useState<InvoiceData | null>(null);
 
   // Imutabilidade da % do freteiro: ao selecionar uma nota, aplica o snapshot
@@ -355,11 +381,13 @@ export function InvoiceHistoryReport({
   const [exchanges, setExchangeResponse] = useState<exchange[]>([]);
   const [selectedProductToAnalyze, setSelectedProductToAnalyze] = useState<ProductData | null>(null);
   const [currentPage, setCurrentPage] = useState(0);
+  const [picked, setPicked] = useState<string[]>([]);
   const itemsPerPage = 10;
+  const pageSize = printTable ? 25 : itemsPerPage;
 
   const fetchInvoicesAndSuppliers = async () => {
     try {
-      setLoading(true);
+      if (!printTable) setLoading(true);
       const [invoiceResponse, supplierResponse, productsResponse, exchangeResponse] = await Promise.all([
         api.get("/invoice/get"),
         api.get("/invoice/supplier"),
@@ -374,10 +402,11 @@ export function InvoiceHistoryReport({
     } catch (error) {
       console.error("Erro ao buscar dados:", error);
     } finally {
-      setLoading(false);
+      if (!printTable) setLoading(false);
     }
   };
   useEffect(() => {
+    if (printTable) return;
     fetchInvoicesAndSuppliers();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only fetch
   }, []);
@@ -385,6 +414,90 @@ export function InvoiceHistoryReport({
   useEffect(() => {
     setCurrentPage(0);
   }, [printTable]);
+
+  useEffect(() => {
+    if (!selectedInvoice) {
+      setSaleDrafts({});
+      return;
+    }
+    const ids = [
+      ...new Set(
+        selectedInvoice.products
+          .filter((item) => item.analising && item.quantityAnalizer > 0)
+          .map((item) => item.productId)
+      ),
+    ];
+    if (!ids.length) return;
+    let cancel = false;
+    Promise.all([
+      api.get("/clients/price-tables"),
+      api.get("/clients/price-tables/grid", { params: { ids: ids.join(",") } }),
+    ])
+      .then(([tablesRes, gridRes]) => {
+        if (cancel) return;
+        const tables = (tablesRes.data?.tables || []) as Array<{
+          id: string;
+          slug: string;
+          name: string;
+          isDefault: boolean;
+        }>;
+        const padrao = tables.find((table) => table.isDefault || table.slug === "padrao");
+        const lojas = tables.find((table) => table.slug === "lojas" || table.name.toLowerCase() === "lojas");
+        setPriceTableIds({ padrao: padrao?.id || "", lojas: lojas?.id || "" });
+        const lojasPrices: Record<string, number> = {};
+        for (const row of (gridRes.data?.prices || []) as Array<{
+          productId: string;
+          priceTableId: string;
+          price: number;
+        }>) {
+          if (lojas && row.priceTableId === lojas.id) lojasPrices[row.productId] = Number(row.price) || 0;
+        }
+        const next: Record<string, { sale: string; lojas: string }> = {};
+        for (const id of ids) {
+          const product = products.find((item) => item.id === id);
+          next[id] = {
+            sale: formatMoneyBr(Number(product?.salePrice) || 0),
+            lojas: formatMoneyBr(lojasPrices[id] || 0),
+          };
+        }
+        setSaleDrafts(next);
+      })
+      .catch((error) => {
+        console.error("Erro ao carregar preços de venda:", error);
+      });
+    return () => {
+      cancel = true;
+    };
+    // só ao abrir a nota: não recarrega enquanto a pessoa edita o preço
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedInvoice?.id]);
+
+  async function gravarPrecosDaAnalise(productIds: string[]) {
+    const unique = [...new Set(productIds.filter(Boolean))];
+    if (!unique.length || (!priceTableIds.padrao && !priceTableIds.lojas)) return;
+    await Promise.all(
+      unique.map(async (productId) => {
+        const draft = saleDrafts[productId];
+        if (!draft) return;
+        const prices: Array<{ priceTableId: string; price: number | null }> = [];
+        if (priceTableIds.padrao) {
+          prices.push({ priceTableId: priceTableIds.padrao, price: parseMoneyBr(draft.sale) });
+        }
+        if (priceTableIds.lojas) {
+          prices.push({ priceTableId: priceTableIds.lojas, price: parseMoneyBr(draft.lojas) });
+        }
+        if (!prices.length) return;
+        await api.put(`/clients/products/${productId}/table-prices`, { prices });
+      })
+    );
+    setProducts((current) =>
+      current.map((product) => {
+        const draft = saleDrafts[product.id];
+        if (!draft || !unique.includes(product.id)) return product;
+        return { ...product, salePrice: parseMoneyBr(draft.sale) };
+      })
+    );
+  }
 
   useEffect(() => {
     if (!isModalOpen || !etiquetaList) return;
@@ -396,6 +509,11 @@ export function InvoiceHistoryReport({
 
   useEffect(() => {
     if (!printTable) return;
+    if (seedEntries) {
+      setReceiptEntries(seedEntries);
+      setReceiptLoading(false);
+      return;
+    }
     let cancel = false;
     setReceiptLoading(true);
     api
@@ -415,12 +533,12 @@ export function InvoiceHistoryReport({
     return () => {
       cancel = true;
     };
-  }, [printTable, receiptReload]);
+  }, [printTable, receiptReload, seedEntries]);
 
   const printRows = useMemo(() => {
     const rows = new Map<string, LabelRow>();
     for (const entry of receiptEntries) {
-      if (!reprint && entry.labelPrintedAt) continue;
+      if (reprint ? !entry.labelPrintedAt : entry.labelPrintedAt) continue;
       const day = saoPauloDay(entry.date);
       if (!day) continue;
       const name = entry.productName || "Produto";
@@ -442,6 +560,8 @@ export function InvoiceHistoryReport({
           operator,
           quantity,
           items: [{ code, name, quantity }],
+          historyIds: entry.id ? [entry.id] : [],
+          printedAt: entry.labelPrintedAt || "",
         });
         continue;
       }
@@ -449,35 +569,44 @@ export function InvoiceHistoryReport({
       if (operator !== "—" && !current.operator.split(", ").includes(operator)) {
         current.operator = current.operator === "—" ? operator : `${current.operator}, ${operator}`;
       }
-      if (new Date(entry.date).getTime() < new Date(current.date).getTime()) current.date = entry.date;
+      if (new Date(entry.date).getTime() > new Date(current.date).getTime()) current.date = entry.date;
+      if (entry.labelPrintedAt && entry.labelPrintedAt > current.printedAt) current.printedAt = entry.labelPrintedAt;
       const same = current.items.find((item) => item.name === name && item.code === code);
       if (same) same.quantity += quantity;
       else current.items.push({ code, name, quantity });
+      if (entry.id && !current.historyIds.includes(entry.id)) current.historyIds.push(entry.id);
     }
     const invoiceNumber = (value: string) => {
       const parsed = Number(String(value).replace(/\D/g, ""));
       return Number.isFinite(parsed) ? parsed : 0;
     };
     const dayOf = (value: string) => saoPauloDay(value);
+    const momentOf = (row: LabelRow) => (reprint ? row.printedAt || row.date : row.date);
     return Array.from(rows.values()).sort((a, b) => {
+      const byDay = dayOf(momentOf(b)).localeCompare(dayOf(momentOf(a)));
+      if (byDay) return byDay;
+      const byTime = new Date(momentOf(b)).getTime() - new Date(momentOf(a)).getTime();
+      if (byTime) return byTime;
       const byNumber = invoiceNumber(b.invoiceNumber) - invoiceNumber(a.invoiceNumber);
       if (byNumber) return byNumber;
-      const byDay = dayOf(b.date).localeCompare(dayOf(a.date));
-      if (byDay) return byDay;
       return a.key.localeCompare(b.key);
     });
   }, [receiptEntries, printInvoiceIds, reprint]);
 
+  useEffect(() => {
+    setPicked((current) => current.filter((key) => printRows.some((row) => row.key === key)));
+  }, [printRows]);
+
   const getStatusText = (invoice: InvoiceData) => {
     console.log(invoice);
-    if (invoice.labelsPrintedAt && invoice.completed && invoice.paid) return "Finalizada";
+    if (invoice.labelsPrintedAt && invoice.completed && invoice.paid) return "Impressa";
     if (invoice.completed && invoice.paid) return "Concluída";
     if (!invoice.completed && invoice.paid) return "Pago";
     return "Pendente";
   };
 
   const getStatusClass = (invoice: InvoiceData) => {
-    if (invoice.labelsPrintedAt && invoice.completed && invoice.paid) return "bg-indigo-100 text-indigo-800";
+    if (invoice.labelsPrintedAt && invoice.completed && invoice.paid) return "bg-teal-100 text-teal-800";
     if (invoice.completed && invoice.paid) return "bg-blue-100 text-blue-800";
     if (!invoice.completed && invoice.paid) return "bg-green-100 text-green-800";
     return "bg-yellow-100 text-yellow-800";
@@ -491,50 +620,93 @@ export function InvoiceHistoryReport({
     setIsModalOpen(true);
   };
 
-  async function printInvoicePdf(row: LabelRow) {
+  async function printLabels(rows: LabelRow[]) {
+    if (!rows.length) return;
     const { jsPDF } = await import("jspdf");
-    const doc = new jsPDF({ unit: "mm", format: "a4" });
-    const grouped = new Map<string, { code: string; name: string }>();
-    row.items.forEach((item) => {
-      const code = item.code || "—";
-      const name = item.name || "Produto";
-      grouped.set(`${code}::${name}`, { code, name });
-    });
-    const labels = grouped.size ? Array.from(grouped.values()) : [{ code: "—", name: "Produto" }];
-    const { cols, perPage } = labelsPerSheet();
-    labels.forEach((item, index) => {
-      if (index > 0 && index % perPage === 0) doc.addPage("a4", "portrait");
-      const slot = index % perPage;
-      const x = SHEET_MARGIN + (slot % cols) * (LABEL_W + LABEL_GAP);
-      const y = SHEET_MARGIN + Math.floor(slot / cols) * (LABEL_H + LABEL_GAP);
-      drawEntryLabel(doc as unknown as LabelPdf, item, x, y);
-    });
-    doc.autoPrint();
-    const url = doc.output("bloburl");
-    const opened = window.open(url, "_blank");
-    if (!opened) doc.save(`etiquetas-${row.invoiceNumber}.pdf`);
-    const day = row.key.slice(row.key.indexOf("|") + 1);
-    if (reprint || !day) {
-      await onLabelsPrinted?.({ invoiceId: row.invoiceId, invoiceNumber: row.invoiceNumber });
-      return;
+    const doc = new jsPDF({ unit: "mm", format: [PAGE_W, PAGE_H], orientation: "landscape" });
+    let slotIndex = 0;
+    for (const row of rows) {
+      const grouped = new Map<string, { code: string; name: string; quantity: number }>();
+      row.items.forEach((item) => {
+        const code = item.code || "—";
+        const name = item.name || "Produto";
+        const key = `${code}::${name}`;
+        const quantity = Math.max(0, Math.round(Number(item.quantity) || 0));
+        const current = grouped.get(key);
+        if (current) current.quantity += quantity;
+        else grouped.set(key, { code, name, quantity });
+      });
+      const labels = grouped.size ? Array.from(grouped.values()) : [{ code: "—", name: "Produto", quantity: 1 }];
+      for (const item of labels) {
+        const copies = Math.max(1, Math.round(Number(item.quantity) || 0));
+        for (let copy = 0; copy < copies; copy += 1) {
+          if (slotIndex > 0 && slotIndex % 2 === 0) doc.addPage([PAGE_W, PAGE_H], "landscape");
+          const column = COLS[slotIndex % 2];
+          const y = ROW_Y[0];
+          drawEntryLabel(doc as unknown as LabelPdf, item, column.x, y, column.w);
+          slotIndex += 1;
+        }
+      }
     }
-    const previous = receiptEntries;
-    setReceiptEntries((current) =>
-      current.map((entry) => {
-        const entryDay = saoPauloDay(entry.date);
-        if (!entryDay) return entry;
-        const sameInvoice =
-          (row.invoiceId && entry.invoiceId === row.invoiceId) ||
-          String(entry.invoiceNumber) === String(row.invoiceNumber);
-        if (!sameInvoice || entryDay !== day) return entry;
-        return { ...entry, labelPrintedAt: new Date().toISOString() };
-      }),
-    );
-    try {
-      await onLabelsPrinted?.({ invoiceId: row.invoiceId, invoiceNumber: row.invoiceNumber, day });
-    } catch (error) {
-      console.error("Erro ao marcar a linha impressa:", error);
-      setReceiptEntries(previous);
+    const url = URL.createObjectURL(doc.output("blob"));
+    const frame = document.createElement("iframe");
+    frame.setAttribute("aria-hidden", "true");
+    frame.style.cssText = "position:fixed;right:0;bottom:0;width:1px;height:1px;border:0;opacity:0;pointer-events:none;";
+    frame.onload = () => {
+      window.setTimeout(() => {
+        try {
+          frame.contentWindow?.focus();
+          frame.contentWindow?.print();
+        } catch (error) {
+          console.error("Erro ao imprimir etiquetas:", error);
+          window.open(url, "_blank");
+        }
+      }, 300);
+    };
+    frame.src = url;
+    document.body.appendChild(frame);
+    window.setTimeout(() => {
+      frame.remove();
+      URL.revokeObjectURL(url);
+    }, 10 * 60 * 1000);
+    const failed: string[] = [];
+    for (const row of rows) {
+      const day = row.key.slice(row.key.indexOf("|") + 1);
+      try {
+        await onLabelsPrinted?.({
+          invoiceId: row.invoiceId,
+          invoiceNumber: row.invoiceNumber,
+          day: reprint || !day ? undefined : day,
+          historyIds: row.historyIds,
+        });
+        if (!reprint && day) {
+          setReceiptEntries((current) =>
+            current.map((entry) => {
+              const entryDay = saoPauloDay(entry.date);
+              if (!entryDay || entry.labelPrintedAt) return entry;
+              const sameInvoice =
+                (row.invoiceId && entry.invoiceId === row.invoiceId) ||
+                String(entry.invoiceNumber) === String(row.invoiceNumber);
+              return sameInvoice && entryDay === day
+                ? { ...entry, labelPrintedAt: new Date().toISOString() }
+                : entry;
+            }),
+          );
+        }
+      } catch (error) {
+        console.error("Erro ao marcar a linha impressa:", error);
+        failed.push(row.invoiceNumber || row.key);
+      }
+    }
+    setPicked((current) => current.filter((key) => rows.some((row) => row.key === key && failed.includes(row.invoiceNumber || row.key))));
+    setReceiptReload((value) => value + 1);
+    if (failed.length) {
+      void Swal.fire({
+        icon: "warning",
+        title: "Atenção",
+        text: `Não foi possível marcar: ${failed.join(", ")}. As outras ficam impressas.`,
+        confirmButtonText: "OK",
+      });
     }
   }
 
@@ -598,6 +770,26 @@ export function InvoiceHistoryReport({
     setSelectedProductToAnalyze(null);
     setEtiquetaList(null);
   };
+
+  useEffect(() => {
+    if (!isModalOpen && !receiptHistoryModal.open && !viewingEntry) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      if (selectedProductToAnalyze) return;
+      event.preventDefault();
+      if (viewingEntry) {
+        setViewingEntry(null);
+        return;
+      }
+      if (receiptHistoryModal.open) {
+        setReceiptHistoryModal({ open: false, invoiceProductId: null, productName: "" });
+        return;
+      }
+      closeModal();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [isModalOpen, receiptHistoryModal.open, viewingEntry, selectedProductToAnalyze]);
 
   const lineName = (line: InvoiceData["products"][number]) =>
     line.product?.name || products.find((item) => item.id === line.productId)?.name || "";
@@ -672,17 +864,49 @@ export function InvoiceHistoryReport({
     }
   };
 
+  const totaisValor = useMemo(() => {
+    let usd = 0;
+    let brl = 0;
+    let temUsd = false;
+    let temBrl = false;
+    for (const invoice of invoices) {
+      const total = invoice.products?.reduce((sum, product) => sum + (Number(product.total) || 0), 0) || 0;
+      if (isBrlSupplierCurrency(invoice.supplier?.currency)) {
+        brl += total;
+        temBrl = true;
+      } else {
+        usd += total;
+        temUsd = true;
+      }
+    }
+    return { usd, brl, temUsd, temBrl };
+  }, [invoices]);
+
   return (
     <div className="mt-8 min-w-0 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
       <h2 className="text-xl w-full justify-between items-center flex flex-row font-semibold mb-4 border-b px-6 pt-4 pb-2 text-blue-700">
-        <div className="flex justify-center items-center">
+        <div className="flex justify-center items-center gap-3">
           <History className="mr-2 inline" size={18} />
-          {printTable ? "Gerar etiquetas" : "Histórico de Invoices"}
+          {printTable ? (reprint ? "Impressas" : "Gerar etiquetas") : "Histórico de Invoices"}
+          {printTable ? (
+            <button
+              type="button"
+              data-allow-click
+              className="iv-imprimir px-3 py-1 text-sm"
+              disabled={!picked.length}
+              onClick={() => printLabels(printRows.filter((row) => picked.includes(row.key)))}
+            >
+              Imprimir selecionadas{picked.length ? ` (${picked.length})` : ""}
+            </button>
+          ) : null}
         </div>
         <button
           onClick={() => {
-            fetchInvoicesAndSuppliers();
-            if (printTable) setReceiptReload((value) => value + 1);
+            if (printTable) {
+              if (onReload) onReload();
+              else setReceiptReload((value) => value + 1);
+            }
+            else fetchInvoicesAndSuppliers();
           }}
           className="flex justify-center items-center"
         >
@@ -690,13 +914,21 @@ export function InvoiceHistoryReport({
         </button>
       </h2>
 
-      <div className="overflow-x-auto">
-        {loading || (printTable && receiptLoading) ? (
-          <p className="text-center text-gray-500 py-6">Carregando invoices...</p>
+      <div className="iv-linhas overflow-x-auto">
+        {(printTable ? receiptLoading || !listReady : loading) ? (
+          <p className="text-center text-gray-500 py-6">{printTable ? "Carregando etiquetas..." : "Carregando invoices..."}</p>
         ) : printTable ? (
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
+                <th className="px-4 py-3 text-left">
+                  <input
+                    type="checkbox"
+                    aria-label="Selecionar todas"
+                    checked={printRows.length > 0 && printRows.every((row) => picked.includes(row.key))}
+                    onChange={(event) => setPicked(event.target.checked ? printRows.map((row) => row.key) : [])}
+                  />
+                </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Data</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Invoice Número</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fornecedor</th>
@@ -709,24 +941,41 @@ export function InvoiceHistoryReport({
             <tbody className="bg-white divide-y divide-gray-200">
               {printRows.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-4 text-center text-gray-500">Nenhuma lista para etiqueta</td>
+                  <td colSpan={8} className="px-6 py-4 text-center text-gray-500">Nenhuma lista para etiqueta</td>
                 </tr>
               ) : (
-                printRows.slice(currentPage * itemsPerPage, (currentPage + 1) * itemsPerPage).map((row) => {
+                printRows.slice(currentPage * pageSize, (currentPage + 1) * pageSize).map((row) => {
                   return (
                     <tr key={row.key} className="odd:bg-blue-50 even:bg-green-50">
+                      <td className="px-4 py-4">
+                        <input
+                          type="checkbox"
+                          aria-label={`Selecionar invoice ${row.invoiceNumber}`}
+                          checked={picked.includes(row.key)}
+                          onChange={() =>
+                            setPicked((current) =>
+                              current.includes(row.key) ? current.filter((key) => key !== row.key) : [...current, row.key],
+                            )
+                          }
+                        />
+                      </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         <i className="fas fa-clock text-green-500 mr-2"></i>
-                        {new Date(row.date).toLocaleDateString("pt-BR")}
+                        {formatSpDate(reprint ? row.printedAt || row.date : row.date)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{row.invoiceNumber}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{row.supplierName || "—"}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{row.operator || "—"}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">{row.quantity}</td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-900 text-white">
-                          Imprimir
-                        </span>
+                        <button
+                          type="button"
+                          data-allow-click
+                          className={reprint ? "iv-impressa px-2 inline-flex text-xs leading-5 font-semibold" : "iv-imprimir px-2 inline-flex text-xs leading-5 font-semibold"}
+                          onClick={() => printLabels([row])}
+                        >
+                          {reprint ? "Impressa" : "Imprimir"}
+                        </button>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                         <div className="flex justify-end gap-2">
@@ -734,7 +983,7 @@ export function InvoiceHistoryReport({
                             type="button"
                             className="text-gray-800 hover:text-black"
                             title={reprint ? "Reimprimir etiqueta" : "Gerar etiqueta"}
-                            onClick={() => printInvoicePdf(row)}
+                            onClick={() => printLabels([row])}
                           >
                             <Printer size={16} />
                           </button>
@@ -743,12 +992,24 @@ export function InvoiceHistoryReport({
                             className="text-blue-600 hover:text-blue-900"
                             title="Visualizar"
                             onClick={() => {
+                              const abrir = (invoice: InvoiceData) => {
+                                if (printTable && products.length === 0) fetchInvoicesAndSuppliers();
+                                setEtiquetaList(row);
+                                openModal(invoice, false);
+                              };
                               const invoice =
                                 invoices.find((item) => item.id === row.invoiceId) ||
                                 invoices.find((item) => String(item.number) === String(row.invoiceNumber));
-                              if (!invoice) return;
-                              setEtiquetaList(row);
-                              openModal(invoice, false);
+                              if (invoice) {
+                                abrir(invoice);
+                                return;
+                              }
+                              if (!row.invoiceId) return;
+                              api.get(`/invoice/get/${row.invoiceId}`).then(({ data }) => {
+                                if (!data?.id) return;
+                                setInvoices((current) => (current.some((item) => item.id === data.id) ? current : [...current, data]));
+                                abrir(data);
+                              });
                             }}
                           >
                             <Eye size={16} />
@@ -802,7 +1063,7 @@ export function InvoiceHistoryReport({
                   </td>
                 </tr>
               ) : (
-                invoices.slice(currentPage * itemsPerPage, (currentPage + 1) * itemsPerPage).map((invoice) => {
+                invoices.slice(currentPage * pageSize, (currentPage + 1) * pageSize).map((invoice) => {
                   const supplier = suppliers.find((s) => s.id === invoice.supplierId);
                   const subtotal = invoice.products?.reduce((sum, product) => sum + product.total, 0) || 0;
                   const total = subtotal;
@@ -924,10 +1185,25 @@ export function InvoiceHistoryReport({
                 })
               )}
             </tbody>
+            {invoices.length ? (
+              <tfoot>
+                <tr className="iv-total-valor">
+                  <td colSpan={5}>Valor total</td>
+                  <td className="text-right">
+                    {totaisValor.temUsd && totaisValor.temBrl
+                      ? `${formatProductMoney(totaisValor.usd, "USD")} · ${formatProductMoney(totaisValor.brl, "BRL")}`
+                      : totaisValor.temBrl
+                        ? formatProductMoney(totaisValor.brl, "BRL")
+                        : formatProductMoney(totaisValor.usd, "USD")}
+                  </td>
+                  <td colSpan={3} />
+                </tr>
+              </tfoot>
+            ) : null}
           </table>
         )}
         {/* Paginação */}
-        {(printTable ? printRows.length : invoices.length) > itemsPerPage && (
+        {(printTable ? printRows.length : invoices.length) > pageSize && (
           <div className="flex justify-between items-center px-6 pb-4 mt-4">
             <button
               onClick={() => setCurrentPage((prev) => Math.max(0, prev - 1))}
@@ -937,15 +1213,15 @@ export function InvoiceHistoryReport({
               Anterior
             </button>
             <span className="text-sm text-gray-600">
-              Página {currentPage + 1} de {Math.ceil((printTable ? printRows.length : invoices.length) / itemsPerPage)}
+              Página {currentPage + 1} de {Math.ceil((printTable ? printRows.length : invoices.length) / pageSize)}
             </span>
             <button
               onClick={() =>
                 setCurrentPage((prev) =>
-                  Math.min(prev + 1, Math.ceil((printTable ? printRows.length : invoices.length) / itemsPerPage) - 1),
+                  Math.min(prev + 1, Math.ceil((printTable ? printRows.length : invoices.length) / pageSize) - 1),
                 )
               }
-              disabled={(currentPage + 1) * itemsPerPage >= (printTable ? printRows.length : invoices.length)}
+              disabled={(currentPage + 1) * pageSize >= (printTable ? printRows.length : invoices.length)}
               className="px-3 py-1 bg-gray-200 text-sm rounded disabled:opacity-50"
             >
               Próxima
@@ -960,7 +1236,9 @@ export function InvoiceHistoryReport({
           className="fixed inset-0 z-[80] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
           role="dialog"
           aria-modal="true"
-          onClick={closeModal}
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) event.preventDefault();
+          }}
         >
           <div className="max-h-[90vh] w-full max-w-5xl overflow-hidden rounded-2xl bg-white shadow-xl">
           <div
@@ -1124,14 +1402,8 @@ export function InvoiceHistoryReport({
                   <tbody id="modalInvoicePendingProducts" className="bg-white divide-y divide-gray-200">
                     {selectedInvoice.products
                       .filter((item) => {
-                        // Não mostrar produtos recebidos
                         if (item.received) return false;
-                        // Não mostrar produtos com quantidade disponível = 0 ou menor
-                        const availableQuantity =
-                          item.quantity - (item.quantityAnalizer || 0) - (item.receivedQuantity || 0);
-                        // Se quantidade disponível for 0 ou menor, não mostrar
-                        // Também verificar se quantity total é 0
-                        if (availableQuantity <= 0 || item.quantity <= 0) return false;
+                        if (remainingQty(item) <= 0 || item.quantity <= 0) return false;
                         return true;
                       })
                       .sort((a, b) => {
@@ -1141,8 +1413,8 @@ export function InvoiceHistoryReport({
                         const nameB = productB?.name || "";
                         return nameA.localeCompare(nameB, "pt-BR", { sensitivity: "base" });
                       })
-                      .map((product, index) => (
-                        <tr key={index}>
+                      .map((product) => (
+                        <tr key={product.id}>
                           <td className="px-4 py-2 text-sm text-gray-700">
                             <div>
                               {products.find((item) => item.id === product.productId)?.name}
@@ -1196,9 +1468,7 @@ export function InvoiceHistoryReport({
                                 </button>
                                 <button
                                   onClick={async () => {
-                                    const maxQuantity = Math.floor(
-                                      product.quantity - product.quantityAnalizer - product.receivedQuantity
-                                    );
+                                    const maxQuantity = remainingQty(product);
                                     const productName =
                                       products.find((item) => item.id === product.productId)?.name || "";
 
@@ -1430,6 +1700,12 @@ export function InvoiceHistoryReport({
                       <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                         {isBrlSupplier ? `Total (${moneySymbol})` : "Total ($)"}
                       </th>
+                      <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Venda sugerida (R$)
+                      </th>
+                      <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Tabela lojas (R$)
+                      </th>
                       {isEditMode && (
                         <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Ações
@@ -1447,8 +1723,8 @@ export function InvoiceHistoryReport({
                         const nameB = productB?.name || "";
                         return nameA.localeCompare(nameB, "pt-BR", { sensitivity: "base" });
                       })
-                      .map((product, index) => (
-                        <tr key={index}>
+                      .map((product) => (
+                        <tr key={product.id}>
                           <td className="px-4 py-2 text-sm text-gray-700">
                             {products.find((item) => item.id === product.productId)?.name}
                           </td>
@@ -1506,6 +1782,49 @@ export function InvoiceHistoryReport({
                                 maximumFractionDigits: 2,
                               });
                             })()}
+                          </td>
+                          <td className="px-2 py-2 text-sm text-right">
+                            {isEditMode ? (
+                              <input
+                                className="w-28 rounded border border-gray-300 px-2 py-1 text-right text-sm"
+                                inputMode="decimal"
+                                aria-label="Venda sugerida"
+                                value={saleDrafts[product.productId]?.sale ?? ""}
+                                onChange={(event) =>
+                                  setSaleDrafts((current) => ({
+                                    ...current,
+                                    [product.productId]: {
+                                      sale: event.target.value,
+                                      lojas: current[product.productId]?.lojas ?? "",
+                                    },
+                                  }))
+                                }
+                              />
+                            ) : (
+                              saleDrafts[product.productId]?.sale ||
+                              formatMoneyBr(Number(products.find((item) => item.id === product.productId)?.salePrice) || 0)
+                            )}
+                          </td>
+                          <td className="px-2 py-2 text-sm text-right">
+                            {isEditMode ? (
+                              <input
+                                className="w-28 rounded border border-gray-300 px-2 py-1 text-right text-sm"
+                                inputMode="decimal"
+                                aria-label="Tabela lojas"
+                                value={saleDrafts[product.productId]?.lojas ?? ""}
+                                onChange={(event) =>
+                                  setSaleDrafts((current) => ({
+                                    ...current,
+                                    [product.productId]: {
+                                      sale: current[product.productId]?.sale ?? "",
+                                      lojas: event.target.value,
+                                    },
+                                  }))
+                                }
+                              />
+                            ) : (
+                              saleDrafts[product.productId]?.lojas || "0,00"
+                            )}
                           </td>
                           {isEditMode && (
                             <td className="px-4 py-2 text-sm text-right">
@@ -1580,6 +1899,8 @@ export function InvoiceHistoryReport({
                           return total.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
                         })()}
                       </td>
+                      <td className="px-4 py-2 text-sm text-right text-gray-800">—</td>
+                      <td className="px-4 py-2 text-sm text-right text-gray-800">—</td>
                       {isEditMode && (
                         <td className="px-4 py-2 text-sm text-right">
                           <button
@@ -1589,6 +1910,22 @@ export function InvoiceHistoryReport({
                               const productsToReceive = selectedInvoice.products.filter(
                                 (item) => item.analising && !item.received
                               );
+                              try {
+                                await gravarPrecosDaAnalise(productsToReceive.map((item) => item.productId));
+                              } catch (error) {
+                                console.error("Erro ao gravar preço de venda:", error);
+                                Swal.fire({
+                                  icon: "error",
+                                  title: "Preço de venda",
+                                  text: "Não foi possível gravar a venda sugerida e a tabela lojas. A entrada não foi finalizada.",
+                                  confirmButtonText: "Ok",
+                                  buttonsStyling: false,
+                                  customClass: {
+                                    confirmButton: "bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded font-semibold",
+                                  },
+                                });
+                                return;
+                              }
 
                               const today = new Date().toISOString();
                               let anyDuplicate = false;
@@ -1830,8 +2167,8 @@ export function InvoiceHistoryReport({
                         const nameB = productB?.name || "";
                         return nameA.localeCompare(nameB, "pt-BR", { sensitivity: "base" });
                       })
-                      .map((product, index) => (
-                        <tr key={index}>
+                      .map((product) => (
+                        <tr key={product.id}>
                           <td className="px-4 py-2 text-sm text-gray-700">
                             {lineName(product)}
                           </td>
@@ -2162,7 +2499,9 @@ export function InvoiceHistoryReport({
       {receiptHistoryModal.open && (
         <div
           className="fixed inset-0 z-[90] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
-          onClick={() => setReceiptHistoryModal({ open: false, invoiceProductId: null, productName: "" })}
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) event.preventDefault();
+          }}
         >
           <div
             onClick={(e) => e.stopPropagation()}
@@ -2315,7 +2654,9 @@ export function InvoiceHistoryReport({
       {viewingEntry && (
         <div
           className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
-          onClick={() => setViewingEntry(null)}
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) event.preventDefault();
+          }}
         >
           <div
             onClick={(e) => e.stopPropagation()}

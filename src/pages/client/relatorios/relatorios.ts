@@ -11,6 +11,7 @@ function rel(path: string, title: string, fields: FilterPageProps["fields"], col
 }
 
 export const RELATORIOS: Array<FilterPageProps & { path: string }> = [
+  rel("imei", "BUSCAR IMEI", [txt("imei", "IMEI")], ["Quando", "IMEI", "O que aconteceu", "De", "Para", "Produto", "Doc.", "Valor"]),
   rel("auditoria/autorizacao-venda", "AUTORIZAÇÃO DE VENDA", [date("inicio", "Data inicio"), date("fim", "Data fim"), txt("usuario", "Usuário")], ["Data", "Usuário", "Venda", "Valor"]),
   rel("auditoria/estoque", "AUDITORIA ESTOQUE", [date("inicio", "Data inicio"), txt("produto", "Produto")], ["Data", "Produto", "Antes", "Depois", "Usuário"]),
   rel("auditoria/geral-log", "GERAL DE LOG", [date("inicio", "Data inicio"), txt("usuario", "Usuário")], ["Data", "Usuário", "Evento"]),
@@ -60,7 +61,7 @@ export const RELATORIOS: Array<FilterPageProps & { path: string }> = [
   rel("venda/custo-x-preco", "CUSTO X PREÇO DE VENDA", [txt("produto", "Produto")], ["Produto", "Custo", "Preço"]),
   rel("venda/descontos", "DESCONTOS EM VENDAS", [date("inicio", "Data inicio")], ["Venda", "Produto", "Desconto"]),
   rel("venda/forma-pagamento", "FORMA DE PAGAMENTO", [date("inicio", "Data inicio")], ["Forma", "Quantidade", "Total"]),
-  rel("venda/itens", "ITENS DAS VENDAS", [date("inicio", "Data inicio")], ["Venda", "Produto", "Qtd", "Total"]),
+  rel("venda/itens", "ITENS DA VENDA", [date("inicio", "Data inicio")], ["Venda", "Produto", "Qtd", "Total"]),
   rel("venda/meta", "META", [date("inicio", "Data inicio")], ["Loja", "Meta", "Realizado"]),
   rel("venda/vale-desconto", "VALE DESCONTO", [date("inicio", "Data inicio")], ["Código", "Cliente", "Valor"]),
   rel("venda/vale-presente", "VALE PRESENTE", [date("inicio", "Data inicio")], ["Código", "Cliente", "Valor"]),

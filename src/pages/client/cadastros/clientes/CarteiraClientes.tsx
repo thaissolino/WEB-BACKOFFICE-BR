@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Plus, Settings } from "lucide-react";
 import { api, parseError } from "../../../../services/api";
+import { avisarSalvo } from "../../avisoSalvo";
 import CadastroShell from "../CadastroShell";
 import { type PortfolioRow } from "./types";
 import { listCatalog } from "../catalog/catalogApi";
@@ -58,6 +59,7 @@ export default function CarteiraClientes() {
       setRows((current) => current.map((item) => (item.code === saved.code ? saved : item)));
       setDrafts((current) => ({ ...current, [saved.code]: saved }));
       setToast("atualizado");
+      avisarSalvo("Carteira salva.");
       setError("");
     } catch (err) {
       const parsed = parseError(err);
@@ -70,6 +72,7 @@ export default function CarteiraClientes() {
       await api.post("/clients/portfolios", createRow);
       setCreateRow(EMPTY_NEW);
       setToast("atualizado");
+      avisarSalvo("Carteira salva.");
       load();
     } catch (err) {
       const parsed = parseError(err);

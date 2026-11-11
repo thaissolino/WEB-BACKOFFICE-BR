@@ -12,7 +12,7 @@ interface InvoicesTabProps {
   activeDraftIndex?: number;
   setActiveDraftIndex?: (index: number) => void;
   onAddDraftInvoices?: (invoices: Invoice[]) => void;
-  onDraftSaved?: () => void;
+  onDraftSaved?: (number?: string) => void;
   onRemoveDraftInvoice?: (index: number) => void;
 }
 

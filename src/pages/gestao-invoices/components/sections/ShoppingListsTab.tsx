@@ -7,7 +7,6 @@ import {
   Trash2,
   Check,
   X,
-  ShoppingCart,
   Package,
   HelpCircle,
   Download,
@@ -3289,14 +3288,7 @@ export function ShoppingListsTab() {
 
   return (
     <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-xl font-semibold text-blue-700 border-b pb-2">
-          <ShoppingCart className="mr-2 inline" size={18} />
-          Listas de Compras
-          <Tooltip content="Sistema completo com controle de status e quantidades" position="bottom" maxWidth="180px">
-            <HelpCircle className="ml-2 inline cursor-help text-blue-500 hover:text-blue-700" size={16} />
-          </Tooltip>
-        </h2>
+      <div className="flex justify-end items-center mb-6 gap-4">
         <div className="flex gap-2">
           <Tooltip content="Criar nova lista de compras" position="bottom" maxWidth="150px">
             <button
@@ -3322,6 +3314,7 @@ export function ShoppingListsTab() {
         </div>
       </div>
 
+      <>
       {/* Formulário de Nova Lista / Edição */}
       {(isEditing === "new" || isEditing) && (
         <div className="mb-6 p-4 bg-gray-50 rounded-lg">
@@ -5772,6 +5765,7 @@ export function ShoppingListsTab() {
           </div>
         </div>
       )}
+      </>
     </div>
   );
 }

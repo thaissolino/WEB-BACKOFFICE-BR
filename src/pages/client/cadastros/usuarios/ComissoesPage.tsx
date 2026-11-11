@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react"
 import CadastroShell from "../CadastroShell"
 import { createCatalog, listCatalog, type CatalogItem } from "../catalog/catalogApi"
+import { avisarSalvo } from "../../avisoSalvo"
 
 const MONTHS = ["JAN", "FEV", "MAR", "ABR", "MAI", "JUN", "JUL", "AGO", "SET", "OUT", "NOV", "DEZ"]
 
@@ -19,6 +20,7 @@ export default function ComissoesPage() {
     try {
       await createCatalog("commission", { name: name.trim(), payload: { year, valores: {} } })
       setStatus("Usuário adicionado à comissão.")
+      avisarSalvo("Comissão salva.")
       listCatalog("user", true).then(setUsers).catch(() => setUsers([]))
     } catch {
       setStatus("Não foi possível adicionar.")

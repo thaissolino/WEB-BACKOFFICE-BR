@@ -21,6 +21,7 @@ import Inventory2OutlinedIcon from "@mui/icons-material/Inventory2Outlined";
 import LocalShippingOutlinedIcon from "@mui/icons-material/LocalShippingOutlined";
 import GroupsOutlinedIcon from "@mui/icons-material/GroupsOutlined";
 import DescriptionOutlinedIcon from "@mui/icons-material/DescriptionOutlined";
+import SwapHorizOutlinedIcon from "@mui/icons-material/SwapHorizOutlined";
 import BackupIcon from "@mui/icons-material/Backup";
 import ListIcon from "@mui/icons-material/List";
 import DownloadIcon from "@mui/icons-material/Download";
@@ -28,7 +29,11 @@ import RestoreIcon from "@mui/icons-material/Restore";
 import CardMembershipOutlinedIcon from "@mui/icons-material/CardMembershipOutlined";
 import WarehouseOutlinedIcon from "@mui/icons-material/WarehouseOutlined";
 import AssignmentTurnedInOutlinedIcon from "@mui/icons-material/AssignmentTurnedInOutlined";
+import AssessmentOutlinedIcon from "@mui/icons-material/AssessmentOutlined";
+import AccountBalanceWalletOutlinedIcon from "@mui/icons-material/AccountBalanceWalletOutlined";
 import LocalOfferOutlinedIcon from "@mui/icons-material/LocalOfferOutlined";
+import PriceCheckOutlinedIcon from "@mui/icons-material/PriceCheckOutlined";
+import ReportProblemOutlinedIcon from "@mui/icons-material/ReportProblemOutlined";
 import { usePermissionStore } from "../../store/permissionsStore";
 import { api } from "../../services/api";
 
@@ -466,11 +471,23 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebar }) => {
       case "GERENCIAR_INVOICES":
       case "GERENCIAR_TOKENS":
       case "GERENCIAR_BOLETOS":
+      case "VENDAS_CONCLUIDAS":
         return perms?.[key]?.enabled === true;
       default:
         return false;
     }
   };
+
+  const printOnly =
+    user?.role !== "MASTER" &&
+    user?.role !== "ADMIN" &&
+    canShowTab("VENDAS_CONCLUIDAS") &&
+    !canShowTab("GERENCIAR_INVOICES") &&
+    !canShowTab("GERENCIAR_OPERADORES") &&
+    !canShowTab("CRIAR_USUARIO") &&
+    !canShowTab("GERENCIAR_GRUPOS") &&
+    !canShowTab("GERENCIAR_USUARIOS") &&
+    !canShowTab("GERENCIAR_TOKENS");
 
   return (
     <Box
@@ -534,7 +551,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebar }) => {
           )}
 
           <Box paddingLeft={isCollapsed ? undefined : "10%"}>
-            {
+            {!printOnly && (
               <Item
                 title="HOME"
                 to="/backoffice"
@@ -542,7 +559,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebar }) => {
                 selected={selected}
                 setSelected={setSelected}
               />
-            }
+            )}
 
             {(user?.role === "MASTER" || user?.role === "ADMIN") && (
               <>
@@ -579,13 +596,14 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebar }) => {
                 {(user?.role === "MASTER" || user?.role === "ADMIN") && (
                   <Item title="Lojistas" to="/cadastro-lojistas" icon={<GroupsOutlinedIcon />} selected={selected} setSelected={setSelected} />
                 )}
-                <Item title="Produtos" to="/gestao/cadastro?aba=products" icon={<Inventory2OutlinedIcon />} selected={selected} setSelected={setSelected} />
                 <Item title="Fornecedores" to="/gestao/cadastro?aba=suppliers" icon={<PeopleOutlinedIcon />} selected={selected} setSelected={setSelected} />
-                <Item title="Freteiros" to="/gestao/cadastro?aba=carriers" icon={<LocalShippingOutlinedIcon />} selected={selected} setSelected={setSelected} />
-                <Item title="Outros" to="/gestao/cadastro?aba=others" icon={<GroupsOutlinedIcon />} selected={selected} setSelected={setSelected} />
-                {canShowTab("GERENCIAR_OPERADORES") && (
+                <Item title="Produtos" to="/gestao/cadastro?aba=products" icon={<Inventory2OutlinedIcon />} selected={selected} setSelected={setSelected} />
+                {(user?.role === "MASTER" || user?.role === "ADMIN" || canShowTab("GERENCIAR_OPERADORES")) && (
                   <Item title="Operadores" to="/operators-management" icon={<AdminPanelSettingsOutlinedIcon />} selected={selected} setSelected={setSelected} />
                 )}
+                <Item title="Freteiros" to="/gestao/cadastro?aba=carriers" icon={<LocalShippingOutlinedIcon />} selected={selected} setSelected={setSelected} />
+                <Item title="Outros" to="/gestao/cadastro?aba=others" icon={<GroupsOutlinedIcon />} selected={selected} setSelected={setSelected} />
+                <Item title="Tabela de preços" to="/gestao/cadastro/tabelas-preco" icon={<LocalOfferOutlinedIcon />} selected={selected} setSelected={setSelected} />
               </LegacySubMenu>
             )}
             {(user?.role === "MASTER" || user?.role === "ADMIN" || canShowTab("GERENCIAR_INVOICES")) && (
@@ -593,8 +611,23 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebar }) => {
                 <Item title="Invoices" to="/gestao/compras?aba=invoices" icon={<DescriptionOutlinedIcon />} selected={selected} setSelected={setSelected} />
                 <Item title="Média dólar" to="/gestao/compras?aba=media-dolar" icon={<DescriptionOutlinedIcon />} selected={selected} setSelected={setSelected} />
                 <Item title="Relatórios" to="/gestao/compras?aba=relatorios" icon={<DescriptionOutlinedIcon />} selected={selected} setSelected={setSelected} />
-                <Item title="Lista de compras" to="/gestao/compras?aba=shopping-lists" icon={<ListIcon />} selected={selected} setSelected={setSelected} />
+                <Item title="Melhores preços" to="/gestao/compras?aba=melhores-precos" icon={<PriceCheckOutlinedIcon />} selected={selected} setSelected={setSelected} />
+                <Item title="Listas de compras" to="/gestao/compras?aba=shopping-lists" icon={<ListIcon />} selected={selected} setSelected={setSelected} />
+                <Item title="Perdidos" to="/gestao/compras?aba=lost-products" icon={<ReportProblemOutlinedIcon />} selected={selected} setSelected={setSelected} />
                 <Item title="Buscar IMEI" to="/gestao/compras?aba=imei-search" icon={<DescriptionOutlinedIcon />} selected={selected} setSelected={setSelected} />
+              </LegacySubMenu>
+            )}
+            {(user?.role === "MASTER" || user?.role === "ADMIN" || canShowTab("GERENCIAR_INVOICES")) && (
+              <LegacySubMenu title="Movimentações" icon={<SwapHorizOutlinedIcon />} style={{ color: colors.grey[100] }}>
+                <Item title="Vendas concluídas" to="/gestao/movimentacoes/vendas/concluidas" icon={<ListIcon />} selected={selected} setSelected={setSelected} />
+                <LegacySubMenu title="Financeiro" icon={<AccountBalanceWalletOutlinedIcon />}>
+                  <Item title="Plano de Conta" to="/gestao/cadastro/financeiro/plano-conta" icon={<ListIcon />} selected={selected} setSelected={setSelected} />
+                  <LegacySubMenu title="Despesas / Receitas" icon={<AccountBalanceWalletOutlinedIcon />}>
+                    <Item title="Cadastrar Despesa" to="/gestao/movimentacoes/financeiro/despesas/cadastrar" icon={<PersonAddIcon />} selected={selected} setSelected={setSelected} />
+                    <Item title="Cadastrar Receita" to="/gestao/movimentacoes/financeiro/receitas/cadastrar" icon={<PersonAddIcon />} selected={selected} setSelected={setSelected} />
+                    <Item title="Listar Receitas / Despesas" to="/gestao/movimentacoes/financeiro/despesas" icon={<ListIcon />} selected={selected} setSelected={setSelected} />
+                  </LegacySubMenu>
+                </LegacySubMenu>
               </LegacySubMenu>
             )}
             {(user?.role === "MASTER" || user?.role === "ADMIN" || canShowTab("GERENCIAR_INVOICES")) && (
@@ -604,6 +637,15 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebar }) => {
               </LegacySubMenu>
             )}
             {(user?.role === "MASTER" || user?.role === "ADMIN" || canShowTab("GERENCIAR_INVOICES")) && (
+              <LegacySubMenu title="Relatórios" icon={<AssessmentOutlinedIcon />} style={{ color: colors.grey[100] }}>
+                <Item title="DRE GERENCIAL" to="/gestao/relatorios/dre" icon={<AssessmentOutlinedIcon />} selected={selected} setSelected={setSelected} />
+                <Item title="ITENS DAS VENDAS" to="/gestao/relatorios/itens-vendas" icon={<AssessmentOutlinedIcon />} selected={selected} setSelected={setSelected} />
+                <Item title="AUDITORIA ESTOQUE" to="/gestao/relatorios/auditoria/estoque" icon={<AssessmentOutlinedIcon />} selected={selected} setSelected={setSelected} />
+                <Item title="ESTOQUE" to="/gestao/relatorios/estoque" icon={<AssessmentOutlinedIcon />} selected={selected} setSelected={setSelected} />
+                <Item title="BUSCAR IMEI" to="/gestao/relatorios/imei" icon={<AssessmentOutlinedIcon />} selected={selected} setSelected={setSelected} />
+              </LegacySubMenu>
+            )}
+            {(user?.role === "MASTER" || user?.role === "ADMIN" || canShowTab("GERENCIAR_INVOICES") || canShowTab("VENDAS_CONCLUIDAS")) && (
               <Item
                 title="Vendas concluídas"
                 to="/vendas-concluidas"

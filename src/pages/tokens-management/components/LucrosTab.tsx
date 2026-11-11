@@ -7,6 +7,7 @@ import { useNotification } from "../../../hooks/notification";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import PdfShareModal from "../../../components/PdfShareModal";
+import { DatePreset } from "../../client/cadastros/catalog/FormBits";
 import { usePermissionStore } from "../../../store/permissionsStore";
 interface Operacao {
   id: number;
@@ -554,12 +555,15 @@ const LucrosTab: React.FC = () => {
             <div className="flex items-end gap-2">
               <div className="flex flex-col">
                 <label className="text-xs font-medium text-gray-700 mb-1">Data Inicial</label>
-                <input
-                  type="date"
-                  value={filterStartDate}
-                  onChange={(e) => setFilterStartDate(e.target.value)}
-                  className="w-24 h-6 border border-gray-300 rounded-md text-sm text-center leading-6 py-0 focus:outline-none focus:ring-2 focus:ring-blue-400"
-                />
+                <span className="pdv-date-field">
+                  <input
+                    type="date"
+                    value={filterStartDate}
+                    onChange={(e) => setFilterStartDate(e.target.value)}
+                    className="w-24 h-6 border border-gray-300 rounded-md text-sm text-center leading-6 py-0 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  />
+                  <DatePreset onPick={(start, end) => { setFilterStartDate(start); setFilterEndDate(end); }} />
+                </span>
               </div>
 
               <span className="text-sm font-medium">até</span>

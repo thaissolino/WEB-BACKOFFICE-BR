@@ -16,6 +16,10 @@ export type ProductCategory = {
   defaultDiscount: boolean;
   defaultDiscountValue: string;
   active: boolean;
+  storePick?: boolean;
+  /** Sem o campo salvo, as categorias atuais exigem IMEI ou serial. */
+  requireSerial: boolean;
+  coverFileId: string | null;
 };
 
 export type FlatOption = {
@@ -50,6 +54,9 @@ export function categoryFromCatalog(item: CatalogItem): ProductCategory {
     defaultDiscount: asBool(payload.defaultDiscount),
     defaultDiscountValue: String(payload.defaultDiscountValue ?? ""),
     active: item.active,
+    storePick: asBool(payload.storePick),
+    requireSerial: asBool(payload.requireSerial, true),
+    coverFileId: String(payload.coverFileId || "") || null,
   };
 }
 
@@ -96,9 +103,56 @@ export function toFlatOptions(rows: ProductCategory[]): FlatOption[] {
   }));
 }
 
+let cachedCategories: ProductCategory[] | null = null
+let loadingCategories: Promise<ProductCategory[]> | null = null
+
+export function clearProductCategoryCache() {
+  cachedCategories = null
+  loadingCategories = null
+}
+
 export async function loadProductCategories(ativo?: boolean) {
-  const items = await listCatalog("product_category", ativo);
-  return items.map(categoryFromCatalog);
+  if (ativo !== false && cachedCategories) return cachedCategories
+  if (ativo !== false && loadingCategories) return loadingCategories
+  const request = listCatalog("product_category", ativo)
+    .then((items) => items.map(categoryFromCatalog))
+    .then((rows) => {
+      if (ativo !== false) cachedCategories = rows
+      return rows
+    })
+    .catch((error) => {
+      if (ativo !== false) loadingCategories = null
+      throw error
+    })
+  if (ativo !== false) loadingCategories = request
+  return request
+}
+
+export function categoryPaths(pathname: string) {
+  const office = pathname.startsWith("/gestao/");
+  const base = office ? "/gestao/cadastro/categorias" : "/client/produtos/categorias";
+  return {
+    office,
+    list: base,
+    create: `${base}/cadastrar`,
+    inactive: `${base}/inativas`,
+    adjust: `${base}/reajuste`,
+    products: office ? "/gestao/cadastro?aba=products" : "/client/produtos",
+  };
+}
+
+export const OPEN_STORE_CATEGORIES = ["iphone-novos", "iphone-seminovos", "apple-watch", "ipad", "macbook"];
+
+export function isOpenStoreCategory(id: string, name = "") {
+  const idSlug = slugifyCategory(id);
+  const nameSlug = name ? slugifyCategory(name) : "";
+  return OPEN_STORE_CATEGORIES.includes(idSlug) || OPEN_STORE_CATEGORIES.includes(nameSlug);
+}
+
+export function openCategoryRank(id: string, name = "") {
+  const byId = OPEN_STORE_CATEGORIES.indexOf(slugifyCategory(id));
+  if (byId !== -1) return byId;
+  return OPEN_STORE_CATEGORIES.indexOf(name ? slugifyCategory(name) : "");
 }
 
 export function slugifyCategory(name: string) {
